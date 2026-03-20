@@ -1,14 +1,14 @@
 import { expect } from "chai";
 import type { NetworkConnection } from "hardhat/types/network";
 import type { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/types";
-import { getTestConnection } from "../../setup/connection.ts";
 import { ssvOperatorsHarnessFixture } from "../../setup/fixtures.ts";
 import type { NetworkHelpersType } from "../../common/types.ts";
-import { makeOperatorKey } from "../../common/helpers.ts";
+import { makeOperatorKey, setupTestContext } from "../../common/helpers.ts";
+import { defaultOperatorsFixture } from "../../helpers/fixture-presets.ts";
 import {
-  DECLARE_OPERATOR_FEE_PERIOD, ETH_DEDUCTED_DIGITS, EXECUTE_OPERATOR_FEE_PERIOD,
-  MAXIMUM_OPERATORS_FEE,
-  MINIMAL_OPERATOR_ETH_FEE, OPERATOR_MAX_FEE_INCREASE,
+  DEFAULT_OPERATOR_ETH_FEE,
+  ETH_DEDUCTED_DIGITS,
+  MINIMAL_OPERATOR_ETH_FEE,
 } from '../../common/constants.ts';
 import { Events } from "../../common/events.ts";
 import { Errors } from "../../common/errors.ts";
@@ -21,15 +21,12 @@ describe("SSVOperators function `declareOperatorFee()`", async () => {
   let owner: HardhatEthersSigner;
 
   before(async function () {
-    ({ connection, networkHelpers } = await getTestConnection());
-
-    [owner] = await connection.ethers.getSigners();
+    ({ connection, networkHelpers, signers: [owner] } = await setupTestContext());
   });
 
-  const deployOperatorsFixture = async () =>
-    ssvOperatorsHarnessFixture(connection, MAXIMUM_OPERATORS_FEE, DECLARE_OPERATOR_FEE_PERIOD, EXECUTE_OPERATOR_FEE_PERIOD, OPERATOR_MAX_FEE_INCREASE);
+  const deployOperatorsFixture = async () => defaultOperatorsFixture(connection);
   const deployOperatorsWithTightMaxFee = async () =>
-    ssvOperatorsHarnessFixture(connection, MINIMAL_OPERATOR_ETH_FEE, DECLARE_OPERATOR_FEE_PERIOD, EXECUTE_OPERATOR_FEE_PERIOD, OPERATOR_MAX_FEE_INCREASE);
+    ssvOperatorsHarnessFixture(connection, MINIMAL_OPERATOR_ETH_FEE);
 
   it("Declares operator fee within allowed limits and emits event", async function () {
     const { operators } = await networkHelpers.loadFixture(deployOperatorsFixture);
@@ -40,7 +37,7 @@ describe("SSVOperators function `declareOperatorFee()`", async () => {
     );
 
     const operatorId = 1;
-    const newFee = MINIMAL_OPERATOR_ETH_FEE * 2n; // within allowed increase and precision
+    const newFee = MINIMAL_OPERATOR_ETH_FEE * 2n;
 
     await expect(
       trackGas(
@@ -63,7 +60,7 @@ describe("SSVOperators function `declareOperatorFee()`", async () => {
       [GasGroup.REGISTER_OPERATOR]
     );
 
-    await operators.mockSetMinimumOperatorEthFee(20_000_000); // above 10_000_000
+    await operators.mockSetMinimumOperatorEthFee(20_000_000);
     await expect(operators.declareOperatorFee(1, 10_000_000)).to.be.revertedWithCustomError(operators, Errors.FEE_TOO_LOW);
   });
 
@@ -111,12 +108,9 @@ describe("SSVOperators function `declareOperatorFee()`", async () => {
 
   it("Is reverted with 'FeeExceedsIncreaseLimit' when increasing fee beyond allowed percentage", async function () {
     const { operators } = await networkHelpers.loadFixture(deployOperatorsFixture);
-    // Fixture sets max increase to 100% (10_000)
     
     const initialFee = Number(MINIMAL_OPERATOR_ETH_FEE);
     await operators.registerOperator(makeOperatorKey(1), initialFee, false);
-
-    // Try to increase by > 100% (e.g. triple the fee)
     const newFee = initialFee * 3;
     
     await expect(operators.declareOperatorFee(1, newFee)).to.be.revertedWithCustomError(
@@ -135,6 +129,26 @@ describe("SSVOperators function `declareOperatorFee()`", async () => {
 
     await expect(operators.declareOperatorFee(1, 1n))
       .to.be.revertedWithCustomError(operators, Errors.MAX_PRECISION_EXCEEDED);
+  });
+
+  it("Emits OperatorFeeExecuted when defaulting legacy SSV operator to ETH fee on declare", async function () {
+    const { operators } = await networkHelpers.loadFixture(deployOperatorsFixture);
+
+    await operators.registerOperator(makeOperatorKey(1), Number(MINIMAL_OPERATOR_ETH_FEE), false);
+    const operatorId = 1;
+    await operators.mockSetOperatorLegacySSV(operatorId, 1);
+
+    const newFee = DEFAULT_OPERATOR_ETH_FEE + DEFAULT_OPERATOR_ETH_FEE / 2n; // 1.5× = 2_655_000_000n
+
+    const tx = await operators.declareOperatorFee(operatorId, newFee);
+    const receipt = await tx.wait();
+    const expectedBlock = BigInt(receipt!.blockNumber);
+
+    await expect(tx).to.emit(operators, Events.OPERATOR_FEE_EXECUTED)
+      .withArgs(owner.address, operatorId, expectedBlock, DEFAULT_OPERATOR_ETH_FEE);
+
+    await expect(tx).to.emit(operators, Events.OPERATOR_FEE_DECLARED)
+      .withArgs(owner.address, operatorId, expectedBlock, newFee);
   });
 
   it("Is reverted with 'CallerNotOwnerWithData' when non-owner tries to declare fee", async function () {

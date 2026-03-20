@@ -25,6 +25,23 @@ export function assertEqual(label: string, expected: unknown, actual: unknown): 
   console.log(`[VERIFY] ${label} = ${formatValue(actual)}`);
 }
 
+function assertEqualAndCollect(
+  label: string,
+  expected: unknown,
+  actual: unknown,
+  mismatches: string[]
+): void {
+  const expectedComparable = normalizeComparable(expected);
+  const actualComparable = normalizeComparable(actual);
+  if (JSON.stringify(expectedComparable) !== JSON.stringify(actualComparable)) {
+    const mismatch = `${label}: expected=${formatValue(expected)} actual=${formatValue(actual)}`;
+    console.log(`[VERIFY][MISMATCH] ${mismatch}`);
+    mismatches.push(mismatch);
+    return;
+  }
+  console.log(`[VERIFY] ${label} = ${formatValue(actual)}`);
+}
+
 export function logObserved(label: string, value: unknown): void {
   console.log(`[VERIFY] ${label} = ${formatValue(value)}`);
 }
@@ -42,10 +59,12 @@ export type VerifyOptions = {
 
 /**
  * Queries SSVViews and verifies on-chain state matches expected config.
- * Throws on mismatch; logs observed values when no expectation is configured.
+ * Logs all mismatches and throws once at the end; logs observed values when
+ * no expectation is configured.
  */
 export async function verifyPostUpgradeState(opts: VerifyOptions): Promise<void> {
   const { views, params, cooldownDuration, defaultOracleIds, quorumBps, oracles } = opts;
+  const mismatches: string[] = [];
 
   console.log("[VERIFY] Querying SSVViews for post-upgrade parameters");
 
@@ -58,6 +77,7 @@ export async function verifyPostUpgradeState(opts: VerifyOptions): Promise<void>
   const actualOperatorFeeIncreaseLimit = await views.getOperatorFeeIncreaseLimit();
   const actualOperatorFeePeriods = await views.getOperatorFeePeriods();
   const actualLiquidationThresholdPeriod = await views.getLiquidationThresholdPeriod();
+  const actualLiquidationThresholdPeriodSSV = await views.getLiquidationThresholdPeriodSSV();
   const actualMinimumLiquidationCollateralEth = await views.getMinimumLiquidationCollateral();
   const actualMinimumLiquidationCollateralSSV = await views.getMinimumLiquidationCollateralSSV();
   const actualMaxOperatorEthFee = await views.getMaximumOperatorFee();
@@ -66,11 +86,12 @@ export async function verifyPostUpgradeState(opts: VerifyOptions): Promise<void>
   const expectedCooldownDuration = params.unstakeCooldownDuration ?? cooldownDuration;
 
   logObserved("views.version", viewsVersion);
-  assertEqual("cooldownDuration", expectedCooldownDuration, actualCooldownDuration);
-  assertEqual(
+  assertEqualAndCollect("cooldownDuration", expectedCooldownDuration, actualCooldownDuration, mismatches);
+  assertEqualAndCollect(
     "defaultOracleIds",
     defaultOracleIds.map((id) => BigInt(id)),
-    Array.from(actualDefaultOracleIds)
+    Array.from(actualDefaultOracleIds),
+    mismatches
   );
 
   const checks: Array<{
@@ -101,6 +122,11 @@ export async function verifyPostUpgradeState(opts: VerifyOptions): Promise<void>
       actual: actualLiquidationThresholdPeriod,
     },
     {
+      label: "liquidationThresholdPeriodSSV",
+      expected: params.liquidationThresholdPeriodSSV,
+      actual: actualLiquidationThresholdPeriodSSV,
+    },
+    {
       label: "minimumLiquidationCollateralEth",
       expected: params.minimumLiquidationCollateralEth,
       actual: actualMinimumLiquidationCollateralEth,
@@ -115,14 +141,21 @@ export async function verifyPostUpgradeState(opts: VerifyOptions): Promise<void>
   ];
 
   if (quorumBps !== undefined) {
-    assertEqual("quorumBps", BigInt(quorumBps), actualQuorumBps);
+    assertEqualAndCollect("quorumBps", BigInt(quorumBps), actualQuorumBps, mismatches);
   } else {
     logObserved("quorumBps", actualQuorumBps);
   }
 
+  if (params.minBlocksBetweenUpdates !== undefined) {
+    console.log(
+      `[VERIFY] minBlocksBetweenUpdates configured=${params.minBlocksBetweenUpdates.toString()} ` +
+      "(not verifiable via SSVViews; no getter exposed)"
+    );
+  }
+
   for (const { label, expected, actual } of checks) {
     if (expected !== undefined) {
-      assertEqual(label, expected, actual);
+      assertEqualAndCollect(label, expected, actual, mismatches);
     } else {
       logObserved(label, actual);
     }
@@ -132,15 +165,25 @@ export async function verifyPostUpgradeState(opts: VerifyOptions): Promise<void>
     const actualOracleAddress = await views.getOracle(oracleId);
     const expectedOracleAddress = oracles.find((oracle) => oracle.id === oracleId)?.address;
     if (expectedOracleAddress) {
-      assertEqual(
+      assertEqualAndCollect(
         `oracle[${oracleId}]`,
         expectedOracleAddress.toLowerCase(),
-        actualOracleAddress.toLowerCase()
+        actualOracleAddress.toLowerCase(),
+        mismatches
       );
     } else {
       logObserved(`oracle[${oracleId}]`, actualOracleAddress);
     }
   }
+
+  if (mismatches.length > 0) {
+    throw new Error(
+      `[VERIFY] Found ${mismatches.length} mismatch(es):\n` +
+      mismatches.map((mismatch) => `- ${mismatch}`).join("\n")
+    );
+  }
+
+  console.log("[VERIFY] All configured checks passed");
 }
 
 /**
@@ -155,6 +198,7 @@ export async function readOnChainValues(views: any): Promise<{
   declareOperatorFeePeriod: string;
   executeOperatorFeePeriod: string;
   liquidationThresholdPeriod: string;
+  liquidationThresholdPeriodSSV: string;
   minimumLiquidationCollateralEth: string;
   minimumLiquidationCollateralSSV: string;
   validatorsPerOperatorLimit: string;
@@ -167,6 +211,7 @@ export async function readOnChainValues(views: any): Promise<{
   const actualOperatorFeeIncreaseLimit = await views.getOperatorFeeIncreaseLimit();
   const actualOperatorFeePeriods = await views.getOperatorFeePeriods();
   const actualLiquidationThresholdPeriod = await views.getLiquidationThresholdPeriod();
+  const actualLiquidationThresholdPeriodSSV = await views.getLiquidationThresholdPeriodSSV();
   const actualMinimumLiquidationCollateralEth = await views.getMinimumLiquidationCollateral();
   const actualMinimumLiquidationCollateralSSV = await views.getMinimumLiquidationCollateralSSV();
   const actualMaxOperatorEthFee = await views.getMaximumOperatorFee();
@@ -185,6 +230,7 @@ export async function readOnChainValues(views: any): Promise<{
     declareOperatorFeePeriod: actualOperatorFeePeriods.declarePeriod.toString(),
     executeOperatorFeePeriod: actualOperatorFeePeriods.executePeriod.toString(),
     liquidationThresholdPeriod: actualLiquidationThresholdPeriod.toString(),
+    liquidationThresholdPeriodSSV: actualLiquidationThresholdPeriodSSV.toString(),
     minimumLiquidationCollateralEth: actualMinimumLiquidationCollateralEth.toString(),
     minimumLiquidationCollateralSSV: actualMinimumLiquidationCollateralSSV.toString(),
     validatorsPerOperatorLimit: actualValidatorsPerOperatorLimit.toString(),

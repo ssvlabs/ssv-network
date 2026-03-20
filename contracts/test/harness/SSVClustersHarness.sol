@@ -92,6 +92,14 @@ contract SSVClustersHarness is SSVClusters, SSVValidators {
         return SSVStorage.load().ethClusters[hashedCluster];
     }
 
+    function getSSVClusterHash(bytes32 hashedCluster) external view returns (bytes32) {
+        return SSVStorage.load().clusters[hashedCluster];
+    }
+
+    function getDaoValidatorCount() external view returns (uint32) {
+        return SSVStorageProtocol.load().daoValidatorCount;
+    }
+
     function getOperatorEthValidatorCount(uint64 operatorId) external view returns (uint32) {
         return SSVStorage.load().operators[operatorId].ethValidatorCount;
     }
@@ -133,7 +141,7 @@ contract SSVClustersHarness is SSVClusters, SSVValidators {
     function getEffectiveOperatorVUnits(uint64 operatorId) external view returns (uint64) {
         StorageData storage s = SSVStorage.load();
         StorageEB storage seb = SSVStorageEB.load();
-        uint64 baseline = uint64(s.operators[operatorId].ethValidatorCount) * VUNITS_PRECISION;
+        uint64 baseline = uint64(s.operators[operatorId].ethValidatorCount) * BPS_DENOMINATOR;
         uint64 deviation = seb.operatorEthVUnits[operatorId];
         return baseline + deviation;
     }
@@ -149,6 +157,13 @@ contract SSVClustersHarness is SSVClusters, SSVValidators {
     function mockSetEBRoot(uint64 blockNum, bytes32 root) external {
         StorageEB storage seb = SSVStorageEB.load();
         seb.ebRoots[blockNum] = root;
+        if (blockNum > seb.latestCommittedBlock) {
+            seb.latestCommittedBlock = blockNum;
+        }
+    }
+
+    function mockSetMinBlocksBetweenUpdates(uint32 blocks) external {
+        SSVStorageEB.load().minBlocksBetweenUpdates = blocks;
     }
 
     function mockRemoveOperator(uint64 operatorId) external {
@@ -163,6 +178,44 @@ contract SSVClustersHarness is SSVClusters, SSVValidators {
         operator.fee = PACKED_SSV_ZERO;
         operator.ethValidatorCount = 0;
         operator.validatorCount = 0;
+    }
+
+    /// @notice Simulates removeOperator() accounting + payout without owner checks.
+    /// @dev Settles snapshots, resets operator state, then transfers settled ETH/SSV balances to recipient.
+    function mockRemoveOperatorAndPayout(uint64 operatorId, address recipient) external returns (uint256 ethPaid, uint256 ssvPaid) {
+        StorageData storage s = SSVStorage.load();
+        ISSVNetworkCore.Operator storage operator = s.operators[operatorId];
+
+        PackedETH currentBalanceETH = PACKED_ETH_ZERO;
+        PackedSSV currentBalanceSSV = PACKED_SSV_ZERO;
+
+        if (operator.snapshot.block != 0) {
+            OperatorLib.updateSnapshotStSSV(operator);
+            currentBalanceSSV = operator.snapshot.balance;
+        }
+
+        if (operator.ethSnapshot.block != 0) {
+            OperatorLib.updateSnapshotSt(operator, operatorId);
+            currentBalanceETH = operator.ethSnapshot.balance;
+        }
+
+        operator.ethSnapshot.block = 0;
+        operator.ethSnapshot.balance = PACKED_ETH_ZERO;
+        operator.ethFee = PACKED_ETH_ZERO;
+        operator.snapshot.block = 0;
+        operator.snapshot.balance = PACKED_SSV_ZERO;
+        operator.fee = PACKED_SSV_ZERO;
+        operator.ethValidatorCount = 0;
+        operator.validatorCount = 0;
+
+        if (PackedETHLib.raw(currentBalanceETH) > 0) {
+            ethPaid = PackedETHLib.unpack(currentBalanceETH);
+            CoreLib.transferBalance(recipient, ethPaid);
+        }
+        if (PackedSSVLib.raw(currentBalanceSSV) > 0) {
+            ssvPaid = PackedSSVLib.unpack(currentBalanceSSV);
+            CoreLib.transferTokenBalance(recipient, ssvPaid);
+        }
     }
 
     function mockSetOperatorFee(uint64 operatorId, uint256 fee) external {
@@ -272,6 +325,31 @@ contract SSVClustersHarness is SSVClusters, SSVValidators {
         StorageData storage s = SSVStorage.load();
         bytes32 hashedCluster = keccak256(abi.encodePacked(owner, operatorIds));
         s.ethClusters[hashedCluster] = keccak256(abi.encodePacked(uint32(0), uint64(0), uint64(0), uint256(0), false));
+    }
+
+    function mockSetOperatorLegacySSV(uint64 operatorId, uint64 ssvFee) external {
+        StorageData storage s = SSVStorage.load();
+        ISSVNetworkCore.Operator storage operator = s.operators[operatorId];
+
+        operator.fee = PackedSSV.wrap(ssvFee);
+        operator.snapshot.block = uint32(block.number);
+        operator.ethFee = PACKED_ETH_ZERO;
+        operator.ethSnapshot.block = 0;
+        operator.ethSnapshot.index = 0;
+        operator.ethSnapshot.balance = PACKED_ETH_ZERO;
+    }
+
+    function mockSetOperatorFeeChangeRequest(
+        uint64 operatorId,
+        uint64 fee,
+        uint64 approvalBeginTime,
+        uint64 approvalEndTime
+    ) external {
+        SSVStorage.load().operatorFeeChangeRequests[operatorId] = ISSVNetworkCore.OperatorFeeChangeRequest(
+            fee,
+            approvalBeginTime,
+            approvalEndTime
+        );
     }
 
     function mockSetToken(address token) external {

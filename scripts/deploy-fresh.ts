@@ -14,6 +14,8 @@ type LocalConfig = {
   ssvToken?: string;
   protocolParams?: {
     liquidationThresholdPeriod?: string | number;
+    liquidationThresholdPeriodSSV?: string | number;
+    minBlocksBetweenUpdates?: string | number;
     minimumLiquidationCollateralEth?: string | number;
     validatorsPerOperatorLimit?: string | number;
     declareOperatorFeePeriod?: string | number;
@@ -150,6 +152,15 @@ async function main() {
   for (const mod of MODULE_ORDER) {
     const moduleId = SSVModules[mod];
     await (await networkWithSigner.updateModule(moduleId, modules[mod])).wait();
+  }
+
+  const minBlocksBetweenUpdates = parseUint(pp.minBlocksBetweenUpdates, "minBlocksBetweenUpdates");
+  const liquidationThresholdPeriodSSV = parseUint(pp.liquidationThresholdPeriodSSV, "liquidationThresholdPeriodSSV");
+  if (liquidationThresholdPeriodSSV !== undefined) {
+    await (await networkWithSigner.updateLiquidationThresholdPeriodSSV(liquidationThresholdPeriodSSV)).wait();
+  }
+  if (minBlocksBetweenUpdates !== undefined) {
+    await (await networkWithSigner.updateMinBlocksBetweenUpdates(minBlocksBetweenUpdates)).wait();
   }
 
   const blockNumber = await ethers.provider.getBlockNumber();

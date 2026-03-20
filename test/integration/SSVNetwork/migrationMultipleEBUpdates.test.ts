@@ -4,8 +4,8 @@ import type { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/types"
 import { getTestConnection } from "../../setup/connection.ts";
 import { ssvClustersHarnessFixture } from "../../setup/fixtures.ts";
 import type { NetworkHelpersType } from "../../common/types.ts";
-import { createCluster, makePublicKey, parseClusterFromEvent } from "../../common/helpers.ts";
-import { DEFAULT_ETH_REGISTER_VALUE, VUNITS_PRECISION } from "../../common/constants.ts";
+import { createCluster, makePublicKey, parseClusterFromEvent, extractEventArgs } from "../../common/helpers.ts";
+import { DEFAULT_ETH_REGISTER_VALUE, BPS_DENOMINATOR } from "../../common/constants.ts";
 import { Events } from "../../common/events.ts";
 import { ethers } from "ethers";
 
@@ -33,21 +33,6 @@ describe("ITEST-2 Integration: migration with multiple EB updates", () => {
       coder.encode(["bytes32", "uint32"], [clusterId, effectiveBalance])
     );
     return ethers.keccak256(ethers.solidityPacked(["bytes32"], [innerHash]));
-  };
-
-  const getMigratedToETHEventArgs = (clusters: any, receipt: any) => {
-    for (const log of receipt.logs ?? []) {
-      let parsed;
-      try {
-        parsed = clusters.interface.parseLog(log);
-      } catch {
-        continue;
-      }
-      if (parsed?.name === Events.CLUSTER_MIGRATED_TO_ETH) {
-        return parsed.args;
-      }
-    }
-    throw new Error("ClusterMigratedToETH event not found");
   };
 
   it("Migrate after multiple EB updates uses the latest EB snapshot", async function () {
@@ -95,14 +80,14 @@ describe("ITEST-2 Integration: migration with multiple EB updates", () => {
     const updateReceipt2 = await updateTx2.wait();
     const clusterAfterUpdate2 = parseClusterFromEvent(clusters, updateReceipt2, Events.CLUSTER_BALANCE_UPDATED);
 
-    const latestVUnits = (96n * VUNITS_PRECISION + 32n - 1n) / 32n;
+    const latestVUnits = (96n * BPS_DENOMINATOR + 32n - 1n) / 32n;
     expect(await clusters.getClusterVUnits(clusterId)).to.equal(latestVUnits);
 
     const migrateTx = await clusters.migrateClusterToETH(operatorIds, clusterAfterUpdate2, {
       value: DEFAULT_ETH_REGISTER_VALUE,
     });
     const migrateReceipt = await migrateTx.wait();
-    const migrationEvent = getMigratedToETHEventArgs(clusters, migrateReceipt);
+    const migrationEvent = extractEventArgs(clusters, migrateReceipt, Events.CLUSTER_MIGRATED_TO_ETH);
     const migratedCluster = parseClusterFromEvent(clusters, migrateReceipt, Events.CLUSTER_MIGRATED_TO_ETH);
 
     expect(migrationEvent.effectiveBalance).to.equal(96);
@@ -110,7 +95,7 @@ describe("ITEST-2 Integration: migration with multiple EB updates", () => {
     expect(migratedCluster.active).to.equal(true);
     expect(migratedCluster.balance).to.equal(DEFAULT_ETH_REGISTER_VALUE);
 
-    const baseline = 1n * VUNITS_PRECISION;
+    const baseline = 1n * BPS_DENOMINATOR;
     const expectedDeviation = latestVUnits - baseline;
 
     expect(await clusters.getDaoTotalEthVUnits()).to.equal(latestVUnits);
@@ -177,14 +162,14 @@ describe("ITEST-2 Integration: migration with multiple EB updates", () => {
     const updateReceipt2 = await updateTx2.wait();
     const clusterAfterSecondUpdate = parseClusterFromEvent(clusters, updateReceipt2, Events.CLUSTER_BALANCE_UPDATED);
 
-    const expectedVUnits = (96n * VUNITS_PRECISION + 32n - 1n) / 32n;
+    const expectedVUnits = (96n * BPS_DENOMINATOR + 32n - 1n) / 32n;
     expect(await clusters.getClusterVUnits(clusterId)).to.equal(expectedVUnits);
 
     const migrateTx = await clusters.migrateClusterToETH(operatorIds, clusterAfterSecondUpdate, {
       value: DEFAULT_ETH_REGISTER_VALUE,
     });
     const migrateReceipt = await migrateTx.wait();
-    const migrationEvent = getMigratedToETHEventArgs(clusters, migrateReceipt);
+    const migrationEvent = extractEventArgs(clusters, migrateReceipt, Events.CLUSTER_MIGRATED_TO_ETH);
     const migratedCluster = parseClusterFromEvent(clusters, migrateReceipt, Events.CLUSTER_MIGRATED_TO_ETH);
 
     expect(migrationEvent.effectiveBalance).to.equal(96);
@@ -192,7 +177,7 @@ describe("ITEST-2 Integration: migration with multiple EB updates", () => {
     expect(migratedCluster.active).to.equal(true);
     expect(migratedCluster.balance).to.equal(DEFAULT_ETH_REGISTER_VALUE);
 
-    const expectedBaseline = 2n * VUNITS_PRECISION;
+    const expectedBaseline = 2n * BPS_DENOMINATOR;
     const expectedDeviation = expectedVUnits - expectedBaseline;
 
     expect(await clusters.getDaoTotalEthVUnits()).to.equal(expectedVUnits);

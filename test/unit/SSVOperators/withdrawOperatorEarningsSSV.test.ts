@@ -1,13 +1,10 @@
 import { expect } from "chai";
 import type { NetworkConnection } from "hardhat/types/network";
-import { getTestConnection } from "../../setup/connection.ts";
-import { ssvOperatorsHarnessFixture } from "../../setup/fixtures.ts";
 import type { NetworkHelpersType } from "../../common/types.ts";
-import { makeOperatorKey } from "../../common/helpers.ts";
+import { makeOperatorKey, setupTestContext } from "../../common/helpers.ts";
+import { defaultOperatorsFixture } from "../../helpers/fixture-presets.ts";
 import {
-  DECLARE_OPERATOR_FEE_PERIOD, EXECUTE_OPERATOR_FEE_PERIOD,
-  MAXIMUM_OPERATORS_FEE,
-  MINIMAL_OPERATOR_ETH_FEE, OPERATOR_MAX_FEE_INCREASE,
+  MINIMAL_OPERATOR_ETH_FEE,
   DEDUCTED_DIGITS, ETH_DEDUCTED_DIGITS,
 } from '../../common/constants.ts';
 import { Errors } from "../../common/errors.ts";
@@ -19,11 +16,10 @@ describe("SSVOperators SSV earnings withdrawals", async () => {
   let networkHelpers: NetworkHelpersType;
 
   before(async function () {
-    ({ connection, networkHelpers } = await getTestConnection());
+    ({ connection, networkHelpers } = await setupTestContext());
   });
 
-  const deployOperatorsFixture = async () =>
-    ssvOperatorsHarnessFixture(connection, MAXIMUM_OPERATORS_FEE, DECLARE_OPERATOR_FEE_PERIOD, EXECUTE_OPERATOR_FEE_PERIOD, OPERATOR_MAX_FEE_INCREASE);
+  const deployOperatorsFixture = async () => defaultOperatorsFixture(connection);
 
   const seedOperatorWithSSVBalance = async (operators: any, operatorId: number, ssvSnapshotBalance: bigint) => {
     const token = await connection.ethers.deployContract("MockToken");
@@ -44,6 +40,7 @@ describe("SSVOperators SSV earnings withdrawals", async () => {
       operators.registerOperator(makeOperatorKey(1), Number(MINIMAL_OPERATOR_ETH_FEE), false),
       [GasGroup.REGISTER_OPERATOR]
     );
+    await operators.mockSetOperatorLegacySSV(1, 1);
     await seedOperatorWithSSVBalance(operators, 1, 5n);
 
     const amount = 2n * DEDUCTED_DIGITS;
@@ -54,7 +51,7 @@ describe("SSVOperators SSV earnings withdrawals", async () => {
         [GasGroup.WITHDRAW_OPERATOR_BALANCE]
       )
     )
-      .to.emit(operators, Events.OPERATOR_WITHDRAWN)
+      .to.emit(operators, Events.OPERATOR_WITHDRAWN_SSV)
       .withArgs(owner.address, 1, amount);
 
     const operatorAfter = await operators.getOperator(1);
@@ -68,9 +65,8 @@ describe("SSVOperators SSV earnings withdrawals", async () => {
       operators.registerOperator(makeOperatorKey(1), Number(MINIMAL_OPERATOR_ETH_FEE), false),
       [GasGroup.REGISTER_OPERATOR]
     );
+    await operators.mockSetOperatorLegacySSV(1, 1);
     await seedOperatorWithSSVBalance(operators, 1, 5n);
-
-    // Withdraw zero should succeed (snapshot gets updated as part of the process)
     await operators.withdrawOperatorEarningsSSV(1, 0n);
   });
 
@@ -82,6 +78,8 @@ describe("SSVOperators SSV earnings withdrawals", async () => {
       operators.registerOperator(makeOperatorKey(1), Number(MINIMAL_OPERATOR_ETH_FEE), false),
       [GasGroup.REGISTER_OPERATOR]
     );
+
+    await operators.mockSetOperatorLegacySSV(1, 1);
     await seedOperatorWithSSVBalance(operators, 1, 4n);
 
     const expectedAmount = 4n * DEDUCTED_DIGITS;
@@ -92,7 +90,7 @@ describe("SSVOperators SSV earnings withdrawals", async () => {
         [GasGroup.WITHDRAW_OPERATOR_BALANCE]
       )
     )
-      .to.emit(operators, Events.OPERATOR_WITHDRAWN)
+      .to.emit(operators, Events.OPERATOR_WITHDRAWN_SSV)
       .withArgs(owner.address, 1, expectedAmount);
 
     const operatorAfter = await operators.getOperator(1);
@@ -120,6 +118,8 @@ describe("SSVOperators SSV earnings withdrawals", async () => {
       operators.registerOperator(makeOperatorKey(1), Number(MINIMAL_OPERATOR_ETH_FEE), false),
       [GasGroup.REGISTER_OPERATOR]
     );
+
+    await operators.mockSetOperatorLegacySSV(1, 1);
     await seedOperatorWithSSVBalance(operators, 1, 5n);
 
     await expect(operators.withdrawOperatorEarningsSSV(1, 1n))

@@ -1,10 +1,10 @@
 import { expect } from "chai";
 import type { NetworkConnection } from "hardhat/types/network";
 import type { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/types";
-import { getTestConnection } from "../../setup/connection.ts";
 import { ssvNetworkFullFixture } from "../../setup/fixtures.ts";
 import type { Cluster, NetworkHelpersType } from "../../common/types.ts";
 import {
+  setupTestContext,
   generateMerkleForClusterEB,
   makeOperatorKey,
   makePublicKey,
@@ -18,7 +18,7 @@ import {
   ETH_DEDUCTED_DIGITS,
   MINIMAL_OPERATOR_ETH_FEE,
   STAKE_AMOUNT,
-  VUNITS_PRECISION,
+  BPS_DENOMINATOR,
 } from "../../common/constants.ts";
 import { Events } from "../../common/events.ts";
 import { ethers } from "ethers";
@@ -28,7 +28,7 @@ describe("Operator fee change + EB burn rate interaction", async () => {
   let networkHelpers: NetworkHelpersType;
 
   before(async function () {
-    ({ connection, networkHelpers } = await getTestConnection());
+    ({ connection, networkHelpers } = await setupTestContext());
   });
 
   const EB_64 = 64;
@@ -46,8 +46,6 @@ describe("Operator fee change + EB burn rate interaction", async () => {
     await ssvToken.transfer(staker.address, STAKE_AMOUNT);
     await ssvToken.connect(staker).approve(await network.getAddress(), STAKE_AMOUNT);
     await network.connect(staker).stake(STAKE_AMOUNT);
-
-    // Keep formulas deterministic for fee-only assertions.
     await network.connect(deployer).updateNetworkFee(0n);
 
     return {
@@ -315,7 +313,7 @@ describe("Operator fee change + EB burn rate interaction", async () => {
       newSpanBlocks * (oldPackedFee * 3n + newPackedFee);
 
     const expectedDeduction =
-      ((expectedIndexDelta * 20_000n) / VUNITS_PRECISION) * ETH_DEDUCTED_DIGITS;
+      ((expectedIndexDelta * 20_000n) / BPS_DENOMINATOR) * ETH_DEDUCTED_DIGITS;
 
     const actualDeduction = clusterAtEb64.balance - finalSettlement.cluster.balance;
     expect(actualDeduction).to.equal(expectedDeduction);

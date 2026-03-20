@@ -1,20 +1,20 @@
 import { expect } from "chai";
 import type { NetworkConnection } from "hardhat/types/network";
 import type { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/types";
-import { getTestConnection } from "../../setup/connection.ts";
 import { ssvNetworkFullFixture } from "../../setup/fixtures.ts";
 import type { NetworkHelpersType } from "../../common/types.ts";
 import {
   registerOperators,
   makePublicKey,
   whitelistAddresses,
+  setupTestContext,
 } from "../../common/helpers.ts";
 import {
   DEFAULT_ETH_REGISTER_VALUE,
   DEFAULT_SHARES,
   EMPTY_CLUSTER,
   NETWORK_FEE,
-  VUNITS_PRECISION,
+  BPS_DENOMINATOR,
   ETH_DEDUCTED_DIGITS,
   DEFAULT_UNSTAKE_COOLDOWN,
 } from "../../common/constants.ts";
@@ -25,7 +25,7 @@ import {
   calcAccEthPerShareDelta,
   calcStakingReward,
   defaultVUnits,
-} from "../helpers/index.ts";
+} from "../../helpers/index.ts";
 import { Events } from "../../common/events.ts";
 import { Errors } from "../../common/errors.ts";
 
@@ -44,9 +44,7 @@ describe("E2E Staking Lifecycle", () => {
   let stakerB: HardhatEthersSigner;
 
   before(async function () {
-    ({ connection, networkHelpers } = await getTestConnection());
-    [deployer, operatorOwner, clusterOwner, stakerA, stakerB] =
-      await connection.ethers.getSigners();
+    ({ connection, networkHelpers, signers: [deployer, operatorOwner, clusterOwner, stakerA, stakerB] } = await setupTestContext());
     provider = connection.ethers.provider;
   });
 
@@ -74,7 +72,7 @@ describe("E2E Staking Lifecycle", () => {
 
       await mineBlocks(provider, 50);
 
-      const stakeAmount = 10n * PRECISION; // 10e18 SSV
+      const stakeAmount = 10n * PRECISION;
       await ssvToken.connect(deployer).transfer(stakerA.address, stakeAmount);
       await ssvToken
         .connect(stakerA)
@@ -99,7 +97,7 @@ describe("E2E Staking Lifecycle", () => {
       const vUnits = defaultVUnits(1n);
       const blockDiff = BigInt(claimBlock - stakeBlock);
 
-      const earningsPerBlockPacked = (PACKED_NETWORK_FEE * vUnits) / VUNITS_PRECISION;
+      const earningsPerBlockPacked = (PACKED_NETWORK_FEE * vUnits) / BPS_DENOMINATOR;
       const totalEarningsPacked = earningsPerBlockPacked * blockDiff;
       const totalEarningsWei = totalEarningsPacked * ETH_DEDUCTED_DIGITS;
 
@@ -151,7 +149,7 @@ describe("E2E Staking Lifecycle", () => {
 
       const blockDiff = BigInt(claimBlock - stakeBlock);
       const vUnits = defaultVUnits(1n);
-      const earningsPerBlockPacked = (PACKED_NETWORK_FEE * vUnits) / VUNITS_PRECISION;
+      const earningsPerBlockPacked = (PACKED_NETWORK_FEE * vUnits) / BPS_DENOMINATOR;
       const totalEarningsPacked = earningsPerBlockPacked * blockDiff;
       const totalEarningsWei = totalEarningsPacked * ETH_DEDUCTED_DIGITS;
 
@@ -220,7 +218,7 @@ describe("E2E Staking Lifecycle", () => {
       const rewardB = BigInt(balAfterB) - balBeforeB + gasB;
 
       const vUnits = defaultVUnits(1n);
-      const earningsPerBlockPacked = (PACKED_NETWORK_FEE * vUnits) / VUNITS_PRECISION;
+      const earningsPerBlockPacked = (PACKED_NETWORK_FEE * vUnits) / BPS_DENOMINATOR;
 
       const phase1Blocks = BigInt(stakeBlockB - stakeBlockA);
       const phase1FeesWei = earningsPerBlockPacked * phase1Blocks * ETH_DEDUCTED_DIGITS;
@@ -243,6 +241,125 @@ describe("E2E Staking Lifecycle", () => {
       const expectedRewardB = calcStakingReward(amountB, acc2 + acc3, 0n);
       const expectedPayoutB = expectedRewardB - (expectedRewardB % ETH_DEDUCTED_DIGITS);
       expect(rewardB).to.equal(expectedPayoutB);
+    });
+
+    it("Three stakers split rewards correctly when one unstakes mid-period", async function () {
+      const { network, ssvToken, cssvToken } =
+        await networkHelpers.loadFixture(deployFixture);
+
+      const allSigners = await connection.ethers.getSigners();
+      const stakerC = allSigners[5];
+
+      const operatorIds = await registerOperators(network, operatorOwner, 4);
+      await whitelistAddresses(network, operatorOwner, operatorIds, [
+        clusterOwner.address,
+      ]);
+
+      const amountA = 10n * PRECISION;
+      const amountB = 10n * PRECISION;
+      const amountC = 10n * PRECISION;
+      const totalStakedPhase1 = amountA + amountB + amountC;
+      const unstakeAmount = 5n * PRECISION;
+      const totalStakedPhase2 = totalStakedPhase1 - unstakeAmount;
+
+      await ssvToken.connect(deployer).transfer(stakerA.address, amountA);
+      await ssvToken.connect(deployer).transfer(stakerB.address, amountB);
+      await ssvToken.connect(deployer).transfer(stakerC.address, amountC);
+      await ssvToken.connect(stakerA).approve(await network.getAddress(), amountA);
+      await ssvToken.connect(stakerB).approve(await network.getAddress(), amountB);
+      await ssvToken.connect(stakerC).approve(await network.getAddress(), amountC);
+
+      await network.connect(stakerA).stake(amountA);
+      await network.connect(stakerB).stake(amountB);
+      await network.connect(stakerC).stake(amountC);
+
+      const regBlock = await getTxBlock(
+        await network.connect(clusterOwner).registerValidator(
+          makePublicKey(2),
+          operatorIds,
+          DEFAULT_SHARES,
+          EMPTY_CLUSTER,
+          { value: DEFAULT_ETH_REGISTER_VALUE },
+        ),
+      );
+
+      await mineBlocks(provider, 50);
+
+      const unstakeBlock = await getTxBlock(
+        await network.connect(stakerA).requestUnstake(unstakeAmount),
+      );
+
+      expect(await cssvToken.balanceOf(stakerA.address)).to.equal(amountA - unstakeAmount);
+
+      await mineBlocks(provider, 50);
+
+      const balBeforeA = await provider.getBalance(stakerA.address);
+      const balBeforeB = await provider.getBalance(stakerB.address);
+      const balBeforeC = await provider.getBalance(stakerC.address);
+
+      let claimTxA: any;
+      let claimTxB: any;
+      let claimTxC: any;
+
+      await provider.send("evm_setAutomine", [false]);
+      try {
+        claimTxA = await network.connect(stakerA).claimEthRewards();
+        claimTxB = await network.connect(stakerB).claimEthRewards();
+        claimTxC = await network.connect(stakerC).claimEthRewards();
+        await provider.send("evm_mine", []);
+      } finally {
+        await provider.send("evm_setAutomine", [true]);
+      }
+
+      const claimReceiptA = await claimTxA.wait();
+      const claimReceiptB = await claimTxB.wait();
+      const claimReceiptC = await claimTxC.wait();
+      const claimBlock = claimReceiptA!.blockNumber;
+
+      expect(claimReceiptB!.blockNumber).to.equal(claimBlock);
+      expect(claimReceiptC!.blockNumber).to.equal(claimBlock);
+
+      const gasA = claimReceiptA!.gasUsed * claimReceiptA!.gasPrice;
+      const gasB = claimReceiptB!.gasUsed * claimReceiptB!.gasPrice;
+      const gasC = claimReceiptC!.gasUsed * claimReceiptC!.gasPrice;
+
+      const balAfterA = await provider.getBalance(stakerA.address);
+      const balAfterB = await provider.getBalance(stakerB.address);
+      const balAfterC = await provider.getBalance(stakerC.address);
+
+      const rewardA = BigInt(balAfterA) - balBeforeA + gasA;
+      const rewardB = BigInt(balAfterB) - balBeforeB + gasB;
+      const rewardC = BigInt(balAfterC) - balBeforeC + gasC;
+
+      const vUnits = defaultVUnits(1n);
+      const earningsPerBlockPacked = (PACKED_NETWORK_FEE * vUnits) / BPS_DENOMINATOR;
+
+      const phase1Blocks = BigInt(unstakeBlock - regBlock);
+      const phase1FeesWei = earningsPerBlockPacked * phase1Blocks * ETH_DEDUCTED_DIGITS;
+      const acc1 = calcAccEthPerShareDelta(phase1FeesWei, totalStakedPhase1);
+
+      const phase2Blocks = BigInt(claimBlock - unstakeBlock);
+      const phase2FeesWei = earningsPerBlockPacked * phase2Blocks * ETH_DEDUCTED_DIGITS;
+      const acc2 = calcAccEthPerShareDelta(phase2FeesWei, totalStakedPhase2);
+
+      const expectedRewardA =
+        calcStakingReward(amountA, acc1, 0n) +
+        calcStakingReward(amountA - unstakeAmount, acc2, 0n);
+      const expectedRewardB =
+        calcStakingReward(amountB, acc1, 0n) +
+        calcStakingReward(amountB, acc2, 0n);
+      const expectedRewardC =
+        calcStakingReward(amountC, acc1, 0n) +
+        calcStakingReward(amountC, acc2, 0n);
+
+      const expectedPayoutA = expectedRewardA - (expectedRewardA % ETH_DEDUCTED_DIGITS);
+      const expectedPayoutB = expectedRewardB - (expectedRewardB % ETH_DEDUCTED_DIGITS);
+      const expectedPayoutC = expectedRewardC - (expectedRewardC % ETH_DEDUCTED_DIGITS);
+
+      expect(rewardA).to.equal(expectedPayoutA);
+      expect(rewardB).to.equal(expectedPayoutB);
+      expect(rewardC).to.equal(expectedPayoutC);
+      expect(rewardB).to.equal(rewardC);
     });
   });
 
@@ -305,7 +422,7 @@ describe("E2E Staking Lifecycle", () => {
       const rewardB = BigInt(balAfterB) - balBeforeB + gasB;
 
       const vUnits = defaultVUnits(1n);
-      const earningsPerBlockPacked = (PACKED_NETWORK_FEE * vUnits) / VUNITS_PRECISION;
+      const earningsPerBlockPacked = (PACKED_NETWORK_FEE * vUnits) / BPS_DENOMINATOR;
       const totalSupply = amountA + amountB;
 
       const phase1Blocks = BigInt(stakeBlockB - stakeBlockA);
@@ -327,7 +444,6 @@ describe("E2E Staking Lifecycle", () => {
       const expectedRewardB = calcStakingReward(amountB, acc2 + acc3, 0n);
       const expectedPayoutB = expectedRewardB - (expectedRewardB % ETH_DEDUCTED_DIGITS);
       expect(rewardB).to.equal(expectedPayoutB);
-      expect(rewardA).to.be.greaterThan(rewardB);
     });
   });
 
@@ -436,12 +552,97 @@ describe("E2E Staking Lifecycle", () => {
       const rewardClaimed = BigInt(balAfter) - balBefore + gasUsed;
 
       const vUnits = defaultVUnits(1n);
-      const earningsPerBlockPacked = (PACKED_NETWORK_FEE * vUnits) / VUNITS_PRECISION;
+      const earningsPerBlockPacked = (PACKED_NETWORK_FEE * vUnits) / BPS_DENOMINATOR;
       const blockDiff = BigInt(unstakeBlock - stakeBlock);
       const totalFeesWei = earningsPerBlockPacked * blockDiff * ETH_DEDUCTED_DIGITS;
       const accDelta = calcAccEthPerShareDelta(totalFeesWei, stakeAmount);
       const expectedReward = calcStakingReward(stakeAmount, accDelta, 0n);
       const expectedPayout = expectedReward - (expectedReward % ETH_DEDUCTED_DIGITS);
+
+      expect(rewardClaimed).to.equal(expectedPayout);
+    });
+
+    it("Cooldown changes do not alter reward accrual before and after requestUnstake", async function () {
+      const { network, views, ssvToken, cssvToken } =
+        await networkHelpers.loadFixture(deployFixture);
+
+      const operatorIds = await registerOperators(network, operatorOwner, 4);
+      await whitelistAddresses(network, operatorOwner, operatorIds, [
+        clusterOwner.address,
+      ]);
+
+      await network.connect(clusterOwner).registerValidator(
+        makePublicKey(1),
+        operatorIds,
+        DEFAULT_SHARES,
+        EMPTY_CLUSTER,
+        { value: DEFAULT_ETH_REGISTER_VALUE },
+      );
+
+      const stakeAmount = 10n * PRECISION;
+      const unstakeAmount = 5n * PRECISION;
+      const remainingBalance = stakeAmount - unstakeAmount;
+
+      await ssvToken.connect(deployer).transfer(stakerA.address, stakeAmount);
+      await ssvToken
+        .connect(stakerA)
+        .approve(await network.getAddress(), stakeAmount);
+
+      const stakeBlock = await getTxBlock(
+        await network.connect(stakerA).stake(stakeAmount),
+      );
+
+      await mineBlocks(provider, 50);
+
+      const updatedCooldown = DEFAULT_UNSTAKE_COOLDOWN * 2n;
+      const cooldownUpdateTx =
+        await network.updateUnstakeCooldownDuration(updatedCooldown);
+
+      await expect(cooldownUpdateTx)
+        .to.emit(network, Events.COOLDOWN_DURATION_UPDATED)
+        .withArgs(updatedCooldown);
+      expect(await views.cooldownDuration()).to.equal(updatedCooldown);
+
+      await mineBlocks(provider, 50);
+
+      const unstakeBlock = await getTxBlock(
+        await network.connect(stakerA).requestUnstake(unstakeAmount),
+      );
+
+      expect(await cssvToken.balanceOf(stakerA.address)).to.equal(
+        remainingBalance,
+      );
+
+      await mineBlocks(provider, 50);
+
+      const balBefore = await provider.getBalance(stakerA.address);
+      const claimTx = await network.connect(stakerA).claimEthRewards();
+      const claimReceipt = await claimTx.wait();
+      const claimBlock = claimReceipt!.blockNumber;
+      const gasUsed = claimReceipt!.gasUsed * claimReceipt!.gasPrice;
+      const balAfter = await provider.getBalance(stakerA.address);
+
+      const rewardClaimed = BigInt(balAfter) - balBefore + gasUsed;
+
+      const vUnits = defaultVUnits(1n);
+      const earningsPerBlockPacked = (PACKED_NETWORK_FEE * vUnits) / BPS_DENOMINATOR;
+
+      const phase1Blocks = BigInt(unstakeBlock - stakeBlock);
+      const phase1FeesWei = earningsPerBlockPacked * phase1Blocks * ETH_DEDUCTED_DIGITS;
+      const acc1 = calcAccEthPerShareDelta(phase1FeesWei, stakeAmount);
+      const reward1 = calcStakingReward(stakeAmount, acc1, 0n);
+
+      const phase2Blocks = BigInt(claimBlock - unstakeBlock);
+      const phase2FeesWei = earningsPerBlockPacked * phase2Blocks * ETH_DEDUCTED_DIGITS;
+      const acc2 = calcAccEthPerShareDelta(phase2FeesWei, remainingBalance);
+      const reward2 = calcStakingReward(remainingBalance, acc2, 0n);
+
+      expect(phase1Blocks).to.equal(102n);
+      expect(phase2Blocks).to.equal(51n);
+
+      const expectedTotal = reward1 + reward2;
+      const expectedPayout =
+        expectedTotal - (expectedTotal % ETH_DEDUCTED_DIGITS);
 
       expect(rewardClaimed).to.equal(expectedPayout);
     });
@@ -491,7 +692,7 @@ describe("E2E Staking Lifecycle", () => {
       const totalReward = BigInt(balAfter) - balBefore + gasUsed;
 
       const vUnits = defaultVUnits(1n);
-      const earningsPerBlockPacked = (PACKED_NETWORK_FEE * vUnits) / VUNITS_PRECISION;
+      const earningsPerBlockPacked = (PACKED_NETWORK_FEE * vUnits) / BPS_DENOMINATOR;
 
       const phase1Blocks = BigInt(unstakeBlock - stakeBlock);
       const phase1FeesPacked = earningsPerBlockPacked * phase1Blocks;

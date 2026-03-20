@@ -1,12 +1,12 @@
 import { expect } from "chai";
 import type { NetworkConnection } from "hardhat/types/network";
 import type { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/types";
-import { getTestConnection } from "../../setup/connection.ts";
-import { ssvDAOHarnessFixture } from "../../setup/fixtures.ts";
+import { defaultDAOFixture } from "../../helpers/fixture-presets.ts";
 import type { NetworkHelpersType } from "../../common/types.ts";
 import { Events } from "../../common/events.ts";
 import { Errors } from "../../common/errors.ts";
 import { MINIMAL_LIQUIDATION_THRESHOLD } from "../../common/constants.ts";
+import { setupTestContext } from "../../common/helpers.ts";
 import { trackGasFromReceipt, GasGroup } from "../../helpers/gas-usage.ts";
 
 describe("SSVDAO function `updateLiquidationThresholdPeriod()`", async () => {
@@ -16,12 +16,10 @@ describe("SSVDAO function `updateLiquidationThresholdPeriod()`", async () => {
   let owner: HardhatEthersSigner;
 
   before(async function () {
-    ({ connection, networkHelpers } = await getTestConnection());
-
-    [owner] = await connection.ethers.getSigners();
+    ({ connection, networkHelpers, signers: [owner] } = await setupTestContext());
   });
 
-  const deployDAOFixture = async () => ssvDAOHarnessFixture(connection);
+  const deployDAOFixture = async () => defaultDAOFixture(connection);
 
   it("Updates the liquidation threshold period and emits event", async function () {
     const { dao } = await networkHelpers.loadFixture(deployDAOFixture);
@@ -95,12 +93,10 @@ describe("SSVDAO function `updateLiquidationThresholdPeriodSSV()`", async () => 
   let owner: HardhatEthersSigner;
 
   before(async function () {
-    ({ connection, networkHelpers } = await getTestConnection());
-
-    [owner] = await connection.ethers.getSigners();
+    ({ connection, networkHelpers, signers: [owner] } = await setupTestContext());
   });
 
-  const deployDAOFixture = async () => ssvDAOHarnessFixture(connection);
+  const deployDAOFixture = async () => defaultDAOFixture(connection);
 
   it("Updates the SSV liquidation threshold period and emits event", async function () {
     const { dao } = await networkHelpers.loadFixture(deployDAOFixture);

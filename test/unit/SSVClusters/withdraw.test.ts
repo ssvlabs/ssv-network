@@ -1,14 +1,15 @@
 import { expect } from "chai";
 import type { NetworkConnection } from "hardhat/types/network";
 import type { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/types";
-import { getTestConnection } from "../../setup/connection.ts";
 import { ssvClustersHarnessFixture } from "../../setup/fixtures.ts";
+import { defaultClustersFixture } from "../../helpers/fixture-presets.ts";
 import type { NetworkHelpersType } from "../../common/types.ts";
-import { createCluster, makePublicKey, parseClusterFromEvent } from "../../common/helpers.ts";
-import { DEFAULT_ETH_REGISTER_VALUE, DEFAULT_SHARES, ETH_DEDUCTED_DIGITS, VUNITS_PRECISION } from "../../common/constants.ts";
+import { setupTestContext, computeClusterId, computeEBRoot, createCluster, extractEventArgs, makePublicKey, parseClusterFromEvent, registerAndParseCluster } from "../../common/helpers.ts";
+import { DEFAULT_ETH_REGISTER_VALUE, DEFAULT_SHARES, ETH_DEDUCTED_DIGITS, BPS_DENOMINATOR } from "../../common/constants.ts";
 import { Events } from "../../common/events.ts";
 import { Errors } from "../../common/errors.ts";
 import { trackGasFromReceipt, GasGroup } from "../../helpers/gas-usage.ts";
+import { expectETHDeltas } from "../../helpers/balance.ts";
 import { ethers } from "ethers";
 
 describe("SSVClusters function `withdraw()`", async () => {
@@ -19,57 +20,18 @@ describe("SSVClusters function `withdraw()`", async () => {
   let otherAccount: HardhatEthersSigner;
 
   before(async function () {
-    ({ connection, networkHelpers } = await getTestConnection());
-
-    [clusterOwner, otherAccount] = await connection.ethers.getSigners();
+    ({ connection, networkHelpers, signers: [clusterOwner, otherAccount] } = await setupTestContext());
   });
 
   const deploySSVClustersAndPrepareOperatorsFixture = async () => {
-    return ssvClustersHarnessFixture(connection);
+    return defaultClustersFixture(connection);
   };
 
   const deploySSVClustersWithLowFeesFixture = async () => {
     return ssvClustersHarnessFixture(connection, 4, 100_000n);
   };
 
-  const registerCluster = async (clusters: any, operatorIds: bigint[]) => {
-    const registerTx = await clusters.registerValidator(
-      makePublicKey(1),
-      operatorIds,
-      DEFAULT_SHARES,
-      createCluster(),
-      { value: DEFAULT_ETH_REGISTER_VALUE }
-    );
-    const receipt = await registerTx.wait();
-    return parseClusterFromEvent(clusters, receipt, Events.VALIDATOR_ADDED);
-  };
 
-  const getClusterId = (ownerAddress: string, operatorIds: bigint[]): string => {
-    return ethers.keccak256(
-      ethers.solidityPacked(["address", "uint64[]"], [ownerAddress, operatorIds])
-    );
-  };
-
-  const getEBRoot = (clusterId: string, effectiveBalance: number): string => {
-    const coder = ethers.AbiCoder.defaultAbiCoder();
-    const innerHash = ethers.keccak256(coder.encode(["bytes32", "uint32"], [clusterId, effectiveBalance]));
-    return ethers.keccak256(ethers.solidityPacked(["bytes32"], [innerHash]));
-  };
-
-  const getClusterWithdrawnEventArgs = (clusters: any, receipt: any) => {
-    for (const log of receipt.logs ?? []) {
-      let parsed;
-      try {
-        parsed = clusters.interface.parseLog(log);
-      } catch {
-        continue;
-      }
-      if (parsed?.name === Events.CLUSTER_WITHDRAWN) {
-        return parsed.args;
-      }
-    }
-    throw new Error("ClusterWithdrawn event not found");
-  };
 
   it("Withdraws from an existing cluster, updates balance and emits correct event", async function () {
     const { clusters, operatorIds } =
@@ -78,34 +40,26 @@ describe("SSVClusters function `withdraw()`", async () => {
     await clusters.mockEthNetworkFee(0);
     await clusters.mockCurrentNetworkFeeIndex(0);
 
-    const clusterBeforeWithdraw = await registerCluster(clusters, operatorIds);
+    const clusterBeforeWithdraw = await registerAndParseCluster(clusters, operatorIds);
     const withdrawAmount = 1n;
 
-    const provider = connection.ethers.provider;
-    const ownerBalanceBefore = await provider.getBalance(clusterOwner.address);
     const harnessAddress = await clusters.getAddress();
-    const harnessBalanceBefore = await provider.getBalance(harnessAddress);
 
-    const withdrawTx = await clusters.withdraw(operatorIds, withdrawAmount, clusterBeforeWithdraw);
-    const withdrawReceipt: any = await withdrawTx.wait();
+    const { receipt: withdrawReceipt } = await expectETHDeltas(connection.ethers.provider,
+      () => clusters.withdraw(operatorIds, withdrawAmount, clusterBeforeWithdraw),
+      [
+        { address: clusterOwner.address, expectedDelta: withdrawAmount, accountForGas: true },
+        { address: harnessAddress, expectedDelta: -withdrawAmount },
+      ]);
     await trackGasFromReceipt(withdrawReceipt, [GasGroup.WITHDRAW_CLUSTER_BALANCE]);
     const clusterAfterWithdraw = parseClusterFromEvent(clusters, withdrawReceipt, Events.CLUSTER_WITHDRAWN);
-    const eventArgs = getClusterWithdrawnEventArgs(clusters, withdrawReceipt);
-
-    const ownerBalanceAfter = await provider.getBalance(clusterOwner.address);
-    const harnessBalanceAfter = await provider.getBalance(harnessAddress);
-    const gasCost = withdrawReceipt.gasUsed * (withdrawReceipt.effectiveGasPrice ?? withdrawReceipt.gasPrice);
-
-    await expect(withdrawTx).to.emit(clusters, Events.CLUSTER_WITHDRAWN);
+    const eventArgs = extractEventArgs(clusters, withdrawReceipt, Events.CLUSTER_WITHDRAWN);
 
     expect(eventArgs.owner).to.equal(clusterOwner.address);
     expect(eventArgs.operatorIds).to.deep.equal(operatorIds);
     expect(eventArgs.value).to.equal(withdrawAmount);
 
     expect(clusterAfterWithdraw.balance).to.equal(clusterBeforeWithdraw.balance - withdrawAmount);
-
-    expect(harnessBalanceBefore - harnessBalanceAfter).to.equal(withdrawAmount);
-    expect(ownerBalanceAfter - ownerBalanceBefore + BigInt(gasCost)).to.equal(withdrawAmount);
 
     await expect(clusters.withdraw(operatorIds, 1n, clusterBeforeWithdraw))
       .to.be.revertedWithCustomError(clusters, Errors.INCORRECT_CLUSTER_STATE);
@@ -118,7 +72,7 @@ describe("SSVClusters function `withdraw()`", async () => {
     await clusters.mockEthNetworkFee(0);
     await clusters.mockCurrentNetworkFeeIndex(0);
 
-    const clusterBeforeWithdraw = await registerCluster(clusters, operatorIds);
+    const clusterBeforeWithdraw = await registerAndParseCluster(clusters, operatorIds);
     await clusters.mockMinimumLiquidationCollateral(clusterBeforeWithdraw.balance);
 
     await expect(clusters.withdraw(
@@ -132,7 +86,7 @@ describe("SSVClusters function `withdraw()`", async () => {
     const { clusters, operatorIds } =
       await networkHelpers.loadFixture(deploySSVClustersWithLowFeesFixture);
 
-    const clusterBeforeWithdraw = await registerCluster(clusters, operatorIds);
+    const clusterBeforeWithdraw = await registerAndParseCluster(clusters, operatorIds);
 
     await connection.ethers.provider.send("evm_mine", []);
 
@@ -146,10 +100,10 @@ describe("SSVClusters function `withdraw()`", async () => {
     const withdrawReceipt = await withdrawTx.wait();
     const clusterAfterWithdraw = parseClusterFromEvent(clusters, withdrawReceipt, Events.CLUSTER_WITHDRAWN);
 
-    const units = clusterBeforeWithdraw.validatorCount * VUNITS_PRECISION;
+    const units = clusterBeforeWithdraw.validatorCount * BPS_DENOMINATOR;
     const idxOp = clusterAfterWithdraw.index - clusterBeforeWithdraw.index;
     const idxNet = maxUint64 - clusterBeforeWithdraw.networkFeeIndex;
-    const usageUnits = (idxOp * units) / VUNITS_PRECISION + (idxNet * units) / VUNITS_PRECISION;
+    const usageUnits = (idxOp * units) / BPS_DENOMINATOR + (idxNet * units) / BPS_DENOMINATOR;
     const wrappedUsageUnits = usageUnits & maxUint64;
     const overflowUnits = usageUnits >> 64n;
     const expectedUsageFromWrapped = wrappedUsageUnits + (overflowUnits << 64n);
@@ -185,7 +139,7 @@ describe("SSVClusters function `withdraw()`", async () => {
     const { clusters, operatorIds } =
       await networkHelpers.loadFixture(deploySSVClustersAndPrepareOperatorsFixture);
 
-    const clusterBeforeWithdraw = await registerCluster(clusters, operatorIds);
+    const clusterBeforeWithdraw = await registerAndParseCluster(clusters, operatorIds);
     const excessiveAmount = clusterBeforeWithdraw.balance + 1n;
 
     await expect(clusters.withdraw(
@@ -199,7 +153,7 @@ describe("SSVClusters function `withdraw()`", async () => {
     const { clusters, operatorIds } =
       await networkHelpers.loadFixture(deploySSVClustersAndPrepareOperatorsFixture);
 
-    const clusterBeforeWithdraw = await registerCluster(clusters, operatorIds);
+    const clusterBeforeWithdraw = await registerAndParseCluster(clusters, operatorIds);
 
     const mismatchedCluster = {
       ...clusterBeforeWithdraw,
@@ -217,7 +171,7 @@ describe("SSVClusters function `withdraw()`", async () => {
     const { clusters, operatorIds } =
       await networkHelpers.loadFixture(deploySSVClustersAndPrepareOperatorsFixture);
 
-    const clusterBeforeWithdraw = await registerCluster(clusters, operatorIds);
+    const clusterBeforeWithdraw = await registerAndParseCluster(clusters, operatorIds);
 
     await expect(clusters.connect(otherAccount).withdraw(
       operatorIds,
@@ -232,9 +186,7 @@ describe("SSVClusters function `withdraw()`", async () => {
 
     await clusters.mockEthNetworkFee(0);
     await clusters.mockCurrentNetworkFeeIndex(0);
-
-    // Register then liquidate the cluster
-    await registerCluster(clusters, operatorIds);
+    await registerAndParseCluster(clusters, operatorIds);
     await clusters.mockSetClusterLiquidated(clusterOwner.address, operatorIds);
 
     const liquidatedCluster = {
@@ -244,8 +196,6 @@ describe("SSVClusters function `withdraw()`", async () => {
       balance: 0n,
       active: false,
     };
-
-    // Deposit to the liquidated cluster in preparation for reactivation
     const depositAmount = ethers.parseEther("0.1");
     const depositTx = await clusters.deposit(
       clusterOwner.address,
@@ -255,28 +205,18 @@ describe("SSVClusters function `withdraw()`", async () => {
     );
     const depositReceipt = await depositTx.wait();
     const clusterAfterDeposit = parseClusterFromEvent(clusters, depositReceipt, Events.CLUSTER_DEPOSITED);
-
-    // Owner changes mind — withdraw the deposit without reactivating
-    const provider = connection.ethers.provider;
-    const ownerBalanceBefore = await provider.getBalance(clusterOwner.address);
     const harnessAddress = await clusters.getAddress();
-    const harnessBalanceBefore = await provider.getBalance(harnessAddress);
 
-    const withdrawTx = await clusters.withdraw(operatorIds, depositAmount, clusterAfterDeposit);
-    const withdrawReceipt: any = await withdrawTx.wait();
+    const { receipt: withdrawReceipt } = await expectETHDeltas(connection.ethers.provider,
+      () => clusters.withdraw(operatorIds, depositAmount, clusterAfterDeposit),
+      [
+        { address: clusterOwner.address, expectedDelta: depositAmount, accountForGas: true },
+        { address: harnessAddress, expectedDelta: -depositAmount },
+      ]);
     const clusterAfterWithdraw = parseClusterFromEvent(clusters, withdrawReceipt, Events.CLUSTER_WITHDRAWN);
 
-    const ownerBalanceAfter = await provider.getBalance(clusterOwner.address);
-    const harnessBalanceAfter = await provider.getBalance(harnessAddress);
-    const gasCost = withdrawReceipt.gasUsed * (withdrawReceipt.effectiveGasPrice ?? withdrawReceipt.gasPrice);
-
-    await expect(withdrawTx).to.emit(clusters, Events.CLUSTER_WITHDRAWN);
-
-    // Cluster balance returned to zero, ETH transferred back to owner
     expect(clusterAfterWithdraw.balance).to.equal(0n);
     expect(clusterAfterWithdraw.active).to.equal(false);
-    expect(harnessBalanceBefore - harnessBalanceAfter).to.equal(depositAmount);
-    expect(ownerBalanceAfter - ownerBalanceBefore + BigInt(gasCost)).to.equal(depositAmount);
   });
 
   it("Withdraws full balance from a liquidated cluster that received multiple deposits", async function () {
@@ -285,9 +225,7 @@ describe("SSVClusters function `withdraw()`", async () => {
 
     await clusters.mockEthNetworkFee(0);
     await clusters.mockCurrentNetworkFeeIndex(0);
-
-    // Register then liquidate
-    await registerCluster(clusters, operatorIds);
+    await registerAndParseCluster(clusters, operatorIds);
     await clusters.mockSetClusterLiquidated(clusterOwner.address, operatorIds);
 
     const liquidatedCluster = {
@@ -297,8 +235,6 @@ describe("SSVClusters function `withdraw()`", async () => {
       balance: 0n,
       active: false,
     };
-
-    // Two separate deposits
     const deposit1 = ethers.parseEther("0.05");
     const deposit2 = ethers.parseEther("0.03");
 
@@ -311,16 +247,12 @@ describe("SSVClusters function `withdraw()`", async () => {
     const clusterAfterDeposit2 = parseClusterFromEvent(clusters, receipt2, Events.CLUSTER_DEPOSITED);
 
     expect(clusterAfterDeposit2.balance).to.equal(deposit1 + deposit2);
-
-    // Withdraw the full accumulated balance
     const withdrawTx = await clusters.withdraw(operatorIds, deposit1 + deposit2, clusterAfterDeposit2);
     const withdrawReceipt: any = await withdrawTx.wait();
     const clusterAfterWithdraw = parseClusterFromEvent(clusters, withdrawReceipt, Events.CLUSTER_WITHDRAWN);
 
     expect(clusterAfterWithdraw.balance).to.equal(0n);
     expect(clusterAfterWithdraw.active).to.equal(false);
-
-    // Partial withdrawal should also succeed — confirm InsufficientBalance on over-withdrawal
     await expect(
       clusters.withdraw(operatorIds, 1n, clusterAfterWithdraw)
     ).to.be.revertedWithCustomError(clusters, Errors.INSUFFICIENT_BALANCE);
@@ -335,7 +267,7 @@ describe("SSVClusters function `withdraw()`", async () => {
     await clusters.mockMinimumLiquidationCollateral(94_000n);
     await clusters.mockCurrentNetworkFeeIndex(777n);
 
-    await registerCluster(clusters, operatorIds);
+    await registerAndParseCluster(clusters, operatorIds);
     await clusters.mockSetClusterLiquidated(clusterOwner.address, operatorIds);
 
     const liquidatedCluster = {
@@ -373,7 +305,7 @@ describe("SSVClusters function `withdraw()`", async () => {
     await clusters.mockMinimumLiquidationCollateral(0n);
     await clusters.mockEthNetworkFee(0n);
 
-    const cluster = await registerCluster(clusters, operatorIds);
+    const cluster = await registerAndParseCluster(clusters, operatorIds);
 
     const indexToDrainBalance = DEFAULT_ETH_REGISTER_VALUE / ETH_DEDUCTED_DIGITS + 1n;
     await clusters.mockCurrentNetworkFeeIndex(indexToDrainBalance);
@@ -389,12 +321,12 @@ describe("SSVClusters function `withdraw()`", async () => {
     const { clusters, operatorIds } =
       await networkHelpers.loadFixture(deploySSVClustersAndPrepareOperatorsFixture);
 
-    const cluster = await registerCluster(clusters, operatorIds);
-    const clusterId = getClusterId(clusterOwner.address, operatorIds);
+    const cluster = await registerAndParseCluster(clusters, operatorIds);
+    const clusterId = computeClusterId(clusterOwner.address, operatorIds);
     const effectiveBalance = 160;
     const ebBlockNum = 1;
 
-    await clusters.mockSetEBRoot(ebBlockNum, getEBRoot(clusterId, effectiveBalance));
+    await clusters.mockSetEBRoot(ebBlockNum, computeEBRoot(clusterId, effectiveBalance));
     const ebTx = await clusters.updateClusterBalance(
       ebBlockNum,
       clusterOwner.address,

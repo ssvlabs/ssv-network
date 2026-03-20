@@ -1,10 +1,11 @@
 import { expect } from "chai";
 import type { NetworkConnection } from "hardhat/types/network";
-import { getTestConnection } from "../../setup/connection.ts";
-import { ssvDAOHarnessFixture } from "../../setup/fixtures.ts";
+import { defaultDAOFixture } from "../../helpers/fixture-presets.ts";
 import type { NetworkHelpersType } from "../../common/types.ts";
 import { Events } from "../../common/events.ts";
+import { Errors } from "../../common/errors.ts";
 import { MAXIMUM_OPERATORS_FEE, ETH_DEDUCTED_DIGITS } from "../../common/constants.ts";
+import { setupTestContext } from "../../common/helpers.ts";
 import { trackGasFromReceipt, GasGroup } from "../../helpers/gas-usage.ts";
 
 describe("SSVDAO function `updateMaximumOperatorFee()`", async () => {
@@ -12,10 +13,10 @@ describe("SSVDAO function `updateMaximumOperatorFee()`", async () => {
   let networkHelpers: NetworkHelpersType;
 
   before(async function () {
-    ({ connection, networkHelpers } = await getTestConnection());
+    ({ connection, networkHelpers } = await setupTestContext());
   });
 
-  const deployDAOFixture = async () => ssvDAOHarnessFixture(connection);
+  const deployDAOFixture = async () => defaultDAOFixture(connection);
 
   it("Updates the maximum operator fee and emits event", async function () {
     const { dao } = await networkHelpers.loadFixture(deployDAOFixture);
@@ -71,5 +72,18 @@ describe("SSVDAO function `updateMaximumOperatorFee()`", async () => {
 
     const storedMaxFee = await dao.getOperatorMaxFee();
     expect(storedMaxFee * ETH_DEDUCTED_DIGITS).to.equal(secondMaxFee);
+  });
+
+  it("Reverts when the new maximum fee is below the configured minimum fee", async function () {
+    const { dao } = await networkHelpers.loadFixture(deployDAOFixture);
+
+    const currentMaxFee = MAXIMUM_OPERATORS_FEE;
+    const currentMinFee = 10_000_000_000n;
+
+    await dao.updateMaximumOperatorFee(currentMaxFee);
+    await dao.updateMinimumOperatorEthFee(currentMinFee);
+
+    await expect(dao.updateMaximumOperatorFee(currentMinFee - ETH_DEDUCTED_DIGITS))
+      .to.be.revertedWithCustomError(dao, Errors.INVALID_OPERATOR_FEE_RANGE);
   });
 });

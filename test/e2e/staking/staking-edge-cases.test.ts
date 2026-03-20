@@ -1,13 +1,13 @@
 import { expect } from "chai";
 import type { NetworkConnection } from "hardhat/types/network";
 import type { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/types";
-import { getTestConnection } from "../../setup/connection.ts";
 import { ssvNetworkFullFixture } from "../../setup/fixtures.ts";
 import type { NetworkHelpersType } from "../../common/types.ts";
 import {
   registerOperators,
   makePublicKey,
   whitelistAddresses,
+  setupTestContext,
 } from "../../common/helpers.ts";
 import { Errors } from "../../common/errors.ts";
 import { Events } from "../../common/events.ts";
@@ -16,7 +16,7 @@ import {
   DEFAULT_SHARES,
   EMPTY_CLUSTER,
   NETWORK_FEE,
-  VUNITS_PRECISION,
+  BPS_DENOMINATOR,
   ETH_DEDUCTED_DIGITS,
   DEFAULT_UNSTAKE_COOLDOWN,
 } from "../../common/constants.ts";
@@ -26,7 +26,7 @@ import {
   calcAccEthPerShareDelta,
   calcStakingReward,
   defaultVUnits,
-} from "../helpers/index.ts";
+} from "../../helpers/index.ts";
 
 const PRECISION = 10n ** 18n;
 const PACKED_NETWORK_FEE = NETWORK_FEE / ETH_DEDUCTED_DIGITS;
@@ -45,9 +45,7 @@ describe("E2E Staking Edge Cases", () => {
   let stakerB: HardhatEthersSigner;
 
   before(async function () {
-    ({ connection, networkHelpers } = await getTestConnection());
-    [deployer, operatorOwner, clusterOwner, stakerA, stakerB] =
-      await connection.ethers.getSigners();
+    ({ connection, networkHelpers, signers: [deployer, operatorOwner, clusterOwner, stakerA, stakerB] } = await setupTestContext());
     provider = connection.ethers.provider;
   });
 
@@ -97,7 +95,7 @@ describe("E2E Staking Edge Cases", () => {
 
       const postStakeBlocks = BigInt(claimBlock - stakeBlock);
       const vUnits = defaultVUnits(1n);
-      const earningsPerBlockPacked = (PACKED_NETWORK_FEE * vUnits) / VUNITS_PRECISION;
+      const earningsPerBlockPacked = (PACKED_NETWORK_FEE * vUnits) / BPS_DENOMINATOR;
       const expectedFeesPacked = earningsPerBlockPacked * postStakeBlocks;
       const expectedFeesWei = expectedFeesPacked * ETH_DEDUCTED_DIGITS;
 
@@ -188,7 +186,7 @@ describe("E2E Staking Edge Cases", () => {
       let totalClaimed = 0n;
       let lastClaimBlock = stakeBlock;
       const vUnits = defaultVUnits(1n);
-      const earningsPerBlockPacked = (PACKED_NETWORK_FEE * vUnits) / VUNITS_PRECISION;
+      const earningsPerBlockPacked = (PACKED_NETWORK_FEE * vUnits) / BPS_DENOMINATOR;
       let cumulativeAcc = 0n;
 
       for (let i = 0; i < 3; i++) {
@@ -316,13 +314,13 @@ describe("E2E Staking Edge Cases", () => {
   });
 
   describe("MINIMAL_STAKING_AMOUNT", () => {
-    it("Should revert with ZeroAmount for stake(0)", async function () {
+    it("Should revert with StakeTooLow for stake(0)", async function () {
       const { network } =
         await networkHelpers.loadFixture(deployFixture);
 
       await expect(
         network.connect(stakerA).stake(0n),
-      ).to.be.revertedWithCustomError(network, Errors.ZERO_AMOUNT);
+      ).to.be.revertedWithCustomError(network, Errors.STAKE_TOO_LOW);
     });
 
     it("Should revert with StakeTooLow for amount below minimum", async function () {
@@ -402,7 +400,7 @@ describe("E2E Staking Edge Cases", () => {
       const accEthPerShare = BigInt(parsed!.args[1]);
 
       const vUnits = defaultVUnits(1n);
-      const earningsPerBlockPacked = (PACKED_NETWORK_FEE * vUnits) / VUNITS_PRECISION;
+      const earningsPerBlockPacked = (PACKED_NETWORK_FEE * vUnits) / BPS_DENOMINATOR;
       const blockDiff = BigInt(syncBlock - stakeBlock);
       const expectedFeesWei = earningsPerBlockPacked * blockDiff * ETH_DEDUCTED_DIGITS;
       const expectedAcc = calcAccEthPerShareDelta(expectedFeesWei, stakeAmount);
@@ -500,7 +498,7 @@ describe("E2E Staking Edge Cases", () => {
       const reward = BigInt(balAfter) - balBefore + gasUsed;
 
       const vUnits = defaultVUnits(1n);
-      const earningsPerBlockPacked = (PACKED_NETWORK_FEE * vUnits) / VUNITS_PRECISION;
+      const earningsPerBlockPacked = (PACKED_NETWORK_FEE * vUnits) / BPS_DENOMINATOR;
 
       const phase1Blocks = BigInt(unstakeBlock - stakeBlock);
       const phase1FeesWei = earningsPerBlockPacked * phase1Blocks * ETH_DEDUCTED_DIGITS;
@@ -517,6 +515,98 @@ describe("E2E Staking Edge Cases", () => {
 
       expect(reward).to.equal(expectedPayout);
       expect(reward % ETH_DEDUCTED_DIGITS).to.equal(0n);
+    });
+
+    it("Claiming twice in the same block only pays once", async function () {
+      const { network, ssvToken } =
+        await networkHelpers.loadFixture(deployFixture);
+
+      const operatorIds = await registerOperators(network, operatorOwner, 4);
+      await whitelistAddresses(network, operatorOwner, operatorIds, [
+        clusterOwner.address,
+      ]);
+
+      await network.connect(clusterOwner).registerValidator(
+        makePublicKey(1),
+        operatorIds,
+        DEFAULT_SHARES,
+        EMPTY_CLUSTER,
+        { value: DEFAULT_ETH_REGISTER_VALUE },
+      );
+
+      const stakeAmount = 10n * PRECISION;
+      await ssvToken.connect(deployer).transfer(stakerA.address, stakeAmount);
+      await ssvToken
+        .connect(stakerA)
+        .approve(await network.getAddress(), stakeAmount);
+      const stakeBlock = await getTxBlock(
+        await network.connect(stakerA).stake(stakeAmount),
+      );
+
+      await mineBlocks(provider, 100);
+
+      const balBefore = await provider.getBalance(stakerA.address);
+      const baseNonce = await provider.getTransactionCount(
+        stakerA.address,
+        "pending",
+      );
+      const networkAddress = await network.getAddress();
+      const claimRewardsData =
+        network.interface.encodeFunctionData("claimEthRewards");
+
+      await provider.send("evm_setAutomine", [false]);
+
+      let firstClaimTx;
+      let secondClaimTx;
+      let firstReceipt;
+      let secondReceipt;
+
+      try {
+        firstClaimTx = await stakerA.sendTransaction({
+          to: networkAddress,
+          data: claimRewardsData,
+          gasLimit: 1_000_000n,
+          nonce: baseNonce,
+        });
+        secondClaimTx = await stakerA.sendTransaction({
+          to: networkAddress,
+          data: claimRewardsData,
+          gasLimit: 1_000_000n,
+          nonce: baseNonce + 1,
+        });
+
+        await provider.send("evm_mine", []);
+
+        firstReceipt = await firstClaimTx.wait();
+        secondReceipt = await secondClaimTx.wait().catch((error: any) => {
+          return error.receipt;
+        });
+      } finally {
+        await provider.send("evm_setAutomine", [true]);
+      }
+
+      const balAfter = await provider.getBalance(stakerA.address);
+      const gasUsedFirst = firstReceipt!.gasUsed * firstReceipt!.gasPrice;
+      const gasUsedSecond = secondReceipt!.gasUsed * secondReceipt!.gasPrice;
+      const rewardPaid =
+        BigInt(balAfter) - balBefore + gasUsedFirst + gasUsedSecond;
+
+      const claimBlock = firstReceipt!.blockNumber;
+      const vUnits = defaultVUnits(1n);
+      const earningsPerBlockPacked =
+        (PACKED_NETWORK_FEE * vUnits) / BPS_DENOMINATOR;
+      const blockDiff = BigInt(claimBlock - stakeBlock);
+      const totalEarningsWei =
+        earningsPerBlockPacked * blockDiff * ETH_DEDUCTED_DIGITS;
+      const accDelta = calcAccEthPerShareDelta(totalEarningsWei, stakeAmount);
+      const expectedReward = calcStakingReward(stakeAmount, accDelta, 0n);
+      const expectedPayout =
+        expectedReward - (expectedReward % ETH_DEDUCTED_DIGITS);
+
+      expect(firstReceipt!.status).to.equal(1);
+      expect(secondReceipt!.status).to.equal(0);
+      expect(firstReceipt!.blockNumber).to.equal(secondReceipt!.blockNumber);
+      expect(rewardPaid).to.equal(expectedPayout);
     });
   });
 });

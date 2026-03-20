@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity 0.8.24;
 
-import "../interfaces/ISSVNetworkCore.sol";
+import {ISSVNetworkCore} from "../interfaces/ISSVNetworkCore.sol";
 import {StorageData} from "./storage/SSVStorage.sol";
 
 /**
@@ -51,7 +51,7 @@ library ValidatorLib {
         bytes32 hashedPk = keccak256(abi.encodePacked(publicKey, owner));
 
         if (s.validatorPKs[hashedPk] != bytes32(0)) {
-            revert ISSVNetworkCore.ValidatorAlreadyExistsWithData(publicKey);
+            revert ISSVNetworkCore.ValidatorAlreadyRegistered(publicKey, owner);
         }
 
         s.validatorPKs[hashedPk] = bytes32(uint256(keccak256(abi.encodePacked(operatorIds))) | uint256(0x01)); // set LSB to 1

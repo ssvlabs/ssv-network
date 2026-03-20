@@ -84,6 +84,23 @@ contract SSVValidatorsHarness is SSVValidators {
         return SSVStorage.load().ethClusters[hashedCluster];
     }
 
+    function getSSVClusterHash(bytes32 hashedCluster) external view returns (bytes32) {
+        return SSVStorage.load().clusters[hashedCluster];
+    }
+
+    function getOperatorValidatorCount(uint64 operatorId) external view returns (uint32) {
+        return SSVStorage.load().operators[operatorId].validatorCount;
+    }
+
+    function getDaoValidatorCount() external view returns (uint32) {
+        return SSVStorageProtocol.load().daoValidatorCount;
+    }
+
+    function getOperatorSnapshot(uint64 operatorId) external view returns (uint64 index, uint32 blockNumber, uint64 balance) {
+        ISSVNetworkCore.Snapshot storage snap = SSVStorage.load().operators[operatorId].snapshot;
+        return (snap.index, snap.block, PackedSSV.unwrap(snap.balance));
+    }
+
     function getOperatorEthValidatorCount(uint64 operatorId) external view returns (uint32) {
         return SSVStorage.load().operators[operatorId].ethValidatorCount;
     }
@@ -112,7 +129,7 @@ contract SSVValidatorsHarness is SSVValidators {
     function getEffectiveOperatorVUnits(uint64 operatorId) external view returns (uint64) {
         StorageData storage s = SSVStorage.load();
         StorageEB storage seb = SSVStorageEB.load();
-        uint64 baseline = uint64(s.operators[operatorId].ethValidatorCount) * VUNITS_PRECISION;
+        uint64 baseline = uint64(s.operators[operatorId].ethValidatorCount) * BPS_DENOMINATOR;
         uint64 deviation = seb.operatorEthVUnits[operatorId];
         return baseline + deviation;
     }

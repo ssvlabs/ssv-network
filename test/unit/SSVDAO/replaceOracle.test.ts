@@ -1,11 +1,11 @@
 import { expect } from "chai";
 import type { NetworkConnection } from "hardhat/types/network";
 import type { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/types";
-import { getTestConnection } from "../../setup/connection.ts";
-import { ssvDAOHarnessFixture } from "../../setup/fixtures.ts";
+import { defaultDAOFixture } from "../../helpers/fixture-presets.ts";
 import type { NetworkHelpersType } from "../../common/types.ts";
 import { Events } from "../../common/events.ts";
 import { Errors } from "../../common/errors.ts";
+import { setupTestContext } from "../../common/helpers.ts";
 import { trackGasFromReceipt, GasGroup } from "../../helpers/gas-usage.ts";
 import { ethers } from "ethers";
 
@@ -19,12 +19,10 @@ describe("SSVDAO function `replaceOracle()`", async () => {
   let otherOracle: HardhatEthersSigner;
 
   before(async function () {
-    ({ connection, networkHelpers } = await getTestConnection());
-
-    [owner, oldOracle, newOracle, otherOracle] = await connection.ethers.getSigners();
+    ({ connection, networkHelpers, signers: [owner, oldOracle, newOracle, otherOracle] } = await setupTestContext());
   });
 
-  const deployDAOFixture = async () => ssvDAOHarnessFixture(connection);
+  const deployDAOFixture = async () => defaultDAOFixture(connection);
 
   it("Replaces an oracle and emits OracleReplaced event", async function () {
     const { dao } = await networkHelpers.loadFixture(deployDAOFixture);
@@ -65,11 +63,11 @@ describe("SSVDAO function `replaceOracle()`", async () => {
     expect(newOracleId).to.equal(1);
   });
 
-  it("Is reverted with 'ZeroAmount' when oracle ID is zero", async function () {
+  it("Is reverted with 'InvalidOracleId' when oracle ID is zero", async function () {
     const { dao } = await networkHelpers.loadFixture(deployDAOFixture);
 
     await expect(dao.replaceOracle(0, newOracle.address))
-      .to.be.revertedWithCustomError(dao, Errors.ZERO_AMOUNT);
+      .to.be.revertedWithCustomError(dao, Errors.INVALID_ORACLE_ID);
   });
 
   it("Is reverted with 'ZeroAddress' when new oracle address is zero", async function () {
@@ -89,19 +87,13 @@ describe("SSVDAO function `replaceOracle()`", async () => {
       .to.be.revertedWithCustomError(dao, Errors.ORACLE_ALREADY_ASSIGNED);
   });
 
-  it("Emits event without changes when replacing with same address", async function () {
+  it("Is reverted with 'SameOracleAddressNotAllowed' when replacing with same address", async function () {
     const { dao } = await networkHelpers.loadFixture(deployDAOFixture);
 
     await dao.mockSetOracle(1, oldOracle.address);
 
-    const tx = await dao.replaceOracle(1, oldOracle.address);
-
-    await expect(tx)
-      .to.emit(dao, Events.ORACLE_REPLACED)
-      .withArgs(1, oldOracle.address, oldOracle.address);
-
-    const storedOracle = await dao.getOracleAddress(1);
-    expect(storedOracle).to.equal(oldOracle.address);
+    await expect(dao.replaceOracle(1, oldOracle.address))
+      .to.be.revertedWithCustomError(dao, Errors.SAME_ORACLE_ADDRESS_NOT_ALLOWED);
   });
 
   it("Can replace an oracle with ID that had no previous address", async function () {

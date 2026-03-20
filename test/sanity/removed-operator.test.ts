@@ -1,9 +1,8 @@
 import type { NetworkConnection } from 'hardhat/types/network';
 import type { NetworkHelpersType } from '../common/types.js';
 import type { HardhatEthersSigner } from '@nomicfoundation/hardhat-ethers/types';
-import { getTestConnection } from '../setup/connection.js';
 import { ssvNetworkFullFixture } from '../setup/fixtures.js';
-import { getCurrentClusterState, makePublicKey, registerOperators, whitelistAddresses } from '../common/helpers.js';
+import { getCurrentClusterState, makePublicKey, registerOperators, setupTestContext, whitelistAddresses } from '../common/helpers.js';
 import {
   DEFAULT_ETH_REGISTER_VALUE,
   DEFAULT_SHARES,
@@ -21,8 +20,7 @@ describe("Cluster with a removed operator sanity test", () => {
   let clusterOwner: HardhatEthersSigner;
 
   before(async function () {
-    ({ connection, networkHelpers } = await getTestConnection());
-    [operatorOwner, clusterOwner] = await connection.ethers.getSigners();
+    ({ connection, networkHelpers, signers: [operatorOwner, clusterOwner] } = await setupTestContext());
   });
 
   const deployFullSSVNetworkFixture = async () => {
@@ -51,8 +49,6 @@ describe("Cluster with a removed operator sanity test", () => {
       clusterOwner.address,
       operatorIds
     );
-
-    // make cluster liquidatable
     await networkHelpers.mine(100);
     await network.connect(operatorOwner).removeOperator(operatorIds[2]);
     await networkHelpers.mine(999999999999);
