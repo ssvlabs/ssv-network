@@ -7,7 +7,7 @@
   "ssvNetworkViews": "0xafE830B6Ee262ba11cce5F32fDCd760FFE6a66e4",
   "ssvToken": "0x9D65fF81a3c488d585bBfb0Bfe3c7707c7917f54",
   "cooldownDuration": 604800,
-  "upgradeTimestamp": 24684128,
+  "upgradeTimestamp": 1774351800,
   "quorumBps": 7500,
   "defaultOracleIds": [1, 2, 3, 4],
   "protocolParams": {
