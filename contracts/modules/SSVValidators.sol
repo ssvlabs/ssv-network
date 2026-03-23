@@ -214,6 +214,7 @@ contract SSVValidators is ISSVValidators {
                             // Skip for liquidated clusters: deviation already cleaned up in _executeLiquidation
                             uint256 operatorsLength = operatorIds.length;
                             for (uint256 i; i < operatorsLength; ++i) {
+                                if (s.operators[operatorIds[i]].ethSnapshot.block == 0) continue;
                                 seb.operatorEthVUnits[operatorIds[i]] -= remainingVUnits;
                             }
                             StorageProtocol storage sp = SSVStorageProtocol.load();
