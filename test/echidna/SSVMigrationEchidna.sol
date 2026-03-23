@@ -89,6 +89,11 @@ contract SSVMigrationEchidna is SSVClusters, SSVOperators(0), SSVDAO {
     bool private accountingViolation;
     bool private removedEthInitViolation;
     bool private removedStateViolation;
+    bool private migrationObserved;
+    bool private migrationValidatorShiftViolation;
+    uint32 private daoValidatorCountBeforeMigration;
+    uint32 private ethDaoValidatorCountBeforeMigration;
+    uint32 private migratedValidatorCount;
 
     mapping(uint64 => bool) private removedTracked;
     mapping(uint64 => bool) private removedBeforeMigration;
@@ -186,12 +191,32 @@ contract SSVMigrationEchidna is SSVClusters, SSVOperators(0), SSVDAO {
         if (amount > unallocatedEth) return;
 
         uint256 ownerTokenBefore = token.balanceOf(ssvRecord.owner);
+        uint32 daoBefore = sp.daoValidatorCount;
+        uint32 ethDaoBefore = sp.ethDaoValidatorCount;
+        uint32 validatorsMigrated = clusterBefore.validatorCount;
         MigrationClusterUser owner = clusterOwner;
         try owner.migrateToETH{value: amount}(operatorIds, clusterBefore) {
             uint256 ownerTokenAfter = token.balanceOf(ssvRecord.owner);
             uint256 actualRefund = ownerTokenAfter - ownerTokenBefore;
             if (actualRefund != expectedRefund) {
                 accountingViolation = true;
+            }
+
+            migrationObserved = true;
+            daoValidatorCountBeforeMigration = daoBefore;
+            ethDaoValidatorCountBeforeMigration = ethDaoBefore;
+            migratedValidatorCount = validatorsMigrated;
+
+            uint32 daoAfter = sp.daoValidatorCount;
+            uint32 ethDaoAfter = sp.ethDaoValidatorCount;
+            if (daoAfter != daoBefore - validatorsMigrated) {
+                migrationValidatorShiftViolation = true;
+            }
+            if (ethDaoAfter != ethDaoBefore + validatorsMigrated) {
+                migrationValidatorShiftViolation = true;
+            }
+            if (uint256(daoAfter) + uint256(ethDaoAfter) != uint256(daoBefore) + uint256(ethDaoBefore)) {
+                migrationValidatorShiftViolation = true;
             }
 
             for (uint256 i; i < operatorIds.length; ++i) {
@@ -215,6 +240,20 @@ contract SSVMigrationEchidna is SSVClusters, SSVOperators(0), SSVDAO {
 
     function echidna_migration_removed_operator_not_eth_initialized() external view returns (bool) {
         return !removedEthInitViolation;
+    }
+
+    function echidna_migration_net_zero_validators() external view returns (bool) {
+        if (!migrationObserved) return true;
+
+        StorageProtocol storage sp = SSVStorageProtocol.load();
+        if (sp.daoValidatorCount != daoValidatorCountBeforeMigration - migratedValidatorCount) return false;
+        if (sp.ethDaoValidatorCount != ethDaoValidatorCountBeforeMigration + migratedValidatorCount) return false;
+        if (
+            uint256(sp.daoValidatorCount) + uint256(sp.ethDaoValidatorCount) !=
+            uint256(daoValidatorCountBeforeMigration) + uint256(ethDaoValidatorCountBeforeMigration)
+        ) return false;
+
+        return !migrationValidatorShiftViolation;
     }
 
     function echidna_removed_operator_state_and_frozen_index_preserved() external view returns (bool) {

@@ -1,6 +1,7 @@
 # Echidna Invariant Coverage Report
 
 **Generated:** 2026-03-19
+**Last updated:** 2026-03-23
 **Sources:** SPEC.md, FLOWS.md, MAINNET-READINESS.md, echidna test files, unit/integration tests
 
 ---
@@ -252,10 +253,10 @@ Some gaps above ARE tested in the JS test suite but NOT under fuzzing:
 ## 5. Recommended Implementation Order
 
 ### Phase 1: Global Accounting Invariants (HIGH impact, moderate effort)
-1. **A3** - Add `echidna_dao_validator_count_consistent` to SSVAccountingEchidna
-2. **A9** - Add `echidna_cluster_version_exclusive` to SSVAccountingEchidna
-3. **A10** - Add `echidna_operator_total_validators_consistent` to SSVAccountingEchidna
-4. **E3** - Add `echidna_migration_net_zero_validators` to SSVMigrationEchidna
+1. **A3** - Add `echidna_dao_validator_count_consistent` to SSVAccountingEchidna `[DONE 2026-03-23]`
+2. **A9** - Add `echidna_cluster_version_exclusive` to SSVAccountingEchidna `[DONE 2026-03-23]`
+3. **A10** - Add `echidna_operator_total_validators_consistent` to SSVAccountingEchidna `[DONE 2026-03-23]`
+4. **E3** - Add `echidna_migration_net_zero_validators` to SSVMigrationEchidna `[DONE 2026-03-23]`
 
 ### Phase 2: Fee Calculation Correctness (HIGH impact, higher effort)
 5. **B7** - Add `echidna_implicit_eb_default_used` to SSVClustersEchidna
@@ -284,3 +285,35 @@ Some gaps above ARE tested in the JS test suite but NOT under fuzzing:
 20. **F9** - Add `echidna_failed_quorum_persists` to SSVDAOEchidna
 21. **F10** - Add `echidna_revote_different_root_succeeds` to SSVDAOEchidna
 22. **F11** - Extend existing dust-round tests in SSVDAOEchidna
+
+### Progress
+
+| Phase | Scope | Status |
+|------|-------|--------|
+| Phase 1 | Global accounting invariants (`A3`, `A9`, `A10`, `E3`) | COMPLETED |
+| Phase 2 | Fee calculation correctness (`B7`, `B8`, `B9`) | NOT STARTED |
+| Phase 3 | Staking reward edge cases (`C8`, `C9`, `C10`) | NOT STARTED |
+| Phase 4 | Cluster lifecycle edges (`B11`, `C11`, `D3`, `D4`, `D6`) | NOT STARTED |
+| Phase 5 | Operator lifecycle (`G1`, `G2`, `G6`) | NOT STARTED |
+| Phase 6 | Token & oracle edges (`C12`, `F9`, `F10`, `F11`) | NOT STARTED |
+
+### Phase 1 Completion
+
+| Gap ID | Invariant | Harness | Status |
+|-------|-----------|---------|--------|
+| A3 | `echidna_dao_validator_count_consistent` | `SSVAccountingEchidna.sol` | COMPLETED |
+| A9 | `echidna_cluster_version_exclusive` | `SSVAccountingEchidna.sol` | COMPLETED |
+| A10 | `echidna_operator_total_validators_consistent` | `SSVAccountingEchidna.sol` | COMPLETED |
+| E3 | `echidna_migration_net_zero_validators` | `SSVMigrationEchidna.sol` | COMPLETED |
+
+### Phase 1 Validation
+
+| Check | Result |
+|------|--------|
+| `npx hardhat compile` | PASS |
+| `echidna test/echidna/SSVAccountingEchidna.sol --contract SSVAccountingEchidna --config test/echidna/echidna.yaml` | PASS |
+| `echidna test/echidna/SSVMigrationEchidna.sol --contract SSVMigrationEchidna --config test/echidna/echidna.yaml` | PASS |
+| `SSVAccountingEchidna` with seed `8525641213984558505` | PASS |
+| `SSVAccountingEchidna` with seed `985768268619296310` | PASS |
+| `SSVMigrationEchidna` with seed `8525641213984558505` | PASS |
+| `SSVMigrationEchidna` with seed `985768268619296310` | PASS |

@@ -198,7 +198,7 @@ contract SSVAccountingEchidna is SSVClusters, SSVOperators(0), SSVDAO {
         uint64[] memory operatorIdsLocal = _operatorIdsForKey(operatorsKey);
         bytes32 clusterId = keccak256(abi.encodePacked(owner, operatorIdsLocal));
 
-        if (ethClusters[clusterId].exists) return;
+        if (ethClusters[clusterId].exists || ssvClusters[clusterId].exists || migratedSet[clusterId]) return;
 
         uint32 validatorCount = uint32((seed >> 16) % 6) + 1;
 
@@ -230,7 +230,7 @@ contract SSVAccountingEchidna is SSVClusters, SSVOperators(0), SSVDAO {
         uint64[] memory operatorIdsLocal = _operatorIdsForKey(operatorsKey);
         bytes32 clusterId = keccak256(abi.encodePacked(owner, operatorIdsLocal));
 
-        if (ssvClusters[clusterId].exists || migratedSet[clusterId]) return;
+        if (ssvClusters[clusterId].exists || ethClusters[clusterId].exists || migratedSet[clusterId]) return;
 
         uint32 validatorCount = uint32((seed >> 16) % 6) + 1;
 
@@ -638,6 +638,57 @@ contract SSVAccountingEchidna is SSVClusters, SSVOperators(0), SSVDAO {
         return true;
     }
 
+    function echidna_dao_validator_count_consistent() external view returns (bool) {
+        return uint256(SSVStorageProtocol.load().ethDaoValidatorCount) == uint256(_expectedEthDaoValidatorCount());
+    }
+
+    function echidna_cluster_version_exclusive() external view returns (bool) {
+        StorageData storage s = SSVStorage.load();
+
+        for (uint256 i; i < ethClusterIds.length; ++i) {
+            bytes32 clusterId = ethClusterIds[i];
+            ClusterRecord storage record = ethClusters[clusterId];
+            if (!record.exists) continue;
+            if (s.ethClusters[clusterId] == 0) return false;
+            if (s.clusters[clusterId] != 0) return false;
+        }
+
+        for (uint256 i; i < ssvClusterIds.length; ++i) {
+            bytes32 clusterId = ssvClusterIds[i];
+            ClusterRecord storage record = ssvClusters[clusterId];
+            if (!record.exists) continue;
+            if (s.clusters[clusterId] == 0) return false;
+            if (s.ethClusters[clusterId] != 0) return false;
+        }
+
+        for (uint256 i; i < migratedClusterIds.length; ++i) {
+            bytes32 clusterId = migratedClusterIds[i];
+            if (s.ethClusters[clusterId] == 0) return false;
+            if (s.clusters[clusterId] != 0) return false;
+        }
+
+        return true;
+    }
+
+    function echidna_operator_total_validators_consistent() external view returns (bool) {
+        StorageData storage s = SSVStorage.load();
+
+        for (uint256 i; i < operatorIds.length; ++i) {
+            uint64 operatorId = operatorIds[i];
+            (uint32 expectedSsv, uint32 expectedEth) = _expectedOperatorCounts(operatorId);
+
+            ISSVNetworkCore.Operator storage operator = s.operators[operatorId];
+            if (operator.validatorCount != expectedSsv) return false;
+            if (operator.ethValidatorCount != expectedEth) return false;
+            if (
+                uint256(operator.validatorCount) + uint256(operator.ethValidatorCount) !=
+                uint256(expectedSsv) + uint256(expectedEth)
+            ) return false;
+        }
+
+        return true;
+    }
+
     function echidna_migration_one_way() external view returns (bool) {
         StorageData storage s = SSVStorage.load();
         for (uint256 i; i < migratedClusterIds.length; ++i) {
@@ -767,6 +818,48 @@ contract SSVAccountingEchidna is SSVClusters, SSVOperators(0), SSVDAO {
         ids[1] = op2;
         ids[2] = op3;
         return ids;
+    }
+
+    function _clusterContainsOperator(uint8 operatorsKey, uint64 operatorId) internal view returns (bool) {
+        uint64[] memory ids = _operatorIdsForKey(operatorsKey);
+        for (uint256 i; i < ids.length; ++i) {
+            if (ids[i] == operatorId) return true;
+        }
+        return false;
+    }
+
+    function _expectedEthDaoValidatorCount() internal view returns (uint32 expected) {
+        for (uint256 i; i < ethClusterIds.length; ++i) {
+            ClusterRecord storage record = ethClusters[ethClusterIds[i]];
+            if (!record.exists || !record.cluster.active) continue;
+            expected += record.cluster.validatorCount;
+        }
+
+        for (uint256 i; i < migratedClusterIds.length; ++i) {
+            expected += ssvClusters[migratedClusterIds[i]].cluster.validatorCount;
+        }
+    }
+
+    function _expectedOperatorCounts(uint64 operatorId) internal view returns (uint32 expectedSsv, uint32 expectedEth) {
+        for (uint256 i; i < ssvClusterIds.length; ++i) {
+            ClusterRecord storage record = ssvClusters[ssvClusterIds[i]];
+            if (!record.exists || !record.cluster.active) continue;
+            if (!_clusterContainsOperator(record.operatorsKey, operatorId)) continue;
+            expectedSsv += record.cluster.validatorCount;
+        }
+
+        for (uint256 i; i < ethClusterIds.length; ++i) {
+            ClusterRecord storage record = ethClusters[ethClusterIds[i]];
+            if (!record.exists || !record.cluster.active) continue;
+            if (!_clusterContainsOperator(record.operatorsKey, operatorId)) continue;
+            expectedEth += record.cluster.validatorCount;
+        }
+
+        for (uint256 i; i < migratedClusterIds.length; ++i) {
+            ClusterRecord storage record = ssvClusters[migratedClusterIds[i]];
+            if (!_clusterContainsOperator(record.operatorsKey, operatorId)) continue;
+            expectedEth += record.cluster.validatorCount;
+        }
     }
 
     function _pickEthClusterId(uint256 seed) internal view returns (bytes32) {
