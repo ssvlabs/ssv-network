@@ -78,6 +78,11 @@ upgrade env network="":
 generate-safe-batch env="mainnet":
     npx tsx scripts/generate-safe-batch.ts --env {{env}}
 
+# Simulate a queued SAFE transaction on a local fork, verify the post-state, then run fork tests
+simulate-safe-upgrade env tx_file network="local":
+    npx hardhat compile --force
+    npx tsx scripts/simulate-safe-upgrade.ts --env {{env}} --tx-file {{tx_file}} --network {{network}}
+
 # Generate deployment attestation (bytecode hashes + config summary for committee review)
 generate-attestation env="mainnet" network="":
     npx tsx scripts/generate-deployment-attestation.ts --env {{env}} {{ if network == "" { "" } else { "--network " + network } }}

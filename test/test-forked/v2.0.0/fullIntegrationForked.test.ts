@@ -20,6 +20,8 @@ import {
   DEFAULT_SHARES, DEFAULT_UNSTAKE_COOLDOWN,
   EMPTY_CLUSTER,
   EXECUTE_OPERATOR_FEE_PERIOD,
+  BPS_DENOMINATOR,
+  INITIAL_STAKE_AMOUNT,
   MAXIMUM_OPERATORS_FEE,
   MINIMAL_LIQUIDATION_THRESHOLD,
   MINIMAL_OPERATOR_ETH_FEE,
@@ -89,7 +91,7 @@ suite("SSVNetwork full integration tests made on forked contract", () => {
       await expect(await views.cooldownDuration()).to.equal(DEFAULT_UNSTAKE_COOLDOWN);
 
       await expect(await views.getNetworkEarnings()).to.equal(0n);
-      await expect(await views.totalStaked()).to.equal(0n);
+      await expect(await views.totalStaked()).to.equal(INITIAL_STAKE_AMOUNT);
     });
   });
 
@@ -1228,7 +1230,7 @@ suite("SSVNetwork full integration tests made on forked contract", () => {
       const { network } =
         await networkHelpers.loadFixture(deployFullSSVNetworkForkFixture);
 
-      await expect(network.connect(randomUser).updateOperatorFeeIncreaseLimit(OPERATOR_MAX_FEE_INCREASE + 1n))
+      await expect(network.connect(randomUser).updateOperatorFeeIncreaseLimit(OPERATOR_MAX_FEE_INCREASE))
         .to.be.revertedWith(Errors.OWNABLE_CALLER_NOT_OWNER);
     });
 
@@ -1236,7 +1238,7 @@ suite("SSVNetwork full integration tests made on forked contract", () => {
       const { network, daoSigner } =
         await networkHelpers.loadFixture(deployFullSSVNetworkForkFixture);
 
-      await expect(network.connect(daoSigner).updateOperatorFeeIncreaseLimit(OPERATOR_MAX_FEE_INCREASE + 1n))
+      await expect(network.connect(daoSigner).updateOperatorFeeIncreaseLimit(BPS_DENOMINATOR + 1n))
         .to.be.revertedWithCustomError(network, Errors.INVALID_OPERATOR_FEE_INCREASE_LIMIT);
     });
   });
