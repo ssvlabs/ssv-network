@@ -20,6 +20,8 @@ import {
   DEFAULT_SHARES, DEFAULT_UNSTAKE_COOLDOWN,
   EMPTY_CLUSTER,
   EXECUTE_OPERATOR_FEE_PERIOD,
+  BPS_DENOMINATOR,
+  INITIAL_STAKE_AMOUNT,
   MAXIMUM_OPERATORS_FEE,
   MINIMAL_LIQUIDATION_THRESHOLD,
   MINIMAL_OPERATOR_ETH_FEE,
@@ -71,7 +73,6 @@ suite("SSVNetwork full integration tests made on forked contract", () => {
       const { network, views, cssvToken, ssvToken } =
         await networkHelpers.loadFixture(deployFullSSVNetworkForkFixture);
 
-      // todo work on params
       await expect(await network.getAddress()).to.be.equal(ForkConfig.SSV_NETWORK_ADDRESS);
       await expect(await views.getAddress()).to.be.equal(ForkConfig.SSV_NETWORK_VIEWS);
       await expect(await ssvToken.getAddress()).to.be.equal(ForkConfig.SSV_TOKEN);
@@ -90,7 +91,7 @@ suite("SSVNetwork full integration tests made on forked contract", () => {
       await expect(await views.cooldownDuration()).to.equal(DEFAULT_UNSTAKE_COOLDOWN);
 
       await expect(await views.getNetworkEarnings()).to.equal(0n);
-      await expect(await views.totalStaked()).to.equal(0n);
+      await expect(await views.totalStaked()).to.equal(INITIAL_STAKE_AMOUNT);
     });
   });
 
@@ -184,7 +185,6 @@ suite("SSVNetwork full integration tests made on forked contract", () => {
 
       const operator: OperatorTuple = await views.getOperatorById(expectedId)
 
-      // todo check how to make typed, maybe cast to object like cluster
       await expect(operator[5]).to.be.equal(false)
       await expect(await views.getOperatorFee(expectedId)).to.be.equal(0);
     });
@@ -593,7 +593,6 @@ suite("SSVNetwork full integration tests made on forked contract", () => {
         .withArgs(operatorIds, true);
 
       const operator: OperatorTuple = await views.getOperatorById(operatorIds[0]);
-      // todo type
       await expect(operator[4]).to.be.equal(true); //isPrivate
     });
 
@@ -635,7 +634,6 @@ suite("SSVNetwork full integration tests made on forked contract", () => {
         .withArgs(operatorIds, false);
 
       const operator: OperatorTuple = await views.getOperatorById(operatorIds[0]);
-      // todo type
       await expect(operator[4]).to.be.equal(false); //isPrivate
     });
 
@@ -686,7 +684,6 @@ suite("SSVNetwork full integration tests made on forked contract", () => {
         .to.emit(network, Events.OPERATOR_FEE_DECLARED)
         .withArgs(operatorOwner.address, operatorIds[0], tx.blockNumber, newFee);
 
-      // todo type
       await expect(await views.getOperatorDeclaredFee(operatorIds[0]))
         .to.be.deep.equal([
         true, // isActive
@@ -1233,7 +1230,7 @@ suite("SSVNetwork full integration tests made on forked contract", () => {
       const { network } =
         await networkHelpers.loadFixture(deployFullSSVNetworkForkFixture);
 
-      await expect(network.connect(randomUser).updateOperatorFeeIncreaseLimit(OPERATOR_MAX_FEE_INCREASE + 1n))
+      await expect(network.connect(randomUser).updateOperatorFeeIncreaseLimit(OPERATOR_MAX_FEE_INCREASE))
         .to.be.revertedWith(Errors.OWNABLE_CALLER_NOT_OWNER);
     });
 
@@ -1241,7 +1238,7 @@ suite("SSVNetwork full integration tests made on forked contract", () => {
       const { network, daoSigner } =
         await networkHelpers.loadFixture(deployFullSSVNetworkForkFixture);
 
-      await expect(network.connect(daoSigner).updateOperatorFeeIncreaseLimit(OPERATOR_MAX_FEE_INCREASE + 1n))
+      await expect(network.connect(daoSigner).updateOperatorFeeIncreaseLimit(BPS_DENOMINATOR + 1n))
         .to.be.revertedWithCustomError(network, Errors.INVALID_OPERATOR_FEE_INCREASE_LIMIT);
     });
   });

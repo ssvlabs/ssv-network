@@ -15,7 +15,10 @@ This playbook is aligned with the repository deployment flow in `deployments/REA
 
 - `just deploy mainnet`
 - `just generate-safe-batch mainnet`
+- `just simulate-safe-upgrade mainnet <tx-file>`
 - `just verify-upgrade mainnet`
+
+For the exact local SAFE fork dry-run flow, see [SAFE_UPGRADE_SIMULATION_PLAYBOOK.md](./SAFE_UPGRADE_SIMULATION_PLAYBOOK.md).
 
 ## Version Scope
 

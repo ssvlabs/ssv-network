@@ -5,6 +5,7 @@ export type ForkConfigFile = {
   ssvNetworkProxy?: string;
   ssvNetworkAddress?: string;
   ssvNetworkViews?: string;
+  initialStakeAmount?: string | number;
   forkBlockNumber?: string | number;
   deployments?: {
     forkBlockNumber?: string | number;
@@ -140,5 +141,6 @@ export function buildForkTestEnv(
     FORK_DEFAULT_UNSTAKE_COOLDOWN: toEnvValue(
       pp.unstakeCooldownDuration ?? config.unstakeCooldownDuration ?? config.cooldownDuration
     ),
+    FORK_INITIAL_STAKE_AMOUNT: toEnvValue(config.initialStakeAmount ?? 0),
   };
 }

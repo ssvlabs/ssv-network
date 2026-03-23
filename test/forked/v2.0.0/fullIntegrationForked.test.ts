@@ -3,7 +3,7 @@ import type { NetworkConnection } from "hardhat/types/network";
 import { ssvNetworkFullForkedFixture } from '../../setup/fixtures.ts';
 import type { NetworkHelpersType, OperatorTuple, UnstakeRequest } from '../../common/types.ts';
 import { buildEBMerkleForDefaultClusters, calculateInitialBurnRate, getCurrentClusterState, makeArrayOfKeysAndShares, getFeeAboveIncreaseLimit, getValidOperatorFeeIncrease, makeOperatorKey, makePublicKey, registerDefaultCluster, registerDefaultClusters, registerOperators, setAccountBalance, updateClusterBalancesForDefaultClusters, whitelistAddresses } from '../../helpers/index.ts';
-import { CLUSTER_VERSION_ETH, DECLARE_OPERATOR_FEE_PERIOD, DEFAULT_ETH_EB_PER_VALIDATOR, DEFAULT_ETH_REGISTER_VALUE, DEFAULT_ORACLES_IDS, DEFAULT_SHARES, DEFAULT_UNSTAKE_COOLDOWN, EMPTY_CLUSTER, EXECUTE_OPERATOR_FEE_PERIOD, MAXIMUM_OPERATORS_FEE, MINIMAL_LIQUIDATION_THRESHOLD, MINIMAL_OPERATOR_ETH_FEE, MINIMUM_BLOCKS_BEFORE_LIQUIDATION, MINIMUM_LIQUIDATION_PERIOD_COLLATERAL, NETWORK_FEE, OPERATOR_MAX_FEE_INCREASE, OPERATOR_FEE_PRECISION, STAKE_AMOUNT, VALIDATORS_PER_OPERATOR_LIMIT, } from '../../common/constants.ts';
+import { CLUSTER_VERSION_ETH, DECLARE_OPERATOR_FEE_PERIOD, DEFAULT_ETH_EB_PER_VALIDATOR, DEFAULT_ETH_REGISTER_VALUE, DEFAULT_ORACLES_IDS, DEFAULT_SHARES, DEFAULT_UNSTAKE_COOLDOWN, EMPTY_CLUSTER, EXECUTE_OPERATOR_FEE_PERIOD, INITIAL_STAKE_AMOUNT, MAXIMUM_OPERATORS_FEE, MINIMAL_LIQUIDATION_THRESHOLD, MINIMAL_OPERATOR_ETH_FEE, MINIMUM_BLOCKS_BEFORE_LIQUIDATION, MINIMUM_LIQUIDATION_PERIOD_COLLATERAL, NETWORK_FEE, OPERATOR_MAX_FEE_INCREASE, OPERATOR_FEE_PRECISION, STAKE_AMOUNT, VALIDATORS_PER_OPERATOR_LIMIT, } from '../../common/constants.ts';
 import { Events } from '../../common/events.ts';
 import type { HardhatEthersSigner } from '@nomicfoundation/hardhat-ethers/types';
 import { Errors } from '../../common/errors.ts';
@@ -59,7 +59,7 @@ suite("SSVNetwork full integration tests made on forked contract", () => {
             await expect(await views.getNetworkFeeSSV()).to.equal(NETWORK_FEE);
             await expect(await views.cooldownDuration()).to.equal(DEFAULT_UNSTAKE_COOLDOWN);
             await expect(await views.getNetworkEarnings()).to.equal(0n);
-            await expect(await views.totalStaked()).to.equal(0n);
+            await expect(await views.totalStaked()).to.equal(INITIAL_STAKE_AMOUNT);
         });
     });
 
@@ -941,7 +941,7 @@ suite("SSVNetwork full integration tests made on forked contract", () => {
 
         it("Is reverted with 'Ownable: caller is not the owner' if caller is not the owner", async function () {
             const { network } = await networkHelpers.loadFixture(deployFullSSVNetworkForkFixture);
-            await expect(network.connect(randomUser).updateOperatorFeeIncreaseLimit(OPERATOR_MAX_FEE_INCREASE + 1n))
+            await expect(network.connect(randomUser).updateOperatorFeeIncreaseLimit(OPERATOR_MAX_FEE_INCREASE))
                 .to.be.revertedWith(Errors.OWNABLE_CALLER_NOT_OWNER);
         });
     });
