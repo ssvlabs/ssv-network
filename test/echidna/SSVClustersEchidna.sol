@@ -126,6 +126,7 @@ contract SSVClustersEchidna is SSVClusters, SSVOperators(0), SSVStaking(address(
     bool private ebUpdateStalenessBypassed;
     bool private feeIndexNotCurrentAfterSettle;
     bool private feeUsedNewVUnitsOnEbChange;
+    bool private implicitEbDefaultViolation;
     bool private liquidationDidNotClearEbSnapshot;
     bool private ebSnapshotRootDecreased;
     bool private ebSnapshotFutureBlock;
@@ -591,12 +592,49 @@ contract SSVClustersEchidna is SSVClusters, SSVOperators(0), SSVStaking(address(
             expectedCluster.networkFeeIndex = 0;
         }
 
+        bool checkImplicitEbDefault = ebBefore.vUnits == 0 && totalFeesOld != 0;
+        bytes32 wrongImplicitHash = bytes32(0);
+        bool wrongImplicitHashDistinct = false;
+        if (checkImplicitEbDefault) {
+            ISSVNetworkCore.Cluster memory wrongImplicitCluster = beforeCluster;
+            wrongImplicitCluster.index = clusterIndex;
+            wrongImplicitCluster.networkFeeIndex = networkFeeIndex;
+
+            bool wrongShouldLiquidate = wrongImplicitCluster.validatorCount != 0
+                && wrongImplicitCluster.isLiquidatableWithVUnits(
+                    newVUnits,
+                    burnRate,
+                    PackedETH.unwrap(sp.ethNetworkFee),
+                    sp.minimumBlocksBeforeLiquidation,
+                    sp.minimumLiquidationCollateral
+                );
+
+            if (wrongShouldLiquidate) {
+                wrongImplicitCluster.active = false;
+                wrongImplicitCluster.balance = 0;
+                wrongImplicitCluster.index = 0;
+                wrongImplicitCluster.networkFeeIndex = 0;
+            }
+
+            wrongImplicitHash = wrongImplicitCluster.hashClusterData();
+        }
+
         uint256 liquidatorBefore = address(attacker).balance;
         try attacker.updateClusterBalance(blockNum, record.owner, operatorIds, beforeCluster, effectiveBalance, proof) {
             bytes32 storedHash = SSVStorage.load().ethClusters[clusterId];
             bytes32 expectedHash = expectedCluster.hashClusterData();
+            if (checkImplicitEbDefault) {
+                wrongImplicitHashDistinct = wrongImplicitHash != expectedHash;
+            }
             if (storedHash != expectedHash) {
                 feeIndexNotCurrentAfterSettle = true;
+                if (checkImplicitEbDefault) {
+                    implicitEbDefaultViolation = true;
+                }
+            }
+
+            if (checkImplicitEbDefault && wrongImplicitHashDistinct && storedHash == wrongImplicitHash) {
+                implicitEbDefaultViolation = true;
             }
 
             if (!shouldLiquidate && newVUnits != oldVUnits) {
@@ -832,6 +870,10 @@ contract SSVClustersEchidna is SSVClusters, SSVOperators(0), SSVStaking(address(
 
     function echidna_fee_index_current_after_settle() external view returns (bool) {
         return !feeIndexNotCurrentAfterSettle;
+    }
+
+    function echidna_implicit_eb_default_used() external view returns (bool) {
+        return !implicitEbDefaultViolation;
     }
 
     function echidna_fee_uses_old_vunits_on_eb_change() external view returns (bool) {

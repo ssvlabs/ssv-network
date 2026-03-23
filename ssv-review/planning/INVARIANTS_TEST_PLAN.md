@@ -259,9 +259,9 @@ Some gaps above ARE tested in the JS test suite but NOT under fuzzing:
 4. **E3** - Add `echidna_migration_net_zero_validators` to SSVMigrationEchidna `[DONE 2026-03-23]`
 
 ### Phase 2: Fee Calculation Correctness (HIGH impact, higher effort)
-5. **B7** - Add `echidna_implicit_eb_default_used` to SSVClustersEchidna
-6. **B8** - Add `echidna_ssv_fees_ignore_eb` to SSVClustersEchidna or SSVLegacyClustersEchidna
-7. **B9** - Add `echidna_fee_settle_before_change` to SSVOperatorsEchidna
+5. **B7** - Add `echidna_implicit_eb_default_used` to SSVClustersEchidna `[DONE 2026-03-23]`
+6. **B8** - Add `echidna_ssv_fees_ignore_eb` to SSVLegacyClustersEchidna `[DONE 2026-03-23]`
+7. **B9** - Add `echidna_fee_settle_before_change` to SSVOperatorsEchidna `[DONE 2026-03-23]`
 
 ### Phase 3: Staking Reward Edge Cases (HIGH impact, moderate effort)
 8. **C8** - Add `echidna_unstake_stops_accrual` to SSVStakingEchidna
@@ -291,7 +291,7 @@ Some gaps above ARE tested in the JS test suite but NOT under fuzzing:
 | Phase | Scope | Status |
 |------|-------|--------|
 | Phase 1 | Global accounting invariants (`A3`, `A9`, `A10`, `E3`) | COMPLETED |
-| Phase 2 | Fee calculation correctness (`B7`, `B8`, `B9`) | NOT STARTED |
+| Phase 2 | Fee calculation correctness (`B7`, `B8`, `B9`) | COMPLETED |
 | Phase 3 | Staking reward edge cases (`C8`, `C9`, `C10`) | NOT STARTED |
 | Phase 4 | Cluster lifecycle edges (`B11`, `C11`, `D3`, `D4`, `D6`) | NOT STARTED |
 | Phase 5 | Operator lifecycle (`G1`, `G2`, `G6`) | NOT STARTED |
@@ -317,3 +317,26 @@ Some gaps above ARE tested in the JS test suite but NOT under fuzzing:
 | `SSVAccountingEchidna` with seed `985768268619296310` | PASS |
 | `SSVMigrationEchidna` with seed `8525641213984558505` | PASS |
 | `SSVMigrationEchidna` with seed `985768268619296310` | PASS |
+
+### Phase 2 Completion
+
+| Gap ID | Invariant | Harness | Status |
+|-------|-----------|---------|--------|
+| B7 | `echidna_implicit_eb_default_used` | `SSVClustersEchidna.sol` | COMPLETED |
+| B8 | `echidna_ssv_fees_ignore_eb` | `SSVLegacyClustersEchidna.sol` | COMPLETED |
+| B9 | `echidna_fee_settle_before_change` | `SSVOperatorsEchidna.sol` | COMPLETED |
+
+### Phase 2 Validation
+
+| Check | Result |
+|------|--------|
+| `npx hardhat compile` | PASS |
+| `echidna test/echidna/SSVClustersEchidna.sol --contract SSVClustersEchidna --config test/echidna/echidna.yaml` | PASS |
+| `echidna test/echidna/SSVLegacyClustersEchidna.sol --contract SSVLegacyClustersEchidna --config test/echidna/echidna.yaml` | PASS |
+| `echidna test/echidna/SSVOperatorsEchidna.sol --contract SSVOperatorsEchidna --config test/echidna/echidna.yaml` | PASS |
+| `SSVClustersEchidna` with seed `8525641213984558505` | PASS |
+| `SSVClustersEchidna` with seed `985768268619296310` | PASS |
+| `SSVLegacyClustersEchidna` with seed `8525641213984558505` | PASS |
+| `SSVLegacyClustersEchidna` with seed `985768268619296310` | PASS |
+| `SSVOperatorsEchidna` with seed `8525641213984558505` | PASS |
+| `SSVOperatorsEchidna` with seed `985768268619296310` | PASS |

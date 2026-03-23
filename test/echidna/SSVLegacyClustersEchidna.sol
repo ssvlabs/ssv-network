@@ -5,6 +5,7 @@ import "../../contracts/modules/SSVClusters.sol";
 import "../../contracts/interfaces/ISSVClusters.sol";
 import "../../contracts/interfaces/ISSVNetworkCore.sol";
 import "../../contracts/libraries/storage/SSVStorage.sol";
+import "../../contracts/libraries/storage/SSVStorageEB.sol";
 import "../../contracts/libraries/storage/SSVStorageProtocol.sol";
 import "../../contracts/libraries/ClusterLib.sol";
 import "../../contracts/test/mocks/MockToken.sol";
@@ -14,6 +15,7 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {PackedSSV, PackedETH, PACKED_SSV_ZERO, PACKED_ETH_ZERO, VERSION_SSV} from
     "../../contracts/libraries/SSVCoreTypes.sol";
 import {PackedSSVLib, PackedETHLib, DEDUCTED_DIGITS} from "../../contracts/libraries/SSVPackedLib.sol";
+import {BPS_DENOMINATOR} from "../../contracts/libraries/SSVCoreTypes.sol";
 
 contract SSVLiquidatorUser {
     ISSVClusters public clusters;
@@ -61,6 +63,7 @@ contract SSVLegacyClustersEchidna is SSVClusters {
 
     bool private liquidationStateDirty;
     bool private liquidationPayoutMismatch;
+    bool private ssvFeesUsedEbViolation;
 
     constructor() {
         token = new MockToken();
@@ -148,6 +151,88 @@ contract SSVLegacyClustersEchidna is SSVClusters {
         } catch {}
     }
 
+    function action_liquidate_ssv_with_eb_noise(uint256 seed) external {
+        if (!record.exists || !record.cluster.active) return;
+
+        StorageData storage s = SSVStorage.load();
+        StorageProtocol storage sp = SSVStorageProtocol.load();
+        StorageEB storage seb = SSVStorageEB.load();
+
+        uint32 currentBlock = uint32(block.number);
+        if (currentBlock <= 1) return;
+
+        uint32 blocksElapsed = uint32(seed % uint256(currentBlock - 1)) + 1;
+        uint32 staleBlock = currentBlock - blocksElapsed;
+        if (staleBlock == 0) return;
+
+        for (uint256 i; i < clusterOperatorIds.length; ++i) {
+            ISSVNetworkCore.Operator storage op = s.operators[clusterOperatorIds[i]];
+            if (op.snapshot.block == 0) return;
+            op.snapshot.block = staleBlock;
+        }
+        sp.networkFeeIndexBlockNumber = staleBlock;
+
+        uint64 baselineVUnits = uint64(record.cluster.validatorCount) * BPS_DENOMINATOR;
+        uint64 noiseVUnits = baselineVUnits + uint64(seed % uint256(baselineVUnits + 1)) + 1;
+        seb.clusterEB[clusterId].vUnits = noiseVUnits;
+
+        uint64 clusterIndex = _currentSSVClusterIndex();
+        uint64 networkFeeIndex = sp.networkFeeIndex + uint64(currentBlock - staleBlock) * PackedSSV.unwrap(sp.networkFee);
+
+        ISSVNetworkCore.Cluster memory expectedCorrect = record.cluster;
+        ClusterLib.updateBalanceSSV(expectedCorrect, clusterIndex, networkFeeIndex);
+        expectedCorrect.index = clusterIndex;
+        expectedCorrect.networkFeeIndex = networkFeeIndex;
+
+        uint128 idxOp = uint128(clusterIndex - record.cluster.index);
+        uint128 idxNet = uint128(networkFeeIndex - record.cluster.networkFeeIndex);
+        uint128 operatorFeeUnitsWrong = (idxOp * uint128(noiseVUnits)) / BPS_DENOMINATOR;
+        uint128 networkFeeUnitsWrong = (idxNet * uint128(noiseVUnits)) / BPS_DENOMINATOR;
+        uint256 wrongTotalFees = uint256(operatorFeeUnitsWrong + networkFeeUnitsWrong) * DEDUCTED_DIGITS;
+
+        ISSVNetworkCore.Cluster memory wrongExpected = record.cluster;
+        wrongExpected.index = clusterIndex;
+        wrongExpected.networkFeeIndex = networkFeeIndex;
+        wrongExpected.balance = wrongExpected.balance >= wrongTotalFees ? wrongExpected.balance - wrongTotalFees : 0;
+
+        uint256 liquidatorTokenBefore = token.balanceOf(address(liquidator));
+        uint256 contractTokenBefore = token.balanceOf(address(this));
+        ISSVNetworkCore.Cluster memory cluster = record.cluster;
+
+        try liquidator.liquidateSSV(address(liquidator), clusterOperatorIds, cluster) {
+            bytes32 storedHash = s.clusters[clusterId];
+            ISSVNetworkCore.Cluster memory expectedAfter = ISSVNetworkCore.Cluster({
+                validatorCount: cluster.validatorCount,
+                networkFeeIndex: 0,
+                index: 0,
+                active: false,
+                balance: 0
+            });
+
+            if (storedHash != expectedAfter.hashClusterData()) {
+                liquidationStateDirty = true;
+            }
+
+            uint256 liquidatorTokenAfter = token.balanceOf(address(liquidator));
+            uint256 contractTokenAfter = token.balanceOf(address(this));
+            uint256 paid = liquidatorTokenAfter - liquidatorTokenBefore;
+
+            if (paid != expectedCorrect.balance) {
+                liquidationPayoutMismatch = true;
+                ssvFeesUsedEbViolation = true;
+            }
+            if (contractTokenBefore - contractTokenAfter != paid) {
+                liquidationPayoutMismatch = true;
+                ssvFeesUsedEbViolation = true;
+            }
+            if (wrongExpected.balance != expectedCorrect.balance && paid == wrongExpected.balance) {
+                ssvFeesUsedEbViolation = true;
+            }
+
+            record.cluster = expectedAfter;
+        } catch {}
+    }
+
     function action_deposit_ssv(uint256 seed) external {
         if (!record.exists || !record.cluster.active) return;
 
@@ -159,6 +244,10 @@ contract SSVLegacyClustersEchidna is SSVClusters {
 
     function echidna_ssv_liquidation_resets_and_pays() external view returns (bool) {
         return !liquidationStateDirty && !liquidationPayoutMismatch;
+    }
+
+    function echidna_ssv_fees_ignore_eb() external view returns (bool) {
+        return !ssvFeesUsedEbViolation;
     }
 
     function _initProtocolDefaults() internal {
