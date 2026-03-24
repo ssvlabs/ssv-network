@@ -269,11 +269,11 @@ Some gaps above ARE tested in the JS test suite but NOT under fuzzing:
 10. **C10** - Add `echidna_zero_cssv_no_accrual` to SSVStakingEchidna `[DONE 2026-03-24]`
 
 ### Phase 4: Cluster Lifecycle Edges (MEDIUM impact, lower effort)
-11. **B11** - Add `echidna_cluster_balance_non_negative` to SSVClustersEchidna
-12. **C11** - Add `echidna_withdraw_unlocked_batch_correct` to SSVStakingEchidna
-13. **D3** - Add `echidna_deposit_liquidated_succeeds` to SSVClustersEchidna
-14. **D4** - Add `echidna_withdraw_liquidated_skips_fees` to SSVClustersEchidna
-15. **D6** - Add `echidna_reactivate_with_removed_operators` to SSVClustersEchidna
+11. **B11** - Add `echidna_cluster_balance_non_negative` to SSVClustersEchidna `[DONE 2026-03-24]`
+12. **C11** - Add `echidna_withdraw_unlocked_batch_correct` to SSVStakingEchidna `[DONE 2026-03-24]`
+13. **D3** - Add `echidna_deposit_liquidated_succeeds` to SSVClustersEchidna `[DONE 2026-03-24]`
+14. **D4** - Add `echidna_withdraw_liquidated_skips_fees` to SSVClustersEchidna `[DONE 2026-03-24]`
+15. **D6** - Add `echidna_reactivate_with_removed_operators` to SSVClustersEchidna `[DONE 2026-03-24]`
 
 ### Phase 5: Operator Lifecycle (MEDIUM impact, lower effort)
 16. **G1** - Add `echidna_removed_operator_owner_preserved` to SSVOperatorsEchidna `[DONE 2026-03-24]`
@@ -281,10 +281,10 @@ Some gaps above ARE tested in the JS test suite but NOT under fuzzing:
 18. **G6** - Add `echidna_ensure_eth_defaults_correct` to SSVOperatorsEchidna `[DONE 2026-03-24]`
 
 ### Phase 6: Token & Oracle Edges (LOW impact, low effort)
-19. **C12** - Add `echidna_cssv_supply_lte_ssv_total_supply` to CSSVTokenEchidna
-20. **F9** - Add `echidna_failed_quorum_persists` to SSVDAOEchidna
-21. **F10** - Add `echidna_revote_different_root_succeeds` to SSVDAOEchidna
-22. **F11** - Extend existing dust-round tests in SSVDAOEchidna
+19. **C12** - Add `echidna_cssv_supply_lte_ssv_total_supply` to CSSVTokenEchidna `[DONE 2026-03-24]`
+20. **F9** - Add `echidna_failed_quorum_persists` to SSVDAOEchidna `[DONE 2026-03-24]`
+21. **F10** - Add `echidna_revote_different_root_succeeds` to SSVDAOEchidna `[DONE 2026-03-24]`
+22. **F11** - Extend existing dust-round tests in SSVDAOEchidna `[DONE 2026-03-24]`
 
 ### Progress
 
@@ -293,9 +293,9 @@ Some gaps above ARE tested in the JS test suite but NOT under fuzzing:
 | Phase 1 | Global accounting invariants (`A3`, `A9`, `A10`, `E3`) | COMPLETED |
 | Phase 2 | Fee calculation correctness (`B7`, `B8`, `B9`) | COMPLETED |
 | Phase 3 | Staking reward edge cases (`C8`, `C9`, `C10`) | COMPLETED |
-| Phase 4 | Cluster lifecycle edges (`B11`, `C11`, `D3`, `D4`, `D6`) | NOT STARTED |
+| Phase 4 | Cluster lifecycle edges (`B11`, `C11`, `D3`, `D4`, `D6`) | COMPLETED |
 | Phase 5 | Operator lifecycle (`G1`, `G2`, `G6`) | COMPLETED |
-| Phase 6 | Token & oracle edges (`C12`, `F9`, `F10`, `F11`) | NOT STARTED |
+| Phase 6 | Token & oracle edges (`C12`, `F9`, `F10`, `F11`) | COMPLETED |
 
 ### Phase 1 Completion
 
@@ -358,6 +358,28 @@ Some gaps above ARE tested in the JS test suite but NOT under fuzzing:
 | `SSVStakingEchidna` with seed `8525641213984558505` | PASS |
 | `SSVStakingEchidna` with seed `985768268619296310` | PASS |
 
+### Phase 4 Completion
+
+| Gap ID | Invariant | Harness | Status |
+|-------|-----------|---------|--------|
+| B11 | `echidna_cluster_balance_non_negative` | `SSVClustersEchidna.sol` | COMPLETED |
+| C11 | `echidna_withdraw_unlocked_batch_correct` | `SSVStakingEchidna.sol` | COMPLETED |
+| D3 | `echidna_deposit_liquidated_succeeds` | `SSVClustersEchidna.sol` | COMPLETED |
+| D4 | `echidna_withdraw_liquidated_skips_fees` | `SSVClustersEchidna.sol` | COMPLETED |
+| D6 | `echidna_reactivate_with_removed_operators` | `SSVClustersEchidna.sol` | COMPLETED |
+
+### Phase 4 Validation
+
+| Check | Result |
+|------|--------|
+| `npx hardhat compile` | PASS |
+| `echidna test/echidna/SSVClustersEchidna.sol --contract SSVClustersEchidna --config test/echidna/echidna.yaml` | PASS |
+| `SSVClustersEchidna` with seed `8525641213984558505` | PASS |
+| `SSVClustersEchidna` with seed `985768268619296310` | PASS |
+| `echidna test/echidna/SSVStakingEchidna.sol --contract SSVStakingEchidna --config test/echidna/echidna.yaml` | PASS |
+| `SSVStakingEchidna` with seed `8525641213984558505` | PASS |
+| `SSVStakingEchidna` with seed `985768268619296310` | PASS |
+
 ### Phase 5 Completion
 
 | Gap ID | Invariant | Harness | Status |
@@ -374,3 +396,24 @@ Some gaps above ARE tested in the JS test suite but NOT under fuzzing:
 | `echidna test/echidna/SSVOperatorsEchidna.sol --contract SSVOperatorsEchidna --config test/echidna/echidna.yaml` | PASS |
 | `SSVOperatorsEchidna` with seed `8525641213984558505` | PASS |
 | `SSVOperatorsEchidna` with seed `985768268619296310` | PASS |
+
+### Phase 6 Completion
+
+| Gap ID | Invariant | Harness | Status |
+|-------|-----------|---------|--------|
+| C12 | `echidna_cssv_supply_lte_ssv_total_supply` | `CSSVTokenEchidna.sol` | COMPLETED |
+| F9 | `echidna_failed_quorum_persists` | `SSVDAOEchidna.sol` | COMPLETED |
+| F10 | `echidna_revote_different_root_succeeds` | `SSVDAOEchidna.sol` | COMPLETED |
+| F11 | `echidna_commit_root_dust_round_uses_truncated_supply_generalized` | `SSVDAOEchidna.sol` | COMPLETED |
+
+### Phase 6 Validation
+
+| Check | Result |
+|------|--------|
+| `npx hardhat compile` | PASS |
+| `echidna test/echidna/CSSVTokenEchidna.sol --contract CSSVTokenEchidna --config test/echidna/echidna.yaml` | PASS |
+| `CSSVTokenEchidna` with seed `8525641213984558505` | PASS |
+| `CSSVTokenEchidna` with seed `985768268619296310` | PASS |
+| `echidna test/echidna/SSVDAOEchidna.sol --contract SSVDAOEchidna --config test/echidna/echidna.yaml` | PASS |
+| `SSVDAOEchidna` with seed `8525641213984558505` | PASS |
+| `SSVDAOEchidna` with seed `985768268619296310` | PASS |

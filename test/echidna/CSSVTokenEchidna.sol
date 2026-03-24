@@ -2,18 +2,26 @@
 pragma solidity 0.8.24;
 
 import "../../contracts/token/CSSVToken.sol";
+import "../../contracts/test/mocks/MockToken.sol";
 
 contract CSSVTokenEchidna is CSSVToken {
+    uint256 private constant SSV_SUPPLY_CAP = 1_000_000_000 ether;
+
     uint256 public totalMinted;
     uint256 public totalBurned;
     uint256 public callbackCount;
+
+    MockToken private ssvToken;
 
     address constant USER1 = address(0x10000);
     address constant USER2 = address(0x20000);
     address constant USER3 = address(0x30000);
     address constant USER4 = address(0x40000);
 
-    constructor() CSSVToken(address(this)) {}
+    constructor() CSSVToken(address(this)) {
+        ssvToken = new MockToken();
+        ssvToken.mint(address(this), SSV_SUPPLY_CAP);
+    }
 
     function onCSSVTransfer(address, address, uint256) external {
         require(msg.sender == address(this), "Only self");
@@ -34,8 +42,20 @@ contract CSSVTokenEchidna is CSSVToken {
         return amount;
     }
 
+    function _mintableAmount(uint256 requestedAmount) internal view returns (uint256) {
+        uint256 cssvSupply = totalSupply();
+        uint256 ssvSupply = ssvToken.totalSupply();
+        if (cssvSupply >= ssvSupply) return 0;
+
+        uint256 headroom = ssvSupply - cssvSupply;
+        return requestedAmount > headroom ? headroom : requestedAmount;
+    }
+
     function action_mint(uint256 amount, uint8 userSeed) public {
         amount = _boundAmount(amount);
+        amount = _mintableAmount(amount);
+        if (amount == 0) return;
+
         address to = _getUser(userSeed);
         _mint(to, amount);
         totalMinted += amount;
@@ -59,7 +79,9 @@ contract CSSVTokenEchidna is CSSVToken {
         
         if (currentSupply > type(uint256).max - 10000 ether) return;
         
-        uint256 amount = 10000 ether;
+        uint256 amount = _mintableAmount(10000 ether);
+        if (amount == 0) return;
+
         _mint(to, amount);
         totalMinted += amount;
     }
@@ -67,6 +89,9 @@ contract CSSVTokenEchidna is CSSVToken {
     function action_rapidMintBurn(uint256 amount, uint8 userSeed, uint8 iterations) public {
         address user = _getUser(userSeed);
         amount = _boundAmount(amount);
+        amount = _mintableAmount(amount);
+        if (amount == 0) return;
+
         iterations = iterations % 10 + 1;
         
         for (uint8 i = 0; i < iterations; i++) {
@@ -77,6 +102,10 @@ contract CSSVTokenEchidna is CSSVToken {
 
     function action_mintToAll(uint256 amount) public {
         amount = _boundAmount(amount);
+        uint256 headroom = _mintableAmount(type(uint256).max);
+        if (headroom < 4) return;
+        if (amount > headroom / 4) amount = headroom / 4;
+        if (amount == 0) return;
         
         _mint(USER1, amount);
         _mint(USER2, amount);
@@ -172,5 +201,9 @@ contract CSSVTokenEchidna is CSSVToken {
 
     function echidna_supply_non_negative() public view returns (bool) {
         return totalSupply() >= 0;
+    }
+
+    function echidna_cssv_supply_lte_ssv_total_supply() public view returns (bool) {
+        return totalSupply() <= ssvToken.totalSupply();
     }
 }

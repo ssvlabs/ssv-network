@@ -76,6 +76,21 @@ contract SSVDAOEchidna is SSVDAO {
     bool private dustyPrematureCommit;
     uint256 private dustySeedNonce;
     bool private belowOracleCountCommitSucceeded;
+    bytes32 private failedQuorumKey;
+    uint64 private failedQuorumBlock;
+    bytes32 private failedQuorumRoot;
+    uint32 private failedQuorumOracleId;
+    bool private failedQuorumTracked;
+    bool private failedQuorumPersistenceViolation;
+    bool private revoteDifferentRootFailed;
+    bytes32 private generalizedDustRoot;
+    uint64 private generalizedDustBlock;
+    uint256 private generalizedDustSupply;
+    bool private generalizedDustRoundSeeded;
+    bool private generalizedDustTruncationViolation;
+    bytes32[] private generalizedDustCommitmentKeys;
+    mapping(bytes32 => bool) private generalizedDustCommitmentTracked;
+    mapping(bytes32 => uint256) private generalizedDustExpectedFrozen;
 
     mapping(bytes32 => mapping(uint32 => bool)) private localVotes;
 
@@ -372,6 +387,121 @@ contract SSVDAOEchidna is SSVDAO {
         }
     }
 
+    function action_seed_failed_quorum_round(uint256 seed, uint8 oracleSeed) external trackFeeIndexMonotonicity {
+        _mockupdateQuorumBps(DUSTY_QUORUM_BPS);
+        _setCssvSupply(DUSTY_RAW_SUPPLY);
+
+        OracleUser oracle = _oracleUser(oracleSeed);
+        StorageStaking storage s = SSVStorageStaking.load();
+        StorageEB storage seb = SSVStorageEB.load();
+        uint32 oracleId = s.oracleIdOf[address(oracle)];
+        if (oracleId == 0) return;
+
+        dustySeedNonce++;
+        bytes32 root = keccak256(abi.encodePacked("failed-quorum-root", seed, dustySeedNonce));
+        uint64 blockNum = _validBlock(seed);
+        bytes32 commitmentKey = keccak256(abi.encodePacked(blockNum, root));
+        bool votedBefore = localVotes[commitmentKey][oracleId];
+
+        _attemptCommit(oracle, root, blockNum);
+
+        if (!votedBefore && localVotes[commitmentKey][oracleId]) {
+            if (seb.ebRoots[blockNum] == root) {
+                return;
+            }
+
+            failedQuorumTracked = true;
+            failedQuorumKey = commitmentKey;
+            failedQuorumBlock = blockNum;
+            failedQuorumRoot = root;
+            failedQuorumOracleId = oracleId;
+
+            if (seb.rootCommitments[commitmentKey] == 0 || seb.roundFrozenSupply[commitmentKey] == 0) {
+                failedQuorumPersistenceViolation = true;
+            }
+        }
+    }
+
+    function action_revote_different_root_same_block(uint256 seed, uint8 firstOracleSeed, uint8 secondOracleSeed)
+        external
+        trackFeeIndexMonotonicity
+    {
+        _mockupdateQuorumBps(DUSTY_QUORUM_BPS);
+        _setCssvSupply(DUSTY_RAW_SUPPLY);
+
+        OracleUser firstOracle = _oracleUser(firstOracleSeed);
+        OracleUser secondOracle = _oracleUser(secondOracleSeed);
+        if (address(firstOracle) == address(secondOracle)) {
+            secondOracle = _oracleUser(secondOracleSeed + 1);
+        }
+        if (address(firstOracle) == address(secondOracle)) return;
+
+        StorageStaking storage s = SSVStorageStaking.load();
+        uint32 firstOracleId = s.oracleIdOf[address(firstOracle)];
+        uint32 secondOracleId = s.oracleIdOf[address(secondOracle)];
+        if (firstOracleId == 0 || secondOracleId == 0) return;
+
+        dustySeedNonce++;
+        bytes32 rootA = keccak256(abi.encodePacked("revote-root-a", seed, dustySeedNonce));
+        bytes32 rootB = keccak256(abi.encodePacked("revote-root-b", seed, dustySeedNonce));
+        uint64 blockNum = _validBlock(seed);
+
+        _attemptCommit(firstOracle, rootA, blockNum);
+
+        bytes32 commitmentKeyB = keccak256(abi.encodePacked(blockNum, rootB));
+        bool votedBefore = localVotes[commitmentKeyB][secondOracleId];
+        _attemptCommit(secondOracle, rootB, blockNum);
+
+        if (!votedBefore && !localVotes[commitmentKeyB][secondOracleId]) {
+            revoteDifferentRootFailed = true;
+        }
+    }
+
+    function action_seed_general_dust_round(uint256 rawSupplySeed, uint256 seed) external trackFeeIndexMonotonicity {
+        StorageStaking storage s = SSVStorageStaking.load();
+        uint256 oracleCount = s.defaultOracleIds.length;
+        if (oracleCount == 0) return;
+
+        _mockupdateQuorumBps(DUSTY_QUORUM_BPS);
+
+        uint256 rawSupply = (rawSupplySeed % 1_000_000_000) + oracleCount;
+        _setCssvSupply(rawSupply);
+
+        dustySeedNonce++;
+        generalizedDustRoot = keccak256(abi.encodePacked("general-dust-root", seed, dustySeedNonce));
+        generalizedDustBlock = _validBlock(seed);
+        generalizedDustSupply = rawSupply;
+        generalizedDustRoundSeeded = true;
+
+        bytes32 commitmentKey = keccak256(abi.encodePacked(generalizedDustBlock, generalizedDustRoot));
+        uint256 expectedFrozen = rawSupply - (rawSupply % oracleCount);
+        generalizedDustExpectedFrozen[commitmentKey] = expectedFrozen;
+
+        if (!generalizedDustCommitmentTracked[commitmentKey]) {
+            generalizedDustCommitmentTracked[commitmentKey] = true;
+            generalizedDustCommitmentKeys.push(commitmentKey);
+        }
+    }
+
+    function action_commit_root_general_dust_shared(uint8 oracleSeed) external trackFeeIndexMonotonicity {
+        if (!generalizedDustRoundSeeded) return;
+
+        _mockupdateQuorumBps(DUSTY_QUORUM_BPS);
+        _setCssvSupply(generalizedDustSupply);
+
+        bytes32 commitmentKey = keccak256(abi.encodePacked(generalizedDustBlock, generalizedDustRoot));
+        OracleUser oracle = _oracleUser(oracleSeed);
+        _attemptCommit(oracle, generalizedDustRoot, generalizedDustBlock);
+
+        StorageEB storage seb = SSVStorageEB.load();
+        if (
+            seb.rootCommitments[commitmentKey] != 0 &&
+            seb.roundFrozenSupply[commitmentKey] != generalizedDustExpectedFrozen[commitmentKey]
+        ) {
+            generalizedDustTruncationViolation = true;
+        }
+    }
+
     function echidna_network_fee_matches_expected() external view returns (bool) {
         StorageProtocol storage sp = SSVStorageProtocol.load();
         if (feeIndexDecreased) return false;
@@ -463,6 +593,40 @@ contract SSVDAOEchidna is SSVDAO {
         if (seb.rootCommitments[commitmentKey] == 0) return true;
 
         return seb.roundFrozenSupply[commitmentKey] == DUSTY_TRUNCATED_SUPPLY;
+    }
+
+    function echidna_failed_quorum_persists() external view returns (bool) {
+        if (!failedQuorumTracked) return true;
+        if (failedQuorumPersistenceViolation) return false;
+
+        StorageEB storage seb = SSVStorageEB.load();
+        if (seb.ebRoots[failedQuorumBlock] == failedQuorumRoot) {
+            return true;
+        }
+
+        return seb.hasVoted[failedQuorumKey][failedQuorumOracleId] &&
+            seb.rootCommitments[failedQuorumKey] != 0 &&
+            seb.roundFrozenSupply[failedQuorumKey] != 0;
+    }
+
+    function echidna_revote_different_root_succeeds() external view returns (bool) {
+        return !revoteDifferentRootFailed;
+    }
+
+    function echidna_commit_root_dust_round_uses_truncated_supply_generalized() external view returns (bool) {
+        if (generalizedDustTruncationViolation) return false;
+
+        StorageEB storage seb = SSVStorageEB.load();
+        uint256 count = generalizedDustCommitmentKeys.length;
+        for (uint256 i; i < count; ++i) {
+            bytes32 commitmentKey = generalizedDustCommitmentKeys[i];
+            if (seb.rootCommitments[commitmentKey] == 0) continue;
+            if (seb.roundFrozenSupply[commitmentKey] != generalizedDustExpectedFrozen[commitmentKey]) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     function echidna_commit_root_below_oracle_count_reverts() external view returns (bool) {
