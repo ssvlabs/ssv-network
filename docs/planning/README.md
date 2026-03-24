@@ -5,7 +5,7 @@
 | Wave | Phase | Workers | Status |
 |------|-------|---------|--------|
 | Pre-work | Setup | 1 | ✅ Done |
-| W1 | Phase 1: Individual Module Scenarios | 13 | 🔄 In Progress |
+| W1 | Phase 1: Individual Module Scenarios (983 scenarios) | 13 | ✅ Done |
 | W2 | Phase 1b: Cross-Module Scenarios | 5 | ⏳ Pending |
 | W3 | Phase 1c: Removed Operator + Invariants | 9 | ⏳ Pending |
 | W4 | Phase 2: Coverage Verification | 10 | ⏳ Pending |
@@ -19,19 +19,19 @@
 
 | File | Prefix | Worker | Est. Scenarios | Status |
 |------|--------|--------|----------------|--------|
-| scenarios-op-lifecycle.md | OP | W1-A | 30-40 | ⏳ |
-| scenarios-op-fees.md | OF | W1-B | 30-40 | ⏳ |
-| scenarios-op-earnings.md | OE | W1-C | 25-35 | ⏳ |
-| scenarios-whitelist.md | WL | W1-D | 30-40 | ⏳ |
-| scenarios-vl-register.md | VR | W1-E | 50-60 | ⏳ |
-| scenarios-vl-remove-exit.md | VX | W1-F | 50-60 | ⏳ |
-| scenarios-cl-deposit-withdraw.md | CL | W1-G | 40-50 | ⏳ |
-| scenarios-eb-oracle.md | EB (oracle) | W1-H | 25-30 | ⏳ |
-| scenarios-eb-updates.md | EB (updates) | W1-H2 | 50-70 | ⏳ |
-| scenarios-lq-reactivation.md | LQ | W1-I | 60-80 | ⏳ |
-| scenarios-migration.md | MG | W1-J | 50-60 | ⏳ |
-| scenarios-staking.md | ST | W1-K | 60-80 | ⏳ |
-| scenarios-dao-governance.md | DA | W1-L | 40-50 | ⏳ |
+| scenarios-op-lifecycle.md | OP | W1-A | 57 | ✅ |
+| scenarios-op-fees.md | OF | W1-B | 60 | ✅ |
+| scenarios-op-earnings.md | OE | W1-C | 48 | ✅ |
+| scenarios-whitelist.md | WL | W1-D | 67 | ✅ |
+| scenarios-vl-register.md | VR | W1-E | 76 | ✅ |
+| scenarios-vl-remove-exit.md | VX | W1-F | 72 | ✅ |
+| scenarios-cl-deposit-withdraw.md | CL | W1-G | 60 | ✅ |
+| scenarios-eb-oracle.md | EB (oracle) | W1-H | 42 | ✅ |
+| scenarios-eb-updates.md | EB (updates) | W1-H2 | 102 | ✅ |
+| scenarios-lq-reactivation.md | LQ | W1-I | 110 | ✅ |
+| scenarios-migration.md | MG | W1-J | 70 | ✅ |
+| scenarios-staking.md | ST | W1-K | 104 | ✅ |
+| scenarios-dao-governance.md | DA | W1-L | 115 | ✅ |
 | scenarios-xm-op-cluster.md | XO | W2-A | 50-70 | ⏳ |
 | scenarios-xm-vl-eb.md | XV | W2-B | 50-70 | ⏳ |
 | scenarios-xm-lq-react-chains.md | XL | W2-C | 50-70 | ⏳ |
