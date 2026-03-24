@@ -28,8 +28,6 @@ import {
   EMPTY_CLUSTER,
   TOKEN_REGISTER_AMOUNT,
   BPS_DENOMINATOR,
-  MINIMAL_OPERATOR_ETH_FEE,
-  ETH_DEDUCTED_DIGITS,
   DEFAULT_OPERATOR_ETH_FEE,
 } from "../../common/constants.ts";
 import { Events } from "../../common/events.ts";
@@ -40,6 +38,7 @@ import {
   generateMerkleForClusterEB,
   setupOracles,
   commitEBRoot,
+  defaultVUnits,
 } from "../../helpers/index.ts";
 import { ethers } from "ethers";
 
@@ -209,7 +208,7 @@ function buildFixture(
   opCount: number,
   valCount: number,
 ) {
-  return async () => {
+  return async function rm4Fixture() {
     const conn = connection();
     const { network: legacyNetwork, views: legacyViews, ssvToken } =
       await ssvNetworkFullPreUpgradeFixture(conn);
@@ -364,14 +363,15 @@ describe("RM4 — migrateClusterToETH with Removed Operators", function () {
   // ─── Group 2: Detailed operator state (4 ops, 1 removed) ───────────────
 
   describe("Detailed operator state assertions (4 ops, 1 removed)", function () {
-    const deploy4Op3Val = () =>
-      buildFixture(
+    async function deploy4Op3Val() {
+      return buildFixture(
         () => connection,
         () => operatorOwner,
         () => clusterOwner,
         4,
         3,
       )();
+    }
 
     it("RM4-010: ethSnapshot.block stays 0 after migration", async function () {
       const { network, views, operatorIds, cluster } =
@@ -394,6 +394,7 @@ describe("RM4 — migrateClusterToETH with Removed Operators", function () {
       // INV-11
       const networkAddr = await network.getAddress();
       await assertINV11Implicit(provider, networkAddr, views);
+      await assertRemovedOpClean(views, provider, networkAddr, operatorIds[3]);
     });
 
     it("RM4-011: ethValidatorCount stays 0 after migration", async function () {
@@ -422,6 +423,7 @@ describe("RM4 — migrateClusterToETH with Removed Operators", function () {
 
       const networkAddr = await network.getAddress();
       await assertINV11Implicit(provider, networkAddr, views);
+      await assertRemovedOpClean(views, provider, networkAddr, operatorIds[3]);
     });
 
     it("RM4-012: ethFee stays 0, not set to default", async function () {
@@ -450,6 +452,7 @@ describe("RM4 — migrateClusterToETH with Removed Operators", function () {
 
       const networkAddr = await network.getAddress();
       await assertINV11Implicit(provider, networkAddr, views);
+      await assertRemovedOpClean(views, provider, networkAddr, operatorIds[3]);
     });
 
     it("RM4-013: operatorEthVUnits[removedOp] stays 0 (implicit EB)", async function () {
@@ -544,21 +547,15 @@ describe("RM4 — migrateClusterToETH with Removed Operators", function () {
         migratedCluster,
       );
 
-      // Expected: 3 ops * defaultFee, NOT 4 ops * defaultFee
-      // (The exact calculation depends on network fee, but burn rate
-      // with 3 ops must be strictly less than with 4)
-      const feePerOp = MINIMAL_OPERATOR_ETH_FEE / ETH_DEDUCTED_DIGITS;
-      const expectedBurnFor3 = 3n * feePerOp;
-
-      // Burn rate includes network fee, so just verify it's consistent with 3 ops
-      expect(burnRate).to.be.greaterThan(0n);
-      // The operator component of burn rate is burnRate - networkFee
+      // getBurnRate scales by vUnits: (3 * opFee + networkFee) * vUnits / BPS_DENOMINATOR
+      const opFee = await views.getOperatorFee(operatorIds[0]);
       const networkFee = await views.getNetworkFee();
-      const networkFeeRaw = networkFee / ETH_DEDUCTED_DIGITS;
-      const operatorBurn = burnRate / ETH_DEDUCTED_DIGITS - networkFeeRaw;
-      expect(operatorBurn).to.equal(expectedBurnFor3, "burn rate must use 3 live ops only");
+      const vUnits = defaultVUnits(3n); // 3 validators * 10000
+      const expectedBurnRate = ((3n * opFee + networkFee) * vUnits) / BPS_DENOMINATOR;
+      expect(burnRate).to.equal(expectedBurnRate, "burn rate must use 3 live ops only");
 
       await assertINV11Implicit(provider, networkAddr, views);
+      await assertRemovedOpClean(views, provider, networkAddr, operatorIds[3]);
     });
 
     it("RM4-018: cumulativeIndexSSV includes removed op's preserved SSV index", async function () {
@@ -660,20 +657,22 @@ describe("RM4 — migrateClusterToETH with Removed Operators", function () {
       }
 
       await assertINV11Implicit(provider, networkAddr, views);
+      await assertRemovedOpClean(views, provider, networkAddr, operatorIds[3]);
     });
   });
 
   // ─── Group 3: Explicit EB deviation ─────────────────────────────────────
 
   describe("Explicit EB deviation — stranded vUnits on removed ops", function () {
-    const deploy4Op2Val = () =>
-      buildFixture(
+    async function deploy4Op2Val() {
+      return buildFixture(
         () => connection,
         () => operatorOwner,
         () => clusterOwner,
         4,
         2,
       )();
+    }
 
     it("RM4-002: 4-op, 1 removed, explicit EB deviation > 0 — stranded vUnits on removed op", async function () {
       const { network, views, operatorIds, cluster } =
@@ -842,7 +841,7 @@ describe("RM4 — migrateClusterToETH with Removed Operators", function () {
   // ─── Group 4: Post-migration EB update ──────────────────────────────────
 
   describe("Post-migration EB update — removed op stays skipped", function () {
-    const deploy4Op3ValWithOracles = async () => {
+    async function deploy4Op3ValWithOracles() {
       const conn = connection;
       const { network: legacyNetwork, views: legacyViews, ssvToken } =
         await ssvNetworkFullPreUpgradeFixture(conn);
@@ -980,9 +979,10 @@ describe("RM4 — migrateClusterToETH with Removed Operators", function () {
       // vUnits may have stranded deviation on removed op (from _updateOperatorVUnits loop)
       // This is a known surface — the loop iterates ALL operatorIds
       const removedVUnits = await readOpVUnits(provider, networkAddr, operatorIds[3]);
-      // Removed op may get stranded deviation from the vUnit update loop
-      // (SSVClusters.sol:494-509 _updateOperatorVUnits)
-      expect(removedVUnits).to.be.greaterThanOrEqual(0n);
+      // Removed op gets stranded deviation from the vUnit update loop
+      // (SSVClusters.sol:494-509 _updateOperatorVUnits iterates ALL operatorIds)
+      const deviation = 40000n - 3n * BPS_DENOMINATOR; // 10000
+      expect(removedVUnits).to.equal(deviation, "removed op gets stranded deviation from vUnit update loop");
 
       // Fee accrual excludes op4: burn rate based on 3 ops only
       const burnRate = await views.getBurnRate(
@@ -1058,6 +1058,8 @@ describe("RM4 — migrateClusterToETH with Removed Operators", function () {
       const removedOp = await views.getOperatorById(operatorIds[3]);
       expect(removedOp.validatorCount).to.equal(0n);
       expect(removedOp.isActive).to.equal(false);
+      // View-level state is still clean despite stranded vUnits
+      expect(removedOp.fee).to.equal(0n, "removed op fee must be 0");
     });
   });
 
@@ -1067,7 +1069,7 @@ describe("RM4 — migrateClusterToETH with Removed Operators", function () {
     // RM4-016: Prior ETH history + removal + migration
     it("RM4-016: removed op with prior ETH history — ethSnapshot.block zeroed, clean skip", async function () {
       const conn = connection;
-      const fixture = async () => {
+      const fixture = async function rm4016Fixture() {
         const {
           network: legacyNetwork,
           views: legacyViews,
@@ -1220,7 +1222,7 @@ describe("RM4 — migrateClusterToETH with Removed Operators", function () {
     // RM4-021: Liquidated SSV cluster + removed op → migrate
     it("RM4-021: liquidated SSV cluster + removed op → migrate reactivates", async function () {
       const conn = connection;
-      const fixture = async () => {
+      const fixture = async function rm4021Fixture() {
         const {
           network: legacyNetwork,
           views: legacyViews,
@@ -1247,7 +1249,7 @@ describe("RM4 — migrateClusterToETH with Removed Operators", function () {
         }
 
         // Small deposit so cluster can be liquidated quickly
-        const smallDeposit = TOKEN_REGISTER_AMOUNT / 10n;
+        const smallDeposit = TOKEN_REGISTER_AMOUNT;
         await ssvToken.mint(clusterOwner.address, smallDeposit);
         await ssvToken
           .connect(clusterOwner)
@@ -1359,7 +1361,7 @@ describe("RM4 — migrateClusterToETH with Removed Operators", function () {
     // RM4-023: Sequential migration — op removed between two migrations
     it("RM4-023: migrate cluster A, remove op, migrate cluster B — removed op skipped in both", async function () {
       const conn = connection;
-      const fixture = async () => {
+      const fixture = async function rm4023Fixture() {
         const {
           network: legacyNetwork,
           views: legacyViews,
@@ -1517,7 +1519,7 @@ describe("RM4 — migrateClusterToETH with Removed Operators", function () {
     // RM4-025: Full lifecycle regression
     it("RM4-025: full lifecycle — register, create, remove, migrate, EB update, verify no ghost data", async function () {
       const conn = connection;
-      const fixture = async () => {
+      const fixture = async function rm4025Fixture() {
         const {
           network: legacyNetwork,
           views: legacyViews,

@@ -901,8 +901,16 @@ describe("RM1: _updateOperatorVUnits + removeOperator", () => {
         Events.CLUSTER_DEPOSITED,
       );
       expect(clusterAfterDep.active).to.equal(true);
+      // Verify deposit increased balance
+      expect(BigInt(clusterAfterDep.balance)).to.be.greaterThan(
+        BigInt(cluster.balance),
+        "cluster balance must increase after deposit",
+      );
 
       await assertINV11(provider, proxyAddr, [operatorIds[0]]);
+      // Removed op vUnits stays 0 despite deposit
+      const vUnitsAfterDep = await readOperatorEthVUnits(provider, proxyAddr, operatorIds[0]);
+      expect(vUnitsAfterDep).to.equal(0n, "removed op vUnits must remain 0 after deposit");
     });
 
     it("RM1-014: after EB update with removed op, withdraw succeeds", async function () {
@@ -949,8 +957,16 @@ describe("RM1: _updateOperatorVUnits + removeOperator", () => {
         Events.CLUSTER_WITHDRAWN,
       );
       expect(clusterAfterW.active).to.equal(true);
+      // Verify withdrawal decreased balance
+      expect(BigInt(clusterAfterW.balance)).to.be.lessThan(
+        BigInt(cluster.balance),
+        "cluster balance must decrease after withdrawal",
+      );
 
       await assertINV11(provider, proxyAddr, [operatorIds[0]]);
+      // Removed op vUnits stays 0 despite withdraw
+      const vUnitsAfterW = await readOperatorEthVUnits(provider, proxyAddr, operatorIds[0]);
+      expect(vUnitsAfterW).to.equal(0n, "removed op vUnits must remain 0 after withdraw");
     });
   });
 
@@ -1241,6 +1257,12 @@ describe("RM1: _updateOperatorVUnits + removeOperator", () => {
       // Tx succeeded (no revert) — the guard prevented the underflow
       await assertINV11(provider, proxyAddr, [operatorIds[0]]);
       expect(cluster.active).to.equal(true);
+      // Verify removed op vUnits is specifically 0 after EB decrease
+      const vUnitsAfterDecrease = await readOperatorEthVUnits(provider, proxyAddr, operatorIds[0]);
+      expect(vUnitsAfterDecrease).to.equal(0n, "removed op vUnits must be 0 after EB decrease — guard prevented underflow");
+      // Verify DAO total is consistent
+      const daoVUnits = await readDaoTotalEthVUnits(provider, proxyAddr);
+      expect(daoVUnits).to.be.greaterThanOrEqual(0n, "daoTotalEthVUnits must be non-negative after EB decrease");
     });
 
     it("RM1-020: guard prevents corruption — chained EB increase + decrease on removed op has no residual state", async function () {

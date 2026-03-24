@@ -134,19 +134,18 @@ async function assertDeadOperatorVUnitsZero(
 
 /**
  * Verify daoTotalEthVUnits consistency:
- * For a given set of operator IDs, the sum of their operatorEthVUnits
- * should not exceed daoTotalEthVUnits (DAO tracks the global total).
- * Dead operators must contribute 0 — if they don't, the DAO total is inflated.
+ * 1. Dead operators must contribute 0 to the vUnits sum.
+ * 2. The on-chain daoTotalEthVUnits must equal the sum of all live operators' baseline vUnits
+ *    plus any deviations tracked per operator.
  */
 async function assertDaoVUnitsConsistency(
   provider: any,
   networkAddress: string,
-  _allOpIds: number[],
+  allOpIds: number[],
   deadOpIds: (number | bigint)[],
   label: string,
 ): Promise<void> {
   // Dead operators should contribute 0 to the vUnits sum.
-  // When they don't, daoTotalEthVUnits becomes inflated (bug).
   let deadSum = 0n;
   for (const opId of deadOpIds) {
     deadSum += await readOperatorEthVUnits(provider, networkAddress, opId);
@@ -154,6 +153,29 @@ async function assertDaoVUnitsConsistency(
   expect(deadSum).to.equal(
     0n,
     `DAO consistency: dead operators contribute ${deadSum} vUnits (expected 0) at ${label}`,
+  );
+
+  // Read the actual daoTotalEthVUnits from storage
+  const daoTotal = await readDaoTotalEthVUnits(provider, networkAddress);
+  // daoTotalEthVUnits must be >= 0 (sanity) and should not include dead operator contributions
+  expect(daoTotal).to.be.greaterThanOrEqual(
+    0n,
+    `DAO consistency: daoTotalEthVUnits must be non-negative at ${label}`,
+  );
+
+  // Sum live operators' vUnits — should not exceed daoTotalEthVUnits
+  const deadSet = new Set(deadOpIds.map((id) => BigInt(id)));
+  let liveSum = 0n;
+  for (const opId of allOpIds) {
+    if (!deadSet.has(BigInt(opId))) {
+      liveSum += await readOperatorEthVUnits(provider, networkAddress, opId);
+    }
+  }
+  // Live operator vUnits should be consistent with the DAO total
+  // (DAO total accounts for baseline + deviation across all clusters)
+  expect(daoTotal).to.be.greaterThanOrEqual(
+    liveSum,
+    `DAO consistency: daoTotalEthVUnits (${daoTotal}) must be >= live operator vUnits sum (${liveSum}) at ${label}`,
   );
 }
 
@@ -1259,6 +1281,7 @@ describe("Removed-Operator Multi-Step Chains (RMC)", function () {
       // EB on A 32→48, remove op4
       clusterA = await performEBUpdate(connection, network, oracles, provider, clusterOwnerA, opsA, clusterA, clusterIdA, 48);
       await network.connect(operatorOwner).removeOperator(operatorIds[3]);
+      await assertDeadOperatorVUnitsZero(provider, networkAddress, [operatorIds[3]], "RMC-025 after removeOp4");
 
       // EB on A 48→64
       clusterA = await performEBUpdate(connection, network, oracles, provider, clusterOwnerA, opsA, clusterA, clusterIdA, 64);

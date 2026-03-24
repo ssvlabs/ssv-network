@@ -40,6 +40,48 @@ import { ethers } from "ethers";
 
 const OP_SSV_FEE_UNPACKED = 10_000_000_000n;
 
+// ─── Diamond storage helpers (operatorEthVUnits) ────────────────────────────
+const EB_BASE_SLOT =
+  BigInt(ethers.keccak256(ethers.toUtf8Bytes("ssv.network.storage.eb"))) - 1n;
+const OPERATOR_ETH_VUNITS_MAPPING_SLOT = EB_BASE_SLOT + 2n;
+const UINT64_MASK = (1n << 64n) - 1n;
+
+async function readOperatorEthVUnits(
+  provider: any,
+  proxyAddress: string,
+  operatorId: number | bigint,
+): Promise<bigint> {
+  const slot = ethers.keccak256(
+    ethers.AbiCoder.defaultAbiCoder().encode(
+      ["uint256", "uint256"],
+      [BigInt(operatorId), OPERATOR_ETH_VUNITS_MAPPING_SLOT],
+    ),
+  );
+  const raw = await provider.getStorage(proxyAddress, slot);
+  return BigInt(raw) & UINT64_MASK;
+}
+
+const PROTOCOL_BASE_SLOT =
+  BigInt(ethers.keccak256(ethers.toUtf8Bytes("ssv.network.storage.protocol"))) - 1n;
+
+/** Set validatorsPerOperatorLimit via direct storage write. Field is at bits [96..127] of slot 0. */
+async function setValidatorsPerOperatorLimit(
+  provider: any,
+  proxyAddress: string,
+  limit: number,
+): Promise<void> {
+  const slotHex = "0x" + PROTOCOL_BASE_SLOT.toString(16).padStart(64, "0");
+  const raw = BigInt(await provider.getStorage(proxyAddress, slotHex));
+  // Clear bits [96..127], then set new value
+  const mask = ~(0xFFFFFFFFn << 96n);
+  const updated = (raw & mask) | (BigInt(limit) << 96n);
+  await provider.send("hardhat_setStorageAt", [
+    proxyAddress,
+    slotHex,
+    ethers.zeroPadValue(ethers.toBeHex(updated), 32),
+  ]);
+}
+
 describe("RM6: Migration Init Guard — Removed Operator Scenarios", () => {
   let connection: NetworkConnection<"generic">;
   let networkHelpers: NetworkHelpersType;
@@ -143,6 +185,8 @@ describe("RM6: Migration Init Guard — Removed Operator Scenarios", () => {
     views: any,
     operatorId: number,
     label: string,
+    provider?: any,
+    networkAddress?: string,
   ) {
     const opETH = await views.getOperatorById(operatorId);
     expect(opETH.validatorCount).to.equal(0, `${label}: ethValidatorCount must be 0`);
@@ -151,6 +195,11 @@ describe("RM6: Migration Init Guard — Removed Operator Scenarios", () => {
 
     const opSSV = await views.getOperatorByIdSSV(operatorId);
     expect(opSSV.validatorCount).to.equal(0, `${label}: ssvValidatorCount must be 0`);
+
+    if (provider && networkAddress) {
+      const vUnits = await readOperatorEthVUnits(provider, networkAddress, operatorId);
+      expect(vUnits).to.equal(0n, `${label}: operatorEthVUnits must be 0`);
+    }
   }
 
   // ─── Helper: assert live operator was properly migrated ───
@@ -193,7 +242,8 @@ describe("RM6: Migration Init Guard — Removed Operator Scenarios", () => {
       await expect(migrateTx).to.emit(network, Events.CLUSTER_MIGRATED_TO_ETH);
 
       // Removed op: fully dead — both snapshot.block == 0, guard fires continue
-      await assertRemovedOpState(views, removedOpId, "RM6-001 op4");
+      const networkAddress = await network.getAddress();
+      await assertRemovedOpState(views, removedOpId, "RM6-001 op4", provider, networkAddress);
       // Owner survives removal
       const opData = await views.getOperatorById(removedOpId);
       expect(opData.owner).to.not.equal(ethers.ZeroAddress, "owner survives removal");
@@ -338,7 +388,8 @@ describe("RM6: Migration Init Guard — Removed Operator Scenarios", () => {
       await expect(migrateTx).to.emit(network, Events.CLUSTER_MIGRATED_TO_ETH);
 
       // op4 fully dead despite having had SSV snapshot at cluster creation time
-      await assertRemovedOpState(views, removedOpId, "RM6-005 op4");
+      const networkAddress = await network.getAddress();
+      await assertRemovedOpState(views, removedOpId, "RM6-005 op4", provider, networkAddress);
 
       // Live operators properly migrated
       for (let i = 0; i < 3; i++) {
@@ -464,7 +515,8 @@ describe("RM6: Migration Init Guard — Removed Operator Scenarios", () => {
       expect(ssvRefund).to.be.greaterThan(0n, "SSV refund > 0");
 
       // Dead op contributes 0 to cumulativeIndexSSV
-      await assertRemovedOpState(views, removedOpId, "RM6-009");
+      const networkAddress = await network.getAddress();
+      await assertRemovedOpState(views, removedOpId, "RM6-009", provider, networkAddress);
     });
   });
 
@@ -490,7 +542,8 @@ describe("RM6: Migration Init Guard — Removed Operator Scenarios", () => {
       await expect(migrateTx).to.emit(network, Events.CLUSTER_MIGRATED_TO_ETH);
 
       // Removed op
-      await assertRemovedOpState(views, removedOpId, "RM6-010 removed");
+      const networkAddress = await network.getAddress();
+      await assertRemovedOpState(views, removedOpId, "RM6-010 removed", provider, networkAddress);
 
       // Live ops get 3 ethValidatorCount each
       for (const opId of [operatorIds[0], operatorIds[1], operatorIds[3]]) {
@@ -537,8 +590,9 @@ describe("RM6: Migration Init Guard — Removed Operator Scenarios", () => {
       await expect(migrateTx).to.emit(network, Events.CLUSTER_MIGRATED_TO_ETH);
 
       // Removed ops
-      await assertRemovedOpState(views, operatorIds[1], "RM6-011 op2");
-      await assertRemovedOpState(views, operatorIds[3], "RM6-011 op4");
+      const networkAddress = await network.getAddress();
+      await assertRemovedOpState(views, operatorIds[1], "RM6-011 op2", provider, networkAddress);
+      await assertRemovedOpState(views, operatorIds[3], "RM6-011 op4", provider, networkAddress);
 
       // Live ops: 2 ethValidatorCount each
       await assertLiveOpMigrated(views, operatorIds[0], 2, "RM6-011 op1");
@@ -583,8 +637,9 @@ describe("RM6: Migration Init Guard — Removed Operator Scenarios", () => {
       await expect(migrateTx).to.emit(network, Events.CLUSTER_MIGRATED_TO_ETH);
 
       // All 3 removed ops
+      const networkAddress = await network.getAddress();
       for (let i = 0; i < 3; i++) {
-        await assertRemovedOpState(views, operatorIds[i], `RM6-012 removed op${i + 1}`);
+        await assertRemovedOpState(views, operatorIds[i], `RM6-012 removed op${i + 1}`, provider, networkAddress);
       }
 
       // Single live op: ethValidatorCount == 2
@@ -646,7 +701,8 @@ describe("RM6: Migration Init Guard — Removed Operator Scenarios", () => {
       expect(opSSVAfter.validatorCount).to.equal(0, "dead op SSV validatorCount stays 0");
 
       // Dead op: ETH not initialized
-      await assertRemovedOpState(views, removedOpId, "RM6-013 dead op");
+      const networkAddress = await network.getAddress();
+      await assertRemovedOpState(views, removedOpId, "RM6-013 dead op", provider, networkAddress);
     });
   });
 
@@ -721,7 +777,9 @@ describe("RM6: Migration Init Guard — Removed Operator Scenarios", () => {
       expect(eventArgs.ssvRefunded).to.equal(0n);
 
       // Removed op: fully dead
-      await assertRemovedOpState(views, removedOpId, "RM6-014 removed");
+      const provider = connection.ethers.provider;
+      const networkAddress = await network.getAddress();
+      await assertRemovedOpState(views, removedOpId, "RM6-014 removed", provider, networkAddress);
 
       // Live ops: ethValidatorCount == 1 (SSV validatorCount NOT re-decremented since liquidated)
       for (let i = 0; i < 3; i++) {
@@ -764,7 +822,8 @@ describe("RM6: Migration Init Guard — Removed Operator Scenarios", () => {
       await expect(migrateTx).to.emit(network, Events.CLUSTER_MIGRATED_TO_ETH);
 
       // Removed op: guard fired continue → not resurrected
-      await assertRemovedOpState(views, removedOpId, "RM6-015 removed");
+      const networkAddress = await network.getAddress();
+      await assertRemovedOpState(views, removedOpId, "RM6-015 removed", provider, networkAddress);
 
       // Cluster functional with 3/4 operators
       const migratedCluster = parseClusterFromEvent(network, receipt, Events.CLUSTER_MIGRATED_TO_ETH);
@@ -792,7 +851,7 @@ describe("RM6: Migration Init Guard — Removed Operator Scenarios", () => {
   describe("RM6-016: operatorEthVUnits properly deleted by removeOperator", () => {
     const ethNativeFixture = () => ssvNetworkFullFixture(connection);
 
-    it("removeOperator fully cleans operator state; migration sees clean zero state", async function () {
+    it("removeOperator fully cleans operator state — no residual operatorEthVUnits", async function () {
       const { network, views } =
         await networkHelpers.loadFixture(ethNativeFixture);
       const [deployer] = await connection.ethers.getSigners();
@@ -835,6 +894,11 @@ describe("RM6: Migration Init Guard — Removed Operator Scenarios", () => {
 
       // Owner survives
       expect(removedOp.owner).to.not.equal(ethers.ZeroAddress, "owner survives removal");
+
+      const provider = connection.ethers.provider;
+      const networkAddress = await network.getAddress();
+      const vUnits = await readOperatorEthVUnits(provider, networkAddress, removedOpId);
+      expect(vUnits).to.equal(0n, "operatorEthVUnits fully deleted by removeOperator");
     });
   });
 
@@ -856,6 +920,10 @@ describe("RM6: Migration Init Guard — Removed Operator Scenarios", () => {
       const removedOpId = operatorIds[2];
       await network.connect(clusterOwner).removeOperator(removedOpId);
 
+      // Set limit to exact validator count to test boundary
+      const networkAddress = await network.getAddress();
+      await setValidatorsPerOperatorLimit(provider, networkAddress, 2);
+
       // Migrate
       const migrateTx = await network.connect(clusterOwner).migrateClusterToETH(
         operatorIds, cluster, { value: DEFAULT_ETH_REGISTER_VALUE },
@@ -872,9 +940,9 @@ describe("RM6: Migration Init Guard — Removed Operator Scenarios", () => {
         expect(op.validatorCount).to.equal(2);
       }
 
-      // Verify the limit itself (3000) — live ops at 2 are well within
+      // Verify the limit was set to exact validator count
       const limit = await views.getValidatorsPerOperatorLimit();
-      expect(limit).to.be.greaterThan(2, "limit is > 2, so live ops pass");
+      expect(Number(limit)).to.equal(2, "limit set to exact validator count — live ops at boundary");
 
       // The removed op will never reach the limit check at line 378
       // because the guard at line 363-365 fires `continue` first.
@@ -916,15 +984,18 @@ describe("RM6: Migration Init Guard — Removed Operator Scenarios", () => {
       await network.connect(clusterOwner).removeOperator(operatorIds[1]);
       await network.connect(clusterOwner).removeOperator(operatorIds[2]);
 
+      const networkAddress = await network.getAddress();
+      await setValidatorsPerOperatorLimit(provider, networkAddress, 3);
+
       // Migrate — only op4 (the single live op) gets ethValidatorCount += 3
       const migrateTx = await network.connect(clusterOwner).migrateClusterToETH(
         operatorIds, cluster, { value: DEFAULT_ETH_REGISTER_VALUE },
       );
       await expect(migrateTx).to.emit(network, Events.CLUSTER_MIGRATED_TO_ETH);
 
-      // Verify the limit (3000) — sole live op at 3 is well within limit
+      // Verify the limit was set to exact validator count
       const limit = await views.getValidatorsPerOperatorLimit();
-      expect(Number(limit)).to.equal(3000);
+      expect(Number(limit)).to.equal(3, "limit set to exact validator count — boundary test");
 
       // If removed ops WERE counted (bug), the limit check at line 378 would
       // try to increment dead operators' ethValidatorCount. The guard prevents this.
@@ -935,7 +1006,7 @@ describe("RM6: Migration Init Guard — Removed Operator Scenarios", () => {
 
       // All removed ops: 0
       for (let i = 0; i < 3; i++) {
-        await assertRemovedOpState(views, operatorIds[i], `RM6-018 removed op${i + 1}`);
+        await assertRemovedOpState(views, operatorIds[i], `RM6-018 removed op${i + 1}`, provider, networkAddress);
       }
 
       // Confirm ensureOperatorExist blocks new ETH registrations with removed ops
