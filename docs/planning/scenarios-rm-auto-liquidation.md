@@ -320,3 +320,25 @@ Both functions blindly iterate the `operatorIds` array. For a removed operator w
    - `_executeLiquidation` deviation loop (line 586): `if (s.operators[operatorIds[i]].ethSnapshot.block == 0) continue;`
 
    Alternatively, since `removeOperator` already deletes `operatorEthVUnits`, skipping removed operators in both loops ensures no ghost writes and no underflow subtractions.
+
+---
+
+## ask-codex Review Findings
+
+### Missing Edge Cases
+
+1. **`newVUnits == storedVUnits` auto-liquidation path:** When the EB update results in no deviation change, `_updateOperatorVUnits` is still called but with `deltaAbs == 0`. The auto-liquidation trigger `_liquidateAfterEBUpdateIfNeeded` should still evaluate because the cluster balance may have changed from fee accrual alone. No scenario covers this no-delta trigger path.
+
+2. **Exact `minimumLiquidationCollateral` boundary:** The liquidation check at ClusterLib.sol:76 uses strict `<`, meaning a balance exactly equal to `minimumLiquidationCollateral` is NOT liquidatable. Add boundary scenario: EB update pushes balance to exactly the floor → auto-liquidation should NOT trigger.
+
+3. **`!cluster.active` / `validatorCount == 0` short-circuit:** `_liquidateAfterEBUpdateIfNeeded` at SSVClusters.sol:529 short-circuits when `!cluster.active` or `cluster.validatorCount == 0`. After a removed operator reduces fee burn and triggers auto-liquidation check, if the cluster was already liquidated (from a prior path) or has no validators, the compound path is skipped. No scenario covers this short-circuit after operator removal.
+
+### Additional Scenarios (from ask-codex)
+
+| ID | Scenario | Operators | Cluster | remove_mode | EB | Expected | Modules |
+|----|----------|-----------|---------|-------------|-----|----------|---------|
+| RMA-054 | No-delta auto-liq: EB update with `newVUnits == storedVUnits`, cluster below collateral from fee accrual | 4 | ETH | real | no change | Auto-liquidation triggers from balance drain, not EB change | CL+EB |
+| RMA-055 | Exact collateral boundary: EB decrease leaves balance exactly at `minimumLiquidationCollateral` | 4 | ETH | real | decrease | NOT liquidatable (strict `<` check), no auto-liquidation | CL+EB |
+| RMA-056 | Short-circuit: operator removed, EB update on already-liquidated cluster | 4 | ETH | real | decrease | `_liquidateAfterEBUpdateIfNeeded` returns early (`!cluster.active`), no deviation cleanup | CL+OP+EB |
+
+No impossible or unreachable scenarios found in existing set. Code references verified accurate.

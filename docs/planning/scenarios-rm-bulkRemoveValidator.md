@@ -357,3 +357,13 @@
 - 1 scenario covers liquidated cluster interaction
 
 **Cross-references:** VX-028, VX-037, VX-038, VX-063 in `scenarios-vl-remove-exit.md`
+
+---
+
+## ask-codex Review Findings
+
+### Corrections
+
+1. **RM3-009 is impossible as written.** The `IncorrectClusterVersion()` fallback arm at SSVValidators.sol:250 is unreachable because `validateHashedCluster` only returns `VERSION_ETH` or `VERSION_SSV` and otherwise reverts (ClusterLib.sol:350/355/358). RM3-009 should be tagged as a defensive-code verification scenario, not a reachable path.
+
+No other impossible or unreachable scenarios found. Code references verified accurate.

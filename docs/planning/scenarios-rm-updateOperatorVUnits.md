@@ -381,3 +381,13 @@ This scenario file covers the interaction between `_updateOperatorVUnits` (SSVCl
 The fix is a one-line guard: `if (s.operators[operatorId].ethSnapshot.block == 0) continue;` at SSVClusters.sol:506, matching the pattern already used in `updateClusterOperators` (OperatorLib.sol:291) and `updateClusterOperatorsOnReactivation` (OperatorLib.sol:291).
 
 25 scenarios across 4 operator counts (4/7/10/13), 3 delta directions (increase/decrease/zero), 2 guard states (present/missing), 2 remove modes (real/mock), and edge cases (chained removal, first-ever EB, shared operators, all-ops-removed). 5 scenarios reproduce the bugs. All scenarios assert `operatorEthVUnits[removedOp] == 0` as the primary invariant.
+
+---
+
+## ask-codex Review Findings
+
+### Clarifications
+
+1. **Guard pattern description precision:** The existing guard in libraries uses a positive check `ethSnapshot.block != 0` (not a literal `continue` statement). The removed operator's stored `ethSnapshot.index` is preserved at 0 by `_resetOperatorState`. Scenarios correctly describe the *absence* of this guard in `_updateOperatorVUnits` — the fix should match the positive-check pattern already used in `updateClusterOperators` (OperatorLib.sol:247) and `updateClusterOperatorsOnReactivation` (OperatorLib.sol:291).
+
+No impossible or unreachable scenarios found. Code references verified accurate.

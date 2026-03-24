@@ -494,3 +494,15 @@ Maps each invariant to the scenarios that test it, and which trigger flows exerc
 - **Root cause paths:** `SSVClusters.sol:494-510` (`_updateOperatorVUnits`), `SSVClusters.sol:586-592` (liquidation deviation cleanup), `SSVClusters.sol:318-322` (migration deviation addition)
 - **Safe paths:** Reactivation (`OperatorLib.sol:291` correctly checks `block != 0`) and registration (`OperatorLib.sol:155-221` requires operator to exist)
 - INV-050 is the comprehensive multi-invariant stress test that demonstrates the bug's impact on global accounting
+
+---
+
+## ask-codex Review Findings
+
+### Test Validation
+
+ask-codex ran existing test suites (`removeOperator.test.ts`, `oracle-commits.test.ts`, `solvencyInvariant.test.ts`) — all passed. Additionally confirmed via temporary harness test:
+1. **Explicit-EB removal/liquidation underflow:** reproduced — `_executeLiquidation` underflows on `operatorEthVUnits[removedOp] -= deviation` when slot is 0
+2. **Explicit-EB removal/migration stale-write:** reproduced — migration writes ghost deviation to removed operator's deleted slot
+
+Both behaviors align with INV-050's assertions. No impossible or unreachable invariant scenarios found. Code references verified accurate.

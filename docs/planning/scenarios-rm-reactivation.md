@@ -341,3 +341,13 @@
 **Cross-reference risk (RM5-002):** The `_executeLiquidation` deviation cleanup loop (SSVClusters.sol:585-592) does NOT have an equivalent `ethSnapshot.block != 0` guard. If an operator is removed BEFORE liquidation and the cluster had explicit EB deviation, the subtraction `operatorEthVUnits[removedOp] -= deviation` operates on a deleted (zero) mapping entry, risking underflow. This should be cross-referenced with RM1-* scenarios.
 
 **DAO accounting invariant:** `daoTotalEthVUnits` is incremented by the full `clusterDeviation` on reactivation (line 175), regardless of how many operators are removed. This is correct because DAO accounting is cluster-scoped. The per-operator `operatorEthVUnits` only reflects active operators, creating a divergence that is by design.
+
+---
+
+## ask-codex Review Findings
+
+### Test Coverage Confirmation
+
+ask-codex ran `npx hardhat test test/sanity/removed-operator.test.ts` and `test/unit/SSVClusters/reactivate.test.ts` — both passed. The existing `removed-operator.test.ts` (line 30) only covers the implicit-EB remove-then-liquidate path, NOT the explicit positive-deviation case. This confirms RM5's value: the explicit-EB reactivation guard scenarios (RM5-003, RM5-006, RM5-009, RM5-012) are genuinely untested.
+
+No impossible or unreachable scenarios found. Code references verified accurate.
