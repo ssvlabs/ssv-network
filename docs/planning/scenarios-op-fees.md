@@ -417,3 +417,58 @@
 | OF-054 | declareOperatorFee | Overwrite pending request after approval window expires. Verify overwrite succeeds. | `entry:declareOperatorFee; revert:no` | [ ] | SSVOperators.sol:135 |
 | OF-055 | declareOperatorFee | DAO raises `minimumOperatorEthFee` between declare and execute — execute succeeds even though declared fee is now below new minimum. Documents no re-check at execute. | `entry:executeOperatorFee; revert:no` | [ ] | SSVOperators.sol:164 |
 | OF-056 | declareOperatorFee | DAO changes `operatorMaxFeeIncrease` between declare and execute — execute still uses the originally-validated increase. No re-check at execute time. | `entry:executeOperatorFee; revert:no` | [ ] | SSVOperators.sol:131, 164 |
+
+---
+
+## Coverage Verification (W4)
+
+| ID | Tested | remove_mode | Test File | Notes |
+|----|--------|-------------|-----------|-------|
+| OF-001 | yes | none | `test/unit/SSVOperators/declareOperatorFee.test.ts` ("Declares operator fee"), `test/unit/SSVOperators/executeOperatorFee.test.ts` ("Executes declared fee"), `test/e2e/operators/operator-lifecycle.test.ts` ("Declares fee, waits, and executes"), `test/integration/SSVNetwork/operators.test.ts` ("Fee change via declare->execute workflow") | Full happy-path: declare within limit, wait, execute. Both unit and e2e |
+| OF-002 | yes | none | `test/unit/SSVOperators/declareOperatorFee.test.ts` ("Is reverted with 'FeeExceedsIncreaseLimit'"), `test/e2e/operators/operator-lifecycle.test.ts` ("Fee increase exceeding limit reverts"), `test/integration/SSVNetwork/operators.test.ts` ("reverts at just above max allowed increase") | FeeExceedsIncreaseLimit verified |
+| OF-003 | yes | none | `test/unit/SSVOperators/declareOperatorFee.test.ts` ("Is reverted with 'FeeTooHigh'") | Fixture sets tight max fee, FeeTooHigh verified |
+| OF-004 | yes | none | `test/unit/SSVOperators/declareOperatorFee.test.ts` ("Is reverted with 'FeeTooLow' when declaring below minimal fee") | Mock sets min fee, fee below min reverts |
+| OF-005 | yes | none | `test/unit/SSVOperators/declareOperatorFee.test.ts` ("Is reverted with 'SameFeeChangeNotAllowed'") | Declaring same fee reverts |
+| OF-006 | yes | none | `test/unit/SSVOperators/declareOperatorFee.test.ts` ("Is reverted with 'FeeIncreaseNotAllowed' when starting from zero fee"), `test/e2e/operators/operator-lifecycle.test.ts` ("Register with fee=0 succeeds, operator is free forever"), `test/integration/SSVNetwork/operators.test.ts` ("Cannot increase fee from zero") | Zero-fee operator cannot declare increase |
+| OF-007 | yes | none | `test/unit/SSVOperators/executeOperatorFee.test.ts` ("Is reverted with 'ApprovalNotWithinTimeframe' when executing too early or too late"), `test/integration/SSVNetwork/operators.test.ts` ("executeOperatorFee reverts before declare period ends") | Execute before approvalBeginTime -> revert |
+| OF-008 | yes | none | `test/unit/SSVOperators/executeOperatorFee.test.ts` ("Is reverted with 'ApprovalNotWithinTimeframe'"), `test/e2e/operators/operator-lifecycle.test.ts` ("Execute after approval window expires reverts"), `test/integration/SSVNetwork/operators.test.ts` ("executeOperatorFee reverts after execute period expires") | Execute after approvalEndTime -> revert |
+| OF-009 | partial:weak | none | `test/unit/SSVOperators/executeOperatorFee.test.ts` ("Executes declared fee and emits event") | Mines past declare period, executes. Does not test exact boundary second |
+| OF-010 | no | none | — | No test verifies execution at exact approvalEndTime second |
+| OF-011 | yes | none | `test/unit/SSVOperators/executeOperatorFee.test.ts` ("Is reverted with 'NoFeeDeclared'") | Execute without declaration -> NoFeeDeclared |
+| OF-012 | yes | none | `test/unit/SSVOperators/executeOperatorFee.test.ts` ("Is reverted with 'LegacyOperatorFeeDeclarationInvalid'") | Pre-upgrade declaration timestamp -> LegacyOperatorFeeDeclarationInvalid |
+| OF-013 | yes | none | `test/unit/SSVOperators/cancelDeclaredOperatorFee.test.ts` ("Cancels declared fee"), `test/e2e/operators/operator-lifecycle.test.ts` ("cancel declared fee clears the request") | Cancel clears request, subsequent execute -> NoFeeDeclared |
+| OF-014 | yes | none | `test/unit/SSVOperators/cancelDeclaredOperatorFee.test.ts` ("Is reverted with 'NoFeeDeclared' when canceling without a declaration") | Cancel with no pending -> NoFeeDeclared |
+| OF-015 | yes | none | `test/e2e/operators/operator-lifecycle.test.ts` ("Reducing fee clears pending fee change request") | Full cycle: declare, execute first increase, declare second, reduce clears, execute -> NoFeeDeclared |
+| OF-016 | no | none | — | No test explicitly overwrites a pending declaration with a second declare and verifies only the second is executable |
+| OF-017 | yes | none | `test/unit/SSVOperators/reduceOperatorFee.test.ts` ("Reduces operator fee"), `test/e2e/operators/operator-lifecycle.test.ts` ("Reduces fee immediately"), `test/integration/SSVNetwork/operators.test.ts` ("succeeds reducing to exact minimum fee") | Immediate reduce, OperatorFeeExecuted emitted |
+| OF-018 | yes | none | `test/e2e/operators/operator-lifecycle.test.ts` ("Operator can reduce to 0 then cannot increase"), `test/unit/SSVOperators/reduceOperatorFee.test.ts` ("Keeps explicit zero fee after legacy initialization") | Reduce to 0 succeeds, subsequent declare reverts FeeIncreaseNotAllowed |
+| OF-019 | yes | none | `test/unit/SSVOperators/reduceOperatorFee.test.ts` ("Is reverted with 'FeeIncreaseNotAllowed' when reducing to the same or higher fee"), `test/e2e/operators/operator-lifecycle.test.ts` ("Reduce to exactly current fee reverts", "Reduce to higher fee reverts") | Same or higher -> FeeIncreaseNotAllowed |
+| OF-020 | yes | none | `test/unit/SSVOperators/reduceOperatorFee.test.ts` ("Is reverted with 'FeeTooLow'"), `test/integration/SSVNetwork/operators.test.ts` ("reverts when reducing below minimum fee") | Below minimum non-zero -> FeeTooLow |
+| OF-021 | yes | none | `test/unit/SSVOperators/reduceOperatorFee.test.ts` ("Clears pending fee declaration when reducing fee"), `test/e2e/operators/operator-lifecycle.test.ts` ("Reducing fee clears pending fee change request") | Declare then reduce -> request cleared |
+| OF-022 | yes | none | `test/e2e/operators/operator-economics.test.ts` ("Verifies continuous fee accrual across fee change boundary"), `test/e2e/operators/operator-lifecycle.test.ts` ("Reduces fee immediately, preserving earnings at old fee"), `test/integration/SSVNetwork/operators.test.ts` ("Fee change via declare->execute workflow") | Active validators: earnings settle at old fee, accrue at new fee. Exact math verified |
+| OF-023 | yes | none | `test/unit/SSVClusters/ebWeightedOperatorEarnings.test.ts` ("earnings split correctly at fee change boundary with EB-weighted vUnits") | Explicit EB=64 with fee change mid-accrual; vUnits impact verified with exact math |
+| OF-024 | no | none | — | No test specifically reduces fee on operator with explicit EB clusters and verifies EB-weighted settlement |
+| OF-025 | yes | real | `test/unit/SSVOperators/removeOperator.test.ts` ("Clears a pending fee change request", "Blocks executeOperatorFee with OperatorDoesNotExist after removal") | Declare -> remove -> request deleted; execute -> OperatorDoesNotExist |
+| OF-026 | yes | none | `test/unit/SSVOperators/declareOperatorFee.test.ts` ("Is reverted with 'CallerNotOwnerWithData'") | Non-owner declare -> CallerNotOwnerWithData |
+| OF-027 | yes | none | `test/unit/SSVOperators/executeOperatorFee.test.ts` ("Is reverted with 'CallerNotOwnerWithData'") | Non-owner execute -> CallerNotOwnerWithData |
+| OF-028 | no | none | — | No explicit test for non-owner cancel. cancelDeclaredOperatorFee.test.ts does not include non-owner test |
+| OF-029 | yes | none | `test/unit/SSVOperators/reduceOperatorFee.test.ts` ("Is reverted with 'CallerNotOwnerWithData'") | Non-owner reduce -> CallerNotOwnerWithData |
+| OF-030 | yes | none | `test/unit/SSVOperators/declareOperatorFee.test.ts` ("Is reverted with 'MaxPrecisionExceeded'") | Non-aligned fee declared -> MaxPrecisionExceeded |
+| OF-031 | yes | none | `test/unit/SSVOperators/reduceOperatorFee.test.ts` ("Is reverted with 'MaxPrecisionExceeded'") | Non-aligned reduce fee -> MaxPrecisionExceeded |
+| OF-032 | no | none | — | No test declares fee at exact operatorMaxFee to verify packed representation and no overflow |
+| OF-033 | yes | none | `test/unit/SSVOperators/executeOperatorFee.test.ts` ("Is reverted with 'FeeTooHigh' if DAO lowers max fee below declared amount") | DAO lowers max between declare and execute -> FeeTooHigh |
+| OF-034 | no | none | — | No test verifies that fee increase makes a cluster cross the liquidation threshold |
+| OF-035 | yes | none | `test/unit/SSVOperators/declareOperatorFee.test.ts` ("Emits OperatorFeeExecuted when defaulting legacy SSV operator to ETH fee on declare") | Legacy SSV operator triggers ensureETHDefaults on declare; two events emitted |
+| OF-036 | yes | none | `test/unit/SSVOperators/reduceOperatorFee.test.ts` ("Initializes legacy ETH snapshot and reduces fee for SSV legacy operator") | Legacy SSV operator reduce triggers ensureETHDefaults; two OperatorFeeExecuted events verified |
+| OF-037 | partial:weak | none | `test/unit/SSVOperators/declareOperatorFee.test.ts` ("Declares operator fee within allowed limits") | Tests 2x fee (which may be at limit), but does not specifically test exact boundary math |
+| OF-038 | partial:weak | none | `test/unit/SSVOperators/declareOperatorFee.test.ts` ("Is reverted with 'FeeExceedsIncreaseLimit'") | Tests 3x (well above limit) but not exactly "1 packed unit above limit" |
+| OF-039 | partial:weak | none | `test/e2e/operators/operator-lifecycle.test.ts` ("Reducing fee clears pending fee change request") | Does declare-execute-declare-reduce, but not two full declare-execute cycles in sequence |
+| OF-040 | no | none | — | No test changes operator fee while clusters are liquidated and verifies post-reactivation burn rate |
+| OF-049 | no | none | — | No test for timelocked decrease-to-zero via declareOperatorFee |
+| OF-050 | no | none | — | No test for zero-width approval window |
+| OF-051 | no | none | — | No test for cancel after approval window expires |
+| OF-052 | partial:weak | none | `test/unit/SSVOperators/cancelDeclaredOperatorFee.test.ts` | Cancel is tested but does not explicitly verify it happens during the approval window |
+| OF-053 | no | none | — | No test for overwriting pending request while window is open |
+| OF-054 | no | none | — | No test for overwriting pending request after window expires |
+| OF-055 | no | none | — | No test for DAO raising minimumOperatorEthFee between declare and execute |
+| OF-056 | no | none | — | No test for DAO changing operatorMaxFeeIncrease between declare and execute |

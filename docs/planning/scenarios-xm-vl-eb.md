@@ -631,3 +631,74 @@ at SSVValidators.sol:216, before subtracting from `operatorEthVUnits`.
 ### Additional Scenarios
 | XV-061 | liquidate → remove subset → reactivate → updateClusterBalance | Liquidated cluster, remove some (not all) validators while inactive. Inactive removal still subtracts baseline from ebSnapshot.vUnits (SSVValidators.sol:204/207). Reactivate with reduced validator count, then EB update recomputes deviation from new baseline. | `entry:updateClusterEB; revert:no` | [ ] | SSVValidators.sol:204, SSVClusters.sol:142,145 |
 | XV-062 | liquidate → remove subset → reactivate → updateClusterBalance (with removed operator) | Same as XV-061 but one operator was also removed. Reactivation skips dead operator in deviation loop. Tests compound validator-count-change + operator-removal on deviation accounting. | `entry:updateClusterEB; bug:removed-op; revert:no` | [ ] | OperatorLib.sol:291, SSVClusters.sol:504 |
+
+---
+
+## Coverage Verification (W4)
+
+| ID | Tested | remove_mode | Test File | Notes |
+|----|--------|-------------|-----------|-------|
+| XV-001 | partial:weak | none | test/e2e/cross-cutting/full-lifecycle.test.ts | Full lifecycle test covers register→EB→remove flow but only checks cluster balance/validatorCount, not vUnits==0 or ebSnapshot zeroed |
+| XV-002 | partial:weak | none | test/e2e/cross-cutting/full-lifecycle.test.ts, test/unit/SSVValidator/removeValidator.test.ts ("Clears remaining explicit EB vUnits when removing the last validator") | Unit test verifies clusterVUnits==0 after last-val remove with EB, but does not verify per-operator deviation cleanup |
+| XV-003 | partial:weak | none | test/unit/SSVValidator/bulkRemoveValidator.test.ts ("Decrements stored EB snapshot vUnits when set and removing a subset") | Tests ebSnapshot.vUnits decrement on partial remove, but does not verify deviation preserved |
+| XV-004 | no | none | — | No test for partial remove leaving 1 validator with deviation verification |
+| XV-005 | partial:weak | none | test/unit/SSVValidator/bulkRemoveValidator.test.ts ("Clears stored EB snapshot vUnits when removing the last validators") | Tests ebSnapshot.vUnits cleared on full remove, but does not verify per-operator deviation subtracted |
+| XV-006 | no | none | — | No test for bulk partial remove with EB deviation intact |
+| XV-007 | no | none | — | No test for bulk full remove at 7 operators with deviation cleanup scaling |
+| XV-008 | yes | none | test/unit/SSVValidator/registerValidator.test.ts ("Increments stored EB snapshot vUnits when cluster EB snapshot is set") | Verifies ebSnapshot.vUnits += BPS_DENOMINATOR on registration into explicit-EB cluster |
+| XV-009 | no | none | — | No test for double EB update across validator count change verifying storedVUnits coherence |
+| XV-010 | no | none | — | No test for interleaved register and EB update with storedVUnits consistency |
+| XV-011 | no | none | — | No test for complete cycle at scale (10 vals) with full deviation cleanup |
+| XV-012 | partial:weak | none | test/unit/SSVValidator/removeValidator.test.ts ("Updates operatorEthVUnits on register/remove even when cluster EB snapshot is not set") | Tests implicit-EB register/remove but does not specifically verify the EB cleanup path is NOT entered |
+| XV-013 | no | none | — | No test for explicit EB at baseline (no deviation) then remove verifying cleanup loop skipped |
+| XV-014 | no | none | — | No test for exit→EB→remove flow verifying exit is event-only |
+| XV-015 | no | none | — | No test for mixed exit+remove with EB update |
+| XV-016 | no | none | — | No test for re-registration after full cleanup returning to implicit EB |
+| XV-017 | no | none | — | No test for full round-trip implicit→explicit→cleanup→implicit→explicit |
+| XV-018 | no | none | — | No test for add-after-EB then partial remove verifying deviation preserved |
+| XV-019 | no | none | — | No test for sequential EB updates with removals between |
+| XV-020 | no | none | — | No test for massive expansion (9 more vals) after high EB |
+| XV-021 | no | none | — | No test for EB update after all validators removed |
+| XV-022 | yes | none | test/unit/SSVValidator/registerValidator.test.ts ("OperatorDoesNotExist when one of operators has been removed"), test/integration/SSVNetwork.test.ts (line 1789) | Verifies register with removed operator reverts OperatorDoesNotExist |
+| XV-023 | no | real | — | THE BUG PATH: No test for register→removeOperator→EB update→remove (writes deviation to removed op). Critical gap |
+| XV-024 | no | real | — | No test for removed-op deviation return-to-baseline across two EB updates |
+| XV-025 | no | real | — | No test for removed-op full cleanup: EB update + bulk remove all |
+| XV-026 | no | real | — | No test for EB before operator removal causing underflow on last-val remove. Critical bug path |
+| XV-027 | no | none | — | No test for shared operators between two clusters with EB + partial remove |
+| XV-028 | partial:weak | none | test/sanity/ssv3-stale-vunits-liquidation.test.ts ("Reverts with InsufficientBalance when deposit covers old vUnits but not post-registration vUnits") | Tests registration liquidity check with explicit EB, but at unit harness level, not full lifecycle |
+| XV-029 | no | none | — | No test for max EB then register verifying projected vUnits |
+| XV-030 | no | none | — | No test for max EB then remove verifying large deviation cleanup |
+| XV-031 | no | none | — | No test for large-scale interleaved (50 vals) with gas verification |
+| XV-032 | yes | none | test/unit/SSVValidator/bug4-double-deviation-liquidated.test.ts ("should not double-subtract deviation when removing all validators from a liquidated cluster") | Exact match: liquidation then remove, verifies no double-decrement of operatorEthVUnits and daoTotalEthVUnits |
+| XV-033 | yes | none | test/unit/SSVClusters/ebAutoLiquidation.test.ts ("Auto-liquidates cluster when EB increase makes it insolvent"), test/e2e/clusters-eth/cluster-eth-liquidation.test.ts ("EB increase triggers auto-liquidation") | Tests EB-triggered auto-liquidation with deviation cleanup verification |
+| XV-034 | no | none | — | No test for reactivation after liquidation restoring deviation then second EB update |
+| XV-035 | no | none | — | IMPOSSIBLE PATH per corrections (registration rejected on liquidated cluster) |
+| XV-036 | no | none | — | No test for cross-block interleaving (EB→register→EB) |
+| XV-037 | yes | none | test/unit/SSVClusters/ebSettlement.test.ts ("Removal settles fees using EB-weighted vUnits") | Tests remove after EB update verifying fee settlement uses explicit vUnits=15000 not baseline |
+| XV-038 | yes | none | test/unit/SSVClusters/ebSettlement.test.ts ("Registration settles fees using EB-weighted vUnits, not flat validatorCount") | Tests registration after EB, verifies fee settlement at pre-registration explicit vUnits |
+| XV-039 | no | none | — | No test for serial single removals with deviation cleanup on last |
+| XV-040 | no | none | — | No test for non-aligned EB precision (e.g., 33 ETH) |
+| XV-041 | no | none | — | No test for add-then-serial-remove with deviation only cleaned on last |
+| XV-042 | partial:weak | none | test/e2e/effective-balance/eb-operator-vunits.test.ts ("Accumulates vUnit deviations from multiple clusters") | Tests two clusters same operators with independent EB updates, but does not verify independent removal/cleanup |
+| XV-043 | no | none | — | No test for deposit between EB and remove verifying ebSnapshot unchanged |
+| XV-044 | no | none | — | No test for withdraw between EB and remove verifying no double-settlement |
+| XV-045 | no | none | — | No test for operator fee change between EB and remove |
+| XV-046 | no | none | — | No test for complex interleaving (10 vals, partial removes, re-register, second EB, final remove) |
+| XV-047 | no | none | — | No test for same-block EB update (zero fee delta) |
+| XV-048 | no | none | — | No test for same-block remove after EB |
+| XV-049 | no | real | — | No test for multiple removed operators + EB update + remove |
+| XV-050 | no | real | — | No test for removed op + register after EB: operatorEthVUnits unchanged |
+| XV-051 | partial:weak | none | test/unit/SSVClusters/networkFeeImpact.test.ts ("Network fee with EB-weighted cluster vUnit scaling applied") | Tests network fee with EB-weighted vUnits but not specifically between EB and removal |
+| XV-052 | partial:weak | none | test/sanity/ssv3-stale-vunits-liquidation.test.ts ("Reverts with InsufficientBalance...") | Tests liquidation boundary with explicit EB but specific projectedVUnits math not fully isolated |
+| XV-053 | no | none | — | No test for insufficient deposit with EB deviation at exact boundary |
+| XV-054 | no | none | — | No test for bulk remove with empty pubkeys from explicit EB cluster |
+| XV-055 | no | none | — | No test for atomic revert preserving EB state on invalid pubkey in batch |
+| XV-056 | partial:weak | none | test/unit/SSVClusters/operatorFeeEBInteraction.test.ts ("Fee change boundary accounting") | Tests two fee rate periods with EB but not two EB updates straddling a fee change |
+| XV-057 | no | none | — | No test for sequential EB increases then remove (accumulated deviation) |
+| XV-058 | partial:weak | none | test/unit/SSVClusters/ebDecreaseScenarios.test.ts ("EB decrease from 64 to 32 ETH reduces vUnits") | Tests EB increase then decrease but does not then remove last validator to verify cleanup |
+| XV-059 | partial:weak | none | test/unit/SSVClusters/updateClusterBalance.test.ts ("Updates vUnit accounting correctly for 13 operators at maximum EB") | Tests 13-operator EB update but does not test the full register→EB→remove cycle at 13 ops |
+| XV-060 | no | none | — | No test for exhaustive full complex lifecycle |
+| XV-061 | no | none | — | No test for liquidate→remove subset→reactivate→EB update |
+| XV-062 | no | real | — | No test for XV-061 variant with removed operator |
+
+**Summary:** 6 yes, 13 partial (0 partial:mock, 13 partial:weak), 43 no. Coverage is 10% full, 31% partial. Critical bug paths (XV-023 through XV-026, XV-049) are completely untested. The existing tests for liquidation-then-remove (XV-032) and fee settlement (XV-037, XV-038) are the strongest coverage points.

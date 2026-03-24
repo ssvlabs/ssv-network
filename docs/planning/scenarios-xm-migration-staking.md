@@ -538,3 +538,64 @@
 ### Additional Scenarios
 | XG-051 | liquidated SSV cluster with explicit EB → migrate → claim | Liquidated cluster with explicit EB before migration. Migration code applies explicit deviation even when isLiquidated=true (SSVClusters.sol:265/304 not gated by liquidation). Distinct post-migration reward-rate path. | `entry:migrateClusterToETH+claimEthRewards; revert:no` | [ ] | SSVClusters.sol:265, 304 |
 | XG-052 | removeOperator → liquidate (revert) → verify staking unaffected | removeOperator on explicit-EB cluster, then liquidation underflows at SSVClusters.sol:586. Verify staking pool is NOT corrupted by the failed liquidation — syncFees/claim still work for other clusters. | `entry:liquidate+claimEthRewards; revert:partial` | [ ] | SSVClusters.sol:586, SSVStaking.sol:186 |
+
+---
+
+## Coverage Verification (W4)
+
+| ID | Tested | remove_mode | Test File | Notes |
+|----|--------|-------------|-----------|-------|
+| XG-001 | no | none | — | No test combines stake + migrateClusterToETH + syncFees + claimEthRewards in one chain. migration-full-lifecycle.test.ts covers migrate->withdraw but has no staking |
+| XG-002 | no | none | — | No test covers staker entering AFTER migration with reward timing assertions |
+| XG-003 | no | none | — | No test covers two stakers (pre/post migration) proportional split |
+| XG-004 | no | none | — | No test combines migration + EB update + syncFees + claim |
+| XG-005 | no | none | — | No test covers pre-migration explicit EB carrying deviation into staking rewards |
+| XG-006 | no | none | — | No test covers migration + network fee change + staking rewards |
+| XG-007 | partial:weak | none | test/e2e/cross-cutting/staking-integration.test.ts | "Correctly adjusts reward rate when cluster is liquidated" tests stake->register->liquidate->claim but no migration step; does not use migrateClusterToETH |
+| XG-008 | no | none | — | No test covers multiple stakers + migration + liquidation proportional distribution |
+| XG-009 | no | none | — | No test covers migrate->liquidate->reactivate->syncFees->claim full chain |
+| XG-010 | no | none | — | No test covers partial unstake after migration |
+| XG-011 | no | none | — | No test covers BUG-6 (zero cSSV supply) interaction with migration-generated fees |
+| XG-012 | no | real | — | No test covers migration with removed operator + syncFees + claim divergence |
+| XG-013 | no | real | — | No test covers stranded deviation on removed op inflating staking rewards |
+| XG-014 | no | none | — | No test covers two clusters migrating sequentially + staking pool consistency |
+| XG-015 | no | none | — | No test covers shared operators + two migrations + one liquidated + reward rate adjustment |
+| XG-016 | no | none | — | No test covers large stake + tiny cluster liquidation precision |
+| XG-017 | partial:weak | none | test/e2e/migration/migration-basic.test.ts | "Migrates liquidated SSV cluster" test covers liquidated SSV migration + reactivation but has no staking/syncFees/claim assertions |
+| XG-018 | no | none | — | No test covers migration + EB update triggering auto-liquidation + staking |
+| XG-019 | no | none | — | No test covers syncFees sandwich around migration (index recalculation) |
+| XG-020 | partial:weak | real | test/e2e/migration/migration-edge.test.ts | "Migration succeeds when Op1 is removed" uses real removeOperator but only checks operator validatorCount; no staking/syncFees/claim |
+| XG-021 | no | none | — | No test covers migration + deposit + staking reward independence |
+| XG-022 | no | none | — | No test covers migration + withdraw + near-liquidation staking |
+| XG-023 | partial:weak | none | test/e2e/cross-cutting/staking-integration.test.ts | "cSSV Transfer Mid-Revenue-Accrual" tests transfer + settlement + claim but without migration |
+| XG-024 | no | none | — | No test covers SSV-only cluster fees isolation from ETH staking rewards |
+| XG-025 | no | none | — | No test covers mixed SSV + ETH clusters + migration + staking |
+| XG-026 | no | none | — | No test covers migration + network fee set to zero + staking freeze |
+| XG-027 | no | none | — | No test covers migration with 0 validators edge case |
+| XG-028 | no | none | — | No test covers two-phase EB change with staking claims between phases |
+| XG-029 | no | none | — | No test covers max EB (2048) + migration + staking overflow boundary |
+| XG-030 | no | none | — | No test covers double-guard (stakingEthPoolBalance + ethDaoBalance) on claim |
+| XG-031 | no | none | — | No test covers migration + operator fee change + staking reward independence |
+| XG-032 | no | none | — | No test covers migration + liquidation ETH flow vs staking pool consistency |
+| XG-033 | no | none | — | No test covers same-block migration + staking atomicity |
+| XG-034 | no | none | — | No test covers all validators removed + daoTotalEthVUnits=0 + syncFees behavior |
+| XG-035 | no | none | — | No test covers migration + explicit EB + liquidation deviation removal + staking impact |
+| XG-036 | no | none | — | No test covers deviation restoration on reactivation + staking reward recovery |
+| XG-037 | no | real | — | No test covers multi-mutation chain (fee change + removal + second migration + staking) |
+| XG-038 | no | none | — | No test covers ETH_DEDUCTED_DIGITS truncation with migration-driven fees over long blocks |
+| XG-039 | no | real | — | No test covers InsufficientBalance revert from stranded deviation inflating staking pool |
+| XG-040 | partial:weak | none | test/e2e/staking/staking-edge-cases.test.ts | "Zero cSSV supply — fees are unclaimable" covers BUG-6 but without migration (uses native ETH cluster, not migrated) |
+| XG-041 | no | none | — | No test covers mixed EB clusters (one implicit, one explicit) migrating + staking |
+| XG-042 | no | real | — | No test covers migrate + EB + removeOperator + liquidate full chain with staking |
+| XG-043 | no | none | — | No test covers 13-operator migration + staking fee aggregation |
+| XG-044 | no | none | — | No test covers unstaked staker + migration + liquidation + SSV withdrawal isolation |
+| XG-045 | no | none | — | No test covers double migration prevention + staking unaffected |
+| XG-046 | no | none | — | No test covers ethDaoBalance consistency after updateDAOEarnings during migration |
+| XG-047 | no | none | — | No test covers large validator count + high EB overflow boundary with staking |
+| XG-048 | no | none | — | No test covers dust claim revert (NothingToClaim) with migration-generated fees |
+| XG-049 | no | none | — | No test covers SSV liquidation + migration (reactivation) + concurrent staker activity |
+| XG-050 | no | none | — | No test covers packed ETH arithmetic round-trip (pack/unpack) through migration + staking |
+| XG-051 | no | none | — | No test covers liquidated SSV cluster with explicit EB + migration + claim |
+| XG-052 | no | real | — | No test covers removeOperator + liquidation revert + staking pool unaffected |
+
+**Summary:** 0/52 fully tested. 5 partial:weak (XG-007, XG-017, XG-020, XG-023, XG-040). 47 have no coverage. The core integration gap is that no existing test combines migrateClusterToETH with the staking module (stake/syncFees/claimEthRewards). Migration tests verify SSV refund and ETH deposit mechanics; staking tests verify reward distribution; but no test exercises the cross-module chain where migration-generated daoTotalEthVUnits flow through to staker rewards.

@@ -514,3 +514,81 @@ Wave 2 cross-module scenarios covering STATE CONTAMINATION paths between operato
 | XO-067 | removeOperator → removeValidator (last) | Explicit-EB cluster: removeOperator then remove last validator. Cleanup loop at SSVValidators.sol:217 subtracts deviation from zero → underflow revert. Cluster becomes unremovable. | `entry:bulkRemoveValidator; bug:removed-op; revert:yes` | [ ] | SSVOperators.sol:93, SSVValidators.sol:217 |
 | XO-068 | removeOperator (shared) → other cluster EB update | Shared operator across 2 explicit-EB clusters. removeOperator wipes operatorEthVUnits globally (SSVOperators.sol:93). Second cluster's EB decrease at SSVClusters.sol:508 underflows from wiped state. | `entry:updateClusterEB; bug:shared-op; revert:yes` | [ ] | SSVOperators.sol:93, SSVClusters.sol:508 |
 | XO-069 | reactivate with hasDeviation=true from other cluster | Another explicit-EB cluster's deviation makes hasDeviation=true. Reactivation adds to existing deviation at OperatorLib.sol:313 instead of initializing. Tests additive path not covered by XO-035/057. | `entry:reactivate; revert:no` | [ ] | OperatorLib.sol:285, 313 |
+
+---
+
+## Coverage Verification (W4)
+
+| ID | Tested | remove_mode | Test File | Notes |
+|----|--------|-------------|-----------|-------|
+| XO-001 | partial:weak | none | test/unit/SSVClusters/operatorFeeEBInteraction.test.ts ("Fee increase with EB=64"), test/e2e/operators/operator-economics.test.ts ("Fee Change During Active Cluster") | Tests fee change + withdraw, but use EB=64 or implicit EB, not XO-001's exact implicit-EB + segmented-rate verification |
+| XO-002 | partial:weak | none | test/unit/SSVClusters/operatorFeeEBInteraction.test.ts ("Fee increase with EB=64") | Tests fee change settling operator index at new rate, but with explicit EB not implicit; segmented index verification exists but EB context differs |
+| XO-003 | partial:weak | none | test/unit/SSVClusters/operatorFeeEBInteraction.test.ts ("Fee reduction with EB=128") | Fee reduction + withdraw tested but with explicit EB, not implicit-EB scenario |
+| XO-004 | yes | real | test/integration/SSVNetwork/clusters.test.ts ("Allows deposit to liquidated cluster..."), test/unit/SSVClusters/deposit.test.ts | Deposit stateless-ness confirmed; integration test deposits after real removeOperator + liquidate |
+| XO-005 | yes | real | test/e2e/operators/operator-edge-cases.test.ts ("Cluster can remove validators after one operator is removed"), test/unit/SSVClusters/removedOperatorImpact.test.ts | e2e uses real removeOperator, verifies 3-op burn rate with exact fee math; unit test uses mockRemoveOperator |
+| XO-006 | yes | real | test/integration/SSVNetwork.test.ts (lines 1781-1799, 1801-1833), test/unit/SSVValidator/registerValidator.test.ts ("OperatorDoesNotExist when one of operators has been removed") | Integration uses real removeOperator, verifies revert; unit uses mockRemoveOperator |
+| XO-007 | yes | real | test/e2e/operators/operator-edge-cases.test.ts ("Cluster can remove validators after one operator is removed") | Real removeOperator then removeValidator succeeds with correct fee settlement |
+| XO-008 | yes | real | test/sanity/removed-operator.test.ts ("Allows to liquidate cluster with a previously removed operator") | Real removeOperator then liquidate with assertion on isLiquidatable and event emission |
+| XO-009 | no | real | — | No test found for reactivation after liquidation of cluster with removed operator |
+| XO-010 | no | real | — | No test for new cluster registration with subset of operators after one removed |
+| XO-011 | partial:weak | none | test/e2e/cross-cutting/multi-step-flows.test.ts ("Register → EB Update → Fee Change → Liquidation") | Tests fee increase making cluster liquidatable, but without explicit operator fee then liquidate isolation |
+| XO-012 | no | none | — | No test for fee increase causing withdraw revert |
+| XO-013 | no | none | — | No test for fee reduction enabling previously-failing withdraw |
+| XO-014 | partial:weak | none | test/unit/SSVClusters/operatorFeeEBInteraction.test.ts ("Fee increase with EB=64") | Tests EB + fee + operator earnings, but does not isolate the specific EB-then-fee-then-withdrawEarnings flow |
+| XO-015 | no | none | — | No test for declare-before-EB, execute-after-EB flow |
+| XO-016 | partial:mock | mock_zero | test/unit/SSVClusters/removedOperatorImpact.test.ts | Uses mockRemoveOperator (zeros fields but does NOT delete operatorEthVUnits). Does not test actual removeOperator + EB update interaction. The actual bug path is not exercised |
+| XO-017 | no | real | — | No test for EB increase then decrease on cluster with removed operator |
+| XO-018 | no | real | — | No test for EB auto-liquidation with removed operator |
+| XO-019 | no | real | — | No test for multiple clusters sharing removed operator with withdraw |
+| XO-020 | no | real | — | No test for multiple clusters + removed operator + deposits |
+| XO-021 | no | none | — | No test for fee change on shared operator with two cluster withdrawals |
+| XO-022 | no | real | — | No test for EB update then operator removal then withdrawOperatorEarnings |
+| XO-023 | no | real | — | No test for EB update then operator removal then second EB update (deviation re-appears) |
+| XO-024 | no | real | — | No test for withdrawOperatorEarnings on removed operator reverting OperatorDoesNotExist (via checkOwner) |
+| XO-025 | no | none | — | No test for SSV cluster with explicit EB then migrateClusterToETH |
+| XO-026 | no | real | — | No test for migration with removed op + explicit EB |
+| XO-027 | no | none | — | No test for privacy change blocking new validator registration on existing cluster |
+| XO-028 | no | none | — | No test verifying privacy change has no effect on deposit |
+| XO-029 | no | none | — | No test verifying privacy change has no effect on withdraw |
+| XO-030 | no | none | — | No test verifying privacy change has no effect on removeValidator |
+| XO-031 | no | none | — | No test verifying privacy change has no effect on liquidation |
+| XO-032 | no | none | — | No test verifying privacy change has no effect on reactivation |
+| XO-033 | partial:weak | none | test/e2e/clusters-eth/cluster-eth-eb.test.ts ("Fees use old vUnits before EB update and new vUnits after") | Tests EB + withdraw but does not specifically assert revert when withdraw exceeds EB-adjusted threshold |
+| XO-034 | no | none | — | No test for EB increase then deposit then withdraw succeeding |
+| XO-035 | no | none | — | No test for inactive cluster EB update then reactivation |
+| XO-036 | partial:weak | none | test/unit/SSVClusters/withdraw.test.ts ("Withdraws deposited funds from a liquidated cluster without reactivating") | Tests deposit+withdraw on liquidated cluster but without removed operator or fee-settlement isolation |
+| XO-037 | no | real | — | No test for reactivation after liquidation with removed op: deviation restoration skipping removed op |
+| XO-038 | no | none | — | No test for multiple operators increasing fees sequentially then withdraw |
+| XO-039 | no | none | — | No test for fee increase + EB increase compound causing withdraw revert |
+| XO-040 | no | none | — | No test for operator fee reduced to zero then withdraw with 3-op burn rate |
+| XO-041 | no | real | — | No test for all 4 operators removed then withdraw with zero burn rate |
+| XO-042 | partial:weak | none | test/unit/SSVValidator/removeValidator.test.ts ("Clears remaining explicit EB vUnits when removing the last validator") | Tests EB then remove-all-validators, but does not verify deviation subtracted from operators/DAO |
+| XO-043 | yes | none | test/unit/SSVValidator/registerValidator.test.ts ("Increments stored EB snapshot vUnits when cluster EB snapshot is set") | Verifies ebSnapshot.vUnits incremented on registration into explicit-EB cluster |
+| XO-044 | no | real | — | No test for two clusters sharing removed operator with both withdrawals |
+| XO-045 | no | real | — | No test for declare fee then remove operator then execute fee reverts |
+| XO-046 | no | real | — | No test for reduce fee on removed operator reverting |
+| XO-047 | no | none | — | No test for operator earnings withdrawal then cluster withdrawal (no double-counting) |
+| XO-048 | partial:weak | none | test/unit/SSVClusters/ebWeightedOperatorEarnings.test.ts ("operator earns proportionally from two clusters with EB=32 and EB=64") | Tests EB-weighted operator earnings but not specifically EB + fee change + withdrawOperatorEarnings combined |
+| XO-049 | no | none | — | No test for fee change persisting through liquidation-reactivation cycle |
+| XO-050 | partial:weak | none | test/unit/SSVClusters/reactivate.test.ts ("Scales reactivation solvency threshold with EB=64") | Tests EB-weighted reactivation threshold but not through a full liquidation cycle |
+| XO-051 | no | none | — | No test for EB changed while liquidated then reactivation |
+| XO-052 | no | real | — | No test for remove all validators from explicit-EB cluster with removed op |
+| XO-053 | no | none | — | No test for same-block fee change + withdraw |
+| XO-054 | no | none | — | No test for same-block operator removal + cluster withdraw |
+| XO-055 | no | none | — | No test for two clusters, one with explicit EB, shared operator earnings |
+| XO-056 | no | none | — | No test for alternating EB updates and fee changes on operator earnings |
+| XO-057 | no | real | — | No test for EB cluster liquidated, op removed, then reactivated |
+| XO-058 | no | real | — | No test for long-duration removed operator fee math verification |
+| XO-059 | no | real | — | No test for withdraw after op removal from explicit-EB cluster: vUnits unchanged |
+| XO-060 | no | none | — | No test for compound fee + EB increases triggering auto-liquidation |
+| XO-061 | no | real | — | No test for replacing removed op with new op in new cluster |
+| XO-062 | no | real | — | No test for withdraw earnings then remove operator (no double payout) |
+| XO-063 | no | none | — | No test for zero-fee operator + EB update burn rate verification |
+| XO-064 | no | none | — | No test for partial removal from explicit-EB cluster then withdrawOperatorEarnings |
+| XO-065 | no | real | — | No test verifying removed op stale vUnits do not contaminate other op earnings |
+| XO-066 | no | real | — | No test for removeOperator then liquidate (underflow bug path) |
+| XO-067 | no | real | — | No test for removeOperator then remove last validator (underflow bug path) |
+| XO-068 | no | real | — | No test for shared removed operator + other cluster EB update (underflow bug path) |
+| XO-069 | no | none | — | No test for reactivation with hasDeviation=true from other cluster |
+
+**Summary:** 5 yes, 10 partial (2 partial:mock, 8 partial:weak), 54 no. Coverage is 7% full, 21% partial. The critical bug paths (XO-016 through XO-018, XO-052, XO-066-068) are either untested or only covered with mock removal that masks the real bug.

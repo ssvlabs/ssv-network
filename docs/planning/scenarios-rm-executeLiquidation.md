@@ -325,3 +325,57 @@ Scenarios for `_executeLiquidation` deviation cleanup when one or more operators
 6. Even with all operators removed (RM2-021), the DAO deviation is correctly subtracted while all operator updates are safely skipped.
 
 **Cross-references:** RM1-* (removed operator vUnits bug in `_updateOperatorVUnits`), LQ-019/LQ-020 (liquidation with removed operator in LQ scenarios), EB-055/EB-057 (EB update with removed operator), XO-008/XO-018 (cross-module removed op + liquidation).
+
+---
+
+## Coverage Verification (W4)
+
+**Verified:** 2026-03-24
+**Method:** Cross-referenced all test files in `test/` for `mockRemoveOperator`, `mockRemoveOperatorAndPayout`, and real `removeOperator()` calls combined with `liquidate` / `_executeLiquidation` paths, focusing on explicit EB deviation cleanup.
+
+**Critical finding:** Only one test exists that combines a removed operator with liquidation: `test/sanity/removed-operator.test.ts`. It uses real `removeOperator()` but with IMPLICIT EB (no `updateClusterBalance` call), meaning deviation is 0 and the deviation cleanup loop at lines 586-591 is never reached. No test exercises the deviation cleanup path with a removed operator.
+
+**Mock analysis:**
+- `SSVClustersHarness.sol:mockRemoveOperator` (lines 169-181): Does NOT `delete seb.operatorEthVUnits[operatorId]`. Tests using this mock cannot detect the underflow bug.
+- `SSVClustersHarness.sol:mockRemoveOperatorAndPayout` (lines 185-219): Also does NOT `delete seb.operatorEthVUnits[operatorId]`.
+- Real `removeOperator()` (SSVOperators.sol:93): `delete seb.operatorEthVUnits[operatorId]`.
+
+**Relevant existing tests:**
+- `test/sanity/removed-operator.test.ts`: Real `removeOperator()` + `liquidate`. But no explicit EB, no deviation, no `operatorEthVUnits` assertions. Covers only the fee settlement path (RM2-015 implicit EB analog) — but does not assert `operatorEthVUnits` or DAO totals.
+- `test/unit/SSVClusters/removedOperatorImpact.test.ts`: `mockRemoveOperator` + `liquidateSSV` (SSV liquidation, not ETH). Not relevant to RM2 scenarios.
+- `test/unit/SSVClusters/ebAutoLiquidation.test.ts`: Tests auto-liquidation via EB update but without any removed operators.
+
+| ID | Tested | remove_mode | Test File | Notes |
+|----|--------|-------------|-----------|-------|
+| RM2-001 | no | none | — | No test: removeOp + explicit EB deviation + liquidate |
+| RM2-002 | no | none | — | No test: explicit EB at baseline + removeOp + liquidate |
+| RM2-003 | no | none | — | 7-op variant, no test exists |
+| RM2-004 | no | none | — | 7-op baseline variant, no test exists |
+| RM2-005 | no | none | — | 10-op variant, no test exists |
+| RM2-006 | no | none | — | 10-op baseline variant, no test exists |
+| RM2-007 | no | none | — | 13-op variant, no test exists |
+| RM2-008 | no | none | — | 13-op baseline variant, no test exists |
+| RM2-009 | no | none | — | Self-liquidation variant, no test exists |
+| RM2-010 | no | none | — | operatorEthVUnits assertion variant, no test exists |
+| RM2-011 | no | none | — | daoTotalEthVUnits verification, no test exists |
+| RM2-012 | no | none | — | ethValidatorCount verification, no test exists |
+| RM2-013 | no | none | — | EB update stale write + liquidation, no test exists |
+| RM2-014 | no | none | — | Threshold boundary liquidation, no test exists |
+| RM2-015 | partial:weak | real | test/sanity/removed-operator.test.ts | Real removeOperator + liquidate, but implicit EB (deviation=0). Deviation loop never entered. No operatorEthVUnits/DAO assertions. Only checks ClusterLiquidated event emitted. |
+| RM2-016 | no | none | — | Full lifecycle (removeOp + EB + drain + liquidate), no test exists |
+| RM2-017 | no | none | — | Live ops operatorEthVUnits verification, no test exists |
+| RM2-018 | no | none | — | Large deviation (2048 ETH) arithmetic, no test exists |
+| RM2-019 | no | none | — | 2 ops removed + liquidate, no test exists |
+| RM2-020 | no | none | — | 3 ops removed + liquidate, no test exists |
+| RM2-021 | no | none | — | All ops removed + self-liquidate, no test exists |
+| RM2-022 | no | none | — | Auto-liquidation via EB update with removed op, no test exists |
+| RM2-023 | no | none | — | 7-op auto-liquidation with removed op, no test exists |
+| RM2-024 | no | none | — | daoTotalEthVUnits for N-1 ops, no test exists |
+| RM2-025 | no | none | — | Bounty/burn-rate verification, no test exists |
+| RM2-026 | no | none | — | Double-stale deviation + liquidation, no test exists |
+| RM2-027 | no | none | — | Liquidate + reactivate round-trip, no test exists |
+| RM2-028 | no | none | — | Post-liquidation cluster state verification, no test exists |
+| RM2-029 | no | none | — | ClusterLiquidated event verification, no test exists |
+| RM2-030 | no | none | — | Shared operators across clusters + liquidate, no test exists |
+
+**Summary:** 1/30 partially tested (RM2-015 analog only). The `_executeLiquidation` deviation cleanup loop (lines 586-591) has zero test coverage with a removed operator. The sanity test proves liquidation succeeds with a removed operator at implicit EB (deviation=0), but the bug manifests only when explicit EB deviation > 0.

@@ -367,3 +367,53 @@
 1. **RM3-009 is impossible as written.** The `IncorrectClusterVersion()` fallback arm at SSVValidators.sol:250 is unreachable because `validateHashedCluster` only returns `VERSION_ETH` or `VERSION_SSV` and otherwise reverts (ClusterLib.sol:350/355/358). RM3-009 should be tagged as a defensive-code verification scenario, not a reachable path.
 
 No other impossible or unreachable scenarios found. Code references verified accurate.
+
+---
+
+## Coverage Verification (W4)
+
+**Verified:** 2026-03-24
+**Method:** Cross-referenced all test files in `test/` for `mockRemoveOperator`, `mockRemoveOperatorAndPayout`, and real `removeOperator()` calls combined with `bulkRemoveValidator` / `removeValidator` paths, focusing on explicit EB deviation cleanup at SSVValidators.sol lines 215-218.
+
+**Critical finding:** Only one test exists that combines a removed operator with `removeValidator`: `test/unit/SSVClusters/removedOperatorImpact.test.ts`. It uses `mockRemoveOperator()` (which does NOT delete `operatorEthVUnits`) and tests fee settlement accounting, NOT EB deviation cleanup. No explicit EB is set, so the deviation cleanup loop at lines 215-218 is never reached. All 25 RM3 scenarios are effectively untested.
+
+**Mock analysis:**
+- `SSVClustersHarness.sol:mockRemoveOperator` (lines 169-181): Does NOT `delete seb.operatorEthVUnits[operatorId]`. The underflow bug at SSVValidators.sol:216-217 is invisible with this mock.
+- `SSVValidatorsHarness.sol:mockRemoveOperator` (lines 244-256): Same deficiency — also does NOT `delete seb.operatorEthVUnits[operatorId]`.
+- Real `removeOperator()` (SSVOperators.sol:93): `delete seb.operatorEthVUnits[operatorId]` — sets slot to 0, enabling the underflow.
+
+**Relevant existing tests:**
+- `test/unit/SSVClusters/removedOperatorImpact.test.ts` line 30: "excludes removed operator fees from ETH cluster settlement" — uses `mockRemoveOperator` + `removeValidator`. Tests fee accounting (ethSnapshot balance, ETH deduction). No explicit EB, no deviation, no `operatorEthVUnits` deviation assertions.
+- `test/unit/SSVValidator/bulkRemoveValidator.test.ts`: Tests bulkRemoveValidator but has zero removed-operator scenarios.
+- `test/unit/SSVValidator/removeValidator.test.ts`: Tests removeValidator but has zero removed-operator scenarios.
+- `test/unit/SSVValidator/bug4-double-deviation-liquidated.test.ts`: Tests double deviation cleanup on liquidated cluster + bulkRemoveValidator, but WITHOUT a removed operator. Covers a different bug (double subtraction), not the removed-operator underflow.
+
+| ID | Tested | remove_mode | Test File | Notes |
+|----|--------|-------------|-----------|-------|
+| RM3-001 | no | none | — | Core bug scenario: no test combines removeOp + explicit EB + bulkRemoveValidator (last validator) |
+| RM3-002 | partial:mock | mock_zero | test/unit/SSVClusters/removedOperatorImpact.test.ts | mockRemoveOperator + removeValidator (not last). Tests fee settlement, NOT EB deviation. Mock masks the bug. |
+| RM3-003 | no | none | — | Single removeValidator with removed op + explicit EB, no test |
+| RM3-004 | partial:mock | mock_zero | test/unit/SSVClusters/removedOperatorImpact.test.ts | Analogous to RM3-002 via removeValidator (single, not last). Same mock limitation. |
+| RM3-005 | no | none | — | 7-op variant, no test exists |
+| RM3-006 | no | none | — | 10-op variant, no test exists |
+| RM3-007 | no | none | — | 13-op variant, no test exists |
+| RM3-008 | no | none | — | Multiple removed ops in 7-op cluster, no test exists |
+| RM3-009 | no | none | — | Post-removal validator registration + bulk remove, no test exists |
+| RM3-010 | no | none | — | Bulk remove all N validators at once, no test exists |
+| RM3-011 | no | none | — | Two-step drain (partial then last), no test exists |
+| RM3-012 | no | none | — | Implicit EB negative test, no test exists |
+| RM3-013 | no | none | — | Explicit EB with zero deviation, no test exists |
+| RM3-014 | no | none | — | ethValidatorCount verification for removed op, no test exists |
+| RM3-015 | no | none | — | operatorEthVUnits per-op verification, no test exists |
+| RM3-016 | no | none | — | ebSnapshot cleared verification, no test exists |
+| RM3-017 | no | none | — | Liquidated cluster + removed op + bulkRemoveValidator, no test exists |
+| RM3-018 | no | none | — | Full deviation cleanup verification, no test exists |
+| RM3-019 | no | none | — | Operator earnings verification for live ops, no test exists |
+| RM3-020 | no | none | — | Cross-cluster deviation with removed op, no test exists |
+| RM3-021 | no | none | — | 6 of 13 ops removed (extreme scale), no test exists |
+| RM3-022 | no | none | — | Two-phase bulk removal, no test exists |
+| RM3-023 | no | none | — | All operators removed edge case, no test exists |
+| RM3-024 | no | none | — | Large deviation amplification, no test exists |
+| RM3-025 | no | none | — | Event correctness verification, no test exists |
+
+**Summary:** 2/25 partially tested (RM3-002, RM3-004 via mock only). Both use `mockRemoveOperator` which does NOT delete `operatorEthVUnits`, making the tests unable to detect the underflow bug. Neither test sets explicit EB or triggers the deviation cleanup loop. The core bug path (SSVValidators.sol lines 215-218) has zero coverage with a removed operator, whether real or mock.

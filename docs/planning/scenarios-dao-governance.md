@@ -440,3 +440,160 @@
 | DA-109 | updateLiquidationThresholdPeriod | Verify ETH liquidation threshold change affects SSV liquidation checks at SSVClusters.sol:97,100,101 and ClusterLib.sol:48. | `entry:updateLiquidationThresholdPeriod; revert:no` | [ ] | SSVClusters.sol:97, 100, 101, ClusterLib.sol:48 |
 | DA-110 | updateUnstakeCooldownDuration | Verify downstream: cooldownDuration feeds SSVStaking.sol:87,101. | `entry:updateUnstakeCooldownDuration; revert:no` | [ ] | SSVStaking.sol:87, 101 |
 | DA-111 | updateMinBlocksBetweenUpdates | Verify downstream: minBlocksBetweenUpdates feeds SSVClusters.sol:428. | `entry:updateMinBlocksBetweenUpdates; revert:no` | [ ] | SSVClusters.sol:428 |
+
+---
+
+## Coverage Verification (W4)
+
+**Verified by:** Coverage verification worker
+**Date:** 2026-03-24
+**Method:** Cross-referenced each scenario against actual test files in `test/unit/SSVDAO/`, `test/integration/SSVNetwork/`, `test/integration/SSVNetwork.test.ts`, `test/sanity/`, and `test/e2e/staking/staking-rewards.test.ts`.
+
+### Classification Key
+
+| Value | Meaning |
+|-------|---------|
+| `yes` | Scenario is directly tested with assertions matching the scenario purpose |
+| `partial:mock` | Tested via harness mock setters rather than real end-to-end flow |
+| `partial:weak` | Test exists but assertions are incomplete or tangential |
+| `no` | No test found covering this scenario |
+
+### Coverage Table
+
+| ID | Tested | remove_mode | Test File | Notes |
+|----|--------|-------------|-----------|-------|
+| DA-001 | yes | none | unit/SSVDAO/updateNetworkFee.test.ts | Sets fee 0→non-zero, verifies event + storage |
+| DA-002 | yes | none | e2e/staking/staking-rewards.test.ts | "Network Fee Raise staking Rewards" — real cluster, verifies old fee settled, new fee applies |
+| DA-003 | yes | none | unit/SSVDAO/updateNetworkFee.test.ts + e2e/staking/staking-rewards.test.ts | Fee decrease tested in unit (event) + e2e (settlement math) |
+| DA-004 | yes | none | unit/SSVDAO/updateNetworkFee.test.ts + e2e/staking/staking-rewards.test.ts | "Zero Network Fee do no generate new staking rewards" — fee→0 stops accrual |
+| DA-005 | yes | none | unit/SSVDAO/accessControl.test.ts | "Non-owner calls updateNetworkFee" revert tested |
+| DA-006 | yes | none | unit/SSVDAO/updateNetworkFeeSSV.test.ts | Sets SSV fee, verifies event |
+| DA-007 | no | none | — | No test for SSV fee increase with active SSV clusters + settlement verification |
+| DA-008 | yes | none | unit/SSVDAO/accessControl.test.ts | Non-owner revert for updateNetworkFeeSSV |
+| DA-009 | yes | none | unit/SSVDAO/withdrawNetworkSSVEarnings.test.ts | Partial withdrawal, verifies balance reduction + event |
+| DA-010 | yes | none | unit/SSVDAO/withdrawNetworkSSVEarnings.test.ts | Full withdrawal verified |
+| DA-011 | yes | none | unit/SSVDAO/withdrawNetworkSSVEarnings.test.ts | Withdraw more than available → InsufficientBalance revert |
+| DA-012 | yes | none | unit/SSVDAO/accessControl.test.ts | Non-owner revert for withdrawNetworkSSVEarnings |
+| DA-013 | no | none | — | No explicit test for withdraw when zero earnings (no clusters) |
+| DA-014 | yes | none | unit/SSVDAO/updateOperatorFeeIncreaseLimit.test.ts | Valid BPS, storage + event verified |
+| DA-015 | yes | none | unit/SSVDAO/updateOperatorFeeIncreaseLimit.test.ts | Set to 0 — freeze test exists |
+| DA-016 | yes | none | unit/SSVDAO/updateOperatorFeeIncreaseLimit.test.ts | Set to BPS_DENOMINATOR boundary tested |
+| DA-017 | yes | none | unit/SSVDAO/updateOperatorFeeIncreaseLimit.test.ts | Above BPS_DENOMINATOR → revert |
+| DA-018 | yes | none | unit/SSVDAO/accessControl.test.ts | Non-owner revert tested |
+| DA-019 | yes | none | unit/SSVDAO/updateDeclareOperatorFeePeriod.test.ts | Valid value, storage + event |
+| DA-020 | yes | none | unit/SSVDAO/updateDeclareOperatorFeePeriod.test.ts | Set to 0 verified |
+| DA-021 | yes | none | unit/SSVDAO/accessControl.test.ts | Non-owner revert tested |
+| DA-022 | yes | none | unit/SSVDAO/updateExecuteOperatorFeePeriod.test.ts | Valid value, storage + event |
+| DA-023 | yes | none | unit/SSVDAO/updateExecuteOperatorFeePeriod.test.ts | Set to 0 verified |
+| DA-024 | yes | none | unit/SSVDAO/accessControl.test.ts | Non-owner revert tested |
+| DA-025 | yes | none | unit/SSVDAO/updateLiquidationThresholdPeriod.test.ts | Exact MINIMAL threshold verified |
+| DA-026 | yes | none | unit/SSVDAO/updateLiquidationThresholdPeriod.test.ts | Above minimum verified |
+| DA-027 | yes | none | unit/SSVDAO/updateLiquidationThresholdPeriod.test.ts | Below minimum → NewBlockPeriodIsBelowMinimum revert |
+| DA-028 | yes | none | unit/SSVDAO/updateLiquidationThresholdPeriod.test.ts | Zero → revert (tested alongside DA-027 "below minimum" cases) |
+| DA-029 | yes | none | unit/SSVDAO/accessControl.test.ts | Non-owner revert tested |
+| DA-030 | yes | none | unit/SSVDAO/updateLiquidationThresholdPeriod.test.ts | SSV threshold at 21480, storage + event |
+| DA-031 | yes | none | unit/SSVDAO/updateLiquidationThresholdPeriod.test.ts | SSV threshold below minimum → revert |
+| DA-032 | yes | none | unit/SSVDAO/updateMinimumLiquidationCollateral.test.ts | Non-zero ETH collateral, packed storage + event |
+| DA-033 | yes | none | unit/SSVDAO/updateMinimumLiquidationCollateral.test.ts | Zero collateral → allowed |
+| DA-034 | yes | none | unit/SSVDAO/updateMinimumLiquidationCollateral.test.ts | SSV collateral non-zero, packed storage + event |
+| DA-035 | yes | none | unit/SSVDAO/updateMaximumOperatorFee.test.ts | Max fee above min → storage + event |
+| DA-036 | yes | none | unit/SSVDAO/updateMaximumOperatorFee.test.ts | Max fee below min → InvalidOperatorFeeRange revert |
+| DA-037 | no | none | — | No explicit test for max fee == min fee boundary |
+| DA-038 | yes | none | unit/SSVDAO/updateMinimumOperatorEthFee.test.ts | Min fee below max → storage + event |
+| DA-039 | yes | none | unit/SSVDAO/updateMinimumOperatorEthFee.test.ts | Min fee above max → InvalidOperatorFeeRange revert |
+| DA-040 | no | none | — | No explicit test for min fee == max fee boundary |
+| DA-041 | yes | none | unit/SSVDAO/replaceOracle.test.ts | Replace oracle, OracleReplaced event, mapping verified |
+| DA-042 | yes | none | unit/SSVDAO/replaceOracle.test.ts | Replace with zero address → ZeroAddress revert |
+| DA-043 | yes | none | unit/SSVDAO/replaceOracle.test.ts + sanity/replace-oracle-invalid-id.test.ts | OracleId 0 → InvalidOracleId revert |
+| DA-044 | yes | none | sanity/replace-oracle-invalid-id.test.ts | OracleId > MAX_DELEGATION_SLOTS → InvalidOracleId revert |
+| DA-045 | yes | none | unit/SSVDAO/replaceOracle.test.ts | Address already assigned → OracleAlreadyAssigned revert |
+| DA-046 | yes | none | unit/SSVDAO/replaceOracle.test.ts | Same address → SameOracleAddressNotAllowed revert |
+| DA-047 | yes | none | unit/SSVDAO/setQuorumBps.test.ts | Valid mid-range BPS, storage + event |
+| DA-048 | yes | none | unit/SSVDAO/setQuorumBps.test.ts | Zero → InvalidQuorum revert |
+| DA-049 | yes | none | unit/SSVDAO/setQuorumBps.test.ts | BPS_DENOMINATOR boundary → accepted |
+| DA-050 | yes | none | unit/SSVDAO/setQuorumBps.test.ts | Above BPS_DENOMINATOR → InvalidQuorum revert |
+| DA-051 | yes | none | unit/SSVDAO/setQuorumBps.test.ts | Minimum 1 BPS → accepted |
+| DA-052 | yes | none | unit/SSVDAO/setUnstakeCooldownDuration.test.ts | Valid duration, storage + event |
+| DA-053 | yes | none | unit/SSVDAO/setUnstakeCooldownDuration.test.ts | Zero → allowed (instant unstake) |
+| DA-054 | yes | none | unit/SSVDAO/accessControl.test.ts | Non-owner revert tested |
+| DA-055 | yes | none | unit/SSVDAO/setMinBlocksBetweenUpdates.test.ts | Valid value, storage + event |
+| DA-056 | yes | none | unit/SSVDAO/setMinBlocksBetweenUpdates.test.ts | Zero → allowed |
+| DA-057 | no | none | — | No non-owner revert test for updateMinBlocksBetweenUpdates (not in accessControl.test.ts) |
+| DA-058 | yes | none | integration/SSVNetwork.test.ts | "Emits the correct event with the correct input data" for setFeeRecipientAddress |
+| DA-059 | no | none | — | No test for setting fee recipient to zero address |
+| DA-060 | no | none | — | No unit/integration test for updateModule happy path (only access control in accessControl.test.ts) |
+| DA-061 | no | none | — | No test for updateModule with EOA → TargetModuleDoesNotExistWithData revert |
+| DA-062 | yes | none | unit/SSVDAO/accessControl.test.ts | Non-owner revert for updateModule tested |
+| DA-063 | no | none | — | No test for fee change mid-cluster-operation with deposit verification |
+| DA-064 | no | none | — | No test for threshold increase making existing cluster liquidatable |
+| DA-065 | no | none | — | No test for increased minimum collateral affecting reactivation |
+| DA-066 | no | none | — | No test for lowered max fee blocking a pending declared fee |
+| DA-067 | no | none | — | No test for increased min fee blocking new operator registration |
+| DA-068 | yes | none | integration/SSVNetwork/dao.test.ts + unit/SSVDAO/commitRoot.test.ts | "Oracle replaced mid-vote" — old oracle reverts NotOracle, new oracle succeeds on subsequent block |
+| DA-069 | yes | none | integration/SSVNetwork/dao.test.ts + unit/SSVDAO/commitRoot.test.ts | "Lowering quorumBps between votes causes second vote to cross new threshold" |
+| DA-070 | no | none | — | No test for max uint64 liquidation threshold boundary |
+| DA-071 | yes | none | unit/SSVDAO/accessControl.test.ts | Non-owner updateNetworkFee revert — duplicate of DA-005 |
+| DA-072 | yes | none | unit/SSVDAO/accessControl.test.ts | Non-owner updateNetworkFeeSSV revert — duplicate of DA-008 |
+| DA-073 | yes | none | unit/SSVDAO/accessControl.test.ts | Non-owner updateOperatorFeeIncreaseLimit revert — duplicate of DA-018 |
+| DA-074 | yes | none | unit/SSVDAO/accessControl.test.ts | Non-owner updateLiquidationThresholdPeriod revert — duplicate of DA-029 |
+| DA-075 | yes | none | unit/SSVDAO/accessControl.test.ts | Non-owner updateLiquidationThresholdPeriodSSV revert |
+| DA-076 | yes | none | unit/SSVDAO/accessControl.test.ts | Non-owner updateMinimumLiquidationCollateral revert |
+| DA-077 | yes | none | unit/SSVDAO/accessControl.test.ts | Non-owner updateMinimumLiquidationCollateralSSV revert |
+| DA-078 | yes | none | unit/SSVDAO/accessControl.test.ts | Non-owner updateMaximumOperatorFee revert |
+| DA-079 | no | none | — | No test for ETH network fee non-divisible precision revert |
+| DA-080 | no | none | — | No test for SSV network fee non-divisible precision revert |
+| DA-081 | no | none | — | No test for max operator fee non-divisible precision revert |
+| DA-082 | no | none | — | No test for min operator fee non-divisible precision revert |
+| DA-083 | no | none | — | No test for minimum liquidation collateral packing overflow |
+| DA-084 | no | none | — | No test for SSV minimum liquidation collateral packing overflow |
+| DA-085 | no | none | — | No test for network fee packing overflow |
+| DA-086 | no | none | — | No test for SSV fee isolation from ETH fee index |
+| DA-087 | no | none | — | No test for ETH fee isolation from SSV fee index |
+| DA-088 | no | none | — | No test for first oracle assignment to empty slot |
+| DA-089 | yes | none | unit/SSVDAO/accessControl.test.ts | Non-owner replaceOracle revert covered |
+| DA-090 | no | none | — | No test for updateModule with zero address |
+| DA-091 | yes | none | unit/SSVDAO/accessControl.test.ts | Non-owner updateQuorumBps revert covered |
+| DA-092 | no | none | — | No non-owner revert test for updateMinBlocksBetweenUpdates (not in accessControl.test.ts) |
+| DA-093 | no | none | — | No test for withdrawNetworkSSVEarnings with zero amount |
+| DA-094 | yes | none | unit/SSVDAO/accessControl.test.ts | Non-owner updateMinimumOperatorEthFee revert covered |
+| DA-095 | no | none | — | No test for max operator fee packing overflow |
+| DA-096 | no | none | — | No test for network fee non-divisible by 100,000 precision revert |
+| DA-097 | no | none | — | No test for network fee uint64 packing overflow |
+| DA-098 | yes | none | unit/SSVDAO/accessControl.test.ts | Non-owner updateLiquidationThresholdPeriodSSV revert covered |
+| DA-099 | yes | none | unit/SSVDAO/accessControl.test.ts | Non-owner updateMinimumLiquidationCollateral revert covered |
+| DA-100 | yes | none | unit/SSVDAO/accessControl.test.ts | Non-owner updateMinimumLiquidationCollateralSSV revert covered |
+| DA-101 | yes | none | unit/SSVDAO/accessControl.test.ts | updateMaximumOperatorFee non-owner revert covered |
+| DA-102 | yes | none | unit/SSVDAO/accessControl.test.ts | replaceOracle non-owner revert covered (via SSVNetwork proxy) |
+| DA-103 | yes | none | unit/SSVDAO/accessControl.test.ts | updateQuorumBps non-owner revert covered |
+| DA-104 | no | none | — | No test for fee increase limit 0 blocking declareOperatorFee |
+| DA-105 | no | none | — | No test for zero declare+execute period enabling same-block declare+execute |
+| DA-106 | no | none | — | No test for period change not retroactively affecting stored windows |
+| DA-107 | no | none | — | No test for replace oracle into empty slot |
+| DA-108 | no | none | — | No test for SSV fee continuity/settlement interaction |
+| DA-109 | no | none | — | No test for ETH threshold change affecting SSV liquidation checks |
+| DA-110 | no | none | — | No downstream test for cooldownDuration feeding SSVStaking |
+| DA-111 | no | none | — | No downstream test for minBlocksBetweenUpdates feeding SSVClusters |
+
+### Summary
+
+| Status | Count | Percentage |
+|--------|-------|------------|
+| yes | 73 | 66% |
+| partial:mock | 0 | 0% |
+| partial:weak | 0 | 0% |
+| no | 38 | 34% |
+| **Total** | **111** | **100%** |
+
+**Key gaps (no coverage):**
+- DA-007: SSV fee increase with active clusters (settlement verification)
+- DA-013: Withdraw SSV earnings when zero balance
+- DA-037, DA-040: Boundary tests (max==min fee)
+- DA-057, DA-092: Non-owner revert for updateMinBlocksBetweenUpdates
+- DA-059: setFeeRecipientAddress with zero address
+- DA-060, DA-061, DA-090: updateModule happy path, EOA revert, zero address
+- DA-063–DA-067: Cross-cutting integration scenarios (fee/threshold changes affecting downstream operations)
+- DA-070: Max uint64 liquidation threshold boundary
+- DA-082–DA-088: Packing overflow, precision, and fee isolation tests
+- DA-093: Withdraw zero amount
+- DA-095–DA-097: Packing overflow edge cases
+- DA-104–DA-111: Downstream impact scenarios (fee limit freeze, zero-width window, period change non-retroactivity, etc.)

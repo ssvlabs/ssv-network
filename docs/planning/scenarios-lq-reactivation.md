@@ -488,3 +488,93 @@
 | LQ-103 | reactivate | Reactivation with hasDeviation==true from ANOTHER active cluster's deviation. Cluster being reactivated has clusterDeviation==0 but DAO deviation is non-zero. Tests OperatorLib.sol:285 and snapshot recomputation at :298. | `entry:reactivate; revert:no` | [ ] | OperatorLib.sol:285, 298 |
 | LQ-104 | reactivate | Reactivation with hasDeviation==true from another cluster AND reactivated cluster also has clusterDeviation>0. Tests additive deviation writeback at OperatorLib.sol:313-315 (not fallback at :317). | `entry:reactivate; revert:no` | [ ] | OperatorLib.sol:313-315 |
 | LQ-105 | reactivate | Same-block reactivation: blockDiffEthFee==0 at OperatorLib.sol:294 → skip snapshot/index/balance accrual. | `entry:reactivate; revert:no` | [ ] | OperatorLib.sol:294 |
+
+---
+
+## Coverage Verification (W4)
+
+| ID | Tested | remove_mode | Test File | Notes |
+|----|--------|-------------|-----------|-------|
+| LQ-001 | yes | none | test/e2e/clusters-eth/cluster-eth-liquidation.test.ts | "Balance == threshold is NOT liquidatable, balance < threshold IS" — tests exact boundary with withdraw to threshold, then mines 1 block to cross it. Full assertion set. |
+| LQ-002 | yes | none | test/unit/SSVClusters/liquidate.test.ts, test/e2e/clusters-eth/cluster-eth-liquidation.test.ts | "ClusterNotLiquidatable" revert tested in unit (healthy cluster) and e2e (at-threshold). |
+| LQ-003 | yes | none | test/e2e/clusters-eth/cluster-eth-liquidation.test.ts | Covered by the boundary test — after 1 extra block, balance drops below threshold and liquidation succeeds. |
+| LQ-004 | yes | none | test/unit/SSVClusters/liquidate.test.ts | "Transfers no ETH when cluster remaining balance is zero after fee accrual" — drains via mockCurrentNetworkFeeIndex, asserts contract ETH delta = 0. |
+| LQ-005 | yes | none | test/unit/SSVClusters/liquidate.test.ts | "Allows the cluster owner to liquidate and emits correct event" — self-liquidation, bypasses isLiquidatable check. |
+| LQ-006 | partial:weak | none | test/unit/SSVClusters/liquidate.test.ts | Self-liquidation tested (LQ-005 test), but no explicit zero-balance self-liquidation variant. Balance is non-zero in existing tests. |
+| LQ-007 | yes | none | test/unit/SSVClusters/liquidate.test.ts | "Allows the cluster owner to liquidate with 7 operators" — gas tracking confirms 7-op path. |
+| LQ-008 | yes | none | test/unit/SSVClusters/liquidate.test.ts | "Allows the cluster owner to liquidate with 10 operators" — gas tracking confirms 10-op path. |
+| LQ-009 | yes | none | test/unit/SSVClusters/liquidate.test.ts | "Allows the cluster owner to liquidate with 13 operators" — gas tracking confirms 13-op path. |
+| LQ-010 | partial:weak | none | test/e2e/clusters-eth/cluster-eth-liquidation.test.ts | Operator validatorCount checked at 0 post-liquidation, but only validatorCount=2 tested (not 5). |
+| LQ-011 | yes | none | test/unit/SSVClusters/reactivate.test.ts | "Maintains daoTotalEthVUnits consistency through liquidation/reactivation" — verifies DAO vUnits round-trip including implicit EB path. |
+| LQ-012 | yes | none | test/unit/SSVClusters/liquidate.test.ts | cluster.active == false asserted in multiple tests. |
+| LQ-013 | yes | none | test/unit/SSVClusters/liquidate.test.ts | cluster.balance == 0n asserted in multiple tests. |
+| LQ-014 | partial:weak | none | test/unit/SSVClusters/liquidate.test.ts | Cluster state zeroed implicitly — index/networkFeeIndex not explicitly asserted in unit tests, but integration lifecycle test validates full state. |
+| LQ-015 | yes | none | test/unit/SSVClusters/liquidate.test.ts | "Transfers remaining cluster ETH balance to the liquidator" — uses expectETHDeltas with liquidator receiving DEFAULT_ETH_REGISTER_VALUE. |
+| LQ-016 | yes | none | test/unit/SSVClusters/liquidate.test.ts, test/e2e/clusters-eth/cluster-eth-liquidation.test.ts | "Uses stored cluster EB snapshot vUnits when present" (unit) + "Liquidation reverses EB deviation from operators and DAO" (e2e). Full deviation cleanup verified. |
+| LQ-017 | yes | none | test/unit/SSVClusters/liquidate.test.ts | "Updates operatorEthVUnits on liquidation even when cluster EB snapshot is not set" — implicit EB (vUnits=0), verifies no deviation to clean. |
+| LQ-018 | yes | none | test/unit/SSVClusters/reactivate.test.ts, test/e2e/clusters-eth/cluster-eth-liquidation.test.ts | daoTotalEthVUnits deviation decrement verified in "Maintains daoTotalEthVUnits consistency" and e2e liquidation deviation cleanup test. |
+| LQ-019 | yes | real | test/sanity/removed-operator.test.ts | "Allows to liquidate cluster with a previously removed operator" — uses real removeOperator(), mines blocks, verifies isLiquidatable then liquidation succeeds. |
+| LQ-020 | no | real | — | No test combines removed operator + explicit EB deviation cleanup during liquidation. Sanity test uses implicit EB only. |
+| LQ-021 | yes | none | test/unit/SSVClusters/liquidate.test.ts | "Allows a third party to liquidate when the cluster is liquidatable" — sets minimumLiquidationCollateral to DEFAULT_ETH_REGISTER_VALUE + 1n making collateral floor binding. |
+| LQ-022 | yes | none | test/unit/SSVClusters/liquidate.test.ts | Same test as LQ-021 — collateral floor set above burn-rate threshold, third-party liquidation succeeds. |
+| LQ-023 | yes | none | test/unit/SSVClusters/liquidate.test.ts | "ClusterIsLiquidated" revert on already-liquidated cluster. |
+| LQ-024 | partial:weak | none | — | No explicit test of validatorCount=0 with third-party liquidation revert. Implicit via the isLiquidatable short-circuit. |
+| LQ-025 | partial:weak | none | — | No explicit test of self-liquidation with validatorCount=0. |
+| LQ-026 | yes | none | test/unit/SSVClusters/liquidate.test.ts | ClusterLiquidated event emission verified in "Allows the cluster owner to liquidate and emits correct event". |
+| LQ-027 | partial:weak | none | — | No explicit test with validatorCount=10 checking both daoTotalEthVUnits and ethDaoValidatorCount decrements. Multiple validator tests exist but don't assert DAO counters at that scale. |
+| LQ-028 | yes | none | test/unit/SSVClusters/ebAutoLiquidation.test.ts, test/e2e/clusters-eth/cluster-eth-liquidation.test.ts | "Auto-liquidates cluster when EB increase makes it insolvent at new rate" (unit) + "EB increase triggers auto-liquidation, bounty goes to updater" (e2e). Full flow verified. |
+| LQ-029 | yes | none | test/unit/SSVClusters/ebAutoLiquidation.test.ts | Auto-liquidation fires inside updateClusterBalance; ethValidatorCount decremented (verified by downstream operator checks). |
+| LQ-030 | yes | none | test/unit/SSVClusters/ebAutoLiquidation.test.ts | "Does NOT auto-liquidate when cluster is solvent at new EB rate" — cluster remains active. |
+| LQ-031 | no | none | — | No test for auto-liquidation skip when validatorCount=0. |
+| LQ-032 | yes | none | test/unit/SSVClusters/reactivate.test.ts | "Scales reactivation solvency threshold with EB=64 (2x baseline vUnits)" — proves vUnit-based threshold is 2x baseline. Liquidation uses same isLiquidatableWithEB. |
+| LQ-033 | yes | none | test/unit/SSVClusters/ebAutoLiquidation.test.ts | "Blocks reentrant guarded calls during updateClusterBalance auto-liquidation callback" — reentrancy tested via MaliciousUpdateClusterBalance contract. |
+| LQ-034 | yes | none | test/unit/SSVClusters/reactivate.test.ts | "Enforces a much higher reactivation threshold when EB=2048" — 64x baseline, precision verified at boundary. |
+| LQ-035 | yes | none | test/unit/SSVClusters/liquidate.test.ts | "Self-liquidation returns remaining ETH balance to the cluster owner" — owner is also liquidator, receives bounty. |
+| LQ-036 | yes | none | test/unit/SSVClusters/liquidateSSV.test.ts | "Allows the cluster owner to liquidate SSV cluster and emits correct event" — self-liquidation SSV path. |
+| LQ-037 | yes | none | test/unit/SSVClusters/liquidateSSV.test.ts | "ClusterNotLiquidatable" revert for healthy SSV cluster by third party. |
+| LQ-038 | yes | none | test/unit/SSVClusters/liquidateSSV.test.ts | "Allows a third party to liquidate SSV cluster when liquidatable" — balance set to 1n with high fee index. |
+| LQ-039 | yes | none | test/unit/SSVClusters/liquidateSSV.test.ts | SSV self-liquidation tested in "Allows the cluster owner to liquidate SSV cluster" test. |
+| LQ-040 | yes | none | test/unit/SSVClusters/liquidateSSV.test.ts | "Transfers no SSV when cluster remaining balance is zero after fee accrual" — drains via mockCurrentNetworkFeeIndexSSV. |
+| LQ-041 | partial:weak | none | test/unit/SSVClusters/liquidateSSV.test.ts | Cluster state reset verified (active=false, balance=0) but index/networkFeeIndex not explicitly asserted. |
+| LQ-042 | partial:weak | none | test/unit/SSVClusters/liquidateSSV.test.ts | DAO accounting (updateDAOSSV) not explicitly verified — no daoValidatorCount assertion in liquidateSSV tests. |
+| LQ-043 | yes | none | test/unit/SSVClusters/liquidateSSV.test.ts | SSV liquidation with 7 operators tested — gas tracked. |
+| LQ-044 | yes | none | test/unit/SSVClusters/liquidateSSV.test.ts | "Transfers remaining SSV token balance in the cluster to the liquidator" — verifies token transfer to msg.sender. |
+| LQ-045 | yes | none | test/unit/SSVClusters/liquidateSSV.test.ts | "ClusterIsLiquidated" revert on already-liquidated SSV cluster. |
+| LQ-046 | yes | none | test/unit/SSVClusters/liquidateSSV.test.ts | "Does not change operatorEthVUnits or stored cluster EB snapshot when liquidating an SSV cluster" — proves SSV liquidation doesn't touch ETH accounting. Implicitly validates validatorCount-based threshold. |
+| LQ-047 | no | none | — | No explicit test of minimumLiquidationCollateralSSV as binding floor above burn-rate threshold. |
+| LQ-048 | no | none | — | No explicit test of SSV liquidation with validatorCount=0 third-party revert. |
+| LQ-049 | yes | none | test/integration/SSVNetwork/legacy-ssv.test.ts | "liquidateSSV reverts for ETH clusters with IncorrectClusterVersion" — ETH cluster cannot be SSV-liquidated. |
+| LQ-050 | yes | none | test/integration/SSVNetworkPreMigration.test.ts, test/e2e/clusters-ssv/cluster-ssv-legacy.test.ts | "'liquidate()' is reverted with 'IncorrectClusterVersion' if trying to liquidate legacy ssv cluster" — SSV cluster cannot be ETH-liquidated. |
+| LQ-051 | yes | none | test/unit/SSVClusters/reactivate.test.ts | "Reactivates a liquidated cluster with sufficient balance and emits correct event" — full reactivation flow. |
+| LQ-052 | yes | none | test/unit/SSVClusters/reactivate.test.ts | "InsufficientBalance" revert when reactivation deposit too low (minimumLiquidationCollateral set high). |
+| LQ-053 | yes | none | test/unit/SSVClusters/reactivate.test.ts | "Scales reactivation solvency threshold with EB=64" — exact boundary tested: baselineThreshold reverts, thresholdAt64 succeeds. |
+| LQ-054 | yes | none | test/unit/SSVClusters/reactivate.test.ts | "Enforces a much higher reactivation threshold when EB=2048" — thresholdAt2048 - 1n reverts. |
+| LQ-055 | yes | none | test/unit/SSVClusters/reactivate.test.ts | "ClusterAlreadyEnabled" revert when trying to reactivate active cluster. |
+| LQ-056 | yes | none | test/unit/SSVClusters/reactivate.test.ts | Cluster state verified: active=true, validatorCount preserved in "Reactivates a liquidated cluster" test. |
+| LQ-057 | partial:weak | none | test/unit/SSVClusters/reactivate.test.ts | ethValidatorCount increment verified via assertOperatorVUnits baseline check, but not per-operator ethValidatorCount directly. |
+| LQ-058 | yes | none | test/unit/SSVClusters/reactivate.test.ts | "Maintains daoTotalEthVUnits consistency through liquidation/reactivation" — DAO vUnits round-trip verified. |
+| LQ-059 | no | none | — | No reactivation test with 7 operators. |
+| LQ-060 | no | none | — | No reactivation test with 10 operators. |
+| LQ-061 | no | none | — | No reactivation test with 13 operators. |
+| LQ-062 | no | real | — | No reactivation test with real removeOperator. Only unit tests use mockRemoveOperator for other flows. |
+| LQ-063 | no | real | — | No reactivation test with all operators removed. |
+| LQ-064 | yes | none | test/unit/SSVClusters/reactivate.test.ts | "Maintains daoTotalEthVUnits consistency through liquidation/reactivation" — explicit EB deviation re-applied on reactivation. |
+| LQ-065 | yes | none | test/unit/SSVClusters/reactivate.test.ts | Same test as LQ-064 — daoTotalEthVUnits increment by deviation verified. |
+| LQ-066 | yes | none | test/unit/SSVClusters/reactivate.test.ts | "Keeps operator deviation at zero when reactivating without EB snapshot" — baseline EB, deviation=0. |
+| LQ-067 | yes | none | test/unit/SSVClusters/reactivate.test.ts | Same test as LQ-066 — implicit EB (vUnitsCluster=0), effectiveVUnits = baselineVUnits. |
+| LQ-068 | yes | none | test/unit/SSVClusters/reactivate.test.ts | "Scales reactivation solvency threshold with EB=64" — solvency check explicitly uses effectiveVUnits (2x BPS_DENOMINATOR), not validatorCount. |
+| LQ-069 | yes | none | test/unit/SSVClusters/reactivate.test.ts | "Maintains accounting consistency across multiple liquidation/reactivation cycles" — 2 full cycles, reactivate then liquidate again. |
+| LQ-070 | no | none | — | No explicit test of reactivate-then-deposit. |
+| LQ-071 | yes | none | test/e2e/clusters-eth/cluster-eth-lifecycle.test.ts | "Deposit on liquidated cluster, then reactivate" — deposits 3 + 2 ETH on liquidated cluster, reactivates with 1 ETH, total balance = deposit1 + deposit2 + reactivateAmount. |
+| LQ-072 | yes | none | test/unit/SSVClusters/reactivate.test.ts | Same as LQ-055 — "ClusterAlreadyEnabled" revert. |
+| LQ-073 | yes | none | test/unit/SSVClusters/reactivate.test.ts | ClusterReactivated event emission verified. |
+| LQ-074 | no | none | — | No test for stale EB snapshot risk on reactivation + subsequent auto-liquidation via updateClusterBalance. |
+| LQ-075 | no | none | — | No test for stale EB with decreased off-chain EB (slashing) during liquidation. |
+| LQ-076 | no | real | — | No test combining removed operator + explicit EB deviation on reactivation. |
+| LQ-077 | partial:weak | none | test/unit/SSVClusters/ebAutoLiquidation.test.ts | Reentrancy tested for updateClusterBalance auto-liquidation path but not for standalone reactivate() reentrancy. |
+| LQ-078 | yes | none | test/unit/SSVClusters/reactivate.test.ts | "ClusterDoesNotExists" when non-owner tries to reactivate — validateHashedCluster uses msg.sender as owner. |
+| LQ-079 | yes | none | test/unit/SSVClusters/reactivate.test.ts | "Enforces a much higher reactivation threshold when EB=2048" — 64x baseline threshold, precision verified. |
+| LQ-080 | no | none | — | No test for reactivation exceeding validatorsPerOperatorLimit. |
+| LQ-103 | no | none | — | No test for reactivation with hasDeviation from another cluster. |
+| LQ-104 | no | none | — | No test for reactivation with additive deviation from multiple clusters. |
+| LQ-105 | no | none | — | No test for same-block reactivation (blockDiffEthFee=0). |

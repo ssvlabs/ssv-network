@@ -535,3 +535,72 @@ These invariants must hold after any valid sequence of operations. Every scenari
 | XF-058 | mid-round oracle governance → updateClusterBalance fails | Partial votes exist, DAO raises quorum via updateQuorumBps. Next vote doesn't reach threshold, no root committed. Active cluster's updateClusterBalance fails with RootNotFound/MustUseLatestRoot. | `entry:updateClusterBalance; revert:yes; modules:3+` | [ ] | SSVDAO.sol:207,254, SSVClusters.sol:419,434 |
 | XF-059 | SSVViews consistency after mutation chain | Full lifecycle: register → EB update → fee change → liquidate → reactivate. After each step verify getBurnRate, getBalance, isLiquidatable, getEffectiveBalance return consistent values. | `entry:SSVViews; revert:no; modules:5` | [ ] | SSVViews.sol:222,309,389,438 |
 | XF-060 | full protocol bootstrap (corrected ordering) | Deploy → DAO params → register operators → stake cSSV → register validators → deposit → commitRoot → updateClusterBalance → fee changes → withdraw → claimEthRewards → unstake. Corrects XF-017 ordering. | `entry:all; revert:no; modules:6` | [ ] | All modules |
+
+---
+
+## Coverage Verification (W4)
+
+| ID | Tested | remove_mode | Test File | Notes |
+|----|--------|-------------|-----------|-------|
+| XF-001 | partial:weak | none | test/e2e/cross-cutting/full-lifecycle.test.ts | Covers registerOp->registerVal->EB update->fee change->addVal->claim->removeVal->withdraw->removeOp, but does not assert intermediate state hashes or exact balance conservation formula at every step; no explicit final cleanup verification |
+| XF-002 | no | none | — | No 7-operator lifecycle test exists |
+| XF-003 | no | none | — | No 10-operator lifecycle test exists |
+| XF-004 | no | none | — | No 13-operator (max) lifecycle test exists |
+| XF-005 | partial:weak | none | test/e2e/cross-cutting/full-lifecycle.test.ts | Same test includes EB update + operator fee change + withdraw, but fee settlement old/new split is not explicitly asserted |
+| XF-006 | partial:weak | none | test/e2e/migration/migration-full-lifecycle.test.ts | Covers SSV->ETH migration + withdraw + balance verification, but does not test removeValidator or removeOperator post-migration |
+| XF-007 | no | none | — | No test covers SSV cluster with explicit EB migrating to ETH with deviation carryover |
+| XF-008 | partial:weak | none | test/e2e/cross-cutting/multi-step-flows.test.ts | "Sequential Registration — Two Clusters, Same Operators" covers 2 clusters with shared ops but not 3 owners or interleaved deposits/withdrawals |
+| XF-009 | partial:weak | none | test/e2e/cross-cutting/validator-count-invariant.test.ts | Covers register->liquidate->reactivate with validator count invariant for multiple clusters sharing operators, but not deposit/withdraw during B's unaffected operation |
+| XF-010 | no | none | — | No 100-validator cascade fee change test exists |
+| XF-011 | no | none | — | No 100-validator cascade liquidation test exists |
+| XF-012 | no | none | — | No 1M-block time-lapse arithmetic test exists |
+| XF-013 | no | none | — | No 1M-block + explicit EB overflow test exists |
+| XF-014 | no | none | — | No single-block all-operations test exists |
+| XF-015 | no | none | — | No rapid-fire 1-block-apart operations test exists |
+| XF-016 | no | none | — | No two EB updates same block for different clusters test |
+| XF-017 | partial:weak | none | test/e2e/cross-cutting/full-lifecycle.test.ts | Covers DAO params + ops + vals + EB + staking + claim, but ordering differs from scenario and not all DAO params are set explicitly |
+| XF-018 | yes | none | test/e2e/cross-cutting/multi-step-flows.test.ts | "Network Fee Update" test applies old fee for first half, new fee for second half, with exact burn and DAO earnings assertions |
+| XF-019 | yes | none | test/e2e/cross-cutting/multi-step-flows.test.ts | "Liquidation Threshold Update" test increases threshold, verifies cluster becomes liquidatable, liquidates successfully |
+| XF-020 | no | none | — | No test covers minimumLiquidationCollateral increase causing withdraw revert |
+| XF-021 | partial:weak | none | test/e2e/cross-cutting/multi-step-flows.test.ts | "Register -> EB Update -> Fee Change -> Liquidation" includes declare+execute fee change + subsequent settlement, but old/new fee split assertion at operator level is not granular |
+| XF-022 | no | none | — | No test covers operator fee reduction enabling previously-failing withdraw |
+| XF-023 | no | real | — | No test covers operator removed mid-lifecycle with burn rate drop + earnings payout + withdraw verification |
+| XF-024 | no | real | — | No test covers operator removed + EB update documenting the operatorEthVUnits bug |
+| XF-025 | no | none | — | No bulk 50 validators + EB + bulk remove 25 + second EB test |
+| XF-026 | partial:weak | none | test/integration/SSVNetwork/clusters.test.ts | "Full lifecycle: register -> operate -> withdraw -> deposit -> liquidate -> reactivate" covers deposit/withdraw + liquidation + reactivation but no explicit EB, and does not test deposit into liquidated cluster separately |
+| XF-027 | partial:weak | none | test/e2e/clusters-eth/cluster-eth-liquidation.test.ts | "Liquidation reverses EB deviation from operators and DAO" tests explicit EB + liquidation + deviation cleanup assertions, but does not test reactivation restoring deviation |
+| XF-028 | partial:weak | none | test/e2e/cross-cutting/staking-integration.test.ts | "Multi-Staker Revenue Distribution" covers stake->register->claim with exact pro-rata math, but no explicit EB update in the chain |
+| XF-029 | partial:weak | none | test/e2e/staking/staking-rewards.test.ts | "EB Increase -> Higher Network Fees -> More Staking Rewards" covers EB update + syncFees but does not verify exact proportional reward increase |
+| XF-030 | partial:weak | none | test/e2e/staking/staking-rewards.test.ts | "Auto-Liquidation Reduces Active Clusters -> Less Staking Revenue" covers liquidation stopping fee accrual, but does not verify zero new fees post-liquidation with explicit syncFees assertions |
+| XF-031 | partial:weak | none | test/e2e/staking/staking-lifecycle.test.ts | "Three stakers split rewards correctly when one unstakes mid-period" covers partial exit + remaining staker getting 100% of future fees, but only with 3 stakers not 2 as specified |
+| XF-032 | partial:weak | none | test/e2e/migration/migration-basic.test.ts | "Migrates liquidated SSV cluster" covers liquidated SSV + migration + reactivation, but does not verify SSV balance returned or daoValidatorCountSSV/ethDaoValidatorCount deltas |
+| XF-033 | no | none | — | No test covers replaceOracle + old oracle fails + new oracle succeeds + EB |
+| XF-034 | no | none | — | No test covers updateMaximumOperatorFee + executeOperatorFee revert FeeTooHigh |
+| XF-035 | no | none | — | No test covers private operator whitelist + privacy toggle + non-whitelisted user revert |
+| XF-036 | no | real | — | No test covers 2 operators removed + EB update documenting deviation applied to removed ops (the bug) |
+| XF-037 | no | none | — | No test covers validator removal cleaning up deviation when cluster becomes empty |
+| XF-038 | partial:weak | none | test/e2e/clusters-eth/cluster-eth-liquidation.test.ts | "EB increase triggers auto-liquidation" covers auto-liq + bounty verification, but does not verify deviation cleanup explicitly |
+| XF-039 | no | none | — | No test covers two clusters same block EB updates with shared operator vUnit stacking |
+| XF-040 | partial:weak | none | test/e2e/cross-cutting/economics.test.ts | "Register -> Advance -> Verify Full Economics (Exact Numbers)" covers operator earnings formula but not for 5 validators over 10000 blocks specifically |
+| XF-041 | no | none | — | No test covers fee settlement ordering (OLD vUnits before applying new) |
+| XF-042 | no | none | — | No test covers register validator into explicit-EB cluster verifying vUnits increase by baseline only |
+| XF-043 | partial:weak | none | test/e2e/cross-cutting/staking-integration.test.ts | "cSSV Transfer Mid-Revenue-Accrual" covers transfer + settlement + both claims with exact math, matches XF-043 flow closely but uses different amounts |
+| XF-044 | no | none | — | No test covers updateMinimumOperatorEthFee + reduceOperatorFee revert FeeTooLow |
+| XF-045 | no | none | — | No test covers EB update + immediate auto-liquidation verifying no double deviation subtraction |
+| XF-046 | no | none | — | No test covers multi-cluster cascade validator removal + operator count verification |
+| XF-047 | partial:weak | none | test/e2e/staking/staking-rewards.test.ts | "Auto-Liquidation Reduces Active Clusters" covers liquidation stopping fee growth for stakers, but does not verify two distinct syncFees (one post-liq adds zero) |
+| XF-048 | no | none | — | No test covers reactivation restoring deviation to operators and DAO with explicit assertions |
+| XF-049 | no | none | — | No test covers all DAO params set simultaneously with no stale reads |
+| XF-050 | no | real | — | No test covers operator removed + 1000 blocks + deposit + withdraw verifying zero burn from removed op |
+| XF-051 | no | none | — | No test covers contract owner without receive() causing ETHTransferFailed on withdraw |
+| XF-052 | no | none | — | No bulk 100 validators + EB + auto-liquidation gas test |
+| XF-053 | partial:weak | none | test/e2e/staking/staking-lifecycle.test.ts | "Should lock SSV during cooldown and allow withdrawal after" covers stake->requestUnstake->wait->withdrawUnlocked, but does not verify total SSV conservation explicitly |
+| XF-054 | no | none | — | No test covers updateUnstakeCooldownDuration with existing + new requests using different durations |
+| XF-055 | no | none | — | No test covers updateQuorumBps enabling previously-stuck root to commit |
+| XF-056 | no | none | — | No test covers all stakers exit + zero cSSV supply + commitRoot revert |
+| XF-057 | no | none | — | No test covers whitelist module end-to-end on live cluster |
+| XF-058 | no | none | — | No test covers mid-round oracle governance + updateClusterBalance fails |
+| XF-059 | no | none | — | No test covers SSVViews consistency after mutation chain |
+| XF-060 | no | none | — | No test covers full protocol bootstrap in corrected ordering |
+
+**Summary:** 2/60 fully tested (XF-018, XF-019). 17 partial:weak. 41 have no coverage. The best-covered areas are governance parameter changes mid-operation (network fee, liquidation threshold) and basic staking reward flows. The completely uncovered areas include: operator removal impact on cluster economics (XF-023, XF-024, XF-036, XF-050), bulk validator operations (XF-025, XF-046, XF-052), single-block atomicity (XF-014, XF-016, XF-039), DAO governance edge cases (XF-033, XF-034, XF-044, XF-055), and deviation round-trip symmetry (XF-027, XF-048).

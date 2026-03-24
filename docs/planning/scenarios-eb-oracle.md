@@ -365,3 +365,48 @@ The `updateMinBlocksBetweenUpdates` function is tested in the EB-updates scenari
 | EB-031f | replaceOracle | Replace oracle slot mid-round BEFORE that slot has voted → new address can vote on same commitment. Tests in-flight replacement. | `entry:replaceOracle+commitRoot; revert:no` | [ ] | SSVDAO.sol:172, 188, 245 |
 | EB-031g | replaceOracle | newOracle=address(0) → revert `ZeroAddressNotAllowed`. (Covered in DAO scenarios but not in this EB file.) | `entry:replaceOracle; revert:yes` | [ ] | SSVDAO.sol:229 |
 | EB-031h | replaceOracle | oldOracle==newOracle → revert `SameOracleAddressNotAllowed`. (Covered in DAO scenarios but not in this EB file.) | `entry:replaceOracle; revert:yes` | [ ] | SSVDAO.sol:231 |
+
+---
+
+## Coverage Verification (W4)
+
+| ID | Tested | remove_mode | Test File | Notes |
+|----|--------|-------------|-----------|-------|
+| EB-001 | no | none | — | Scenario marked unreachable by ask-codex review (fixed 4-slot oracle array, 1-of-1 quorum is not a real path) |
+| EB-002 | yes | none | test/unit/SSVDAO/commitRoot.test.ts + test/e2e/effective-balance/oracle-commits.test.ts | "Commits on the third vote at 75% quorum" / "Commits root when 3 of 4 oracles vote" — verifies weight accumulation and RootCommitted on 3rd vote |
+| EB-003 | yes | none | test/unit/SSVDAO/commitRoot.test.ts + test/e2e/effective-balance/oracle-commits.test.ts | "Emits WeightedRootProposed repeatedly and accumulates weight when quorum is still not reached" / "Stores weight but does not commit root when 1 of 4 oracles votes" |
+| EB-004 | yes | none | test/unit/SSVDAO/commitRoot.test.ts + test/e2e/effective-balance/oracle-commits.test.ts | "Is reverted with 'AlreadyVoted' when oracle tries to vote twice" / "Reverts when same oracle votes twice" |
+| EB-005 | yes | none | test/unit/SSVDAO/commitRoot.test.ts + test/e2e/effective-balance/oracle-commits.test.ts | "Conflicting roots for same block: first root to reach quorum is committed" / "Allows same oracle to vote for different root at same block" + "tracks weight separately for different roots" |
+| EB-006 | yes | none | test/unit/SSVDAO/commitRoot.test.ts + test/e2e/effective-balance/oracle-commits.test.ts | "Is reverted with 'FutureBlockNumber' when block number is in the future" |
+| EB-007 | yes | none | test/unit/SSVDAO/commitRoot.test.ts + test/e2e/effective-balance/oracle-commits.test.ts | "Is reverted with 'StaleBlockNumber' when block number is not greater than last committed" (blockNum=50 < 100) |
+| EB-008 | yes | none | test/unit/SSVDAO/commitRoot.test.ts + test/e2e/effective-balance/oracle-commits.test.ts | Same test as EB-007 — tests blockNum==latestCommittedBlock (100==100) reverts StaleBlockNumber |
+| EB-009 | yes | none | test/unit/SSVDAO/commitRoot.test.ts + test/e2e/effective-balance/oracle-commits.test.ts | "Is reverted with 'NotOracle' when caller is not an oracle" / "Reverts when non-oracle calls commitRoot" |
+| EB-010 | yes | none | test/sanity/ssv2-frozen-supply-quorum.test.ts + test/unit/SSVDAO/commitRoot.test.ts | "Freezes supply at first vote and cleans up on commit" + "Supply increase between votes does not block quorum" — verifies frozen supply immutability |
+| EB-011 | yes | none | test/unit/SSVDAO/commitRoot.test.ts + test/e2e/effective-balance/oracle-commits.test.ts | "Is reverted with 'ZeroCSSVSupply' when no cSSV supply exists" / "Reverts when cSSV totalSupply is 0" |
+| EB-012 | yes | none | test/unit/SSVDAO/commitRoot.test.ts | "Is reverted with 'InsufficientCSSVSupply' when totalSupply is below the oracle count" — mints 3 tokens with 4 oracles |
+| EB-013 | yes | none | test/unit/SSVDAO/commitRoot.test.ts | "Stores truncated frozen supply and emits quorum based on the stored voting supply" — truncatingSupply=1_000_000_002, truncated=1_000_000_000 |
+| EB-014 | yes | none | test/unit/SSVDAO/commitRoot.test.ts | "Commits on the third vote at 75% quorum even when totalSupply is not divisible by 4" — boundary test with exact quorum |
+| EB-015 | yes | none | test/unit/SSVDAO/commitRoot.test.ts | "Does not commit on the third vote at 80% quorum when totalSupply is not divisible by 4" — 3 votes insufficient at 80% |
+| EB-016 | yes | none | test/unit/SSVDAO/commitRoot.test.ts | "Single oracle vote commits root when quorumBps is 1" + "Commits root on the first vote when accumulated weight meets the quorum threshold" (quorum=100) |
+| EB-017 | yes | none | test/unit/SSVDAO/commitRoot.test.ts | "Requires all 4 oracle votes when quorumBps is 10000 (100%)" + "Requires all 4 oracle votes at 100% quorum even when totalSupply is not divisible by 4" |
+| EB-018 | yes | none | test/unit/SSVDAO/setQuorumBps.test.ts | "Is reverted when quorum is 0" |
+| EB-019 | yes | none | test/unit/SSVDAO/setQuorumBps.test.ts | "Is reverted when quorum exceeds 10000 bps" |
+| EB-020 | yes | none | test/unit/SSVDAO/commitRoot.test.ts + test/e2e/effective-balance/oracle-commits.test.ts | "Oracle replaced mid-vote: old oracle loses voting rights, new oracle gets AlreadyVoted for reused slot" / "Replacement oracle inherits same oracleId and cannot re-vote" |
+| EB-021 | yes | none | test/unit/SSVDAO/commitRoot.test.ts + test/e2e/effective-balance/oracle-commits.test.ts | Same tests as EB-020 — old oracle gets NotOracle after replacement |
+| EB-022 | yes | none | test/unit/SSVDAO/commitRoot.test.ts | "Oracle replaced with a completely new address: new oracle inherits the slot and can vote on subsequent blocks" |
+| EB-023 | yes | none | test/unit/SSVDAO/commitRoot.test.ts + test/e2e/effective-balance/oracle-commits.test.ts | "Is reverted with 'StaleBlockNumber' when trying to propose the same block after it was committed" — proves monotonicity. Multiple sequential rounds tested across e2e oracle-commits |
+| EB-024 | yes | none | test/unit/SSVDAO/commitRoot.test.ts | "Lowering quorumBps between votes" + "Raising quorumBps between votes" — both test quorum change between rounds |
+| EB-025 | yes | none | test/unit/SSVDAO/commitRoot.test.ts | "Lowering quorumBps between votes causes the next vote to evaluate against the new threshold" — oracle1 votes at 7500, quorum lowered to 5000, oracle2 commits |
+| EB-026 | yes | none | test/unit/SSVDAO/commitRoot.test.ts + test/sanity/ssv2-frozen-supply-quorum.test.ts | "Requires all 4 oracle votes at 100% quorum" verifies rootCommitmentWeight==0 after commit + frozen-supply test verifies cleanup |
+| EB-027 | yes | none | test/unit/SSVDAO/commitRoot.test.ts + test/e2e/effective-balance/oracle-commits.test.ts | "Is reverted with 'StaleBlockNumber' when trying to propose the same block after it was committed" — re-vote after quorum reverts StaleBlockNumber |
+| EB-028 | yes | none | test/unit/SSVDAO/replaceOracle.test.ts + test/sanity/replace-oracle-invalid-id.test.ts | "Is reverted with 'InvalidOracleId' when oracle ID is zero" |
+| EB-029 | yes | none | test/sanity/replace-oracle-invalid-id.test.ts | "Is reverted with 'InvalidOracleId' when oracleId is MAX_DELEGATION_SLOTS + 1" (ID=5 reverts) |
+| EB-030 | yes | none | test/unit/SSVDAO/replaceOracle.test.ts | "Is reverted with 'OracleAlreadyAssigned' when new oracle is already assigned to another ID" |
+| EB-031a | yes | none | test/unit/SSVDAO/replaceOracle.test.ts | "Is reverted with 'ZeroAddress' when new oracle address is zero" |
+| EB-031b | yes | none | test/unit/SSVDAO/replaceOracle.test.ts | "Is reverted with 'SameOracleAddressNotAllowed' when replacing with same address" |
+| EB-031c | yes | none | test/unit/SSVDAO/replaceOracle.test.ts | "Can replace an oracle with ID that had no previous address" — empty slot (address(0)) assignment |
+| EB-031d | yes | none | test/unit/SSVDAO/commitRoot.test.ts | "Raising quorumBps between votes requires additional votes to reach new threshold" |
+| EB-031e | no | none | — | No test for exact step-function boundaries at quorumBps=2501/7501 |
+| EB-031f | no | none | — | No test for replace oracle mid-round BEFORE that slot has voted |
+| EB-031g | yes | none | test/unit/SSVDAO/replaceOracle.test.ts | Same as EB-031a — ZeroAddress revert |
+| EB-031h | yes | none | test/unit/SSVDAO/replaceOracle.test.ts | Same as EB-031b — SameOracleAddressNotAllowed revert |

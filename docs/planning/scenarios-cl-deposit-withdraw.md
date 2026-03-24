@@ -370,3 +370,67 @@ The liquidation check has TWO thresholds: the burn-rate-based threshold AND `min
 | CL-055 | withdraw | Active cluster: amount=0 but post-settlement balance is below liquidation floor → revert at liquidation guard. | `entry:withdraw; revert:yes` | [ ] | SSVClusters.sol:235, ClusterLib.sol:76, 81 |
 | CL-056 | withdraw | Inactive/liquidated cluster: amount > balance → revert `InsufficientBalance`. Tests inactive-path over-withdraw boundary (no settlement, no liquidation check, only balance check). | `entry:withdraw; revert:yes` | [ ] | SSVClusters.sol:215, 231 |
 | CL-057 | deposit/withdraw | Both `ethClusters[hash]` and `clusters[hash]` populated → revert `IncorrectClusterState` from getClusterData before version validation. | `entry:deposit; revert:yes` | [ ] | ClusterLib.sol:346 |
+
+---
+
+## Coverage Verification (W4)
+
+| ID | Tested | remove_mode | Test File | Notes |
+|----|--------|-------------|-----------|-------|
+| CL-001 | yes | none | test/unit/SSVClusters/deposit.test.ts | "Deposits into an existing cluster, updates balance and emits correct event" — 4-op default, verifies balance increase + event |
+| CL-002 | no | none | — | No 7-op deposit test found |
+| CL-003 | no | none | — | No 13-op deposit test found |
+| CL-004 | yes | none | test/unit/SSVClusters/withdraw.test.ts | "Withdraws deposited funds from a liquidated cluster without reactivating" deposits into liquidated cluster first |
+| CL-005 | yes | none | test/unit/SSVClusters/deposit.test.ts | "Allows a third party to deposit to an existing cluster" |
+| CL-006 | no | none | — | No test for non-owner deposit into liquidated cluster specifically |
+| CL-007 | no | none | — | No test for msg.value == 0 deposit; existing test uses depositAmount=1 |
+| CL-008 | partial:weak | none | test/e2e/clusters-eth/cluster-eth-lifecycle.test.ts | "Allows withdraw to exact threshold but rejects 1 more wei" — tests threshold boundary from withdraw side but not deposit-to-threshold |
+| CL-009 | yes | none | test/unit/SSVClusters/deposit.test.ts | "Does not change operatorEthVUnits or stored cluster EB snapshot when depositing" — explicit EB set via mockSetClusterVUnits, verifies no side effects |
+| CL-010 | no | none | — | No near-uint256-max deposit test |
+| CL-011 | yes | none | test/unit/SSVClusters/deposit.test.ts | "Deposits into an existing cluster" uses depositAmount=1 (1 wei) |
+| CL-012 | no | mock_zero | — | No deposit test with removed operator (removedOperatorImpact uses mockRemoveOperator not deposit) |
+| CL-013 | yes | none | test/unit/SSVClusters/deposit.test.ts | "Is reverted with 'IncorrectClusterState' when provided cluster data is stale or mismatched" |
+| CL-014 | yes | none | test/unit/SSVClusters/deposit.test.ts | "Is reverted with 'ClusterDoesNotExists' when attempting to deposit into a missing cluster" |
+| CL-015 | no | none | — | No test for deposit into SSV-version cluster revert (withdraw has this test but not deposit) |
+| CL-016 | yes | none | test/unit/SSVClusters/deposit.test.ts | "Accumulates contract ETH balance by the sum of multiple deposits" — two sequential deposits |
+| CL-017 | no | none | — | No test for deposit into migrated cluster specifically |
+| CL-018 | no | none | — | No 10-op deposit test |
+| CL-019 | yes | none | test/unit/SSVClusters/deposit.test.ts | "Accumulates contract ETH balance" — second deposit by otherAccount in same sequence |
+| CL-020 | yes | none | test/e2e/clusters-eth/cluster-eth-lifecycle.test.ts | "Deposits into liquidated cluster accumulate, reactivation uses sum" |
+| CL-021 | yes | none | test/unit/SSVClusters/withdraw.test.ts | "Withdraws from an existing cluster, updates balance and emits correct event" — 4-op partial withdraw |
+| CL-022 | no | none | — | No 7-op withdraw test |
+| CL-023 | no | none | — | No 13-op withdraw test |
+| CL-024 | yes | none | test/e2e/clusters-eth/cluster-eth-edge.test.ts + test/unit/SSVClusters/withdraw.test.ts | "Allows full withdrawal from cluster with 0 validators" / "Zero-validator cluster allows full balance withdrawal without fee deduction" |
+| CL-025 | yes | none | test/unit/SSVClusters/withdraw.test.ts + test/e2e/clusters-eth/cluster-eth-lifecycle.test.ts | "Is reverted with 'InsufficientBalance' when withdrawal would make the cluster liquidatable" / "Allows withdraw to exact threshold but rejects 1 more wei" |
+| CL-026 | yes | none | test/unit/SSVClusters/withdraw.test.ts | "Is reverted with 'InsufficientBalance' when withdrawing more than the cluster balance" |
+| CL-027 | yes | none | test/unit/SSVClusters/withdraw.test.ts | "Withdraws deposited funds from a liquidated cluster without reactivating" — inactive cluster, no fee settlement |
+| CL-028 | yes | none | test/unit/SSVClusters/withdraw.test.ts | "Is reverted with 'ClusterDoesNotExists' when a non-owner tries to withdraw" (revert error is ClusterDoesNotExist via validateHashedCluster) |
+| CL-029 | partial:weak | none | test/unit/SSVClusters/withdraw.test.ts | "Withdraws from a liquidated cluster after explicit EB update" — tests withdraw after EB but doesn't specifically test higher threshold causing revert |
+| CL-030 | no | none | — | No test for withdraw leaving balance exactly at explicit-EB threshold boundary |
+| CL-031 | partial:mock | mock_zero | test/unit/SSVClusters/removedOperatorImpact.test.ts | Uses mockRemoveOperator() which zeros fields but does NOT call real removeOperator. Tests fee exclusion but masks potential EB bugs |
+| CL-032 | yes | none | test/unit/SSVClusters/withdraw.test.ts | "Settles full fees when usageUnits exceeds uint64" withdraws 0 amount; also "Cluster balance becomes 0" withdraws 0n |
+| CL-033 | yes | none | test/e2e/clusters-eth/cluster-eth-lifecycle.test.ts | "Deposit at same block as registration — no fee settlement (edge)" — same-block deposit+withdraw pattern |
+| CL-034 | yes | none | test/e2e/clusters-eth/cluster-eth-lifecycle.test.ts | "Creates cluster, deposits, advances blocks, withdraws with correct fee deduction" |
+| CL-035 | yes | none | test/unit/SSVClusters/withdraw.test.ts | "Withdraws deposited funds from a liquidated cluster without reactivating" + "Withdraws full balance from a liquidated cluster that received multiple deposits" |
+| CL-036 | no | none | — | No test specifically for vUnits doubled threshold on withdraw |
+| CL-037 | yes | none | test/unit/SSVClusters/withdraw.test.ts | "Is reverted with 'IncorrectClusterState' when provided cluster data is stale or mismatched" |
+| CL-038 | yes | none | test/unit/SSVClusters/withdraw.test.ts | Same as CL-028 — non-owner withdraw reverts ClusterDoesNotExist |
+| CL-039 | yes | none | test/unit/SSVClusters/withdraw.test.ts | "Is reverted with 'IncorrectClusterVersion' when withdrawing from an SSV cluster" |
+| CL-040 | yes | none | test/unit/SSVClusters/deposit.test.ts | "Accumulates contract ETH balance by the sum of multiple deposits" — two callers deposit, final balance correct |
+| CL-041 | no | none | — | No 10-op explicit EB withdraw test |
+| CL-042 | no | none | — | No test for deposit+withdraw with all operators removed |
+| CL-043 | yes | none | test/unit/SSVClusters/withdraw.test.ts | "Withdraws full balance from a liquidated cluster that received multiple deposits" — final withdraw to 0 balance |
+| CL-044 | yes | none | test/unit/SSVClusters/deposit.test.ts | "Does not change operatorEthVUnits or stored cluster EB snapshot when depositing" — explicit EB set, deposit verifies no accounting side effects |
+| CL-045 | partial:weak | none | test/e2e/clusters-eth/cluster-eth-lifecycle.test.ts | "Allows withdraw to exact threshold" — tests threshold boundary but uses burn-rate threshold, not specifically minimumLiquidationCollateral floor with zero fees |
+| CL-046 | partial:weak | none | test/e2e/clusters-eth/cluster-eth-lifecycle.test.ts | Same test — rejects 1 wei over threshold, but not specifically testing minimumLiquidationCollateral floor |
+| CL-047 | yes | none | test/unit/SSVClusters/deposit.test.ts + test/unit/SSVClusters/withdraw.test.ts | Non-owner deposit succeeds + owner withdraw receives ETH (verified via expectETHDeltas) |
+| CL-048 | no | none | — | No test for deposit, then EB update, then withdraw with higher threshold |
+| CL-049 | no | none | — | No overflow edge test |
+| CL-050 | no | none | — | No test for withdraw from migrated cluster with explicit EB |
+| CL-051 | no | none | — | No dual-existence storage corruption test |
+| CL-052 | no | none | — | No ETHTransferFailed test for contract-owner that rejects ETH |
+| CL-053 | yes | none | test/unit/SSVClusters/withdraw.test.ts | "Cluster balance becomes 0 when accumulated fees exceed the remaining balance (no underflow)" |
+| CL-054 | no | none | — | No test for amount <= passed-in balance but > post-settlement balance |
+| CL-055 | no | none | — | No test for amount=0 but post-settlement balance below liquidation floor |
+| CL-056 | yes | none | test/unit/SSVClusters/withdraw.test.ts | "Withdraws full balance from a liquidated cluster" final assertion tries withdraw 1 more → InsufficientBalance |
+| CL-057 | no | none | — | Same as CL-051, no dual-existence test |

@@ -351,3 +351,37 @@
 ask-codex ran `npx hardhat test test/sanity/removed-operator.test.ts` and `test/unit/SSVClusters/reactivate.test.ts` — both passed. The existing `removed-operator.test.ts` (line 30) only covers the implicit-EB remove-then-liquidate path, NOT the explicit positive-deviation case. This confirms RM5's value: the explicit-EB reactivation guard scenarios (RM5-003, RM5-006, RM5-009, RM5-012) are genuinely untested.
 
 No impossible or unreachable scenarios found. Code references verified accurate.
+
+---
+
+## Coverage Verification (W4)
+
+**Verified:** 2026-03-24
+**Method:** Cross-referenced each scenario against all test files containing `reactivate` and `removeOperator`/`mockRemoveOperator` calls.
+
+**Critical finding:** `test/unit/SSVClusters/reactivate.test.ts` contains ZERO removed-operator scenarios. All 11 tests in that file use all-active operator sets. The only removed-operator + liquidation test is in `test/sanity/removed-operator.test.ts`, which uses real `removeOperator()` but tests `liquidate()` only (no reactivation). No test in the entire codebase combines operator removal with cluster reactivation.
+
+| ID | Tested | remove_mode | Test File | Notes |
+|----|--------|-------------|-----------|-------|
+| RM5-001 | no | none | — | No test combines liquidate + removeOperator + reactivate. `reactivate.test.ts` has no removed-operator tests at all. |
+| RM5-002 | no | none | — | No test covers remove-before-liquidate + reactivate. The ordering variant is completely untested. |
+| RM5-003 | no | none | — | No 7-operator reactivation test with removed ops exists. |
+| RM5-004 | no | none | — | No 10-operator reactivation test with removed ops exists. |
+| RM5-005 | no | none | — | No 13-operator reactivation test with removed ops exists. |
+| RM5-006 | no | none | — | No test covers all-operators-removed + reactivate edge case. |
+| RM5-007 | no | none | — | No 7-op all-removed reactivation test exists. |
+| RM5-008 | no | none | — | No test covers reactivation deviation distribution with removed op. |
+| RM5-009 | no | none | — | No test verifies `daoTotalEthVUnits` correctness on reactivation with removed ops. |
+| RM5-010 | no | none | — | No test covers implicit EB reactivation with removed op (no deviation case). |
+| RM5-011 | no | none | — | `_resetOperatorState` field zeroing is indirectly tested by `removed-operator.test.ts` (sanity) and `removedOperatorImpact.test.ts`, but neither connects to reactivation. |
+| RM5-012 | no | none | — | Active op fee accrual during reactivation is tested in `reactivate.test.ts:457` ("Accrues operator earnings across cycles") but without any removed ops in the mix. |
+| RM5-013 | no | none | — | No test verifies `operatorEthVUnits` stays clean for removed op after reactivation. |
+| RM5-014 | no | none | — | No test covers EB update on liquidated cluster + remove + reactivate sequence. |
+| RM5-015 | no | none | — | No test covers `hasDeviation=true` global flag + reactivation with removed op. |
+| RM5-016 | no | none | — | No test covers `hasDeviation=false` + reactivation with removed op. |
+| RM5-017 | no | none | — | No test covers `ExceedValidatorLimitWithData` revert during reactivation with removed op. |
+| RM5-018 | no | none | — | No test covers removed op at position [0] in reactivation loop. |
+| RM5-019 | no | none | — | No test covers removed op at last position in reactivation loop. |
+| RM5-020 | no | none | — | No test covers two removed ops at mixed positions during reactivation. |
+
+**Summary:** 0/20 scenarios have any test coverage. The reactivation path with removed operators is entirely untested. `reactivate.test.ts` tests reactivation accounting (DAO vUnits, deviation, earnings cycles) thoroughly for all-active operator sets, but never introduces a removed operator. The line 291 guard (`ethSnapshot.block != 0`) in `updateClusterOperatorsOnReactivation` has zero direct test coverage. This is the single largest coverage gap in the removed-operator bug class.

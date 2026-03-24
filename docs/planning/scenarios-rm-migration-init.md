@@ -393,3 +393,40 @@ migrateClusterToETH([op1, op2, op3, op4], clusterB) { value: sufficientETH }
 
 **Known limitation identified:**
 - RM6-015 documents that the EB deviation loop in `SSVClusters.sol:319-322` does NOT check operator liveness — deviation is applied to ALL operatorIds including dead ones. This creates stranded `operatorEthVUnits` entries and minor `daoTotalEthVUnits` inflation. The impact is low (stranded values are inert unless the operator is re-registered) but the behavior should be evaluated for a follow-up fix.
+
+---
+
+## Coverage Verification (W4)
+
+**Verified:** 2026-03-24
+**Method:** Cross-referenced each scenario against all test files. RM6 scenarios focus on the `updateClusterOperatorsMigration` guard at OperatorLib.sol:363-365, which is the same code path as RM4 but from a guard-correctness perspective (all 4 guard input states, timing edges, field-level verification).
+
+**Relevant test files found:**
+- `test/unit/SSVClusters/migrateClusterToETH.test.ts:1246-1388` — "Removed Operators Security Check" (4 tests, all use `mockRemoveOperator`)
+- `test/e2e/migration/migration-edge.test.ts:163` — 1 test uses real `removeOperator()`
+- `test/e2e/migration/migration-double-payment.test.ts` — 4 tests use `mockRemoveOperatorAndPayout`
+
+**Critical note on RM6 vs RM4 overlap:** RM6 scenarios test the same `updateClusterOperatorsMigration` function as RM4 but focus on guard input states (all 4 combinations of snapshot/ethSnapshot == 0), timing of removal, and field-level assertions. The existing test coverage applies to both RM4 and RM6 where they share code paths.
+
+| ID | Tested | remove_mode | Test File | Notes |
+|----|--------|-------------|-----------|-------|
+| RM6-001 | partial:mock | mock_zero | `test/unit/SSVClusters/migrateClusterToETH.test.ts:1247` | Uses `mockRemoveOperator`. Tests `continue` guard on dead op. Weak assertion: `ethValidatorCount >= 0` instead of `== 0`. Does not verify `ethSnapshot.block == 0` or `ethFee == 0`. Also: `test/e2e/migration/migration-edge.test.ts:163` uses real `removeOperator()` but only checks `validatorCount`. |
+| RM6-002 | yes | none | `test/unit/SSVClusters/migrateClusterToETH.test.ts:29` | Happy-path migration test: all live ops with `snapshot.block > 0, ethSnapshot.block == 0` pass guard correctly and hit `ensureETHDefaults`. No removed op in this test (guard pass verified for live ops). |
+| RM6-003 | partial:weak | none | `test/unit/SSVClusters/migrateClusterToETH.test.ts:523` ("Correctly handles mixed operator states during migration") | Tests operators with both SSV and ETH snapshots active. Both > 0 guard pass tested. No removed operator, so guard behavior is only incidentally verified. |
+| RM6-004 | no | none | — | The asymmetric state (snapshot.block == 0, ethSnapshot.block > 0) requires a test helper to construct. No test exists for this defensive edge case. |
+| RM6-005 | partial:mock | mock_payout | `test/e2e/migration/migration-double-payment.test.ts:142` | Tests removed op with prior SSV history: op had `snapshot.block > 0` at creation, then removed, then migrated. Uses `mockRemoveOperatorAndPayout`. Verifies SSV index is frozen. Does not verify the `continue` guard firing per se but verifies `ethValidatorCount == 0` and `ethSnapshot.block == 0` for removed op. |
+| RM6-006 | partial:mock | mock_zero | `test/unit/SSVClusters/migrateClusterToETH.test.ts:1315` | "Prevents silent revival" test. Uses `mockRemoveOperator`. Verifies `ethFee` unchanged. Does not explicitly verify `ensureETHDefaults` was not called. |
+| RM6-007 | partial:mock | mock_zero | `test/unit/SSVClusters/migrateClusterToETH.test.ts:1247` | Same test as RM6-001. Weak assertion on `ethValidatorCount`. |
+| RM6-008 | no | none | — | No test explicitly verifies `cumulativeFeeETH` excludes dead op contribution in migration path. |
+| RM6-009 | partial:mock | mock_payout | `test/e2e/migration/migration-double-payment.test.ts:142` | Verifies `cumulativeIndexSSV` includes removed op's frozen `snapshot.index` (== 0 after mock removal with payout). The frozen index is explicitly computed and verified against the SSV refund formula. |
+| RM6-010 | partial:mock | mock_zero | `test/unit/SSVClusters/migrateClusterToETH.test.ts:1247` + `test/e2e/migration/migration-double-payment.test.ts:234` | Covered by the "Skips removed operators" unit test (mock) and the "Liquidated cluster migration" e2e test (mock_payout). Both verify `ethValidatorCount` and `ethSnapshot.block` for removed vs live ops. |
+| RM6-011 | partial:mock | mock_zero | `test/unit/SSVClusters/migrateClusterToETH.test.ts:1344` | "Mixed valid/removed operators" test: 2 of 4 removed. Weak assertions (`>= 0`). |
+| RM6-012 | no | none | — | No test covers 3 of 4 operators removed (extreme case). |
+| RM6-013 | partial:mock | mock_zero | `test/unit/SSVClusters/migrateClusterToETH.test.ts:1247` | SSV `validatorCount` decrement for live ops is verified in `migrateClusterToETH.test.ts:480` ("Preserves SSV snapshot state"), but not with removed ops present. The removed-op test at line 1247 does not check SSV decrement specifically. |
+| RM6-014 | partial:mock | mock_payout | `test/e2e/migration/migration-double-payment.test.ts:234` | "Liquidated cluster migration with removed operator" test. Uses `mockRemoveOperatorAndPayout`. Verifies SSV counts unchanged (liquidation already decremented) and removed op skipped for ETH. |
+| RM6-015 | no | none | — | No test covers explicit EB + removed op + stranded deviation in migration init path. |
+| RM6-016 | no | none | — | No test verifies `operatorEthVUnits` is 0 at migration time after `removeOperator` deletion. Both mocks do NOT delete `operatorEthVUnits`, so existing tests cannot detect stale deviation. |
+| RM6-017 | no | none | — | No test covers validator limit boundary with removed op excluded from count. |
+| RM6-018 | no | none | — | No test covers `ExceedValidatorLimitWithData` revert with removed op in migration path. |
+
+**Summary:** 9/18 scenarios have partial test coverage (a mix of `mock_zero` and `mock_payout`), 1 has full coverage for live-op guard pass (RM6-002), and 8 have no coverage. The most critical gap is RM6-016: the verification that `operatorEthVUnits` is properly deleted by `removeOperator` is impossible to test with the current mocks because neither `mockRemoveOperator` nor `mockRemoveOperatorAndPayout` calls `delete seb.operatorEthVUnits[operatorId]`. The `test/e2e/migration/migration-edge.test.ts:163` test using real `removeOperator()` is the closest to a proper regression test but has insufficient assertions.

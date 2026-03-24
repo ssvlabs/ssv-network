@@ -391,3 +391,52 @@ The fix is a one-line guard: `if (s.operators[operatorId].ethSnapshot.block == 0
 1. **Guard pattern description precision:** The existing guard in libraries uses a positive check `ethSnapshot.block != 0` (not a literal `continue` statement). The removed operator's stored `ethSnapshot.index` is preserved at 0 by `_resetOperatorState`. Scenarios correctly describe the *absence* of this guard in `_updateOperatorVUnits` — the fix should match the positive-check pattern already used in `updateClusterOperators` (OperatorLib.sol:247) and `updateClusterOperatorsOnReactivation` (OperatorLib.sol:291).
 
 No impossible or unreachable scenarios found. Code references verified accurate.
+
+---
+
+## Coverage Verification (W4)
+
+**Verified:** 2026-03-24
+**Method:** Cross-referenced all test files in `test/` for `mockRemoveOperator`, `mockRemoveOperatorAndPayout`, and real `removeOperator()` calls combined with `updateClusterBalance` / `_updateOperatorVUnits` paths.
+
+**Critical finding:** No test in the entire codebase combines a removed operator (real or mock) with an explicit EB update via `updateClusterBalance`. The `_updateOperatorVUnits` function is never tested with a removed operator in any existing test. All 25 RM1 scenarios are untested.
+
+**Mock analysis:**
+- `SSVClustersHarness.sol:mockRemoveOperator` (lines 169-181): Zeros operator state but does NOT `delete seb.operatorEthVUnits[operatorId]`. Missing the critical line present in real `removeOperator()` at SSVOperators.sol:93.
+- `SSVValidatorsHarness.sol:mockRemoveOperator` (lines 244-256): Same deficiency.
+- `SSVClustersHarness.sol:mockRemoveOperatorAndPayout` (lines 185-219): Settles + pays out but also does NOT `delete seb.operatorEthVUnits[operatorId]`.
+- Real `removeOperator()` (SSVOperators.sol:93): `delete seb.operatorEthVUnits[operatorId]` — sets slot to 0.
+
+**Closest existing tests (none match RM1 scenarios):**
+- `test/unit/SSVClusters/operatorFeeEBInteraction.test.ts` line 252: "Fee change with removed operators" uses `mockRemoveOperator` + EB + withdraw. Tests fee settlement, NOT `_updateOperatorVUnits` deviation. `remove_mode: mock_zero`.
+- `test/unit/SSVClusters/removedOperatorImpact.test.ts`: Uses `mockRemoveOperator` + removeValidator/liquidateSSV. No `updateClusterBalance` call. No EB deviation testing.
+
+| ID | Tested | remove_mode | Test File | Notes |
+|----|--------|-------------|-----------|-------|
+| RM1-001 | no | none | — | No test combines removeOperator + updateClusterBalance (EB increase) |
+| RM1-002 | no | none | — | No test combines removeOperator + updateClusterBalance (EB decrease) |
+| RM1-003 | no | none | — | 7-op variant, no test exists |
+| RM1-004 | no | none | — | 7-op variant, no test exists |
+| RM1-005 | no | none | — | 10-op variant, no test exists |
+| RM1-006 | no | none | — | 10-op variant, no test exists |
+| RM1-007 | no | none | — | 13-op variant, no test exists |
+| RM1-008 | no | none | — | 13-op variant, no test exists |
+| RM1-009 | no | none | — | Per-operator deviation verification, no test exists |
+| RM1-010 | no | none | — | Per-operator deviation verification (decrease), no test exists |
+| RM1-011 | no | none | — | daoTotalEthVUnits verification, no test exists |
+| RM1-012 | no | none | — | daoTotalEthVUnits verification (decrease), no test exists |
+| RM1-013 | no | none | — | Post-EB deposit verification, no test exists |
+| RM1-014 | no | none | — | Post-EB withdraw verification, no test exists |
+| RM1-015 | no | none | — | First explicit EB with removed op, no test exists |
+| RM1-016 | no | none | — | Chained removal + EB updates, no test exists |
+| RM1-017 | no | none | — | Ghost deviation verification, no test exists |
+| RM1-018 | no | none | — | Bug reproduction (resurrection), no test exists |
+| RM1-019 | no | none | — | Bug reproduction (underflow revert), no test exists |
+| RM1-020 | no | none | — | Bug reproduction (corrupted state), no test exists |
+| RM1-021 | no | mock_zero | — | Harness bug scenario; mockRemoveOperator used in operatorFeeEBInteraction.test.ts but NOT with updateClusterBalance path |
+| RM1-022 | no | mock_zero | — | Harness bug scenario; same — no EB decrease test with mock removal |
+| RM1-023 | no | none | — | Cross-cluster shared operator, no test exists |
+| RM1-024 | no | none | — | All operators removed + EB update, no test exists |
+| RM1-025 | no | none | — | Zero-delta EB update (no _updateOperatorVUnits call), no test exists |
+
+**Summary:** 0/25 tested. The `_updateOperatorVUnits` function has zero test coverage for removed-operator interactions. This is the highest-priority gap — the resurrection bug (RM1-018) and underflow bug (RM1-019) are completely undetected by existing tests.

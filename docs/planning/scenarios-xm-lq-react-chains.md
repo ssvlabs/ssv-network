@@ -541,3 +541,80 @@ Scenarios that exercise each location:
 | XL-066 | explicit-EB + all-operators-removed → reactivate → liquidate | All operators removed. Reactivation skips all in deviation loop (OperatorLib.sol:291) but SSVClusters.sol:174 still re-adds DAO deviation. Later liquidation hits unguarded subtraction at SSVClusters.sol:586 → underflow. | `entry:liquidate; bug:all-removed; revert:yes` | [ ] | OperatorLib.sol:291, SSVClusters.sol:174, 586 |
 | XL-067 | removed operators + hasDeviation=true reactivation | Another cluster keeps DAO deviation non-zero. Reactivation of cluster with removed ops enters hasDeviation=true branch (OperatorLib.sol:285) but skips dead ops in snapshot loop → partial deviation restoration. | `entry:reactivate; bug:removed-op; revert:no` | [ ] | OperatorLib.sol:285, 291, 313 |
 | XL-068 | validator-count mutation after reactivation → EB update | Reactivate explicit-EB cluster, add validators (changing baseline), then EB update. New validators get baseline vUnits but stored deviation doesn't account for them → deviation/baseline mismatch. | `entry:updateClusterEB; revert:no` | [ ] | SSVValidators.sol:138, SSVClusters.sol:504 |
+
+---
+
+## Coverage Verification (W4)
+
+| ID | Tested | remove_mode | Test File | Notes |
+|----|--------|-------------|-----------|-------|
+| XL-001 | no | none | — | No test covers full register->EB->liquidate->reactivate->EB cycle with deviation assertions at each step |
+| XL-002 | no | none | — | No 7-operator full cycle test exists |
+| XL-003 | no | none | — | No test covers EB decrease after reactivation |
+| XL-004 | no | none | — | No test covers implicit EB full cycle (vUnitsCluster=0 path) |
+| XL-005 | no | none | — | No DAO invariant assertion test across full cycle |
+| XL-006 | no | none | — | Self-liquidation mid-cycle not tested with deviation cleanup |
+| XL-007 | no | none | — | No test covers deposit between reactivation and second EB update |
+| XL-008 | no | none | — | No test covers deposit on liquidated cluster before reactivation |
+| XL-009 | partial:weak | none | test/e2e/clusters-eth/cluster-eth-liquidation.test.ts | "EB increase triggers auto-liquidation" test exists but does not test reactivation after auto-liq; no deviation round-trip assertion |
+| XL-010 | no | none | — | No auto-liq->reactivate->EB update chain test |
+| XL-011 | partial:weak | real | test/sanity/removed-operator.test.ts | Test removes op then liquidates (real removeOperator), but uses implicit EB (no deviation), so the underflow bug path (operatorEthVUnits subtraction) is not exercised |
+| XL-012 | no | real | — | No test covers double EB update with operator removal between them |
+| XL-013 | no | real | — | No test covers auto-liquidation path with removed operator |
+| XL-014 | no | real | — | No test covers two operators removed after EB update then liquidation |
+| XL-015 | no | real | — | No test covers operator removed BEFORE EB update then liquidation |
+| XL-016 | no | real | — | No test covers EB decrease after operator removal |
+| XL-017 | no | real | — | No test covers deviation asymmetry across removal + liquidation + reactivation |
+| XL-018 | no | real | — | No test covers DAO drift from stale writes to dead operator |
+| XL-019 | no | mock_zero | — | No test compares mock vs real removeOperator with EB deviation |
+| XL-020 | no | real | — | No test covers chained EB updates with interleaved operator removals |
+| XL-021 | no | real | — | No test covers operator removed after liquidation then reactivation |
+| XL-022 | no | real | — | No test covers explicit EB cluster with post-liquidation operator removal + reactivation |
+| XL-023 | no | real | — | No test covers two operators removed after liquidation |
+| XL-024 | no | real | — | No test covers all operators removed after liquidation + reactivation |
+| XL-025 | no | real | — | No test covers all operators removed + insufficient reactivation revert |
+| XL-026 | no | real | — | No test covers post-liq removal + reactivation + EB update chain |
+| XL-027 | no | none | — | No test covers operator fee change during liquidation period |
+| XL-028 | no | none | — | No test covers fee increase during liquidation causing reactivation revert |
+| XL-029 | no | none | — | No test covers fee decrease during liquidation enabling cheaper reactivation |
+| XL-030 | no | real | — | No test covers combined operator removal + fee change during liquidation |
+| XL-031 | no | none | — | No double liq/react cycle test with EB deviation drift assertions |
+| XL-032 | no | none | — | No triple cycle stress test |
+| XL-033 | no | none | — | No test covers reactivation + addValidator + EB + liquidation |
+| XL-034 | no | none | — | No test covers reactivation + addValidator + EB triggering auto-liquidation |
+| XL-035 | no | none | — | No exact-minimum reactivation threshold test |
+| XL-036 | no | none | — | No 1-wei-above threshold test |
+| XL-037 | no | none | — | No 1-wei-below threshold revert test |
+| XL-038 | no | none | — | No withdraw-after-EB-update liquidation chain test |
+| XL-039 | no | none | — | No max EB (2048) liquidation/reactivation test |
+| XL-040 | no | none | — | No minimal EB increment precision test |
+| XL-041 | no | none | — | No EB update on liquidated cluster + reactivation test |
+| XL-042 | no | none | — | No EB increase on liquidated cluster causing insufficient reactivation revert |
+| XL-043 | no | none | — | No double EB update on liquidated cluster test |
+| XL-044 | no | none | — | No EB decrease on liquidated cluster (slashing) test |
+| XL-045 | no | none | — | No EB unchanged on liquidated cluster test |
+| XL-046 | no | real | — | No test covers operator removal + EB update on liquidated cluster + reactivation |
+| XL-047 | no | none | — | No auto-liq + EB decrease while liquidated + reactivation test |
+| XL-048 | no | real | — | No compound liquidation-era EB + removal + reactivation + EB test |
+| XL-049 | no | none | — | No concurrent liquidation race test (two callers same block) |
+| XL-050 | no | none | — | No liquidate-then-reactivate same block test |
+| XL-051 | partial:weak | none | test/integration/SSVNetwork/clusters.test.ts | "Owner can self-liquidate even when not underfunded" exists, but does not test same-block reactivation or deviation round-trip |
+| XL-052 | no | none | — | No auto-liq via updateClusterBalance + same-block reactivation test |
+| XL-053 | no | none | — | No EB update + third-party liquidation same block test |
+| XL-054 | no | none | — | No double reactivation race test |
+| XL-055 | no | none | — | No reactivate + EB update same block test |
+| XL-056 | partial:weak | none | test/e2e/cross-cutting/economics.test.ts | "Operator Serving Multiple Clusters with Different EBs" covers shared ops + EB + liquidation, but does not assert operatorEthVUnits at subtraction granularity |
+| XL-057 | no | none | — | No shared-ops liq-then-reactivate deviation stacking test |
+| XL-058 | no | real | — | No shared operator removed between two clusters' liquidations test |
+| XL-059 | no | none | — | No addValidator + EB + liq + reactivate chain test |
+| XL-060 | no | none | — | No removeValidator + EB decrease + liq + reactivate test |
+| XL-061 | no | none | — | No withdraw near threshold + auto-liq on next EB test |
+| XL-062 | no | none | — | No EB decrease + deposit making cluster non-liquidatable test |
+| XL-063 | no | none | — | No reactivation + removeValidator solvency test |
+| XL-064 | no | none | — | No liquidated SSV cluster + EB + migration test |
+| XL-065 | no | real | — | No migration path bug with dead operator deviation test |
+| XL-066 | no | real | — | No all-operators-removed + reactivate + liquidate underflow test |
+| XL-067 | no | real | — | No removed-ops + hasDeviation reactivation test |
+| XL-068 | no | none | — | No validator-count mutation after reactivation + EB update test |
+
+**Summary:** 0/68 fully tested. 4 partial (XL-009, XL-011, XL-051, XL-056). 64 have no coverage. The critical bug paths (XL-011 through XL-020) involving operator removal + EB deviation are entirely untested with real removeOperator and explicit EB. The removed-operator.test.ts sanity test only covers implicit EB (no deviation), so it does not exercise the underflow bug.

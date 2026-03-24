@@ -562,3 +562,99 @@ Code-grounded scenarios for `updateClusterBalance` and the deviation accounting 
 | EB-117 | updateClusterEB | Inactive cluster first-update: storedVUnits==0 falls back at SSVClusters.sol:390. Tests the implicit-to-explicit initialization for an inactive cluster. | `entry:updateClusterEB; revert:no` | [ ] | SSVClusters.sol:390 |
 | EB-118 | updateClusterEB | Inactive/liquidated SSV cluster: snapshot-only branch at SSVClusters.sol:411. Tests SSV cluster EB update skips fee-related calculations. | `entry:updateClusterEB; revert:no` | [ ] | SSVClusters.sol:411 |
 | EB-119 | _executeLiquidation | Zero-payout auto-liquidation: balanceLiquidatable==0 → transfer at SSVClusters.sol:607 is skipped. | `entry:executeLiquidation; revert:no` | [ ] | SSVClusters.sol:607 |
+
+---
+
+## Coverage Verification (W4)
+
+| ID | Tested | remove_mode | Test File | Notes |
+|----|--------|-------------|-----------|-------|
+| EB-031 | yes | none | test/unit/SSVClusters/updateClusterBalance.test.ts | "Updates cluster balance when proof is valid" — 4-op, EB=32, no-op deviation, event + snapshot verified |
+| EB-032 | no | none | — | No 7-op updateClusterBalance test |
+| EB-033 | no | none | — | No 10-op updateClusterBalance test |
+| EB-034 | yes | none | test/unit/SSVClusters/updateClusterBalance.test.ts | "Updates vUnit accounting correctly for 13 operators at maximum EB" — 13 ops, EB=2048 |
+| EB-035 | yes | none | test/unit/SSVClusters/updateClusterBalance.test.ts + test/e2e/effective-balance/eb-edge-cases.test.ts | "Is reverted with 'InvalidProof' when merkle proof is invalid" / "Reverts with invalid proof path" |
+| EB-036 | yes | none | test/unit/SSVClusters/updateClusterBalance.test.ts + test/e2e/effective-balance/eb-edge-cases.test.ts | "Is reverted with 'RootNotFound'" / "RootNotFound: reverts when no root committed for blockNum" |
+| EB-037 | yes | none | test/unit/SSVClusters/updateClusterBalance.test.ts + test/e2e/effective-balance/eb-edge-cases.test.ts | "Is reverted with 'MustUseLatestRoot'" / "Reverts with MustUseLatestRoot when a newer root has already been committed" |
+| EB-038 | yes | none | test/unit/SSVClusters/updateClusterBalance.test.ts + test/e2e/effective-balance/eb-edge-cases.test.ts | "Is reverted with 'StaleUpdate' when blockNum is not increasing" / "Reverts with StaleUpdate when replaying the latest root" |
+| EB-039 | yes | none | test/unit/SSVClusters/updateClusterBalance.test.ts + test/e2e/effective-balance/eb-edge-cases.test.ts | "Is reverted with 'UpdateTooFrequent' when a second EB update is within the cooldown window" / "Reverts when update is too frequent" |
+| EB-040 | yes | none | test/unit/SSVClusters/updateClusterBalance.test.ts | "Updates operator ETH vUnits when effective balance changes" — EB=33, deviation=313 per op. Also ebSettlement "Registration settles fees using EB-weighted vUnits" (EB=1000) |
+| EB-041 | no | none | — | No specific 7-op 3-val EB increase test |
+| EB-042 | yes | none | test/unit/SSVClusters/ebDecreaseScenarios.test.ts | "EB decrease from 64 to 32 ETH reduces vUnits, clears deviation, settles fees at old rate" — deviation returns to 0 |
+| EB-043 | yes | none | test/unit/SSVClusters/updateClusterBalance.test.ts | "Accepts EB at exactly maximum (2048 ETH per 1 validator) and produces 640000 vUnits" — max EB with deviation=630000 |
+| EB-044 | yes | none | test/unit/SSVClusters/updateClusterBalance.test.ts + test/unit/SSVClusters/ebSettlement.test.ts | "Updates cluster balance when proof is valid" (EB=32, no deviation) + "Handles EB exactly at baseline (32 ETH)" |
+| EB-045 | yes | none | test/unit/SSVClusters/updateClusterBalance.test.ts + test/e2e/effective-balance/eb-edge-cases.test.ts | "Is reverted with 'EBBelowMinimum'" / "Reverts when effectiveBalance is below minimum" (EB=63 for 2-val cluster) |
+| EB-046 | yes | none | test/unit/SSVClusters/updateClusterBalance.test.ts + test/e2e/effective-balance/eb-edge-cases.test.ts | "Is reverted with 'EBExceedsMaximum'" (EB=2049 for 1 val) / "Reverts when effectiveBalance exceeds maximum" |
+| EB-047 | yes | none | test/unit/SSVClusters/updateClusterBalance.test.ts | "Is reverted with 'EBBelowMinimum' when effective balance is below 32 ETH per validator" — EB=60 for 2 vals |
+| EB-048 | yes | none | test/unit/SSVClusters/updateClusterBalance.test.ts + test/e2e/effective-balance/eb-edge-cases.test.ts | "Is reverted with 'EBExceedsMaximum' when EB exceeds 2048 ETH per validator for a 2-validator cluster" (EB=4097) |
+| EB-049 | yes | none | test/e2e/effective-balance/eb-updates.test.ts + test/e2e/effective-balance/eb-operator-vunits.test.ts | "Updates vUnits upward and increases the fee burn rate proportionally" (64->96 sequential) + operator vUnit accumulation across updates |
+| EB-050 | yes | none | test/e2e/effective-balance/eb-updates.test.ts + test/unit/SSVClusters/ebDecreaseScenarios.test.ts | "Updates vUnits downward and decreases the fee burn rate" (96->64) + EB decrease tests |
+| EB-051 | yes | none | test/unit/SSVClusters/ebAutoLiquidation.test.ts + test/e2e/effective-balance/eb-updates.test.ts | "Auto-liquidates cluster when EB increase makes it insolvent at new rate" / "Auto-liquidates cluster when EB increase pushes balance below threshold" |
+| EB-052 | partial:weak | none | test/e2e/clusters-eth/cluster-eth-edge.test.ts | "Bounty equals post-settlement balance, not original balance" — tests bounty mechanics but not specifically from EB-triggered auto-liquidation |
+| EB-053 | yes | none | test/unit/SSVClusters/updateClusterBalance.test.ts | "Updates operator ETH vUnits when effective balance changes" — verifies each operator gets full delta (not divided) |
+| EB-054 | yes | none | test/unit/SSVClusters/updateClusterBalance.test.ts | "Accepts EB at exactly maximum" verifies getDaoTotalEthVUnits matches expectedVUnits |
+| EB-055 | no | none | — | THE BUG — no test verifies that _updateOperatorVUnits writes to removed operator's operatorEthVUnits. removedOperatorImpact uses mockRemoveOperator, not real removal + EB update |
+| EB-056 | partial:mock | mock_zero | test/unit/SSVClusters/removedOperatorImpact.test.ts | Uses mockRemoveOperator; tests fee exclusion but does not combine with EB update |
+| EB-057 | no | none | — | No test for auto-liquidation with removed operator + deviation cleanup |
+| EB-058 | yes | none | test/unit/SSVClusters/updateClusterBalance.test.ts + test/e2e/effective-balance/eb-updates.test.ts | "Updates cluster balance when proof is valid" (first update, EB=32, storedVUnits=0->explicit) / "Transitions from implicit to explicit vUnits with no deviation change" |
+| EB-059 | no | none | — | No test for multiple different clusters updating in same block |
+| EB-060 | yes | none | test/unit/SSVClusters/updateClusterBalance.test.ts | "Succeeds on a liquidated cluster: updates EB snapshot but skips fee settlement and vUnit updates" — verifies no deviation changes, snapshot updated |
+| EB-061 | yes | none | test/unit/SSVClusters/updateClusterBalance.test.ts | "Updates only EB snapshot for SSV clusters (no ETH operator vUnits accounting)" — SSV cluster, snapshot only |
+| EB-062 | yes | none | test/e2e/clusters-eth/cluster-eth-eb.test.ts | "migration syncs EB deviation to operators and DAO" — SSV cluster EB update then migrate, deviation correctly applied |
+| EB-063 | yes | none | test/e2e/effective-balance/eb-updates.test.ts + test/e2e/clusters-eth/cluster-eth-eb.test.ts | "Settles fees with old vUnits before applying new vUnits" — exact balance verification / "Fees use old vUnits before EB update and new vUnits after" |
+| EB-064 | yes | none | test/unit/SSVClusters/updateClusterBalance.test.ts | "Updates cluster balance when proof is valid" — EB=32 no-op (newVUnits==storedVUnits after baseline match), snapshot still updated |
+| EB-065 | yes | none | test/unit/SSVClusters/updateClusterBalance.test.ts | "EB update with effectiveBalance = 0 on zero-validator cluster succeeds without modifying vUnit state" — zero-val cluster, EB=0, succeeds |
+| EB-066 | yes | none | test/unit/SSVClusters/ebAutoLiquidation.test.ts | "Auto-liquidates cluster when EB increase makes it insolvent at new rate" — new vUnits used for threshold check |
+| EB-067 | partial:weak | none | test/unit/SSVClusters/ebAutoLiquidation.test.ts | "Auto-liquidates cluster with 13 operators" — verifies cleanup (all operator vUnits == 0) but only 4-op test explicitly checks deviation subtraction |
+| EB-068 | yes | none | test/unit/SSVClusters/updateClusterBalance.test.ts | "EB update on insolvent liquidated cluster does not corrupt operator or DAO vUnit accounting" — implicit EB cluster, liquidated, EB update skips deviation |
+| EB-069 | no | none | — | No test for two sequential updates with operator removal between them |
+| EB-070 | no | none | — | No test with mixed fee operators (some free, some paid) + EB update |
+| EB-071 | yes | none | test/e2e/effective-balance/eb-updates.test.ts | EB increase 64->96 sequential updates test covers incremental delta |
+| EB-072 | yes | none | test/unit/SSVClusters/updateClusterBalance.test.ts | "Updates operator ETH vUnits when effective balance changes" — 4 ops each get full delta |
+| EB-073 | no | none | — | No 7-op deviation per operator test |
+| EB-074 | no | none | — | No 10-op deviation per operator test |
+| EB-075 | yes | none | test/unit/SSVClusters/updateClusterBalance.test.ts | "Updates vUnit accounting correctly for 13 operators at maximum EB" — 13 ops, each gets identical deviation |
+| EB-076 | yes | none | test/unit/SSVClusters/ebDecreaseScenarios.test.ts | "EB decrease from 64 to 32 ETH reduces vUnits, clears deviation" — returns to 0 |
+| EB-077 | yes | none | test/unit/SSVClusters/updateClusterBalance.test.ts | "Updates operator ETH vUnits when effective balance changes" — EB=33, newVUnits=10313, delta=313 per op, ceiling division verified |
+| EB-078 | no | none | — | No test for 33->34 ETH precision step |
+| EB-079 | yes | none | test/unit/SSVClusters/updateClusterBalance.test.ts | "Accepts EB at exactly maximum" — EB=2048, vUnits=640000, deviation=630000 |
+| EB-080 | no | none | — | No 500-validator cluster test |
+| EB-081 | no | none | — | No 500 validators at max EB test |
+| EB-082 | yes | none | test/unit/SSVClusters/updateClusterBalance.test.ts | "Updates cluster balance when proof is valid" verifies getClusterVUnits returns stored value after update |
+| EB-083 | yes | none | test/unit/SSVClusters/updateClusterBalance.test.ts | "Allows a second EB update after the cooldown window passes" — eventArgs.blockNum matches proof blockNum |
+| EB-084 | yes | none | test/unit/SSVClusters/updateClusterBalance.test.ts | "Is reverted with 'UpdateTooFrequent'" + "Allows a second EB update after the cooldown window passes" — lastUpdateBlock enforced |
+| EB-085 | yes | none | test/e2e/effective-balance/eb-operator-vunits.test.ts + test/unit/SSVClusters/ebWeightedOperatorEarnings.test.ts | "Accumulates vUnit deviations from multiple clusters for the same operator" / "operator earns proportionally from two clusters" |
+| EB-086 | yes | none | test/unit/SSVClusters/updateClusterBalance.test.ts | EB=33 test verifies ebToVUnits ceiling produces 10313 |
+| EB-087 | yes | none | test/unit/SSVClusters/updateClusterBalance.test.ts + test/unit/SSVClusters/ebSettlement.test.ts | EB=32 produces exactly 10000, verified in multiple tests |
+| EB-088 | yes | none | test/unit/SSVClusters/updateClusterBalance.test.ts | "Accepts EB at exactly maximum for 2-validator cluster (4096 ETH)" — 4096/2=2048 per val -> 640000 per val -> 1280000 total (implicit 64 ETH ->20000 check) |
+| EB-089 | yes | none | test/unit/SSVClusters/updateClusterBalance.test.ts | "Accepts EB at exactly maximum (2048 ETH per 1 validator) and produces 640000 vUnits" |
+| EB-090 | no | none | — | No explicit round-trip test (ebToVUnits -> vUnitsToEB) |
+| EB-091 | no | none | — | No explicit asymmetry round-trip test |
+| EB-092 | yes | none | test/e2e/effective-balance/eb-updates.test.ts + test/e2e/clusters-eth/cluster-eth-eb.test.ts | "Settles fees with old vUnits before applying new vUnits" — exact balance verification against old vUnits |
+| EB-093 | yes | none | test/unit/SSVClusters/ebAutoLiquidation.test.ts | Auto-liquidation tests verify isLiquidatableWithEB uses updated vUnits (higher threshold) |
+| EB-094 | yes | none | test/unit/SSVClusters/updateClusterBalance.test.ts | "EB update on insolvent liquidated cluster does not corrupt operator or DAO vUnit accounting" — liquidated cluster deviation not tracked |
+| EB-095 | yes | none | test/unit/SSVClusters/updateClusterBalance.test.ts + test/unit/SSVClusters/ebAutoLiquidation.test.ts | Auto-liquidation cleanup: "Auto-liquidates cluster with 13 operators" verifies all operator vUnits==0 and daoTotalEthVUnits==0 after |
+| EB-096 | yes | none | test/unit/SSVClusters/updateClusterBalance.test.ts | "Liquidated cluster with implicit EB: first updateClusterBalance transitions to explicit tracking" — vUnitsCluster was 0 (implicit), no deviation subtracted |
+| EB-097 | partial:weak | none | test/unit/SSVClusters/ebWeightedOperatorEarnings.test.ts | Tests accumulation from two clusters but doesn't verify net-zero (add+subtract=0 on same operators) |
+| EB-098 | partial:weak | none | test/unit/SSVClusters/updateClusterBalance.test.ts | getDaoTotalEthVUnits verified after individual updates but no multi-cluster DAO invariant check across register+liquidate+reactivate sequence |
+| EB-099 | partial:weak | none | test/unit/SSVClusters/updateClusterBalance.test.ts | operatorEthVUnits verified per-operator after updates but no multi-cluster invariant sum check |
+| EB-100 | yes | none | test/unit/SSVClusters/updateClusterBalance.test.ts | "EB update with effectiveBalance = 0 on zero-validator cluster" — EB=0, vUnits stays 0 |
+| EB-101 | yes | none | test/unit/SSVClusters/withdraw.test.ts | "Cluster balance becomes 0 when accumulated fees exceed the remaining balance (no underflow)" — balance clamped at 0 |
+| EB-102 | no | none | — | No test verifying 32 ETH floor prevents below-baseline deviation underflow in _executeLiquidation |
+| EB-103 | no | none | — | No test for operatorEthVUnits underflow on removed operator + negative delta |
+| EB-104 | no | none | — | No test for ethValidatorCount check on removed operators during auto-liquidation |
+| EB-105 | yes | none | test/unit/SSVClusters/updateClusterBalance.test.ts | "EB update with effectiveBalance = 0 on zero-validator cluster" — validatorCount==0, auto-liquidation returns false |
+| EB-106 | no | none | — | No test for cluster.balance==0 after settlement -> third-party liquidation with 0 bounty |
+| EB-107 | no | none | — | No test for zero burn rate + balance below minimumLiquidationCollateral |
+| EB-108 | yes | none | test/unit/SSVClusters/updateClusterBalance.test.ts | "Allows a second EB update after the cooldown window passes" — mines exactly 3 blocks with minBlocksBetweenUpdates=3 |
+| EB-109 | no | none | — | No explicit boundary test for blockNum==latestCommittedBlock AND blockNum>lastRootBlockNum |
+| EB-110 | yes | none | test/e2e/effective-balance/eb-edge-cases.test.ts | "Reverts when proof is for a different cluster" — valid root but wrong cluster proof |
+| EB-111 | yes | none | test/unit/SSVClusters/updateClusterBalance.test.ts | "Updates cluster balance when proof is valid" — single-leaf root with empty proof array (proof=[]) |
+| EB-112 | no | none | — | No test for non-existent cluster with updateClusterBalance |
+| EB-113 | no | none | — | No test for incorrect cluster state with updateClusterBalance |
+| EB-114 | no | none | — | No test for removed operator + EB decrease subtraction underflow |
+| EB-115 | no | none | — | No explicit test for removed-operator skip during auto-liquidation ethValidatorCount decrement |
+| EB-116 | no | none | — | No test for explicit-baseline (vUnits==baseline) entering _executeLiquidation with no deviation cleanup |
+| EB-117 | yes | none | test/unit/SSVClusters/updateClusterBalance.test.ts | "Liquidated cluster with implicit EB: first updateClusterBalance transitions to explicit tracking" — storedVUnits==0 fallback on inactive cluster |
+| EB-118 | no | none | — | No test for inactive/liquidated SSV cluster EB update (only ETH liquidated clusters tested) |
+| EB-119 | no | none | — | No test for zero-payout auto-liquidation (balanceLiquidatable==0) |

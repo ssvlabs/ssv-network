@@ -498,3 +498,79 @@ If the removed operator has other active clusters that contributed to its `opera
 | ID | Flow | Purpose | Tags | Tested | File References |
 |----|------|---------|------|--------|-----------------|
 | VX-069 | bulkRemoveValidator | ETH cluster, liquidated, explicit EB, partial removal (NOT last validator). Skip active-cluster block at SSVValidators.sol:179, decrement ebSnapshot.vUnits at :204, but don't enter last-validator cleanup. | `entry:bulkRemoveValidator; version:eth; revert:no` | [ ] | SSVValidators.sol:179, 204, 210 |
+
+---
+
+## Coverage Verification (W4)
+
+| ID | Tested | remove_mode | Test File | Notes |
+|----|--------|-------------|-----------|-------|
+| VX-001 | yes | none | unit/SSVValidator/removeValidator.test.ts | "Removes an existing validator, updates cluster state and emits correct events" — 4 ops, verifies validatorCount==0, active==true, event emitted |
+| VX-002 | yes | none | unit/SSVValidator/removeValidator.test.ts | "Removes a validator with 7 operators" — gas tracked |
+| VX-003 | yes | none | unit/SSVValidator/removeValidator.test.ts | "Removes a validator with 10 operators" — gas tracked |
+| VX-004 | yes | none | unit/SSVValidator/removeValidator.test.ts | "Removes a validator with 13 operators" — gas tracked |
+| VX-005 | yes | none | unit/SSVValidator/removeValidator.test.ts | "Keeps explicit EB snapshot consistent across updateClusterBalance and remove" — explicit EB, partial remove, verifies vUnits -= BPS_DENOMINATOR |
+| VX-006 | no | none | — | No 7-op explicit EB remove test |
+| VX-007 | yes | none | unit/SSVValidator/removeValidator.test.ts | "Removes an existing validator" covers last-validator with implicit EB (validatorCount reaches 0) |
+| VX-008 | partial:weak | none | unit/SSVValidator/removeValidator.test.ts | "Updates operatorEthVUnits on register/remove even when cluster EB snapshot is not set" — removes last validator, checks operatorEthVUnits==0 but no deviation to clean |
+| VX-009 | yes | none | unit/SSVValidator/removeValidator.test.ts | "Clears remaining explicit EB vUnits when removing the last validator" — explicit EB (96 ETH), verifies clusterVUnits==0 and operatorEthVUnits==0 for all ops |
+| VX-010 | yes | none | e2e/validators/validator-edge-cases.test.ts | "Reverts with IncorrectValidatorStateWithData when wrong owner removes" — otherAccount tries to remove, gets ClusterDoesNotExist (hash includes owner) |
+| VX-011 | yes | none | unit/SSVValidator/exitValidator.test.ts | "Is reverted with 'IncorrectValidatorStateWithData' when operator ids do not match" — verified via exitValidator; removeValidator path uses same _validateExistingValidator |
+| VX-012 | yes | none | unit/SSVValidator/removeValidator.test.ts | "Is reverted with 'ValidatorDoesNotExist' when validator was not registered" |
+| VX-013 | yes | none | unit/SSVValidator/removeValidator.test.ts | "Is reverted with 'IncorrectClusterState' when provided cluster data is stale or mismatched" |
+| VX-014 | yes | none | unit/SSVValidator/removeValidator.test.ts | "Is reverted with 'ClusterDoesNotExists' when attempting to remove from a missing cluster" |
+| VX-015 | no | none | — | No test for removing from a liquidated ETH cluster (VX-016 covers last validator + EB, but no simple implicit EB liquidated remove) |
+| VX-016 | yes | none | unit/SSVValidator/bug4-double-deviation-liquidated.test.ts | "should not double-subtract deviation when removing all validators from a liquidated cluster with explicit EB" — verifies operatorEthVUnits unchanged, clusterVUnits zeroed |
+| VX-017 | yes | none | unit/SSVValidator/removeValidator.test.ts | "Removes validator from active legacy SSV cluster" — verifies operator counts, cluster hash, SSV path |
+| VX-018 | yes | none | unit/SSVValidator/removeValidator.test.ts | "Removes validator from liquidated legacy SSV cluster" — verifies counts NOT decremented after liquidation |
+| VX-019 | yes | none | unit/SSVValidator/feeSettlement.test.ts | "removeValidator settles accumulated fees and operator snapshot balance matches expected earnings" — exact fee math with block counting |
+| VX-020 | no | none | — | No test for fee settlement with explicit EB (proportionally lower deduction) |
+| VX-021 | partial:mock | mock_zero | unit/SSVClusters/removedOperatorImpact.test.ts | "excludes removed operator fees from ETH cluster settlement" — uses mockRemoveOperator, verifies removed op snapshot frozen, active ops earn correctly |
+| VX-022 | no | none | — | No test for cluster version mismatch (defensive/unreachable branch) |
+| VX-023 | no | none | — | No test for remove then re-register same pubkey flow |
+| VX-024 | no | none | — | Unreachable branch (documented as defensive in ask-codex review) |
+| VX-025 | yes | none | unit/SSVValidator/bulkRemoveValidator.test.ts | "Removes multiple validators, updates cluster state" — 2 of 2 removed; also e2e "Bulk remove 3 of 5 validators" |
+| VX-026 | yes | none | unit/SSVValidator/bulkRemoveValidator.test.ts | "Removes multiple validators" — bulk removes all, validatorCount==0 |
+| VX-027 | partial:weak | none | unit/SSVValidator/bulkRemoveValidator.test.ts | "Clears stored EB snapshot vUnits when removing the last validators" — removes all with explicit EB, verifies vUnits==0 and operatorEthVUnits==0; but no positive deviation test |
+| VX-028 | no | none | — | THE BUG: No test for bulk remove all with explicit EB + removed operator — deviation cleanup on removed operator |
+| VX-029 | yes | none | unit/SSVValidator/bulkRemoveValidator.test.ts | "Is reverted with 'ValidatorDoesNotExist' when no public keys are provided" |
+| VX-030 | yes | none | unit/SSVValidator/bulkRemoveValidator.test.ts | "Reverts bulk removal atomically when one validator in batch is invalid" — verifies atomicity, no state changes |
+| VX-031 | no | none | — | No stress test for 50 validators with 13 ops |
+| VX-032 | yes | none | unit/SSVValidator/bulkRemoveValidator.test.ts | "Bulk removes multiple validators from active legacy SSV cluster" — verifies counts, events, SSV path |
+| VX-033 | no | none | — | No test for bulk remove from liquidated SSV cluster |
+| VX-034 | yes | none | unit/SSVValidator/bulkRemoveValidator.test.ts | "Decrements stored EB snapshot vUnits when set and removing a subset" — removes 2 of 3, verifies vUnits correctly decremented |
+| VX-035 | no | none | — | No test for bulk remove all from liquidated cluster with explicit EB |
+| VX-036 | partial:weak | none | unit/SSVValidator/feeSettlement.test.ts | "bulkRegisterValidator deducts fees proportional to bulk validator count" — tests fee settlement on register (once for batch), but no remove-specific single-settlement test |
+| VX-037 | no | none | — | No test for multiple removed operators in cluster during deviation cleanup |
+| VX-038 | no | none | — | No test for EB deviation underflow guard after prior EB update |
+| VX-039 | yes | none | unit/SSVValidator/exitValidator.test.ts | "Exits an existing validator and emits the correct event" — verifies event, no state changes |
+| VX-040 | no | none | — | No test for exitValidator on SSV cluster (only ETH cluster tested) |
+| VX-041 | yes | none | unit/SSVValidator/exitValidator.test.ts | "Is reverted with 'IncorrectValidatorStateWithData' when validator was not registered" — non-existent pubkey (hashed with wrong owner yields same effect) |
+| VX-042 | yes | none | unit/SSVValidator/exitValidator.test.ts | "Is reverted with 'IncorrectValidatorStateWithData' when operator ids do not match the validator" |
+| VX-043 | yes | none | unit/SSVValidator/exitValidator.test.ts | Same test as VX-041 — covers non-existent pubkey |
+| VX-044 | no | none | — | No test for exitValidator from liquidated cluster |
+| VX-045 | yes | none | unit/SSVValidator/exitValidator.test.ts | "Calling exitValidator twice on the same validator succeeds both times" — idempotent |
+| VX-046 | yes | none | e2e/validators/validator-edge-cases.test.ts | "exitValidator emits event but makes no state change" — exits then removes, verifies both events and state |
+| VX-047 | yes | none | unit/SSVValidator/bulkExitValidator.test.ts | "Exits multiple validators and emits events" — 2 validators, both events verified |
+| VX-048 | yes | none | unit/SSVValidator/bulkExitValidator.test.ts | "Is reverted with 'ValidatorDoesNotExist' when no public keys are provided" |
+| VX-049 | yes | none | unit/SSVValidator/bulkExitValidator.test.ts | "Is reverted with 'ValidatorDoesNotExist' when any validator is not registered" — batch of 2 where second is invalid |
+| VX-050 | no | none | — | No test for bulkExitValidator from wrong address (non-owner) |
+| VX-051 | no | none | — | No test for bulkExitValidator from liquidated cluster |
+| VX-052 | no | none | — | No test for bulkExitValidator on SSV cluster |
+| VX-053 | yes | none | unit/SSVValidator/removeValidator.test.ts | "Keeps explicit EB snapshot consistent across updateClusterBalance and remove" — oracle update then remove, verifies vUnits correctly decremented |
+| VX-054 | no | none | — | No test for operator at validatorsPerOperatorLimit boundary on remove |
+| VX-055 | partial:weak | none | unit/SSVValidator/removeValidator.test.ts | First test verifies ValidatorRemoved event emitted and validatorCount, but does not check full event field contents |
+| VX-056 | yes | none | e2e/validators/validator-edge-cases.test.ts | "Bulk remove 3 of 5 validators" — verifies exactly 3 ValidatorRemoved events |
+| VX-057 | no | none | — | Unreachable under current EB rules (documented in ask-codex review) |
+| VX-058 | no | none | — | No test for interleaved deposit + bulk remove fee settlement |
+| VX-059 | no | none | — | No test for remove then exit same pubkey revert |
+| VX-060 | no | none | — | No test for 10-op cluster explicit EB deviation cleanup on bulk remove all |
+| VX-061 | yes | none | unit/SSVValidator/bulkExitValidator.test.ts | "Is reverted with 'IncorrectValidatorStateWithData' when operator ids do not match stored validators" |
+| VX-062 | no | none | — | No test for idempotent bulk exit (second call with same validators) |
+| VX-063 | no | none | — | No test for EB deviation underflow on bulk remove with removed operator (the critical bug scenario) |
+| VX-064 | no | none | — | No test for remove from cluster where ALL operators removed |
+| VX-065 | no | none | — | No test for SSV remove with removed operator skipping validatorCount decrement |
+| VX-066 | yes | none | unit/SSVValidator/removeValidator.test.ts | "Removes validator from SSV cluster with non-zero fees and verifies balance deduction" — exact SSV fee math |
+| VX-067 | no | none | — | No test for SSV bulk remove all to zero |
+| VX-068 | yes | none | unit/SSVValidator/bulkExitValidator.test.ts | Same as VX-061 — wrong operatorIds revert |
+| VX-069 | no | none | — | No test for liquidated cluster partial removal with explicit EB |

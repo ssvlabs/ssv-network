@@ -342,3 +342,55 @@ Both functions blindly iterate the `operatorIds` array. For a removed operator w
 | RMA-056 | Short-circuit: operator removed, EB update on already-liquidated cluster | 4 | ETH | real | decrease | `_liquidateAfterEBUpdateIfNeeded` returns early (`!cluster.active`), no deviation cleanup | CL+OP+EB |
 
 No impossible or unreachable scenarios found in existing set. Code references verified accurate.
+
+---
+
+## Coverage Verification (W4)
+
+**Verified:** 2026-03-24
+**Method:** Cross-referenced each scenario against all test files containing auto-liquidation (`ebAutoLiquidation.test.ts`, `updateClusterBalance.test.ts`, `cluster-eth-liquidation.test.ts`, `eb-updates.test.ts`) and removed-operator patterns.
+
+**Critical finding:** No test in the entire codebase combines `removeOperator` (real or mock) with `updateClusterBalance` auto-liquidation. The `ebAutoLiquidation.test.ts` file has zero `removeOperator`/`mockRemoveOperator` calls. The `updateClusterBalance.test.ts` file has zero `removeOperator`/`mockRemoveOperator` calls. The compound path (`_updateOperatorVUnits` + `_executeLiquidation` with a removed operator) is completely untested.
+
+| ID | Tested | remove_mode | Test File | Notes |
+|----|--------|-------------|-----------|-------|
+| RMA-001 | no | none | — | No test combines EB increase + removed op + auto-liquidation. `ebAutoLiquidation.test.ts` tests auto-liq without any removed ops. |
+| RMA-002 | no | none | — | No test verifies ghost write to `operatorEthVUnits[removedOp]` in `_updateOperatorVUnits`. |
+| RMA-003 | no | none | — | No test verifies `_executeLiquidation` subtraction from ghost `operatorEthVUnits[removedOp]`. |
+| RMA-004 | no | none | — | No test verifies `ethValidatorCount` guard at line 541 for removed op during auto-liq. |
+| RMA-005 | no | none | — | No 7-op auto-liq test with removed op. |
+| RMA-006 | no | none | — | No 10-op auto-liq test with removed op. |
+| RMA-007 | no | none | — | No 13-op auto-liq test with removed op. |
+| RMA-008 | no | none | — | No test covers 2 removed ops + auto-liq (potential underflow path). |
+| RMA-009 | no | none | — | No test covers 3 removed ops (1 active) + auto-liq. |
+| RMA-010 | no | none | — | No test traces ghost state lifecycle (write then subtract) for removed op. |
+| RMA-011 | no | none | — | No test covers specific EB increase 32->64 + removed op + auto-liq. |
+| RMA-012 | no | none | — | No test covers massive EB increase + removed op + auto-liq. |
+| RMA-013 | no | none | — | No test covers EB decrease + removed op + auto-liq (potential underflow in `_updateOperatorVUnits`). |
+| RMA-014 | no | none | — | No test covers exact threshold boundary + removed op. |
+| RMA-015 | no | none | — | No test covers 1-wei-below-threshold + removed op + auto-liq. |
+| RMA-016 | no | none | — | No test verifies cluster state cleanliness after auto-liq with removed op. |
+| RMA-017 | no | none | — | No test verifies `operatorEthVUnits` cleanup for active ops after auto-liq with removed op present. |
+| RMA-018 | no | none | — | No test verifies `daoTotalEthVUnits` decrement after auto-liq with removed op. |
+| RMA-019 | no | none | — | No test verifies `ethDaoValidatorCount` decrement via `updateDAO(false, validatorCount)` with removed op present. |
+| RMA-020 | no | none | — | No test covers fee change + remove + EB update auto-liq sequence. |
+| RMA-021 | no | none | — | No test verifies `_applyClusterFeeUpdates` skips removed op and produces correct burn rate in compound path. |
+| RMA-022 | no | none | — | No comparison test between manual `liquidate()` and auto-liq paths with removed op. |
+| RMA-023 | no | none | — | No test verifies behavioral difference: manual liq skips `_updateOperatorVUnits` while auto-liq hits it. |
+| RMA-024 | no | none | — | No test covers solvent EB update + removed op (persistent ghost state, no cleanup). |
+| RMA-025 | no | none | — | No test verifies bounty transfer during auto-liq with removed op. |
+| RMA-026 | no | none | — | No test verifies event ordering in compound path with removed op. |
+| RMA-027 | no | none | — | No test verifies EB snapshot persistence before auto-liq check with removed op. |
+| RMA-028 | no | none | — | No test covers delta != deviation case (residual ghost / underflow revert). This is the most critical scenario — proves the coincidental cleanup in RMA-001/010 masks a real bug. |
+| RMA-029 | no | none | — | No test covers all-ops-removed + EB update + auto-liq (degenerate case). |
+| RMA-030 | no | none | — | No test covers reactivation after auto-liq from compound path with removed op. |
+| RMA-054 | no | none | — | No test covers no-delta auto-liq with removed op. |
+| RMA-055 | no | none | — | No test covers exact collateral boundary + removed op. |
+| RMA-056 | no | none | — | No test covers short-circuit on already-liquidated cluster + removed op. |
+
+**Summary:** 0/33 scenarios have any test coverage. The entire auto-liquidation + removed operator compound path is untested. This is the most dangerous coverage gap because:
+1. The compound path (`_updateOperatorVUnits` then `_executeLiquidation`) creates ghost state that can cause arithmetic underflow reverts (blocking EB updates entirely).
+2. `_updateOperatorVUnits` has no guard for removed operators — it writes to deleted `operatorEthVUnits` slots unconditionally.
+3. `_executeLiquidation` has no guard in its deviation cleanup loop — it subtracts from `operatorEthVUnits` slots unconditionally.
+4. When `deltaAbs != deviation` (common case: cluster has non-baseline prior explicit EB), the underflow causes a transaction revert, blocking all EB updates for any cluster with a removed operator.
+5. Existing auto-liquidation tests (`ebAutoLiquidation.test.ts`, `updateClusterBalance.test.ts`) are thorough for all-active operator sets but never introduce a removed operator.

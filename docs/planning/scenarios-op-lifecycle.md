@@ -488,3 +488,52 @@
 |----|------|---------|------|--------|-----------------|
 | OP-043 | registerOperator | Raise `operatorMaxFee` above default, then register with fee that passes `FeeTooHigh` but overflows `PackedETHLib.pack()` → revert `MaxValueExceeded`. Proves the packing overflow is reachable. | `entry:registerOperator; revert:yes` | [ ] | SSVOperators.sol:41, SSVPackedLib.sol:10 |
 | OP-044 | removeOperator | Remove operator with SSV snapshot (block!=0) but zero settled SSV balance → no `OperatorWithdrawnSSV` event emitted, no SSV transfer. Proves the zero-balance/no-transfer branch. | `entry:removeOperator; version:ssv; revert:no` | [ ] | SSVOperators.sol:81, 100 |
+
+---
+
+## Coverage Verification (W4)
+
+| ID | Tested | remove_mode | Test File | Notes |
+|----|--------|-------------|-----------|-------|
+| OP-001 | yes | none | `test/unit/SSVOperators/registerOperator.test.ts` ("Registers an operator with 0 fee"), `test/e2e/operators/operator-lifecycle.test.ts` ("Register with fee=0 succeeds") | Both unit + e2e verify fee=0 registration, stored ethFee=0, public by default |
+| OP-002 | yes | none | `test/unit/SSVOperators/registerOperator.test.ts` ("Registers an operator with valid params"), `test/integration/SSVNetwork/operators.test.ts` ("succeeds at exact minimum fee") | Exact minimumOperatorEthFee boundary tested; packed fee verified |
+| OP-003 | yes | none | `test/unit/SSVOperators/registerOperator.test.ts` ("Registers an operator with exact max fee"), `test/integration/SSVNetwork/operators.test.ts` ("succeeds at exact maximum fee") | MAXIMUM_OPERATORS_FEE boundary tested |
+| OP-004 | yes | none | `test/unit/SSVOperators/registerOperator.test.ts` ("Is reverted with 'FeeTooLow'"), `test/integration/SSVNetwork/operators.test.ts` ("reverts at just below minimum fee") | Tests fee=1 (below min); integration tests MINIMAL-1n |
+| OP-005 | yes | none | `test/unit/SSVOperators/registerOperator.test.ts` ("Is reverted with 'FeeTooHigh'"), `test/integration/SSVNetwork/operators.test.ts` ("reverts at just above maximum fee") | Tests MAXIMUM+1; FeeTooHigh fires before packing overflow |
+| OP-006 | yes | none | `test/unit/SSVOperators/registerOperator.test.ts` ("Is reverted with 'MaxPrecisionExceeded'"), `test/e2e/operators/operator-lifecycle.test.ts` ("Register with fee not divisible...") | Tests fee=1 (not divisible by 100k); both unit and e2e |
+| OP-007 | partial:weak | none | `test/unit/SSVOperators/registerOperator.test.ts` ("Stores operator data in storage") | Uses MINIMAL_OPERATOR_ETH_FEE (which is a valid packed value), verifies packed storage. Does not specifically test fee=100000 |
+| OP-008 | no | none | — | No test raises operatorMaxFee above default to test packing uint64 overflow; OP-043 added for this |
+| OP-009 | yes | none | `test/unit/SSVOperators/registerOperator.test.ts` ("Registers a public operator"), `test/e2e/operators/operator-lifecycle.test.ts` ("Registers public operator with non-zero fee") | Verifies whitelisted=false, OperatorPrivacyStatusUpdated(false) emitted |
+| OP-010 | yes | none | `test/unit/SSVOperators/registerOperator.test.ts` ("Registers an operator with valid params"), `test/e2e/operators/operator-lifecycle.test.ts` ("Register with setPrivate=true") | Verifies whitelisted=true, OperatorPrivacyStatusUpdated(true) emitted |
+| OP-011 | yes | none | `test/unit/SSVOperators/registerOperator.test.ts` ("Is reverted with 'OperatorAlreadyExists'"), `test/e2e/operators/operator-lifecycle.test.ts`, `test/e2e/operators/operator-reverts.test.ts` | All three test files verify duplicate pubkey revert |
+| OP-012 | partial:weak | none | `test/unit/SSVOperators/registerOperator.test.ts` ("Stores operator data in storage") | Implicitly tests ID=1 for first operator but does not assert lastOperatorId increment from 0 to 1 |
+| OP-013 | yes | none | `test/unit/SSVOperators/registerOperator.test.ts` ("Increments operator ID correctly for multiple registrations") | Registers two operators, verifies both have non-zero owners (IDs 1,2) |
+| OP-014 | yes | real | `test/e2e/operators/operator-lifecycle.test.ts` ("Remove operator with 0 earnings in both versions") | Registers then removes immediately; verifies 0 earnings, OperatorRemoved emitted |
+| OP-015 | yes | real | `test/unit/SSVOperators/removeOperator.test.ts` ("Removes operator successfully"), `test/e2e/operators/operator-lifecycle.test.ts` ("Remove operator with 0 earnings") | No validators; clean removal verified |
+| OP-016 | yes | real | `test/e2e/operators/operator-lifecycle.test.ts` ("Removes operator with earnings"), `test/e2e/operators/operator-edge-cases.test.ts` ("Cluster can remove validators after one operator is removed") | Verifies validatorCount zeroed, earnings withdrawn, subsequent cluster ops skip removed operator |
+| OP-017 | yes | real | `test/unit/SSVOperators/removeOperator.test.ts` ("Removes a legacy SSV-only operator") | Tests SSV-only operator removal; verifies snapshot.block zeroed, SSV balance transferred |
+| OP-018 | yes | real | `test/unit/SSVOperators/removeOperator.test.ts` ("Removes operator with SSV balance and withdraws"), `test/e2e/operators/operator-lifecycle.test.ts` ("Removes operator with earnings") | ETH+SSV withdrawal tested via unit (mock SSV) and e2e (real ETH) |
+| OP-019 | yes | real | `test/unit/SSVOperators/removeOperator.test.ts` ("Clears a pending fee change request when removing an operator") | Full verification: request exists before removal, all fields zeroed after |
+| OP-020 | yes | real | `test/unit/SSVOperators/removeOperator.test.ts` ("Removes operator successfully") | Verifies getOperatorWhitelist(1) == ZeroAddress after removal |
+| OP-021 | yes | real | `test/unit/SSVOperators/removeOperator.test.ts` ("Clears operatorEthVUnits when removing an operator") | Sets mock vUnits=5000, verifies == 0 after removal |
+| OP-022 | yes | real | `test/unit/SSVOperators/removeOperator.test.ts` ("Verifies operator state after removal") | Checks ethFee=0, fee=0, validatorCount=0 after removal |
+| OP-023 | yes | real | `test/unit/SSVOperators/removeOperator.test.ts` ("Verifies operator state after removal"), `test/e2e/operators/operator-edge-cases.test.ts` ("Removed operator preserves owner"), `test/e2e/operators/operator-economics.test.ts` | Owner preserved verified in multiple files; isActive=false checked |
+| OP-024 | yes | real | `test/e2e/operators/operator-lifecycle.test.ts` ("Removes operator with earnings, transfers funds") | Exact ETH transfer to owner verified via balance delta |
+| OP-025 | yes | real | `test/unit/SSVOperators/removeOperator.test.ts` ("Removes operator with SSV balance and withdraws") | SSV token balance increase verified |
+| OP-026 | yes | real | `test/unit/SSVOperators/removeOperator.test.ts` ("Cannot register the same public key after removal") | Register, remove, re-register same pubkey -> OperatorAlreadyExists |
+| OP-027 | yes | none | `test/e2e/operators/operator-reverts.test.ts` ("Reverts with OperatorDoesNotExist when removing non-existent operator") | Tests ID=999 (never registered) |
+| OP-028 | yes | real | `test/e2e/operators/operator-reverts.test.ts` ("Reverts with OperatorDoesNotExist when removing already-removed operator"), `test/e2e/operators/operator-lifecycle.test.ts` ("Double removal reverts") | Remove twice -> OperatorDoesNotExist |
+| OP-029 | yes | none | `test/unit/SSVOperators/removeOperator.test.ts` ("Is reverted with 'CallerNotOwnerWithData'"), `test/e2e/operators/operator-reverts.test.ts` | Non-owner remove -> CallerNotOwnerWithData |
+| OP-030 | yes | none | `test/unit/SSVOperators/operatorPrivacy.test.ts` ("Updates privacy status via unchecked helpers") | Sets public->private, verifies OperatorPrivacyStatusUpdated(true) |
+| OP-031 | yes | none | `test/unit/SSVOperators/operatorPrivacy.test.ts` ("Updates privacy status via unchecked helpers") | Sets private->public, verifies OperatorPrivacyStatusUpdated(false) |
+| OP-032 | partial:weak | none | `test/unit/SSVOperators/operatorPrivacy.test.ts` | Tests toggle in sequence but across multiple blocks, not same block |
+| OP-033 | yes | none | `test/unit/SSVOperators/operatorPrivacy.test.ts` ("Updates privacy status for a batch of operators") | Batch [1,2] toggled, single event with full array verified |
+| OP-034 | no | none | — | No test sets privacy on operator that already has an active ETH cluster |
+| OP-035 | no | none | — | No test calls setOperatorsPublicUnchecked on a removed operator to verify OperatorDoesNotExist |
+| OP-036 | yes | none | `test/unit/SSVOperators/operatorPrivacy.test.ts` ("Is reverted with 'CallerNotOwnerWithData'") | Non-owner batch privacy set -> revert |
+| OP-037 | no | none | — | No test for empty operatorIds array on setOperatorsPrivateUnchecked (tested on whitelist functions, not privacy) |
+| OP-038 | yes | real | `test/unit/SSVOperators/removeOperator.test.ts` ("Removes a legacy SSV-only operator without initializing ETH state") | SSV-only operator: ethSnapshot.block stays 0, only SSV branch executes |
+| OP-039 | no | real | — | No test specifically removes an operator serving a liquidated cluster |
+| OP-040 | partial:weak | real | `test/unit/SSVOperators/removeOperator.test.ts` ("Cannot register same pubkey"), `test/unit/SSVOperators/registerOperator.test.ts` ("Increments operator ID") | Tested separately but not as a single combined flow; pubkey lock tested, ID increment tested, but not "remove + register new pubkey" in one test |
+| OP-043 | no | none | — | No test raises operatorMaxFee to allow packing overflow |
+| OP-044 | no | real | — | No test for SSV snapshot with zero settled balance on removal |

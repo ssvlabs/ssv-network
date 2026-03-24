@@ -341,3 +341,74 @@ Each of the 3 addresses gets all 3 mask updates applied. This is the most compre
 | WL-062 | removeOperatorsWhitelistingContract | Non-existent operator → revert `OperatorDoesNotExist`. | `entry:removeOperatorsWhitelistingContract; revert:yes` | [ ] | SSVOperatorsWhitelist.sol:85 |
 | WL-063 | removeOperatorsWhitelistingContract | Remove whitelisting contract with no bitmap fallback → next private registration reverts at OperatorLib.sol:194. | `entry:removeOperatorsWhitelistingContract+registerValidator; revert:yes` | [ ] | SSVOperatorsWhitelist.sol:87, OperatorLib.sol:194 |
 | WL-064 | setOperatorsPrivateUnchecked | Toggle public→private: verify `operatorsWhitelist` slot persists across toggle at SSVOperators.sol:219,227 and OperatorLib.sol:193. | `entry:setOperatorsPrivateUnchecked; revert:no` | [ ] | SSVOperators.sol:219, 227, OperatorLib.sol:193 |
+
+---
+
+## Coverage Verification (W4)
+
+| ID | Tested | remove_mode | Test File | Notes |
+|----|--------|-------------|-----------|-------|
+| WL-001 | yes | none | test/integration/SSVNetwork.test.ts | "Whitelists addresses and emits correct event" — single op, single addr, verifies bitmap via `getWhitelistedOperators` and event |
+| WL-002 | yes | none | test/integration/SSVNetwork.test.ts | "Whitelists multiple operators for multiple addresses" — 10 ops x 10 addrs, gas tracked |
+| WL-003 | no | none | — | Same-slot multi-operator mask sharing not explicitly tested; WL-002 covers multiple ops but does not verify same-slot mask optimization |
+| WL-004 | no | none | — | Cross-slot boundary (op 255/256) not tested — no test registers 256+ operators to hit slot boundary |
+| WL-005 | yes | none | test/integration/SSVNetwork.test.ts | Covered by "Whitelists multiple operators for multiple addresses" (10x10 bulk) |
+| WL-006 | no | none | — | Bit-position boundary (op 255 bit 255, op 256 bit 0) not tested |
+| WL-007 | no | none | — | Idempotent re-whitelist not explicitly tested; no test calls setOperatorsWhitelists twice with same args |
+| WL-008 | yes | none | test/integration/SSVNetwork.test.ts | "CallerNotOwnerWithData if the caller is the operator owner" — non-owner setOperatorsWhitelists reverts |
+| WL-009 | yes | none | test/integration/SSVNetwork.test.ts | "InvalidOperatorIdsLength if the array of operators is empty" |
+| WL-010 | yes | none | test/integration/SSVNetwork.test.ts | "InvalidWhitelistAddressesLength if the array of addresses is empty" |
+| WL-011 | yes | none | test/integration/SSVNetwork.test.ts | "ZeroAddressNotAllowed if one of addresses is zero address" |
+| WL-012 | no | none | — | AddressIsWhitelistingContract revert not tested — only found in legacy JSON artifacts, no actual test passes an ERC165 contract to setOperatorsWhitelists |
+| WL-013 | yes | none | test/integration/SSVNetwork.test.ts | "UnsortedOperatorsList if operators are not sorted in increasing order" |
+| WL-014 | yes | none | test/integration/SSVNetwork.test.ts | "OperatorsListNotUnique if the array of operators has any duplicate" |
+| WL-015 | yes | none | test/integration/SSVNetwork.test.ts | "OperatorDoesNotExist if one of operators is not registered" |
+| WL-016 | yes | none | test/integration/SSVNetwork.test.ts | "Removes addresses from the whitelist and emits correct event" — single op/addr, verifies bitmap cleared via `getWhitelistedOperators` |
+| WL-017 | yes | none | test/integration/SSVNetwork.test.ts | "Removes multiple operators for multiple addresses" — 10x10 bulk, gas tracked |
+| WL-018 | no | none | — | Remove non-whitelisted address (idempotent no-op) not explicitly tested |
+| WL-019 | yes | none | test/integration/SSVNetwork.test.ts | "CallerNotOwnerWithData if the caller is the operator owner" (removeOperatorsWhitelists) |
+| WL-020 | no | none | — | Remove path skipping isWhitelistingContract check not tested — no test passes a whitelisting contract address to removeOperatorsWhitelists |
+| WL-021 | yes | none | test/integration/SSVNetwork.test.ts | "Registers whitelisting contract, emits correct event and allows to whitelist addresses via contract" — deploys BasicWhitelisting, verifies ERC165, adds whitelisted address, checks isAddressWhitelistedInWhitelistingContract |
+| WL-022 | no | none | — | Legacy EOA migration to bitmap on setOperatorsWhitelistingContract not tested — no test sets up legacy EOA in operatorsWhitelist slot before calling setOperatorsWhitelistingContract |
+| WL-023 | yes | none | test/integration/SSVNetwork.test.ts | "Updates whitelisting contract for operators" — sets first contract, replaces with second, verifies event with new address |
+| WL-024 | partial:weak | none | test/integration/SSVNetwork.test.ts | "InvalidWhitelistingContract if the contract does not support required interface" — tests non-ERC165 contract, but address(0) specifically is not tested as a separate case |
+| WL-025 | yes | none | test/integration/SSVNetwork.test.ts | "InvalidWhitelistingContract if the contract does not support required interface" — deploys SSVOperatorsWhitelist (non-ERC165) contract, reverts |
+| WL-026 | yes | none | test/integration/SSVNetwork.test.ts | "CallerNotOwnerWithData if the caller is the operator owner" (setOperatorsWhitelistingContract) |
+| WL-027 | yes | none | test/integration/SSVNetwork.test.ts | "Removes whitelisting address and emits correct event" — sets contract, removes, emits event with ZeroAddress; does not verify bitmap persists |
+| WL-028 | yes | none | test/integration/SSVNetwork.test.ts | "CallerNotOwnerWithData if one of operators is not registered" (removeOperatorsWhitelistingContract non-owner) |
+| WL-029 | yes | none | test/e2e/validators/validator-lifecycle.test.ts | "Non-whitelisted caller reverts, whitelisted caller succeeds" — private ops, whitelist via bitmap, registration succeeds |
+| WL-030 | no | none | — | Legacy EOA slot whitelist registration not tested — all tests use bitmap-based whitelisting via `whitelistAddresses` helper |
+| WL-031 | partial:weak | none | test/integration/SSVNetwork.test.ts | setOperatorsWhitelistingContract test verifies `isAddressWhitelistedInWhitelistingContract` returns true, but does not test actual validator registration through whitelisting contract path |
+| WL-032 | no | none | — | Whitelisting contract returning false not tested — no test deploys a contract where isWhitelisted returns false for a specific address |
+| WL-033 | yes | none | test/e2e/operators/operator-reverts.test.ts, test/e2e/validators/validator-lifecycle.test.ts | "CallerNotWhitelistedWithData when registering on private operator without whitelist" — private ops, non-whitelisted caller reverts |
+| WL-034 | partial:weak | none | test/e2e/operators/operator-lifecycle.test.ts | Public operators are tested indirectly — operators registered with setPrivate=false allow cluster registration, but no test explicitly verifies whitelist check is skipped |
+| WL-035 | yes | none | test/e2e/validators/validator-lifecycle.test.ts | "Mix of public and private operators in same cluster" — 2 public + 2 private, whitelist only private, registration succeeds; also tests revert when not whitelisted for private ops |
+| WL-036 | partial:weak | none | test/e2e/validators/validator-lifecycle.test.ts | Mixed cluster revert tested in WL-035 test (revert then whitelist succeeds), but does not specifically verify which operatorId appears in revert data |
+| WL-037 | no | real | — | removeOperator clearing operatorsWhitelist but NOT whitelisted flag — not explicitly verified. e2e operator-reverts tests removal + registration but checks OperatorDoesNotExist, not whitelist state |
+| WL-038 | no | real | — | Bitmap residue after removeOperator not tested — no test reads bitmap state after operator removal |
+| WL-039 | no | none | — | Full privacy toggle lifecycle (private→whitelist→public→register→private→register) not tested as a single flow |
+| WL-040 | no | none | — | Cross-slot bulk bitmap stress ([1,255,256,511,512]) not tested — would require 512+ operators |
+| WL-041 | yes | none | test/integration/SSVNetwork.test.ts | "InvalidOperatorIdsLength if the array of operators is empty" (removeOperatorsWhitelists path) |
+| WL-042 | yes | none | test/integration/SSVNetwork.test.ts | "InvalidWhitelistAddressesLength if the array of addresses is empty" (removeOperatorsWhitelists path) |
+| WL-043 | yes | none | test/integration/SSVNetwork.test.ts | "UnsortedOperatorsList if operators are not sorted in increasing order" (removeOperatorsWhitelists) |
+| WL-044 | yes | none | test/integration/SSVNetwork.test.ts | "OperatorsListNotUnique if the array of operators has any duplicate" (removeOperatorsWhitelists) |
+| WL-045 | yes | none | test/integration/SSVNetwork.test.ts | "OperatorDoesNotExist if one of operators is not registered" (removeOperatorsWhitelists) |
+| WL-046 | yes | none | test/integration/SSVNetwork.test.ts | "InvalidOperatorIdsLength is the array of operators is empty" (setOperatorsWhitelistingContract) |
+| WL-047 | yes | none | test/integration/SSVNetwork.test.ts | "OperatorDoesNotExist if one of operators is not registered" (setOperatorsWhitelistingContract) |
+| WL-048 | yes | none | test/integration/SSVNetwork.test.ts | "InvalidOperatorIdsLength if the array of operators is empty" (removeOperatorsWhitelistingContract) |
+| WL-049 | yes | none | test/integration/SSVNetwork.test.ts | "OperatorDoesNotExist if one of operators is not registered" (removeOperatorsWhitelistingContract) |
+| WL-050 | no | none | — | removeOperatorsWhitelistingContract on operator with no contract set — not tested as explicit idempotent no-op |
+| WL-051 | no | none | — | Bitmap cache reload across blockIndex boundary during registration — not tested, would require 256+ operators in cluster |
+| WL-052 | yes | none | test/e2e/operators/operator-reverts.test.ts | Covered by "CallerNotWhitelistedWithData" test — private ops with no bitmap and no legacy slot, reverts correctly |
+| WL-053 | no | none | — | Non-whitelisting contract in legacy slot fallthrough — no test places a non-ERC165 contract in operatorsWhitelist and tests registration |
+| WL-054 | no | none | — | Cross-slot unsorted input [256,255] panic — existing unsorted test uses small IDs, does not cross block-index boundary |
+| WL-055 | no | none | — | Sparse-gap masks ([1, 512]) with empty blocks between — not tested |
+| WL-056 | yes | none | test/integration/SSVNetwork.test.ts | Duplicate of WL-041/WL-042 — empty array reverts for removeOperatorsWhitelists tested |
+| WL-057 | yes | none | test/integration/SSVNetwork.test.ts | Duplicate of WL-043 — unsorted operator IDs in remove call tested |
+| WL-058 | yes | none | test/integration/SSVNetwork.test.ts | Duplicate of WL-045 — non-existent operator in remove call tested |
+| WL-059 | no | none | — | Non-ERC165 contract in existing whitelist slot → migration path on setOperatorsWhitelistingContract not tested |
+| WL-060 | no | none | — | Misbehaving whitelisting contract (reverts on isWhitelisted) not tested |
+| WL-061 | yes | none | test/integration/SSVNetwork.test.ts | Duplicate of WL-046 — empty operator array for setOperatorsWhitelistingContract tested |
+| WL-062 | yes | none | test/integration/SSVNetwork.test.ts | Duplicate of WL-049 — non-existent operator for removeOperatorsWhitelistingContract tested |
+| WL-063 | no | none | — | Remove whitelisting contract with no bitmap fallback → private registration revert — not tested as combined flow |
+| WL-064 | no | none | — | Privacy toggle persistence of operatorsWhitelist slot — not tested; integration tests toggle privacy but do not verify whitelist slot contents survive |

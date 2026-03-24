@@ -394,3 +394,83 @@ isLiquidatableWithVUnits(cluster, 25000, burnRate, networkFee, ...)
 | VR-071 | bulkRegisterValidator | Bulk register with whitelist check (private operator, bitmap whitelist) → verify whitelist enforced per operator in batch. | `entry:bulkRegisterValidator; revert:no` | [ ] | OperatorLib.sol:183-206 |
 | VR-072 | bulkRegisterValidator | Bulk register where existing + batchSize == validatorsPerOperatorLimit → success at exact limit. | `entry:bulkRegisterValidator; revert:no` | [ ] | OperatorLib.sol:213-214 |
 | VR-073 | registerValidator | Registration with operator IDs crossing bitmap slot boundary (e.g., 255 and 256) → verify cached-mask refresh at OperatorLib.sol:185-189. | `entry:registerValidator; revert:no` | [ ] | OperatorLib.sol:185-189 |
+
+---
+
+## Coverage Verification (W4)
+
+| ID | Tested | remove_mode | Test File | Notes |
+|----|--------|-------------|-----------|-------|
+| VR-001 | yes | none | unit/SSVValidator/registerValidator.test.ts | "Registers a new validator, creates new cluster with the expected data and emits correct events" — 4 ops, new cluster, event verified |
+| VR-002 | yes | none | unit/SSVValidator/registerValidator.test.ts | "Registers a new validator with 7 operators" — gas tracked |
+| VR-003 | yes | none | unit/SSVValidator/registerValidator.test.ts | "Registers a new validator with 10 operators" — gas tracked |
+| VR-004 | yes | none | unit/SSVValidator/registerValidator.test.ts | "Registers a new validator with 13 operators" — gas tracked |
+| VR-005 | no | none | — | No test for exact minimum deposit at liquidation boundary |
+| VR-006 | no | none | — | No test for burn-rate threshold dominating minimumLiquidationCollateral |
+| VR-007 | no | none | — | No test for 1 wei below minimum deposit revert |
+| VR-008 | no | none | — | No test for zero msg.value InsufficientBalance revert |
+| VR-009 | yes | none | unit/SSVValidator/registerValidator.test.ts | "Is reverted with 'ValidatorAlreadyRegistered' if trying to register already existing key" — same owner same ops |
+| VR-010 | no | none | — | No test for duplicate pubkey with different operator set |
+| VR-011 | yes | none | unit/SSVValidator/registerValidator.test.ts | "Is reverted with 'UnsortedOperatorsList'" — uses [4,3,2,1] |
+| VR-012 | yes | none | unit/SSVValidator/registerValidator.test.ts | "Is reverted with 'OperatorsListNotUnique'" — uses [1,1,2,4] |
+| VR-013 | partial:mock | mock_zero | unit/SSVValidator/registerValidator.test.ts | "Is reverted with 'OperatorDoesNotExist' when one of the operators has been removed" — uses `mockRemoveOperator`, not real `removeOperator` |
+| VR-014 | partial:weak | none | unit/SSVValidator/registerValidator.test.ts | VR-013 test covers removed op (which internally is non-existent); no separate test for never-registered operator ID |
+| VR-015 | yes | none | e2e/validators/validator-lifecycle.test.ts | "Non-whitelisted caller reverts, whitelisted caller succeeds" — whitelisted via `setOperatorsWhitelists` (bitmap), then registers successfully |
+| VR-016 | yes | none | e2e/validators/validator-lifecycle.test.ts | "Non-whitelisted caller reverts, whitelisted caller succeeds" — private ops, non-whitelisted caller gets CallerNotWhitelisted revert |
+| VR-017 | no | none | — | No test specifically for legacy address whitelist path |
+| VR-018 | no | none | — | No test for whitelisting contract returning true |
+| VR-019 | no | none | — | No test for whitelisting contract returning false |
+| VR-020 | yes | none | unit/SSVValidator/registerValidator.test.ts | "Is reverted with 'InvalidOperatorIdsLength'" — uses 3 operators |
+| VR-021 | yes | none | e2e/validators/validator-edge-cases.test.ts | "Reverts with InvalidOperatorIdsLength for 5 operators" |
+| VR-022 | no | none | — | No test for 14 operators specifically |
+| VR-023 | no | none | — | No test for 0 operators specifically (VR-020 uses 3) |
+| VR-024 | yes | none | unit/SSVValidator/registerValidator.test.ts | "Is reverted with 'InvalidPublicKeyLength'" — tests invalid length pubkey (49 bytes via appending "11") |
+| VR-025 | yes | none | unit/SSVValidator/registerValidator.test.ts | Same test as VR-024 — covers both short and long via two subcases |
+| VR-026 | yes | none | unit/SSVValidator/registerValidator.test.ts | Same test — covers empty `0x` public key |
+| VR-027 | yes | none | unit/SSVValidator/registerValidator.test.ts | "Registers a validator into an existing cluster with 7 operators" + equivalent 10/13; also e2e lifecycle adds to existing cluster |
+| VR-028 | yes | none | unit/SSVValidator/registerValidator.test.ts | "Increments stored EB snapshot vUnits when cluster EB snapshot is set" — mocks explicit EB, verifies vUnits += BPS_DENOMINATOR |
+| VR-029 | yes | none | unit/SSVValidator/registerValidator.test.ts | "Succeeds registering a validator after removing one to bring operator back below the limit" — registers at limit-1 after removal |
+| VR-030 | yes | none | unit/SSVValidator/registerValidator.test.ts | "Is reverted with 'ExceedValidatorLimitWithData'" — limit=5, 5 registered, 6th reverts with operatorIds[0] |
+| VR-031 | no | none | — | No test for exact liquidation boundary (balance == threshold) |
+| VR-032 | yes | none | unit/SSVValidator/registerValidator.test.ts | "Is reverted with 'ClusterIsLiquidated'" — uses mockSetClusterLiquidated |
+| VR-033 | no | none | — | No test for IncorrectClusterVersion on SSV legacy cluster registration |
+| VR-034 | yes | none | unit/SSVValidator/registerValidator.test.ts | "Initializes ETH defaults for legacy SSV operators and keeps them after registration" — verifies ethFee set to DEFAULT_OPERATOR_ETH_FEE, OperatorFeeExecuted event |
+| VR-035 | yes | none | unit/SSVValidator/registerValidator.test.ts | "Legacy SSV operators with zero SSV fee initialize ETH snapshot but keep ethFee=0" — verifies no fee event, ethFee=0 |
+| VR-036 | yes | none | unit/SSVValidator/removeValidator.test.ts | "Is reverted with 'IncorrectClusterState'" — provides mismatched cluster balance |
+| VR-037 | yes | none | e2e/validators/validator-edge-cases.test.ts | "Reverts with IncorrectClusterState when passing wrong cluster struct" — non-zero validatorCount for new cluster |
+| VR-038 | no | none | — | No explicit test for new cluster with active=false revert |
+| VR-039 | partial:weak | none | unit/SSVValidator/registerValidator.test.ts | "Updates operatorEthVUnits even when cluster EB snapshot is not set" — checks effectiveVUnits but not snapshot index/balance directly |
+| VR-040 | no | none | — | No test specifically verifying DAO ethDaoValidatorCount and daoTotalEthVUnits increments on registration |
+| VR-041 | yes | none | unit/SSVValidator/registerValidator.test.ts | First test verifies ValidatorAdded event with all parameters |
+| VR-042 | no | none | — | No test for max-fee operators requiring large deposit |
+| VR-043 | yes | none | e2e/validators/validator-lifecycle.test.ts | "Register on operators with fee=0 — zero fee accrual" — all zero-fee operators |
+| VR-044 | yes | none | unit/SSVValidator/bulkRegisterValidator.test.ts | "Registers multiple validators, creates new cluster" — 2 validators, new cluster |
+| VR-045 | yes | none | unit/SSVValidator/bulkRegisterValidator.test.ts | "Registers 10 validators into a new cluster with 7 operators" — gas tracked |
+| VR-046 | no | none | — | No 50-validator bulk test |
+| VR-047 | no | none | — | No 100-validator bulk test |
+| VR-048 | yes | none | unit/SSVValidator/bulkRegisterValidator.test.ts | "Is reverted with 'ValidatorAlreadyRegistered'" — batch [pk, pk] |
+| VR-049 | yes | none | unit/SSVValidator/bulkRegisterValidator.test.ts | "Is reverted with 'InvalidPublicKeyLength'" — batch with invalid-length key |
+| VR-050 | no | none | — | No test for crossing validatorsPerOperatorLimit mid-batch in bulk register (unit test VR-030 only tests single register) |
+| VR-051 | no | none | — | No test for bulk register with insufficient total deposit |
+| VR-052 | yes | none | unit/SSVValidator/bulkRegisterValidator.test.ts | "Is reverted with 'EmptyPublicKeysList'" |
+| VR-053 | yes | none | unit/SSVValidator/bulkRegisterValidator.test.ts | "Is reverted with 'PublicKeysSharesLengthMismatch'" — also in registerValidator.test.ts |
+| VR-054 | yes | none | unit/SSVValidator/bulkRegisterValidator.test.ts | "Increments stored EB snapshot vUnits when cluster EB snapshot is set" — mocks explicit EB, verifies vUnits += N * BPS_DENOMINATOR |
+| VR-055 | partial:weak | none | e2e/validators/validator-lifecycle.test.ts | Bulk register 3 validators verifies 3 ValidatorAdded events; but not 10 |
+| VR-056 | no | none | — | No test verifying msg.value added once (not per validator) in bulk |
+| VR-057 | yes | none | e2e/validators/validator-lifecycle.test.ts | "Mix of public and private operators in same cluster" — 2 public + 2 private, whitelist only private, register succeeds |
+| VR-058 | partial:weak | none | unit/SSVValidator/registerValidator.test.ts | "Keeps stored EB snapshot unset when registering into existing cluster without explicit EB" — implicit assertion that no re-init happens, but not testing preserved ethFee explicitly |
+| VR-059 | no | none | — | No test for projected vUnits at liquidation boundary with explicit EB |
+| VR-060 | no | none | — | No test for same pubkey different owner in bulk register (no collision) |
+| VR-061 | yes | none | unit/SSVValidator/registerValidator.test.ts | "Updates operatorEthVUnits even when cluster EB snapshot is not set" — verifies clusterVUnits stays 0 (implicit EB) |
+| VR-062 | no | none | — | No test for bitmap miss + zero legacy slot revert |
+| VR-063 | no | none | — | No test for non-whitelisting contract fallback revert |
+| VR-064 | no | none | — | No test asserting initial cluster struct field defaults |
+| VR-065 | no | none | — | No test verifying cluster.networkFeeIndex set to current ethNetworkFeeIndex |
+| VR-066 | yes | none | e2e/validators/validator-lifecycle.test.ts | First test verifies cluster.balance == depositEth after new cluster registration |
+| VR-067 | no | none | — | No overflow test for DAO validator count |
+| VR-068 | yes | none | unit/SSVValidator/bulkRegisterValidator.test.ts | "Is reverted with 'UnsortedOperatorsList'" — bulk version |
+| VR-069 | yes | none | unit/SSVValidator/bulkRegisterValidator.test.ts | "Is reverted with 'OperatorsListNotUnique'" — bulk version |
+| VR-070 | partial:mock | mock_zero | unit/SSVValidator/bulkRegisterValidator.test.ts | "Is reverted with 'OperatorDoesNotExist'" — uses mockRemoveOperator |
+| VR-071 | no | none | — | No test for bulk register with private operator bitmap whitelist check |
+| VR-072 | no | none | — | No test for bulk register at exact validatorsPerOperatorLimit |
+| VR-073 | no | none | — | No test for operator IDs crossing bitmap slot boundary |

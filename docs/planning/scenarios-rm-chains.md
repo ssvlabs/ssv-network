@@ -431,3 +431,68 @@
 - `_updateOperatorVUnits` (SSVClusters.sol:504-509): writes deviation delta to ALL operatorIds without checking `ethSnapshot.block`
 - `_executeLiquidation` deviation cleanup (SSVClusters.sol:586-592): subtracts deviation from ALL operatorIds without checking `ethSnapshot.block` — causes uint64 underflow → transaction revert in Solidity 0.8.24 checked arithmetic, making clusters with dead operators **un-liquidatable**
 - `_bulkRemoveValidator` deviation cleanup (SSVValidators.sol:216-217): subtracts remaining deviation from ALL operatorIds when cluster empties — same underflow risk
+
+---
+
+## Coverage Verification (W4)
+
+| ID | Tested | remove_mode | Test File | Notes |
+|----|--------|-------------|-----------|-------|
+| RMC-001 | no | — | — | Full chain (EB->removeOp->liquidate->reactivate->EB->removeValidator): no test covers this multi-step sequence with real `removeOperator`. |
+| RMC-002 | no | — | — | Remove-first chain (removeOp before first EB): no test. |
+| RMC-003 | no | — | — | 7-op cluster stress with 3 EB swings: no test. |
+| RMC-004 | no | — | — | Double operator removal between EB and liquidation: no test. |
+| RMC-005 | no | — | — | Full chain with validator add/remove after EB: no test. |
+| RMC-006 | no | — | — | Full chain with withdraw between EB updates: no test. |
+| RMC-007 | no | — | — | Implicit-to-explicit transition with dead operator: no test. |
+| RMC-008 | no | — | — | 13-op extreme with 9 removed: no test. |
+| RMC-009 | no | — | — | Cascading removal (remove op3 then op4 with EB between): no test. |
+| RMC-010 | no | — | — | Three EB updates interleaved with two removals: no test. |
+| RMC-011 | no | — | — | Triple removal before any EB: no test. |
+| RMC-012 | no | — | — | Progressive 4-step cascade: no test. |
+| RMC-013 | no | — | — | EB oscillation with interleaved removals: no test. |
+| RMC-014 | no | — | — | 7-op cascade removing ops 7,6,5: no test. |
+| RMC-015 | no | — | — | Cascade to single operator: no test. |
+| RMC-016 | no | — | — | All 4 operators removed sequentially with EB between: no test. |
+| RMC-017 | no | — | — | All 4 removed then liquidation: no test. |
+| RMC-018 | no | — | — | All 4 removed then reactivation: no test. |
+| RMC-019 | no | — | — | Batch remove last two then EB: no test. |
+| RMC-020 | no | — | — | All removed before implicit-to-explicit EB: no test. |
+| RMC-021 | no | — | — | Cross-cluster isolation (op4 in A only, removed, B unaffected): no test. |
+| RMC-022 | no | — | — | Cross-cluster shared ops removed, drift from both clusters: no test. |
+| RMC-023 | no | — | — | Same 4 ops in 2 clusters, EB on both, remove op4, liquidate both: no test. |
+| RMC-024 | yes | real | `test/integration/SSVNetwork.test.ts` (line ~1789, 1823, 2308, 2342) | Register with dead operator reverts `OperatorDoesNotExist`. Real `removeOperator` through proxy. Multiple test cases (single validator and bulk register). |
+| RMC-025 | partial:weak | real | `test/e2e/operators/operator-edge-cases.test.ts` (operator-index-frozen test), `test/e2e/cross-cutting/full-lifecycle.test.ts` | Cluster B operations after op removal tested indirectly (full lifecycle test removes op then checks conservation). No isolated cross-cluster test. |
+| RMC-026 | partial:mock | mock_zero | `test/unit/SSVClusters/migrateClusterToETH.test.ts` (Removed Operators Security Check) | Migration with dead operator tested using `mockRemoveOperator`. Verifies `ethValidatorCount` but not cross-cluster context. |
+| RMC-027 | no | — | — | Shared operator removed, cluster B EB + liquidation: no test. |
+| RMC-028 | no | — | — | Cross-cluster drift quantification on dead op4: no test. |
+| RMC-029 | no | — | — | 10 consecutive EB updates after removal, drift quantification: no test. |
+| RMC-030 | no | — | — | 12-operation oscillation chain: no test. |
+| RMC-031 | no | — | — | 13-operation mixed chain (EB + val mgmt + deposit/withdraw + liq/reactivate): no test. |
+| RMC-032 | no | — | — | 10 minimal EB increments, precision drift: no test. |
+| RMC-033 | no | — | — | Progressive removal with continued EB growth: no test. |
+| RMC-034 | no | — | — | 3 clusters same ops, op4 removed, different EB levels: no test. |
+| RMC-035 | no | — | — | 2 clusters same ops, both liquidated after op removal: no test. |
+| RMC-036 | no | — | — | Multi-cluster reactivate then EB with dead op: no test. |
+| RMC-037 | no | — | — | 3 clusters triple liquidation with shared dead op: no test. |
+| RMC-038 | no | — | — | Multi-cluster remove all validators with dead op deviation cleanup: no test. |
+| RMC-039 | no | — | — | Mixed implicit/explicit clusters with shared removed operator: no test. |
+| RMC-040 | no | — | — | Both clusters become explicit after removal: no test. |
+| RMC-041 | no | — | — | Explicit cluster liquidated, implicit cluster liquidated, shared dead op: no test. |
+| RMC-042 | no | — | — | Mixed EB modes full lifecycle with shared dead op: no test. |
+| RMC-043 | no | — | — | 13-op stress, remove 12, EB + full lifecycle: no test. |
+| RMC-044 | no | — | — | 13-op with 6 consecutive EB updates on 12 dead slots: no test. |
+| RMC-045 | no | — | — | 13-op add validators after removal (revert expected): no test for the specific revert behavior. |
+
+### Summary
+
+- **Tested (yes):** 1 of 45 (2.2%) — RMC-024 only (registration revert with dead operator)
+- **Partial (mock/weak):** 2 of 45 (4.4%) — RMC-025, RMC-026
+- **Not tested (no):** 42 of 45 (93.3%)
+
+**Critical findings:**
+1. **Zero multi-step chain tests exist with real `removeOperator`.** The entire RMC suite targets the unguarded code paths (`_updateOperatorVUnits`, `_executeLiquidation` deviation cleanup, `_bulkRemoveValidator` deviation cleanup), and none of these paths have dedicated tests.
+2. **The only passing test (RMC-024) is a revert test** — it verifies the registration guard works, not the deviation accounting.
+3. **All existing removed-operator tests use `mockRemoveOperator`** (in `removedOperatorImpact.test.ts`, `migrateClusterToETH.test.ts`, `operatorFeeEBInteraction.test.ts`), which does NOT delete `operatorEthVUnits` — making them blind to the core bug.
+4. **The sanity test (`removed-operator.test.ts`) uses real `removeOperator` for liquidation** but does not check `operatorEthVUnits` or deviation accounting — only checks `isLiquidatable` and event emission.
+5. **No test in the repo exercises the sequence: real `removeOperator` -> `updateClusterBalance`**, which is the canonical bug path.

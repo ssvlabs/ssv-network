@@ -514,3 +514,149 @@
 | ST-098 | claimEthRewards | _settleWithBalance: bal!=0, idx!=userIdx, but pending==0 (rounding) → accrued unchanged despite index advance. | `entry:claimEthRewards; revert:no` | [ ] | SSVStaking.sol:221 |
 | ST-099 | onCSSVTransfer | Self-transfer of cSSV token → hook must NOT fire. Tests gate condition at CSSVToken.sol:27. | `entry:onCSSVTransfer; revert:no` | [ ] | CSSVToken.sol:27 |
 | ST-100 | onCSSVTransfer | Zero-amount cSSV transfer → hook must NOT fire. Tests gate condition at CSSVToken.sol:27. | `entry:onCSSVTransfer; revert:no` | [ ] | CSSVToken.sol:27 |
+
+---
+
+## Coverage Verification (W4)
+
+**Verified by:** Coverage verification worker
+**Date:** 2026-03-24
+**Method:** Cross-referenced each scenario against actual test files in `test/unit/SSVStaking/`, `test/e2e/staking/`, `test/e2e/cross-cutting/`, and `test/integration/`.
+
+### Classification Key
+
+| Value | Meaning |
+|-------|---------|
+| `yes` | Scenario is directly tested with assertions matching the scenario purpose |
+| `partial:mock` | Tested via harness mock setters rather than real end-to-end flow |
+| `partial:weak` | Test exists but assertions are incomplete or tangential |
+| `no` | No test found covering this scenario |
+
+### Coverage Table
+
+| ID | Tested | remove_mode | Test File | Notes |
+|----|--------|-------------|-----------|-------|
+| ST-001 | yes | none | unit/SSVStaking/stake.test.ts | "Mints cSSV equal to staked SSV amount" + min amount test |
+| ST-002 | yes | none | unit/SSVStaking/stake.test.ts | "Is reverted with 'StakeTooLow' when staking below minimum" |
+| ST-003 | yes | none | unit/SSVStaking/stake.test.ts | "Is reverted with 'StakeTooLow' when staking zero" |
+| ST-004 | no | none | — | No large-amount (1e24) overflow test found |
+| ST-005 | yes | none | unit/SSVStaking/stake.test.ts | "Emits 'Staked' event with correct args" |
+| ST-006 | yes | none | unit/SSVStaking/stake.test.ts | "Emits 'RewardsSettled' event on first stake with zero values" |
+| ST-007 | yes | none | unit/SSVStaking/stake.test.ts | "Is reverted when staking without SSV approval" |
+| ST-008 | yes | none | unit/SSVStaking/stake.test.ts | "Is reverted when staking more than SSV balance" |
+| ST-009 | partial:mock | none | unit/SSVStaking/stake.test.ts | "Allows two independent users to stake" exists but uses mock fixture, not full e2e two-user flow |
+| ST-010 | yes | none | unit/SSVStaking/stake.test.ts | "Settles pending rewards when staking again" — re-stake with mock accrued fees |
+| ST-011 | yes | none | unit/SSVStaking/syncFees.test.ts | "Updates accEthPerShare based on DAO ETH balance and total staked" |
+| ST-012 | yes | none | unit/SSVStaking/syncFees.test.ts | "Emits FeesSynced event with correct new fees and updated accEthPerShare" |
+| ST-013 | yes | none | unit/SSVStaking/syncFees.test.ts + e2e/staking/staking-edge-cases.test.ts | "Is a no-op when cSSV total supply is zero" (unit) + e2e zero-supply test |
+| ST-014 | yes | none | unit/SSVStaking/syncFees.test.ts | "Accumulates natural accrual over multiple blocks between syncs" |
+| ST-015 | yes | none | unit/SSVStaking/syncFees.test.ts | "Is idempotent when called twice in the same block" |
+| ST-016 | yes | none | e2e/staking/staking-lifecycle.test.ts | "Full happy path: stake → earn fees → claim ETH" with real cluster |
+| ST-017 | yes | none | e2e/staking/staking-lifecycle.test.ts | "Proportional distribution: two stakers receive rewards proportional to cSSV holdings" |
+| ST-018 | yes | none | unit/SSVStaking/claimEthRewards.test.ts | "Settles accrued and resets to zero, sends ETH, emits EthRewardsClaimed" |
+| ST-019 | yes | none | unit/SSVStaking/claimEthRewards.test.ts | "Reverts with 'NothingToClaim' when no rewards accrued" |
+| ST-020 | yes | none | unit/SSVStaking/claimEthRewards.test.ts | "Reverts with 'InsufficientBalance' when staking pool lacks ETH" |
+| ST-021 | yes | none | unit/SSVStaking/claimEthRewards.test.ts | "Zeroes dust (sub-ETH_DEDUCTED_DIGITS remainder) when cSSV balance is 0" — SEC-16b fix |
+| ST-022 | yes | none | unit/SSVStaking/claimEthRewards.test.ts | "Preserves remainder when cSSV balance > 0" — dust stays in accrued |
+| ST-023 | yes | none | unit/SSVStaking/claimEthRewards.test.ts | "Claim payout is always multiple of ETH_DEDUCTED_DIGITS" |
+| ST-024 | yes | none | unit/SSVStaking/claimEthRewards.test.ts | "Allows multiple sequential claims with new accrual between each" |
+| ST-025 | yes | none | unit/SSVStaking/claimEthRewards.test.ts | "No double payout on same-block double claim" |
+| ST-026 | yes | none | unit/SSVStaking/claimEthRewards.test.ts | "Dust zeroing when balance==0: accrued reset to 0 after full unstake + claim" |
+| ST-027 | yes | none | unit/SSVStaking/claimEthRewards.test.ts | "Settles rewards across fee regime changes before claiming" |
+| ST-028 | yes | none | unit/SSVStaking/requestUnstake.test.ts | "Requests unstake, burns cSSV and emits UnstakeRequested event with correct args" |
+| ST-029 | yes | none | unit/SSVStaking/requestUnstake.test.ts | "Creates a withdrawal request with correct unlock time" |
+| ST-030 | yes | none | unit/SSVStaking/requestUnstake.test.ts | "Is reverted with 'ZeroAmount' when requesting unstake of zero amount" |
+| ST-031 | yes | none | unit/SSVStaking/requestUnstake.test.ts | "Is reverted with 'UnstakeAmountExceedsBalance' when requesting more than balance" |
+| ST-032 | yes | none | unit/SSVStaking/requestUnstake.test.ts | "Is reverted with 'UnstakeAmountExceedsBalance' when caller has no cSSV" |
+| ST-033 | yes | none | unit/SSVStaking/requestUnstake.test.ts + e2e/staking/staking-lifecycle.test.ts | "Allows unstaking full balance" (unit) + full unstake→cooldown→withdraw (e2e) |
+| ST-034 | yes | none | unit/SSVStaking/requestUnstake.test.ts | "Allows a receiver to request unstake after receiving cSSV by transfer" |
+| ST-035 | yes | none | unit/SSVStaking/requestUnstake.test.ts + e2e/staking/staking-edge-cases.test.ts | "Is reverted with 'MaxRequestsAmountReached' when pending requests limit is reached" (2000 limit) |
+| ST-036 | yes | none | unit/SSVStaking/requestUnstake.test.ts | "Uses block.timestamp (seconds) for unlockTime, not block.number" |
+| ST-037 | yes | none | unit/SSVStaking/requestUnstake.test.ts | "Cooldown duration change only affects new requests, not existing ones" + increase + decrease variants |
+| ST-038 | yes | none | unit/SSVStaking/withdrawUnlocked.test.ts | "Withdraws unlocked SSV after cooldown, emits WithdrawCompleted, removes request" |
+| ST-039 | yes | none | unit/SSVStaking/withdrawUnlocked.test.ts | "Reverts with 'WithdrawalNotReady' when cooldown has not elapsed" |
+| ST-040 | yes | none | unit/SSVStaking/withdrawUnlocked.test.ts | "Withdraws multiple matured requests, skips immature ones, uses swap-and-pop" |
+| ST-041 | yes | none | unit/SSVStaking/withdrawUnlocked.test.ts | "No-op when all requests are still immature" |
+| ST-042 | yes | none | unit/SSVStaking/withdrawUnlocked.test.ts | "Reverts with 'NoWithdrawalRequests' when user has no pending requests" |
+| ST-043 | yes | none | unit/SSVStaking/withdrawUnlocked.test.ts | "Swap-and-pop preserves correct ordering after partial withdrawal" |
+| ST-044 | yes | none | unit/SSVStaking/withdrawUnlocked.test.ts | "Cooldown duration change does not accelerate existing pending requests" |
+| ST-045 | yes | none | unit/SSVStaking/withdrawUnlocked.test.ts + e2e/staking/staking-lifecycle.test.ts | "Withdraws all when every request has matured" (unit) + full lifecycle (e2e) |
+| ST-046 | yes | none | unit/SSVStaking/onCSSVTransfer.test.ts + e2e/staking/staking-transfers.test.ts | "Reverts with 'NotCSSV' when caller is not cSSV token" + e2e transfer settlement |
+| ST-047 | yes | none | unit/SSVStaking/onCSSVTransfer.test.ts + e2e/staking/staking-transfers.test.ts | "Settles rewards for both sender and receiver on cSSV transfer" |
+| ST-048 | yes | none | unit/SSVStaking/onCSSVTransfer.test.ts + e2e/staking/staking-transfers.test.ts | "Proportional distribution after transfer reflects new balances" |
+| ST-049 | yes | none | e2e/staking/staking-transfers.test.ts | "Receiver's userIndex is set to current accEthPerShare after first incoming transfer" |
+| ST-050 | yes | none | unit/SSVStaking/onCSSVTransfer.test.ts | "Transfer chain A→B→C settles at each hop" |
+| ST-051 | yes | none | unit/SSVStaking/onCSSVTransfer.test.ts | "Multi-phase accrual: fee changes between transfers correctly accumulate" |
+| ST-052 | yes | none | unit/SSVStaking/rescueERC20.test.ts | "Rescues a random ERC20 sent to the contract" |
+| ST-053 | yes | none | unit/SSVStaking/rescueERC20.test.ts | "Reverts with 'InvalidToken' when trying to rescue SSV token" |
+| ST-054 | yes | none | unit/SSVStaking/rescueERC20.test.ts | "Reverts with 'InvalidToken' when trying to rescue cSSV token" |
+| ST-055 | yes | none | unit/SSVStaking/rescueERC20.test.ts | "Reverts with 'ZeroAddress' when token address is zero" |
+| ST-056 | yes | none | unit/SSVStaking/rescueERC20.test.ts | "Reverts with 'ZeroAmount' when rescue amount is zero" |
+| ST-057 | yes | none | unit/SSVStaking/rescueERC20.test.ts | "Allows partial rescue (less than full balance)" |
+| ST-058 | partial:weak | none | unit/SSVStaking/rescueERC20.test.ts | Access control tested in rescueERC20 tests, but no explicit non-owner revert test named |
+| ST-059 | yes | none | unit/SSVStaking/syncFees.test.ts + e2e/staking/staking-edge-cases.test.ts | "accEthPerShare monotonicity" tested in both unit and e2e |
+| ST-060 | yes | none | e2e/staking/staking-lifecycle.test.ts | "Late joiner earns only from their entry block" — proportional from join |
+| ST-061 | yes | none | e2e/staking/staking-lifecycle.test.ts | "Pre-burn settlement: requestUnstake settles accrued rewards before burning cSSV" |
+| ST-062 | no | none | — | No explicit test for ETH_DEDUCTED_DIGITS truncation accumulating rounding error over many cycles |
+| ST-063 | no | none | — | No explicit test for accEthPerShare precision loss with very small fee, very large supply |
+| ST-064 | yes | none | unit/SSVStaking/solvencyInvariant.test.ts | "cSSV totalSupply <= SSV backing invariant" through multi-step flows |
+| ST-065 | yes | none | unit/SSVStaking/solvencyInvariant.test.ts | "SSV conservation: stake + withdraw balances across multi-user flows" |
+| ST-066 | yes | none | unit/SSVStaking/requestUnstake.test.ts + e2e/staking/staking-lifecycle.test.ts | "Settles pending rewards before unstaking when fees have accrued" |
+| ST-067 | yes | none | unit/SSVStaking/requestUnstake.test.ts | "Cooldown increase: old request keeps original unlock, new request uses increased cooldown" + decrease variant |
+| ST-068 | yes | none | e2e/staking/staking-rewards.test.ts | "EB Increase → Higher Network Fees → More Staking Rewards" — EB update doubles vUnits, staking rewards double |
+| ST-069 | yes | none | unit/SSVStaking/syncFees.test.ts | "Updates stakingEthPoolBalance in storage after sync" |
+| ST-070 | yes | none | e2e/cross-cutting/staking-integration.test.ts | "Multi-staker revenue distribution with natural DAO fee accrual" |
+| ST-071 | yes | none | e2e/cross-cutting/staking-integration.test.ts | "Staking rewards continue through cluster liquidation and reactivation" |
+| ST-072 | no | none | — | No explicit reentrancy test for stake() — noted as not exploitable with standard ERC20 in reentrancy.test.ts |
+| ST-073 | yes | none | unit/SSVStaking/reentrancy.test.ts | "Reentrancy on claimEthRewards" tested with malicious contract |
+| ST-074 | yes | none | unit/SSVStaking/claimEthRewards.test.ts | "Preserves remainder when cSSV balance > 0 after partial unstake" |
+| ST-075 | yes | none | unit/SSVStaking/claimEthRewards.test.ts | "Zeroes dust when cSSV balance is 0 after full unstake" — SEC-16b |
+| ST-076 | yes | none | e2e/staking/staking-edge-cases.test.ts | "Fees accrued while totalStaked == 0 are lost; second staker cannot claim" |
+| ST-077 | no | none | — | No explicit test for settle idempotent same-block (two settle calls same block) |
+| ST-078 | no | none | — | No explicit test verifying 5 concurrent users each have correct per-user userIndex |
+| ST-079 | yes | none | e2e/staking/staking-rewards.test.ts | "Pre-existing DAO revenue is not distributed to first staker" + network fee raise/decrease/zero tests |
+| ST-080 | no | none | — | No test for ETH transfer failure on claimEthRewards (recipient rejects ETH) |
+| ST-081 | yes | none | unit/SSVStaking/syncFees.test.ts | "Emits FeesSynced event with correct new fees and updated accEthPerShare" — full event value validation |
+| ST-082 | no | none | — | No reentrancy test via malicious SSV token transfer callback on stake |
+| ST-083 | yes | none | unit/SSVStaking/reentrancy.test.ts | Reentrancy via ETH transfer callback on claimEthRewards — tested with malicious contract |
+| ST-084 | no | none | — | No reentrancy test via cSSV burn callback on requestUnstake |
+| ST-085 | yes | none | unit/SSVStaking/stake.test.ts | "Mints cSSV equal to staked SSV amount" uses STAKE_AMOUNT = min amount boundary |
+| ST-086 | no | none | — | No test for accrued exactly equals ETH_DEDUCTED_DIGITS (100,000 wei) boundary |
+| ST-087 | no | none | — | No test for requestUnstake of exactly 1 wei minimum |
+| ST-088 | no | none | — | No test for withdrawUnlocked at exact cooldown expiry (>= vs > boundary) |
+| ST-089 | yes | none | unit/SSVDAO/accessControl.test.ts | Non-owner rescueERC20 revert covered in DAO access control tests |
+| ST-090 | no | none | — | No test for rescued token transfer failure propagation |
+| ST-091 | yes | none | e2e/staking/staking-transfers.test.ts | "Self-transfer" tested in e2e transfers |
+| ST-092 | yes | none | e2e/staking/staking-transfers.test.ts | "Zero-amount transfer" tested in e2e transfers |
+| ST-093 | yes | none | e2e/staking/staking-transfers.test.ts | "Receiver's userIndex is set to current accEthPerShare" tested |
+| ST-094 | no | none | — | No explicit test isolating truncation-toward-zero rounding behavior |
+| ST-095 | no | none | — | No test for ETH transfer failure due to insufficient contract ETH (mismatch) |
+| ST-096 | no | none | — | No test for negative delta edge case in syncFees |
+| ST-097 | no | none | — | No test for _settleWithBalance bal==0, idx!=userIdx edge case |
+| ST-098 | no | none | — | No test for _settleWithBalance pending==0 due to rounding |
+| ST-099 | yes | none | e2e/staking/staking-transfers.test.ts | "Self-transfer of cSSV → hook must NOT fire" |
+| ST-100 | yes | none | e2e/staking/staking-transfers.test.ts | "Zero-amount cSSV transfer → hook must NOT fire" |
+
+### Summary
+
+| Status | Count | Percentage |
+|--------|-------|------------|
+| yes | 80 | 80% |
+| partial:mock | 1 | 1% |
+| partial:weak | 1 | 1% |
+| no | 18 | 18% |
+| **Total** | **100** | **100%** |
+
+**Key gaps (no coverage):**
+- ST-004: Large amount overflow test
+- ST-062, ST-063: Precision/rounding edge cases over many cycles
+- ST-072: Stake reentrancy (noted not exploitable with standard ERC20)
+- ST-077: Settle idempotent same-block
+- ST-078: 5 concurrent users per-user userIndex
+- ST-080, ST-095: ETH transfer failure on claim (recipient rejects ETH / insufficient contract ETH)
+- ST-082, ST-084: Reentrancy via malicious token callbacks (stake SSV token, requestUnstake cSSV burn)
+- ST-086, ST-087, ST-088: Boundary value tests (exact ETH_DEDUCTED_DIGITS, unstake 1 wei, cooldown expiry exact)
+- ST-090: Rescued token transfer failure propagation
+- ST-094: Truncation-toward-zero rounding isolation
+- ST-096: Negative delta edge case in syncFees
+- ST-097, ST-098: _settleWithBalance edge paths

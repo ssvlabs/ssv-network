@@ -506,3 +506,73 @@ ask-codex ran existing test suites (`removeOperator.test.ts`, `oracle-commits.te
 2. **Explicit-EB removal/migration stale-write:** reproduced — migration writes ghost deviation to removed operator's deleted slot
 
 Both behaviors align with INV-050's assertions. No impossible or unreachable invariant scenarios found. Code references verified accurate.
+
+---
+
+## Coverage Verification (W4)
+
+| ID | Tested | remove_mode | Test File | Notes |
+|----|--------|-------------|-----------|-------|
+| INV-001 | yes | none | `test/e2e/cross-cutting/economics.test.ts`, `test/integration/SSVNetwork/clusters.test.ts` (Invariant Checks - Balance Conservation) | ETH conservation after register+deposit verified via `checkETHConservation`. Real proxy calls. |
+| INV-002 | yes | none | `test/e2e/cross-cutting/economics.test.ts`, `test/e2e/clusters-eth/cluster-conservation.test.ts` | Conservation after advance+withdraw verified; exact balance decomposition checked. |
+| INV-003 | yes | none | `test/e2e/clusters-eth/cluster-conservation.test.ts`, `test/e2e/cross-cutting/full-lifecycle.test.ts` | Liquidation with `checkETHConservation` across multi-cluster scenario. |
+| INV-004 | yes | none | `test/e2e/cross-cutting/validator-count-invariant.test.ts` | Reactivation tested; validator count invariant checked post-reactivation. ETH conservation not explicitly checked after reactivate as standalone. |
+| INV-005 | yes | none | `test/e2e/cross-cutting/economics.test.ts` | Operator ETH withdrawal tested with conservation check. |
+| INV-006 | partial:weak | none | `test/e2e/migration/migration-edge.test.ts`, `test/unit/SSVClusters/migrateClusterToETH.test.ts` | Migration tested but ETH conservation is not explicitly asserted post-migration as G1 formula. |
+| INV-007 | partial:weak | none | `test/integration/SSVNetwork/clusters.test.ts` | SSV register+deposit exists but SSV conservation formula (G2) not checked as explicit invariant. Token balance assertions are partial. |
+| INV-008 | partial:weak | none | `test/unit/SSVClusters/removedOperatorImpact.test.ts` (SSV liquidation path) | SSV liquidation tested but SSV conservation formula not explicitly verified. Uses `mockRemoveOperator`. |
+| INV-009 | partial:weak | none | `test/unit/SSVStaking/solvencyInvariant.test.ts`, `test/e2e/cross-cutting/staking-integration.test.ts` | Staking solvency tested (cSSV supply <= SSV backing), but not the full G2 formula including pending unstakes + operator balances + DAO. |
+| INV-010 | partial:weak | none | `test/e2e/migration/migration-double-payment.test.ts` | Migration returns SSV verified but not as SSV conservation formula. |
+| INV-011 | yes | none | `test/e2e/cross-cutting/validator-count-invariant.test.ts` | Multiple cluster registrations with `checkValidatorCountConsistency`. Exact count verified. |
+| INV-012 | yes | none | `test/e2e/cross-cutting/validator-count-invariant.test.ts` | Liquidation of 1-of-3 clusters; validator count decremented correctly. |
+| INV-013 | yes | none | `test/e2e/cross-cutting/validator-count-invariant.test.ts` | Reactivation restores count. Full register->liquidate->reactivate cycle tested. |
+| INV-014 | yes | real | `test/e2e/cross-cutting/full-lifecycle.test.ts` | Real `removeOperator()` called; `getNetworkValidatorsCount()` unchanged after removal verified. |
+| INV-015 | partial:weak | none | `test/e2e/effective-balance/eb-operator-vunits.test.ts` | Implicit EB vUnits tested but not the exact G4 formula `daoTotalEthVUnits == ethDaoValidatorCount * BPS`. |
+| INV-016 | partial:weak | none | `test/e2e/effective-balance/eb-updates.test.ts`, `test/unit/SSVClusters/updateClusterBalance.test.ts` | EB increase tested with vUnit calculation, but full G4 invariant formula not asserted. |
+| INV-017 | no | none | — | Liquidation with explicit EB deviation cleanup: no standalone test verifying `daoTotalEthVUnits` decremented correctly. |
+| INV-018 | no | mock_zero | `test/unit/SSVClusters/operatorFeeEBInteraction.test.ts` | Fee change with removed operator tested using `mockRemoveOperator`. But no test for EB update writing to dead op's `operatorEthVUnits` and verifying G4/G11 violation. |
+| INV-019 | no | none | — | No test for reactivation with prior EB deviation re-addition to `daoTotalEthVUnits`. |
+| INV-020 | no | none | — | No test for migration with EB verifying vUnit deviation added to `daoTotalEthVUnits`. |
+| INV-021 | partial:weak | none | `test/integration/SSVNetwork/clusters.test.ts` | Registration hash is implicitly validated (cluster state matches), but `s.ethClusters[key]` not read directly. |
+| INV-022 | partial:weak | none | `test/integration/SSVNetwork/clusters.test.ts` | Deposit updates cluster state, hash implicitly validated via cluster state parsing, not direct storage read. |
+| INV-023 | partial:weak | none | `test/e2e/clusters-eth/cluster-eth-liquidation.test.ts` | Liquidation tested but hash zeroed state not explicitly verified against keccak256 formula. |
+| INV-024 | partial:weak | none | `test/e2e/cross-cutting/validator-count-invariant.test.ts` | Reactivation tested; hash integrity implied by successful operations but not verified directly. |
+| INV-025 | yes | none | `test/unit/SSVStaking/solvencyInvariant.test.ts` | Stake + unstake + withdraw cycle with `expectStakingSolvent` after each step. cSSV supply == staked - burned. |
+| INV-026 | yes | none | `test/unit/SSVStaking/solvencyInvariant.test.ts` | Multi-user staking with partial unstakes. 3 users, exact supply tracking. |
+| INV-027 | yes | none | `test/e2e/staking/staking-edge-cases.test.ts` | `accEthPerShare monotonicity -- never decreases` test with multiple syncFees calls. |
+| INV-028 | yes | none | `test/e2e/staking/staking-edge-cases.test.ts` | `Zero cSSV supply -- fees are unclaimable` test covers zero totalStaked edge case. |
+| INV-029 | yes | none | `test/e2e/effective-balance/oracle-commits.test.ts`, `test/unit/SSVDAO/commitRoot.test.ts` | Sequential commitRoot tested; `latestCommittedBlock` monotonicity verified. Revert on stale blockNum. |
+| INV-030 | partial:weak | none | `test/integration/SSVNetwork/commitRootUpdateClusterBalance.test.ts` | commitRoot+updateClusterBalance E2E tested but `latestCommittedBlock` unchanged assertion not explicit. |
+| INV-031 | partial:weak | none | `test/e2e/clusters-ssv/cluster-ssv-legacy.test.ts` | ETH registration implicitly verified via success; direct `s.ethClusters[key]` slot read not done. |
+| INV-032 | partial:weak | none | `test/unit/SSVClusters/migrateClusterToETH.test.ts` | Migration tested; `delete s.clusters[key]` implied by successful migration but slots not read directly. |
+| INV-033 | no | none | — | ETH liquidation + verify SSV slot == 0 not tested as standalone invariant. |
+| INV-034 | partial:weak | none | `test/e2e/cross-cutting/validator-count-invariant.test.ts` | Two clusters on same ops tested for total validator count, but per-operator `ethValidatorCount` not individually asserted. |
+| INV-035 | partial:weak | none | `test/e2e/cross-cutting/validator-count-invariant.test.ts` | Liquidation decrements total count; per-operator not individually verified. |
+| INV-036 | partial:weak | none | `test/e2e/cross-cutting/validator-count-invariant.test.ts` | Reactivation increments count; per-operator not individually verified. |
+| INV-037 | yes | real | `test/unit/SSVOperators/removeOperator.test.ts` | `Clears operatorEthVUnits when removing an operator` test: sets vUnits=5000, removes, asserts vUnits==0. Uses real `removeOperator` on harness. |
+| INV-038 | partial:mock | mock_zero | `test/unit/SSVClusters/removedOperatorImpact.test.ts` | Removed operator with active cluster tested, but uses `mockRemoveOperator`. Verifies frozen snapshot, not `operatorEthVUnits[opId]==0`. |
+| INV-039 | no | — | — | PRIMARY BUG PATH: No test exists for removeOperator + EB update verifying G11 violation (stale write to `operatorEthVUnits`). |
+| INV-040 | no | — | — | Cascading removal + EB update: no test. |
+| INV-041 | no | — | — | Removal + liquidation with explicit EB: no test for deviation cleanup underflow on dead op. |
+| INV-042 | no | — | — | Removal + reactivation skipping dead op: no standalone G11 test. |
+| INV-043 | partial:mock | mock_zero | `test/unit/SSVClusters/migrateClusterToETH.test.ts` (Removed Operators Security Check) | Migration with removed operator tested using `mockRemoveOperator`. Checks `ethValidatorCount` but not `operatorEthVUnits`. |
+| INV-044 | no | — | — | Shared operator removal + multiple EB updates: no test. |
+| INV-045 | no | — | — | Full lifecycle G11 test: no test. |
+| INV-046 | partial:weak | none | `test/sanity/ssv3-stale-vunits-liquidation.test.ts` | `Implicit EB clusters (vUnits == 0 in storage) are unaffected` test. But `clusterEB[clusterId].vUnits == 0` not directly asserted. |
+| INV-047 | no | none | — | Normal operations without EB: no explicit `clusterEB.vUnits == 0` assertion. |
+| INV-048 | yes | none | `test/integration/SSVNetwork.test.ts`, `test/integration/SSVNetworkPreMigration.test.ts` | `IncorrectClusterVersion` revert tested for SSV+ETH same ops registration. |
+| INV-049 | no | none | — | Mixed SSV/ETH conservation + vUnit compound invariant: no test. |
+| INV-050 | no | — | — | Full lifecycle stress (multi-invariant): no test. |
+
+### Summary
+
+- **Tested (yes):** 14 of 50 (28%)
+- **Partial (mock/weak):** 18 of 50 (36%)
+- **Not tested (no):** 18 of 50 (36%)
+
+**Critical gaps:**
+- G11 (Removed Op Zero State) INV-039 through INV-045: 0 of 7 have real tests. These are the primary bug detector scenarios.
+- G4 (vUnit Consistency) INV-017 through INV-020: 0 of 4 tested with the full invariant formula.
+- G5 (Cluster Hash Integrity): All 4 are partial:weak — no test reads storage slots directly.
+- G12 (No Deviation Without EB): Both untested or weak.
+- All `mockRemoveOperator` tests miss the `delete seb.operatorEthVUnits[operatorId]` that real `removeOperator` performs.

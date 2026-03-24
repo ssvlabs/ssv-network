@@ -527,3 +527,74 @@ updateClusterBalance(blockNum, owner, operatorIds, migratedCluster, 64, proof)
 |----|------|---------|------|--------|-----------------|
 | MG-066 | migrateClusterToETH | Migrate cluster with removed operator: verify removed op's preserved SSV index IS included in settlement (OperatorLib.sol:361) even though ETH migration skips it (OperatorLib.sol:363). Documents the asymmetry. | `entry:migrateClusterToETH; revert:no` | [ ] | OperatorLib.sol:361, 363 |
 | MG-067 | migrateClusterToETH | Double-payment boundary: removed op excluded from ETH migration (OperatorLib.sol:363) but preserved SSV index included (OperatorLib.sol:361). Verify no double-billing across versions. | `entry:migrateClusterToETH; revert:no` | [ ] | OperatorLib.sol:361, 363 |
+
+---
+
+## Coverage Verification (W4)
+
+| ID | Tested | remove_mode | Test File | Notes |
+|----|--------|-------------|-----------|-------|
+| MG-001 | yes | none | test/unit/SSVClusters/migrateClusterToETH.test.ts, test/e2e/migration/migration-basic.test.ts | "Migrates an existing SSV cluster to ETH and emits the expected event" (unit, 4 ops) + e2e "Migrates SSV cluster to ETH with correct SSV refund and ETH deposit". Full assertion set: event, active, balance, validatorCount, operator ethValidatorCount, operatorEthVUnits. |
+| MG-002 | no | none | — | No migration test with 7 operators. |
+| MG-003 | no | none | — | No migration test with 10 operators. |
+| MG-004 | no | none | — | No migration test with 13 operators. |
+| MG-005 | yes | none | test/unit/SSVClusters/migrateClusterToETH.test.ts | "Uses stored EB snapshot vUnits during migration when present" — vUnits=12000 (deviation=2000), asserts operatorEthVUnits=2000 and effectiveOperatorVUnits=12000 for each op. |
+| MG-006 | partial:weak | none | test/unit/SSVClusters/migrateClusterToETH.test.ts | Implicit baseline test covers vUnits == validatorCount * BPS case (MG-001 test: effectiveBalance=32, deviation=0). No explicit test of explicit EB set exactly at baseline. |
+| MG-007 | yes | none | test/unit/SSVClusters/migrateClusterToETH.test.ts | MG-001 test uses implicit EB (vUnits=0 in storage), verifies effectiveBalance=32, operatorEthVUnits=0. |
+| MG-008 | partial:mock | mock_zero | test/unit/SSVClusters/migrateClusterToETH.test.ts | "Skips removed operators during migration without reviving them" — uses mockRemoveOperator (zeros fields but does NOT delete operatorEthVUnits). Assertions check ethValidatorCount >= 0 (weak). |
+| MG-008 | yes | real | test/e2e/migration/migration-edge.test.ts | "Migration succeeds when Op1 is removed — removed operator is skipped" — uses real removeOperator(). Removed op validatorCount=0, live ops validatorCount=1. |
+| MG-009 | partial:mock | mock_zero | test/unit/SSVClusters/migrateClusterToETH.test.ts | "Maintains operator count integrity with mixed valid/removed operators" — removes 2 of 4 ops via mockRemoveOperator. Live ops get validatorCount, removed get >= 0 (weak assertion). |
+| MG-010 | yes | none | test/unit/SSVClusters/migrateClusterToETH.test.ts | "IncorrectClusterVersion" revert when migrating an already-ETH cluster. Tested at end of MG-001 test. |
+| MG-011 | yes | none | test/unit/SSVClusters/migrateClusterToETH.test.ts, test/unit/SSVClusters/reactivate.test.ts, test/e2e/migration/migration-basic.test.ts | "Handles liquidated cluster migration correctly" (unit) + "Migrates a liquidated SSV cluster to ETH without requiring an EB snapshot" (reactivate.test) + "Migrates liquidated SSV cluster — no SSV refund, emits ClusterReactivated" (e2e). SSV counts preserved, ETH counts incremented, ClusterReactivated emitted. |
+| MG-012 | yes | none | test/e2e/migration/migration-basic.test.ts | "Migration with insufficient ETH reverts (edge)" — value: 0n, reverts InsufficientBalance. |
+| MG-013 | yes | none | test/unit/SSVClusters/migrateClusterToETH.test.ts, test/e2e/migration/migration-edge.test.ts | "InsufficientBalance" revert (unit: mockMinimumLiquidationCollateral) + e2e "Reverts when ETH deposit is 1 wei below threshold". |
+| MG-014 | yes | none | test/e2e/migration/migration-edge.test.ts | "Reverts when ETH deposit is 0" — explicitly tests zero msg.value. |
+| MG-015 | yes | none | test/unit/SSVClusters/migrateClusterToETH.test.ts | "Refunds SSV token balance to the owner when migrating an active SSV cluster" — verifies token transfer equals ssvBalance, event.ssvRefunded matches. |
+| MG-016 | yes | none | test/unit/SSVClusters/migrateClusterToETH.test.ts | MG-001 test: ssvCluster.balance=0, event.ssvRefunded=0. Also "Migrates a liquidated SSV cluster to ETH" has ssvRefunded=0. |
+| MG-017 | no | none | — | No test of migrate then immediately updateClusterBalance. |
+| MG-018 | no | real | — | No test of migrate then removeOperator then updateClusterBalance. |
+| MG-019 | yes | none | test/unit/SSVClusters/migrateClusterToETH.test.ts | Tested at end of MG-001 test: second migrateClusterToETH on same cluster reverts IncorrectClusterVersion (s.clusters[key] deleted). |
+| MG-020 | no | none | — | No test verifying pending fee declaration is ignored during migration. |
+| MG-021 | yes | none | test/unit/SSVClusters/migrateClusterToETH.test.ts | "Emits OperatorFeeExecuted for each legacy SSV operator when migrating to ETH" — ensureETHDefaults sets ethFee=DEFAULT_OPERATOR_ETH_FEE, emits event per op. |
+| MG-022 | partial:weak | none | test/e2e/migration/migration-double-payment.test.ts | "Assigns default ETH fee on migration when legacy operator had ethFee explicitly reset to zero" — tests that default IS assigned when fee=0 + legacy SSV. Does not test the case where SSV fee=0 means ethFee stays 0 (the scenario's actual intent). |
+| MG-023 | yes | none | test/unit/SSVClusters/migrateClusterToETH.test.ts | "Does not emit duplicate OperatorFeeExecuted when operator already initialized with ETH defaults" — first ETH op triggers ensureETHDefaults, second does not. |
+| MG-024 | yes | none | test/unit/SSVClusters/migrateClusterToETH.test.ts | "Correctly handles mixed operator states during migration" — 2 ops already ETH-initialized (via prior registerValidator), 2 first-time; all get correct ethValidatorCount. |
+| MG-025 | yes | none | test/unit/SSVClusters/migrateClusterToETH.test.ts | Same as MG-024 — operators serve both ETH and SSV clusters; ethValidatorCount accumulates. |
+| MG-026 | no | none | — | No test at exact validatorsPerOperatorLimit boundary. |
+| MG-027 | no | none | — | No test exceeding validatorsPerOperatorLimit with ExceedValidatorLimitWithData revert. |
+| MG-028 | partial:mock | mock_zero | test/unit/SSVClusters/migrateClusterToETH.test.ts | "Skips removed operators during migration" — mockRemoveOperator, live ops get ethValidatorCount, removed get >=0 (weak). Real removeOperator tested in e2e/migration-edge. |
+| MG-028 | yes | real | test/e2e/migration/migration-edge.test.ts | "Migration succeeds when Op1 is removed" — real removeOperator, removed op validatorCount=0, live ops=1. |
+| MG-029 | yes | real | test/e2e/migration/migration-double-payment.test.ts | "Includes removed operator frozen snapshot.index in migration SSV settlement" — verifies removed op ethSnapshot.blockNumber=0 after migration. |
+| MG-030 | yes | mock_payout | test/e2e/migration/migration-double-payment.test.ts | "Includes removed operator frozen snapshot.index" — verifies removed op contributes no ethFee to ETH side but preserved SSV index IS included. mockRemoveOperatorAndPayout used. |
+| MG-031 | yes | none | test/e2e/migration/migration-basic.test.ts, test/e2e/migration/migration-edge.test.ts | SSV operator validatorCount decremented to 0 after migration (active cluster). DAO SSV accounting implicit. |
+| MG-032 | yes | none | test/e2e/migration/migration-double-payment.test.ts | "Liquidated cluster migration with removed operator preserves SSV counts" — isLiquidated=true, SSV validatorCount NOT decremented (already done by liquidation). |
+| MG-033 | yes | none | test/e2e/migration/migration-basic.test.ts | NetworkValidatorsCount increases after migration. ETH ethDaoValidatorCount incremented. |
+| MG-034 | yes | none | test/unit/SSVClusters/migrateClusterToETH.test.ts | "Uses stored EB snapshot vUnits during migration when present" — deviation=2000 added to each op's operatorEthVUnits. |
+| MG-035 | yes | none | test/unit/SSVClusters/migrateClusterToETH.test.ts | MG-001 test: implicit EB, no deviation. operatorEthVUnits=0 for all ops. |
+| MG-036 | yes | none | test/unit/SSVClusters/migrateClusterToETH.test.ts | "Preserves SSV snapshot state before validator count reduction" — SSV validatorCount decremented by cluster.validatorCount for each op. |
+| MG-037 | yes | none | test/unit/SSVClusters/migrateClusterToETH.test.ts, test/e2e/migration/migration-double-payment.test.ts | "Handles liquidated cluster migration correctly" — SSV validatorCount NOT decremented (already done). |
+| MG-038 | yes | none | test/unit/SSVClusters/migrateClusterToETH.test.ts | "Preserves SSV snapshot state before validator count reduction" — snapshot.index updated before migration. |
+| MG-039 | yes | none | test/unit/SSVClusters/migrateClusterToETH.test.ts, test/e2e/migration/migration-full-lifecycle.test.ts | "Validates full migration accounting correctness" — SSV balance settled, refund matches independent calculation. |
+| MG-040 | yes | none | test/unit/SSVClusters/migrateClusterToETH.test.ts | MG-001 test + MG-019: after migration, second migration reverts (SSV record deleted). |
+| MG-041 | yes | none | test/unit/SSVClusters/migrateClusterToETH.test.ts | MG-001 test: ETH cluster hash != ZeroHash after migration. Active, balance, validatorCount verified. |
+| MG-042 | yes | none | test/unit/SSVClusters/migrateClusterToETH.test.ts | MG-001 test: ClusterMigratedToETH event verified with ethDeposited, ssvRefunded, effectiveBalance. |
+| MG-043 | yes | none | test/e2e/migration/migration-basic.test.ts | "Migrates liquidated SSV cluster — emits ClusterReactivated" — both events verified. |
+| MG-044 | yes | none | test/e2e/migration/migration-edge.test.ts | "Two clusters with same operators migrate correctly without index corruption" — sequential migration, ethValidatorCount accumulates to 3. |
+| MG-045 | yes | none | test/unit/SSVClusters/migrateClusterToETH.test.ts | "Correctly handles mixed operator states during migration" — second migration's ops have ethSnapshot.index > 0 from first ETH interaction. |
+| MG-046 | yes | none | test/unit/SSVClusters/migrateClusterToETH.test.ts | MG-001 test: ssvCluster.balance=0. No SSV transfer. |
+| MG-047 | no | none | — | No test with validatorCount=0 cluster migration. |
+| MG-048 | no | none | — | No test for non-owner caller revert on migration. Hash mismatch with msg.sender as owner. |
+| MG-049 | yes | none | test/unit/SSVClusters/migrateClusterToETH.test.ts | "ClusterDoesNotExists" when migrating a missing cluster. |
+| MG-050 | no | none | — | No explicit IncorrectClusterState test for migration (stale cluster struct). |
+| MG-051 | yes | mock_payout | test/e2e/migration/migration-double-payment.test.ts | "Liquidated cluster migration with removed operator preserves SSV counts and skips removed ETH setup" — mockRemoveOperatorAndPayout used. SSV counts preserved, removed op ETH snapshot stays 0. |
+| MG-052 | no | real | — | No test combining explicit EB deviation + removed operator during migration. Scenario notes potential bug with stranded deviation. |
+| MG-053 | yes | none | test/e2e/migration/migration-full-lifecycle.test.ts, test/e2e/migration/migration-basic.test.ts | Post-migration registerValidator (adding validators to migrated cluster) tested in "ETH fees accrue correctly after migration". Deposit tested via balance checks. |
+| MG-054 | yes | none | test/e2e/migration/migration-full-lifecycle.test.ts | Withdraw tested after migration — "Verifies complete economic correctness across full lifecycle". |
+| MG-055 | no | none | — | No test for full migrate -> liquidate -> reactivate lifecycle. |
+| MG-056 | yes | none | test/e2e/migration/migration-double-payment.test.ts | "Baseline: all operators active uses exact SSV refund formula" — SSV settlement covers pre-migration blocks only; ETH starts from migration block. No double-billing verified. |
+| MG-057 | yes | none | test/e2e/migration/migration-basic.test.ts | "Migrates SSV cluster to ETH with correct SSV refund" — cluster.index set to 0 (ETH cumulative index at migration point), not SSV index. |
+| MG-058 | no | none | — | No test with all zero-fee operators during migration. |
+| MG-059 | yes | none | test/e2e/migration/migration-double-payment.test.ts | "Assigns default ETH fee on migration when legacy operator had ethFee explicitly reset to zero" — verifies ensureETHDefaults assigns DEFAULT_OPERATOR_ETH_FEE, does NOT overwrite if already initialized. |
+| MG-060 | no | none | — | No stress test with large validator count + high EB. |
+| MG-066 | yes | mock_payout | test/e2e/migration/migration-double-payment.test.ts | "Includes removed operator frozen snapshot.index in migration SSV settlement" — explicitly verifies preserved SSV index IS included, ETH setup is NOT called. |
+| MG-067 | yes | mock_payout | test/e2e/migration/migration-double-payment.test.ts | Same test — verifies correctRefund != buggyRefund (which would exclude removed op's index), proving no double-billing. |
