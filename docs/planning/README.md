@@ -6,7 +6,7 @@
 |------|-------|---------|--------|
 | Pre-work | Setup | 1 | ✅ Done |
 | W1 | Phase 1: Individual Module Scenarios (983 scenarios) | 13 | ✅ Done |
-| W2 | Phase 1b: Cross-Module Scenarios | 5 | ⏳ Pending |
+| W2 | Phase 1b: Cross-Module Scenarios (410 scenarios) | 5 | ✅ Done |
 | W3 | Phase 1c: Removed Operator + Invariants | 9 | ⏳ Pending |
 | W4 | Phase 2: Coverage Verification | 10 | ⏳ Pending |
 | — | Phase 3: Gap Analysis | 1 | ⏳ Pending |
@@ -32,11 +32,11 @@
 | scenarios-migration.md | MG | W1-J | 70 | ✅ |
 | scenarios-staking.md | ST | W1-K | 104 | ✅ |
 | scenarios-dao-governance.md | DA | W1-L | 115 | ✅ |
-| scenarios-xm-op-cluster.md | XO | W2-A | 50-70 | ⏳ |
-| scenarios-xm-vl-eb.md | XV | W2-B | 50-70 | ⏳ |
-| scenarios-xm-lq-react-chains.md | XL | W2-C | 50-70 | ⏳ |
-| scenarios-xm-migration-staking.md | XG | W2-D | 40-60 | ⏳ |
-| scenarios-xm-full-lifecycle.md | XF | W2-E | 40-60 | ⏳ |
+| scenarios-xm-op-cluster.md | XO | W2-A | 68 | ✅ |
+| scenarios-xm-vl-eb.md | XV | W2-B | 90 | ✅ |
+| scenarios-xm-lq-react-chains.md | XL | W2-C | 102 | ✅ |
+| scenarios-xm-migration-staking.md | XG | W2-D | 53 | ✅ |
+| scenarios-xm-full-lifecycle.md | XF | W2-E | 97 | ✅ |
 | scenarios-rm-updateOperatorVUnits.md | RM1 | W3-A | 20-30 | ⏳ |
 | scenarios-rm-executeLiquidation.md | RM2 | W3-B | 20-30 | ⏳ |
 | scenarios-rm-bulkRemoveValidator.md | RM3 | W3-C | 20-30 | ⏳ |
