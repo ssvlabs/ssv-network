@@ -134,6 +134,15 @@ contract SSVStakingEchidna is SSVStaking {
     uint256 private totalEthCreditedWei;
     uint256 private totalEthPaidOutWei;
 
+    struct PayoutVerifyParams {
+        uint256 accAfterWindow;
+        uint256 expectedPayout;
+        uint256 expectedRemainder;
+        uint256 wrongPayout;
+        uint256 wrongRemainder;
+        bool wrongDiffers;
+    }
+
     constructor() SSVStaking(address(new CSSVTokenMock(address(this)))) {
         token = new MockToken();
         cssv = CSSVTokenMock(CSSV_ADDRESS);
@@ -358,39 +367,10 @@ contract SSVStakingEchidna is SSVStaking {
         uint64 beforeDao = PackedETH.unwrap(sp.ethDaoBalance);
         uint256 beforeUserBalance = address(user).balance;
         try user.claim() {
-            uint64 afterPool = PackedETH.unwrap(s.stakingEthPoolBalance);
-            uint64 afterDao = PackedETH.unwrap(sp.ethDaoBalance);
-            uint256 afterUserBalance = address(user).balance;
-            uint256 payout = afterUserBalance - beforeUserBalance;
-            if (payout % ETH_DEDUCTED_DIGITS != 0) {
-                claimPayoutPrecisionMismatch = true;
-            }
-
-            if (afterPool > beforePool || afterDao > beforeDao) {
-                claimDeltaMismatch = true;
-            } else {
-                uint256 poolDeltaWei = uint256(beforePool - afterPool) * ETH_DEDUCTED_DIGITS;
-                uint256 daoDeltaWei = uint256(beforeDao - afterDao) * ETH_DEDUCTED_DIGITS;
-                if (poolDeltaWei != payout || daoDeltaWei != payout) {
-                    claimDeltaMismatch = true;
-                }
-            }
-
+            uint256 payout = _verifyClaimDeltas(user, s, sp, beforePool, beforeDao, beforeUserBalance);
             _addPaidOut(payout);
             _checkSettledUser(address(user));
-
-            uint64 midPool = afterPool;
-            uint64 midDao = afterDao;
-            uint256 midUserBalance = afterUserBalance;
-
-            try user.claim() {
-                uint64 finalPool = PackedETH.unwrap(s.stakingEthPoolBalance);
-                uint64 finalDao = PackedETH.unwrap(sp.ethDaoBalance);
-                uint256 finalUserBalance = address(user).balance;
-                if (finalPool != midPool || finalDao != midDao || finalUserBalance != midUserBalance) {
-                    secondSameBlockClaimPaid = true;
-                }
-            } catch {}
+            _verifySecondClaimNoPayout(user, s, sp);
         } catch {}
     }
 
@@ -552,60 +532,12 @@ contract SSVStakingEchidna is SSVStaking {
                 unstakeStopsAccrualViolation = true;
             }
 
-            (bool postOk, , uint256 accAfterPost) = _creditFeeWindow(_boundRewardUnits(postWindowSeed));
-            if (!postOk || accAfterPost <= accAfterPre) return;
-
-            uint256 expectedPostRequestPending = _pendingReward(remainingBalance, accAfterPost, accAfterPre);
-            uint256 wrongPostRequestPending = _pendingReward(balanceBefore, accAfterPost, accAfterPre);
-            uint256 expectedTotalAccrued = expectedAccruedAtRequest + expectedPostRequestPending;
-            uint256 wrongTotalAccrued = expectedAccruedAtRequest + wrongPostRequestPending;
-
-            uint256 expectedPayout = _roundedDownToPayoutPrecision(expectedTotalAccrued);
-            uint256 wrongPayout = _roundedDownToPayoutPrecision(wrongTotalAccrued);
-            uint256 expectedRemainder = expectedTotalAccrued - expectedPayout;
-            uint256 wrongRemainder = wrongTotalAccrued - wrongPayout;
-            if (expectedPayout == 0) return;
-
-            uint64 poolBeforeClaimUnits = PackedETH.unwrap(s.stakingEthPoolBalance);
-            uint64 daoBeforeClaimUnits = PackedETH.unwrap(sp.ethDaoBalance);
-            uint64 payoutUnits = uint64(expectedPayout / ETH_DEDUCTED_DIGITS);
-            if (
-                payoutUnits > poolBeforeClaimUnits ||
-                payoutUnits > daoBeforeClaimUnits ||
-                expectedPayout > address(this).balance
-            ) {
-                return;
-            }
-
-            uint256 userEthBefore = userAddr.balance;
-            try user.claim() {
-                uint256 actualPayout = userAddr.balance - userEthBefore;
-                if (actualPayout != expectedPayout) {
-                    unstakeStopsAccrualViolation = true;
-                }
-                if (s.accrued[userAddr] != expectedRemainder) {
-                    unstakeStopsAccrualViolation = true;
-                }
-                if (s.userIndex[userAddr] != accAfterPost) {
-                    unstakeStopsAccrualViolation = true;
-                }
-                if (PackedETH.unwrap(s.stakingEthPoolBalance) != poolBeforeClaimUnits - payoutUnits) {
-                    unstakeStopsAccrualViolation = true;
-                }
-                if (PackedETH.unwrap(sp.ethDaoBalance) != daoBeforeClaimUnits - payoutUnits) {
-                    unstakeStopsAccrualViolation = true;
-                }
-                if (
-                    wrongTotalAccrued != expectedTotalAccrued &&
-                    actualPayout == wrongPayout &&
-                    s.accrued[userAddr] == wrongRemainder
-                ) {
-                    unstakeStopsAccrualViolation = true;
-                }
-                _addPaidOut(actualPayout);
-            } catch {
-                unstakeStopsAccrualViolation = true;
-            }
+            _verifyPostUnstakeClaim(
+                user, userAddr, s, sp,
+                remainingBalance, balanceBefore,
+                accAfterPre, expectedAccruedAtRequest,
+                postWindowSeed
+            );
         } catch {}
     }
 
@@ -726,57 +658,11 @@ contract SSVStakingEchidna is SSVStaking {
             zeroCssvAccrualViolation = true;
         }
 
-        (bool postOk, , uint256 accAfterPostWindow) = _creditFeeWindow(_boundRewardUnits(postWindowSeed));
-        if (!postOk || accAfterPostWindow <= accAfterZeroWindow) return;
-
-        uint256 expectedPostStakeAccrued = _pendingReward(targetBalance, accAfterPostWindow, accAfterZeroWindow);
-        uint256 wrongTotalAccrued = _pendingReward(targetBalance, accAfterPostWindow, accBeforeZeroWindow);
-        uint256 expectedPayout = _roundedDownToPayoutPrecision(expectedPostStakeAccrued);
-        uint256 wrongPayout = _roundedDownToPayoutPrecision(wrongTotalAccrued);
-        uint256 expectedRemainder = expectedPostStakeAccrued - expectedPayout;
-        uint256 wrongRemainder = wrongTotalAccrued - wrongPayout;
-        if (expectedPayout == 0) return;
-
-        uint64 poolBeforeClaimUnits = PackedETH.unwrap(s.stakingEthPoolBalance);
-        uint64 daoBeforeClaimUnits = PackedETH.unwrap(sp.ethDaoBalance);
-        uint64 payoutUnits = uint64(expectedPayout / ETH_DEDUCTED_DIGITS);
-        if (
-            payoutUnits > poolBeforeClaimUnits ||
-            payoutUnits > daoBeforeClaimUnits ||
-            expectedPayout > address(this).balance
-        ) {
-            return;
-        }
-
-        uint256 ethBefore = targetAddr.balance;
-        try targetUser.claim() {
-            uint256 actualPayout = targetAddr.balance - ethBefore;
-            if (actualPayout != expectedPayout) {
-                zeroCssvAccrualViolation = true;
-            }
-            if (s.accrued[targetAddr] != expectedRemainder) {
-                zeroCssvAccrualViolation = true;
-            }
-            if (s.userIndex[targetAddr] != accAfterPostWindow) {
-                zeroCssvAccrualViolation = true;
-            }
-            if (PackedETH.unwrap(s.stakingEthPoolBalance) != poolBeforeClaimUnits - payoutUnits) {
-                zeroCssvAccrualViolation = true;
-            }
-            if (PackedETH.unwrap(sp.ethDaoBalance) != daoBeforeClaimUnits - payoutUnits) {
-                zeroCssvAccrualViolation = true;
-            }
-            if (
-                wrongTotalAccrued != expectedPostStakeAccrued &&
-                actualPayout == wrongPayout &&
-                s.accrued[targetAddr] == wrongRemainder
-            ) {
-                zeroCssvAccrualViolation = true;
-            }
-            _addPaidOut(actualPayout);
-        } catch {
-            zeroCssvAccrualViolation = true;
-        }
+        _verifyZeroCssvClaim(
+            targetUser, targetAddr, s, sp,
+            targetBalance, accAfterZeroWindow, accBeforeZeroWindow,
+            postWindowSeed
+        );
     }
 
     function echidna_sync_fees_handles_decrease() external view returns (bool) {
@@ -890,6 +776,154 @@ contract SSVStakingEchidna is SSVStaking {
 
     function echidna_withdraw_unlocked_batch_correct() external view returns (bool) {
         return !withdrawUnlockedBatchViolation;
+    }
+
+    function _verifyClaimDeltas(
+        StakingUser user,
+        StorageStaking storage s,
+        StorageProtocol storage sp,
+        uint64 beforePool,
+        uint64 beforeDao,
+        uint256 beforeUserBalance
+    ) internal returns (uint256 payout) {
+        uint64 afterPool = PackedETH.unwrap(s.stakingEthPoolBalance);
+        uint64 afterDao = PackedETH.unwrap(sp.ethDaoBalance);
+        payout = address(user).balance - beforeUserBalance;
+        if (payout % ETH_DEDUCTED_DIGITS != 0) {
+            claimPayoutPrecisionMismatch = true;
+        }
+        if (afterPool > beforePool || afterDao > beforeDao) {
+            claimDeltaMismatch = true;
+        } else {
+            uint256 poolDeltaWei = uint256(beforePool - afterPool) * ETH_DEDUCTED_DIGITS;
+            uint256 daoDeltaWei = uint256(beforeDao - afterDao) * ETH_DEDUCTED_DIGITS;
+            if (poolDeltaWei != payout || daoDeltaWei != payout) {
+                claimDeltaMismatch = true;
+            }
+        }
+    }
+
+    function _verifySecondClaimNoPayout(
+        StakingUser user,
+        StorageStaking storage s,
+        StorageProtocol storage sp
+    ) internal {
+        uint64 midPool = PackedETH.unwrap(s.stakingEthPoolBalance);
+        uint64 midDao = PackedETH.unwrap(sp.ethDaoBalance);
+        uint256 midUserBalance = address(user).balance;
+        try user.claim() {
+            if (
+                PackedETH.unwrap(s.stakingEthPoolBalance) != midPool ||
+                PackedETH.unwrap(sp.ethDaoBalance) != midDao ||
+                address(user).balance != midUserBalance
+            ) {
+                secondSameBlockClaimPaid = true;
+            }
+        } catch {}
+    }
+
+    function _verifyPostUnstakeClaim(
+        StakingUser user,
+        address userAddr,
+        StorageStaking storage s,
+        StorageProtocol storage sp,
+        uint256 remainingBalance,
+        uint256 balanceBefore,
+        uint256 accAfterPre,
+        uint256 expectedAccruedAtRequest,
+        uint256 postWindowSeed
+    ) internal {
+        (bool postOk, , uint256 accAfterPost) = _creditFeeWindow(_boundRewardUnits(postWindowSeed));
+        if (!postOk || accAfterPost <= accAfterPre) return;
+
+        PayoutVerifyParams memory p;
+        {
+            uint256 expectedTotal = expectedAccruedAtRequest + _pendingReward(remainingBalance, accAfterPost, accAfterPre);
+            uint256 wrongTotal = expectedAccruedAtRequest + _pendingReward(balanceBefore, accAfterPost, accAfterPre);
+            uint256 ePayout = _roundedDownToPayoutPrecision(expectedTotal);
+            uint256 wPayout = _roundedDownToPayoutPrecision(wrongTotal);
+            p = PayoutVerifyParams({
+                accAfterWindow: accAfterPost,
+                expectedPayout: ePayout,
+                expectedRemainder: expectedTotal - ePayout,
+                wrongPayout: wPayout,
+                wrongRemainder: wrongTotal - wPayout,
+                wrongDiffers: wrongTotal != expectedTotal
+            });
+        }
+        if (p.expectedPayout == 0) return;
+
+        if (_claimAndVerifyPayout(user, userAddr, s, sp, p)) {
+            unstakeStopsAccrualViolation = true;
+        }
+    }
+
+    function _verifyZeroCssvClaim(
+        StakingUser targetUser,
+        address targetAddr,
+        StorageStaking storage s,
+        StorageProtocol storage sp,
+        uint256 targetBalance,
+        uint256 accAfterZeroWindow,
+        uint256 accBeforeZeroWindow,
+        uint256 postWindowSeed
+    ) internal {
+        (bool postOk, , uint256 accAfterPostWindow) = _creditFeeWindow(_boundRewardUnits(postWindowSeed));
+        if (!postOk || accAfterPostWindow <= accAfterZeroWindow) return;
+
+        PayoutVerifyParams memory p;
+        {
+            uint256 expectedAccrued = _pendingReward(targetBalance, accAfterPostWindow, accAfterZeroWindow);
+            uint256 wrongAccrued = _pendingReward(targetBalance, accAfterPostWindow, accBeforeZeroWindow);
+            uint256 ePayout = _roundedDownToPayoutPrecision(expectedAccrued);
+            uint256 wPayout = _roundedDownToPayoutPrecision(wrongAccrued);
+            p = PayoutVerifyParams({
+                accAfterWindow: accAfterPostWindow,
+                expectedPayout: ePayout,
+                expectedRemainder: expectedAccrued - ePayout,
+                wrongPayout: wPayout,
+                wrongRemainder: wrongAccrued - wPayout,
+                wrongDiffers: wrongAccrued != expectedAccrued
+            });
+        }
+        if (p.expectedPayout == 0) return;
+
+        if (_claimAndVerifyPayout(targetUser, targetAddr, s, sp, p)) {
+            zeroCssvAccrualViolation = true;
+        }
+    }
+
+    function _claimAndVerifyPayout(
+        StakingUser user,
+        address userAddr,
+        StorageStaking storage s,
+        StorageProtocol storage sp,
+        PayoutVerifyParams memory p
+    ) internal returns (bool violated) {
+        uint64 poolBefore = PackedETH.unwrap(s.stakingEthPoolBalance);
+        uint64 daoBefore = PackedETH.unwrap(sp.ethDaoBalance);
+        uint64 payoutUnits = uint64(p.expectedPayout / ETH_DEDUCTED_DIGITS);
+        if (
+            payoutUnits > poolBefore ||
+            payoutUnits > daoBefore ||
+            p.expectedPayout > address(this).balance
+        ) {
+            return false;
+        }
+
+        uint256 ethBefore = userAddr.balance;
+        try user.claim() {
+            uint256 actualPayout = userAddr.balance - ethBefore;
+            if (actualPayout != p.expectedPayout) violated = true;
+            if (s.accrued[userAddr] != p.expectedRemainder) violated = true;
+            if (s.userIndex[userAddr] != p.accAfterWindow) violated = true;
+            if (PackedETH.unwrap(s.stakingEthPoolBalance) != poolBefore - payoutUnits) violated = true;
+            if (PackedETH.unwrap(sp.ethDaoBalance) != daoBefore - payoutUnits) violated = true;
+            if (p.wrongDiffers && actualPayout == p.wrongPayout && s.accrued[userAddr] == p.wrongRemainder) violated = true;
+            _addPaidOut(actualPayout);
+        } catch {
+            violated = true;
+        }
     }
 
     function _boundShrunk(uint256 seed, uint64 maxValue) internal pure returns (uint64) {

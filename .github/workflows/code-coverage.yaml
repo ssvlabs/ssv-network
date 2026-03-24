@@ -17,3 +17,4 @@ jobs:
       - run: npx hardhat test --coverage
         env:
           NO_GAS_ENFORCE: '1'
+          COVERAGE: 'true'
