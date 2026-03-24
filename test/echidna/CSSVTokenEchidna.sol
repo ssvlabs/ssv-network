@@ -10,6 +10,7 @@ contract CSSVTokenEchidna is CSSVToken {
     uint256 public totalMinted;
     uint256 public totalBurned;
     uint256 public callbackCount;
+    bool public headroomAccountingViolation;
 
     MockToken private ssvToken;
 
@@ -115,6 +116,64 @@ contract CSSVTokenEchidna is CSSVToken {
         totalMinted += amount * 4;
     }
 
+    function action_mint_headroom_accounting(uint256 amount, uint8 userSeed) public {
+        uint256 requested = _boundAmount(amount);
+        uint256 supplyBefore = totalSupply();
+        uint256 headroomBefore = _mintableAmount(type(uint256).max);
+        uint256 expectedMint = requested > headroomBefore ? headroomBefore : requested;
+        address to = _getUser(userSeed);
+
+        if (expectedMint != 0) {
+            _mint(to, expectedMint);
+            totalMinted += expectedMint;
+        }
+
+        if (totalSupply() != supplyBefore + expectedMint) {
+            headroomAccountingViolation = true;
+        }
+        if (totalSupply() > ssvToken.totalSupply()) {
+            headroomAccountingViolation = true;
+        }
+    }
+
+    function action_near_cap_roundtrip(uint256 burnSeed, uint8 userSeed) public {
+        address user = _getUser(userSeed);
+        uint256 ssvSupply = ssvToken.totalSupply();
+        uint256 headroom = _mintableAmount(type(uint256).max);
+        if (headroom == 0) return;
+
+        _mint(user, headroom);
+        totalMinted += headroom;
+        if (totalSupply() != ssvSupply) {
+            headroomAccountingViolation = true;
+        }
+
+        uint256 balance = balanceOf(user);
+        if (balance == 0) return;
+        uint256 burnAmount = burnSeed % balance;
+        if (burnAmount == 0) burnAmount = 1;
+
+        _burn(user, burnAmount);
+        totalBurned += burnAmount;
+
+        uint256 remintRequest = burnAmount + 1;
+        uint256 remintAmount = _mintableAmount(remintRequest);
+        if (remintAmount != burnAmount) {
+            headroomAccountingViolation = true;
+        }
+        if (remintAmount != 0) {
+            _mint(user, remintAmount);
+            totalMinted += remintAmount;
+        }
+
+        if (totalSupply() != ssvSupply) {
+            headroomAccountingViolation = true;
+        }
+        if (totalSupply() > ssvSupply) {
+            headroomAccountingViolation = true;
+        }
+    }
+
     function action_burnFromAll(uint256 amount) public {
         uint256 bal1 = balanceOf(USER1);
         uint256 bal2 = balanceOf(USER2);
@@ -205,5 +264,9 @@ contract CSSVTokenEchidna is CSSVToken {
 
     function echidna_cssv_supply_lte_ssv_total_supply() public view returns (bool) {
         return totalSupply() <= ssvToken.totalSupply();
+    }
+
+    function echidna_headroom_accounting_consistent() public view returns (bool) {
+        return !headroomAccountingViolation;
     }
 }

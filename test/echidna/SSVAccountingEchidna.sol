@@ -4,6 +4,7 @@ pragma solidity 0.8.24;
 import "../../contracts/interfaces/ISSVClusters.sol";
 import "../../contracts/interfaces/ISSVNetworkCore.sol";
 import "../../contracts/interfaces/ISSVOperators.sol";
+import "../../contracts/interfaces/ISSVValidators.sol";
 import "../../contracts/libraries/ClusterLib.sol";
 import "../../contracts/libraries/OperatorLib.sol";
 import "../../contracts/libraries/ProtocolLib.sol";
@@ -13,6 +14,7 @@ import "../../contracts/libraries/storage/SSVStorageProtocol.sol";
 import "../../contracts/modules/SSVClusters.sol";
 import "../../contracts/modules/SSVDAO.sol";
 import "../../contracts/modules/SSVOperators.sol";
+import "../../contracts/modules/SSVValidators.sol";
 import "../../contracts/test/mocks/MockToken.sol";
 import "./SSVStakingEchidna.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -95,7 +97,38 @@ contract OperatorUser {
     }
 }
 
-contract SSVAccountingEchidna is SSVClusters, SSVOperators(0), SSVDAO {
+contract ValidatorUser {
+    ISSVValidators public validators;
+
+    constructor(ISSVValidators validators_) {
+        validators = validators_;
+    }
+
+    receive() external payable {}
+
+    function register(
+        bytes calldata publicKey,
+        uint64[] calldata operatorIds,
+        bytes calldata sharesData,
+        ISSVNetworkCore.Cluster memory cluster
+    ) external payable {
+        validators.registerValidator{value: msg.value}(publicKey, operatorIds, sharesData, cluster);
+    }
+
+    function remove(
+        bytes calldata publicKey,
+        uint64[] calldata operatorIds,
+        ISSVNetworkCore.Cluster memory cluster
+    ) external {
+        validators.removeValidator(publicKey, operatorIds, cluster);
+    }
+
+    function exit(bytes calldata publicKey, uint64[] calldata operatorIds) external {
+        validators.exitValidator(publicKey, operatorIds);
+    }
+}
+
+contract SSVAccountingEchidna is SSVClusters, SSVOperators(0), SSVDAO, SSVValidators {
     using ClusterLib for ISSVNetworkCore.Cluster;
     using Counters for Counters.Counter;
     using ProtocolLib for StorageProtocol;
@@ -104,6 +137,8 @@ contract SSVAccountingEchidna is SSVClusters, SSVOperators(0), SSVDAO {
 
     uint8 private constant MAX_ETH_CLUSTERS = 6;
     uint8 private constant MAX_SSV_CLUSTERS = 6;
+    uint8 private constant MAX_LIFECYCLE_VALIDATORS = 24;
+    uint8 private constant LIFECYCLE_OPERATORS_KEY = 2;
     uint32 private constant MAX_ADVANCE_BLOCKS = 8;
     PackedETH private constant DEFAULT_OPERATOR_ETH_FEE = PackedETH.wrap(1);
     PackedSSV private constant DEFAULT_OPERATOR_SSV_FEE = PackedSSV.wrap(1);
@@ -121,6 +156,8 @@ contract SSVAccountingEchidna is SSVClusters, SSVOperators(0), SSVDAO {
     OperatorUser private opOwner1;
     OperatorUser private opOwner2;
     OperatorUser private opOwner3;
+    ValidatorUser private validatorOwner;
+    ValidatorUser private validatorAttacker;
 
     uint64 private op1;
     uint64 private op2;
@@ -151,6 +188,20 @@ contract SSVAccountingEchidna is SSVClusters, SSVOperators(0), SSVDAO {
     bytes32[] private migratedClusterIds;
     mapping(bytes32 => bool) private migratedSet;
     bool private ssvAccrualCorrupted;
+    bytes32 private lifecycleClusterId;
+    bool private lifecycleClusterInitialized;
+    bool private lifecycleStateViolation;
+    bool private lifecycleUnauthorizedSucceeded;
+
+    struct LifecycleValidatorRecord {
+        bytes publicKey;
+        bool active;
+    }
+
+    uint256[] private lifecycleValidatorIds;
+    mapping(uint256 => LifecycleValidatorRecord) private lifecycleValidators;
+    mapping(bytes32 => uint256) private lifecycleValidatorKeyToId;
+    uint256 private nextLifecycleValidatorId;
 
     constructor() SSVDAO(address(new CSSVTokenMock(address(this)))) {
         token = new MockToken();
@@ -158,6 +209,7 @@ contract SSVAccountingEchidna is SSVClusters, SSVOperators(0), SSVDAO {
 
         ISSVClusters clustersSelf = ISSVClusters(address(this));
         ISSVOperators operatorsSelf = ISSVOperators(address(this));
+        ISSVValidators validatorsSelf = ISSVValidators(address(this));
 
         owner1 = new ClusterUser(clustersSelf);
         owner2 = new ClusterUser(clustersSelf);
@@ -166,6 +218,8 @@ contract SSVAccountingEchidna is SSVClusters, SSVOperators(0), SSVDAO {
         opOwner1 = new OperatorUser(operatorsSelf);
         opOwner2 = new OperatorUser(operatorsSelf);
         opOwner3 = new OperatorUser(operatorsSelf);
+        validatorOwner = new ValidatorUser(validatorsSelf);
+        validatorAttacker = new ValidatorUser(validatorsSelf);
 
         _initProtocolDefaults();
         _initOperators();
@@ -251,6 +305,201 @@ contract SSVAccountingEchidna is SSVClusters, SSVOperators(0), SSVDAO {
             exists: true
         });
         ssvClusterIds.push(clusterId);
+    }
+
+    function action_register_validator_lifecycle(uint256 seed) external {
+        _settleTime();
+
+        if (lifecycleValidatorIds.length >= MAX_LIFECYCLE_VALIDATORS) return;
+
+        uint64[] memory operatorIdsLocal = _operatorIdsForKey(LIFECYCLE_OPERATORS_KEY);
+        bytes32 clusterId = _lifecycleClusterHash(operatorIdsLocal);
+        ClusterRecord storage record = ethClusters[clusterId];
+
+        ISSVNetworkCore.Cluster memory cluster = record.exists
+            ? record.cluster
+            : ISSVNetworkCore.Cluster({
+                validatorCount: 0,
+                networkFeeIndex: 0,
+                index: 0,
+                active: true,
+                balance: 0
+            });
+
+        bytes memory publicKey = _makePublicKey(seed);
+        bytes32 validatorKey = keccak256(abi.encodePacked(publicKey, address(validatorOwner)));
+        bytes memory shares = _makeShares(seed);
+        uint256 amount = _boundAmount(seed >> 8, unallocatedEth);
+
+        if (lifecycleValidatorKeyToId[validatorKey] != 0) {
+            try validatorOwner.register{value: amount}(publicKey, operatorIdsLocal, shares, cluster) {
+                lifecycleStateViolation = true;
+            } catch {}
+            return;
+        }
+
+        StorageData storage s = SSVStorage.load();
+        StorageProtocol storage sp = SSVStorageProtocol.load();
+        uint32 daoBefore = sp.ethDaoValidatorCount;
+        uint32 op1Before = s.operators[op1].ethValidatorCount;
+        uint32 op2Before = s.operators[op2].ethValidatorCount;
+        uint32 op3Before = s.operators[op3].ethValidatorCount;
+
+        try validatorOwner.register{value: amount}(publicKey, operatorIdsLocal, shares, cluster) {
+            ISSVNetworkCore.Cluster memory nextCluster = cluster;
+            nextCluster.balance += amount;
+            uint64 clusterIndex = _currentClusterIndexEth(operatorIdsLocal);
+            uint64 networkFeeIndex = sp.currentNetworkFeeIndex();
+            nextCluster.updateClusterData(clusterId, clusterIndex, networkFeeIndex);
+            nextCluster.validatorCount += 1;
+            nextCluster.active = true;
+
+            record.cluster = nextCluster;
+            record.owner = address(validatorOwner);
+            record.operatorsKey = LIFECYCLE_OPERATORS_KEY;
+            record.exists = true;
+
+            lifecycleClusterInitialized = true;
+            lifecycleClusterId = clusterId;
+
+            if (amount != 0) {
+                unallocatedEth -= amount;
+            }
+
+            nextLifecycleValidatorId += 1;
+            lifecycleValidators[nextLifecycleValidatorId] = LifecycleValidatorRecord({
+                publicKey: publicKey,
+                active: true
+            });
+            lifecycleValidatorIds.push(nextLifecycleValidatorId);
+            lifecycleValidatorKeyToId[validatorKey] = nextLifecycleValidatorId;
+
+            if (sp.ethDaoValidatorCount != daoBefore + 1) {
+                lifecycleStateViolation = true;
+            }
+            if (
+                s.operators[op1].ethValidatorCount != op1Before + 1 ||
+                s.operators[op2].ethValidatorCount != op2Before + 1 ||
+                s.operators[op3].ethValidatorCount != op3Before + 1
+            ) {
+                lifecycleStateViolation = true;
+            }
+        } catch {}
+    }
+
+    function action_remove_validator_lifecycle(uint256 seed) external {
+        _settleTime();
+
+        uint256 validatorId = _pickActiveLifecycleValidatorId(seed);
+        if (validatorId == 0 || !lifecycleClusterInitialized) return;
+
+        ClusterRecord storage record = ethClusters[lifecycleClusterId];
+        if (!record.exists) return;
+
+        uint64[] memory operatorIdsLocal = _operatorIdsForKey(LIFECYCLE_OPERATORS_KEY);
+        bytes memory publicKey = lifecycleValidators[validatorId].publicKey;
+        ISSVNetworkCore.Cluster memory cluster = record.cluster;
+
+        StorageData storage s = SSVStorage.load();
+        StorageProtocol storage sp = SSVStorageProtocol.load();
+        uint32 daoBefore = sp.ethDaoValidatorCount;
+        uint32 op1Before = s.operators[op1].ethValidatorCount;
+        uint32 op2Before = s.operators[op2].ethValidatorCount;
+        uint32 op3Before = s.operators[op3].ethValidatorCount;
+
+        try validatorOwner.remove(publicKey, operatorIdsLocal, cluster) {
+            ISSVNetworkCore.Cluster memory nextCluster = cluster;
+            if (nextCluster.active) {
+                uint64 clusterIndex = _currentClusterIndexEth(operatorIdsLocal);
+                uint64 networkFeeIndex = sp.currentNetworkFeeIndex();
+                nextCluster.updateClusterData(lifecycleClusterId, clusterIndex, networkFeeIndex);
+            }
+            if (nextCluster.validatorCount == 0) {
+                lifecycleStateViolation = true;
+                return;
+            }
+            nextCluster.validatorCount -= 1;
+            record.cluster = nextCluster;
+
+            lifecycleValidators[validatorId].active = false;
+            bytes32 validatorKey = keccak256(abi.encodePacked(publicKey, address(validatorOwner)));
+            if (lifecycleValidatorKeyToId[validatorKey] == validatorId) {
+                lifecycleValidatorKeyToId[validatorKey] = 0;
+            }
+
+            if (daoBefore == 0 || sp.ethDaoValidatorCount != daoBefore - 1) {
+                lifecycleStateViolation = true;
+            }
+            if (
+                op1Before == 0 ||
+                op2Before == 0 ||
+                op3Before == 0 ||
+                s.operators[op1].ethValidatorCount != op1Before - 1 ||
+                s.operators[op2].ethValidatorCount != op2Before - 1 ||
+                s.operators[op3].ethValidatorCount != op3Before - 1
+            ) {
+                lifecycleStateViolation = true;
+            }
+        } catch {}
+    }
+
+    function action_exit_validator_lifecycle(uint256 seed) external {
+        _settleTime();
+
+        uint256 validatorId = _pickActiveLifecycleValidatorId(seed);
+        if (validatorId == 0) return;
+
+        uint64[] memory operatorIdsLocal = _operatorIdsForKey(LIFECYCLE_OPERATORS_KEY);
+        bytes memory publicKey = lifecycleValidators[validatorId].publicKey;
+
+        StorageData storage s = SSVStorage.load();
+        StorageProtocol storage sp = SSVStorageProtocol.load();
+        uint32 daoBefore = sp.ethDaoValidatorCount;
+        uint32 op1Before = s.operators[op1].ethValidatorCount;
+        uint32 op2Before = s.operators[op2].ethValidatorCount;
+        uint32 op3Before = s.operators[op3].ethValidatorCount;
+
+        try validatorOwner.exit(publicKey, operatorIdsLocal) {
+            if (sp.ethDaoValidatorCount != daoBefore) {
+                lifecycleStateViolation = true;
+            }
+            if (
+                s.operators[op1].ethValidatorCount != op1Before ||
+                s.operators[op2].ethValidatorCount != op2Before ||
+                s.operators[op3].ethValidatorCount != op3Before
+            ) {
+                lifecycleStateViolation = true;
+            }
+        } catch {}
+    }
+
+    function action_remove_validator_unauthorized(uint256 seed) external {
+        _settleTime();
+
+        uint256 validatorId = _pickActiveLifecycleValidatorId(seed);
+        if (validatorId == 0 || !lifecycleClusterInitialized) return;
+
+        ClusterRecord storage record = ethClusters[lifecycleClusterId];
+        if (!record.exists) return;
+
+        uint64[] memory operatorIdsLocal = _operatorIdsForKey(LIFECYCLE_OPERATORS_KEY);
+        bytes memory publicKey = lifecycleValidators[validatorId].publicKey;
+        try validatorAttacker.remove(publicKey, operatorIdsLocal, record.cluster) {
+            lifecycleUnauthorizedSucceeded = true;
+        } catch {}
+    }
+
+    function action_exit_validator_unauthorized(uint256 seed) external {
+        _settleTime();
+
+        uint256 validatorId = _pickActiveLifecycleValidatorId(seed);
+        if (validatorId == 0) return;
+
+        uint64[] memory operatorIdsLocal = _operatorIdsForKey(LIFECYCLE_OPERATORS_KEY);
+        bytes memory publicKey = lifecycleValidators[validatorId].publicKey;
+        try validatorAttacker.exit(publicKey, operatorIdsLocal) {
+            lifecycleUnauthorizedSucceeded = true;
+        } catch {}
     }
 
     function action_reactivate_eth(uint256 seed) external {
@@ -566,11 +815,29 @@ contract SSVAccountingEchidna is SSVClusters, SSVOperators(0), SSVDAO {
         uint64[] memory operatorIdsLocal = _operatorIdsForKey(record.operatorsKey);
         ClusterUser clusterOwner = _clusterOwnerUser(record.owner);
         ISSVNetworkCore.Cluster memory cluster = record.cluster;
+        StorageProtocol storage sp = SSVStorageProtocol.load();
 
         uint256 ownerSsvBefore = token.balanceOf(record.owner);
         try clusterOwner.migrate{value: amount}(operatorIdsLocal, cluster) {
-            migratedClusterIds.push(clusterId);
-            migratedSet[clusterId] = true;
+            ISSVNetworkCore.Cluster memory migratedCluster = cluster;
+            migratedCluster.balance = amount;
+            migratedCluster.active = true;
+            migratedCluster.index = _currentClusterIndexEth(operatorIdsLocal);
+            migratedCluster.networkFeeIndex = sp.currentNetworkFeeIndex();
+
+            ClusterRecord storage ethRecord = ethClusters[clusterId];
+            if (!ethRecord.exists) {
+                ethClusterIds.push(clusterId);
+            }
+            ethRecord.cluster = migratedCluster;
+            ethRecord.owner = record.owner;
+            ethRecord.operatorsKey = record.operatorsKey;
+            ethRecord.exists = true;
+
+            if (!migratedSet[clusterId]) {
+                migratedSet[clusterId] = true;
+                migratedClusterIds.push(clusterId);
+            }
             record.exists = false;
             unallocatedEth -= amount;
             totalSsvOut += token.balanceOf(record.owner) - ownerSsvBefore;
@@ -689,6 +956,10 @@ contract SSVAccountingEchidna is SSVClusters, SSVOperators(0), SSVDAO {
         return true;
     }
 
+    function echidna_validator_lifecycle_consistent() external view returns (bool) {
+        return !lifecycleStateViolation && !lifecycleUnauthorizedSucceeded;
+    }
+
     function echidna_migration_one_way() external view returns (bool) {
         StorageData storage s = SSVStorage.load();
         for (uint256 i; i < migratedClusterIds.length; ++i) {
@@ -722,14 +993,32 @@ contract SSVAccountingEchidna is SSVClusters, SSVOperators(0), SSVDAO {
             expected += vUnits;
         }
 
+        if (lifecycleClusterInitialized && !_isTrackedEthCluster(lifecycleClusterId)) {
+            ClusterRecord storage lifecycleRecord = ethClusters[lifecycleClusterId];
+            if (lifecycleRecord.exists && lifecycleRecord.cluster.active) {
+                uint64 vUnits = seb.clusterEB[lifecycleClusterId].vUnits;
+                if (vUnits == 0) {
+                    vUnits = uint64(lifecycleRecord.cluster.validatorCount) * BPS_DENOMINATOR;
+                }
+                expected += vUnits;
+            }
+        }
+
         // Migrated clusters are no longer in ethClusterIds but their validators
         // are counted in daoTotalEthVUnits after migrateClusterToETH calls updateDAO.
         uint256 migratedCount = migratedClusterIds.length;
         for (uint256 i; i < migratedCount; ++i) {
             bytes32 cId = migratedClusterIds[i];
+            if (_isTrackedEthCluster(cId)) continue;
+
             uint64 vUnits = seb.clusterEB[cId].vUnits;
             if (vUnits == 0) {
-                vUnits = uint64(ssvClusters[cId].cluster.validatorCount) * BPS_DENOMINATOR;
+                ClusterRecord storage record = ethClusters[cId];
+                if (record.exists) {
+                    vUnits = uint64(record.cluster.validatorCount) * BPS_DENOMINATOR;
+                } else {
+                    vUnits = uint64(ssvClusters[cId].cluster.validatorCount) * BPS_DENOMINATOR;
+                }
             }
             expected += vUnits;
         }
@@ -828,6 +1117,14 @@ contract SSVAccountingEchidna is SSVClusters, SSVOperators(0), SSVDAO {
         return false;
     }
 
+    function _isTrackedEthCluster(bytes32 clusterId) internal view returns (bool) {
+        uint256 count = ethClusterIds.length;
+        for (uint256 i; i < count; ++i) {
+            if (ethClusterIds[i] == clusterId) return true;
+        }
+        return false;
+    }
+
     function _expectedEthDaoValidatorCount() internal view returns (uint32 expected) {
         for (uint256 i; i < ethClusterIds.length; ++i) {
             ClusterRecord storage record = ethClusters[ethClusterIds[i]];
@@ -835,8 +1132,24 @@ contract SSVAccountingEchidna is SSVClusters, SSVOperators(0), SSVDAO {
             expected += record.cluster.validatorCount;
         }
 
+        if (lifecycleClusterInitialized && !_isTrackedEthCluster(lifecycleClusterId)) {
+            ClusterRecord storage lifecycleRecord = ethClusters[lifecycleClusterId];
+            if (lifecycleRecord.exists && lifecycleRecord.cluster.active) {
+                expected += lifecycleRecord.cluster.validatorCount;
+            }
+        }
+
         for (uint256 i; i < migratedClusterIds.length; ++i) {
-            expected += ssvClusters[migratedClusterIds[i]].cluster.validatorCount;
+            bytes32 clusterId = migratedClusterIds[i];
+            if (_isTrackedEthCluster(clusterId)) continue;
+            ClusterRecord storage record = ethClusters[clusterId];
+            if (record.exists) {
+                if (record.cluster.active) {
+                    expected += record.cluster.validatorCount;
+                }
+                continue;
+            }
+            expected += ssvClusters[clusterId].cluster.validatorCount;
         }
     }
 
@@ -855,10 +1168,29 @@ contract SSVAccountingEchidna is SSVClusters, SSVOperators(0), SSVDAO {
             expectedEth += record.cluster.validatorCount;
         }
 
+        if (lifecycleClusterInitialized && !_isTrackedEthCluster(lifecycleClusterId)) {
+            ClusterRecord storage lifecycleRecord = ethClusters[lifecycleClusterId];
+            if (
+                lifecycleRecord.exists &&
+                lifecycleRecord.cluster.active &&
+                _clusterContainsOperator(lifecycleRecord.operatorsKey, operatorId)
+            ) {
+                expectedEth += lifecycleRecord.cluster.validatorCount;
+            }
+        }
+
         for (uint256 i; i < migratedClusterIds.length; ++i) {
-            ClusterRecord storage record = ssvClusters[migratedClusterIds[i]];
-            if (!_clusterContainsOperator(record.operatorsKey, operatorId)) continue;
-            expectedEth += record.cluster.validatorCount;
+            bytes32 clusterId = migratedClusterIds[i];
+            if (_isTrackedEthCluster(clusterId)) continue;
+            ClusterRecord storage ethRecord = ethClusters[clusterId];
+            if (ethRecord.exists) {
+                if (!_clusterContainsOperator(ethRecord.operatorsKey, operatorId)) continue;
+                expectedEth += ethRecord.cluster.validatorCount;
+                continue;
+            }
+            ClusterRecord storage ssvRecord = ssvClusters[clusterId];
+            if (!_clusterContainsOperator(ssvRecord.operatorsKey, operatorId)) continue;
+            expectedEth += ssvRecord.cluster.validatorCount;
         }
     }
 
@@ -883,6 +1215,40 @@ contract SSVAccountingEchidna is SSVClusters, SSVOperators(0), SSVDAO {
     function _boundAmount(uint256 seed, uint256 maxValue) internal pure returns (uint256) {
         if (maxValue == 0) return 0;
         return seed % (maxValue + 1);
+    }
+
+    function _lifecycleClusterHash(uint64[] memory operatorIdsLocal) internal view returns (bytes32) {
+        return keccak256(abi.encodePacked(address(validatorOwner), operatorIdsLocal));
+    }
+
+    function _pickActiveLifecycleValidatorId(uint256 seed) internal view returns (uint256) {
+        uint256 count = lifecycleValidatorIds.length;
+        if (count == 0) return 0;
+        uint256 start = seed % count;
+        for (uint256 i; i < count; ++i) {
+            uint256 id = lifecycleValidatorIds[(start + i) % count];
+            if (lifecycleValidators[id].active) return id;
+        }
+        return 0;
+    }
+
+    function _makePublicKey(uint256 seed) internal pure returns (bytes memory) {
+        bytes32 h1 = keccak256(abi.encodePacked(seed));
+        bytes32 h2 = keccak256(abi.encodePacked(seed, h1));
+        bytes memory b1 = abi.encodePacked(h1);
+        bytes memory b2 = abi.encodePacked(h2);
+        bytes memory pk = new bytes(48);
+        for (uint256 i; i < 32; ++i) {
+            pk[i] = b1[i];
+        }
+        for (uint256 i; i < 16; ++i) {
+            pk[32 + i] = b2[i];
+        }
+        return pk;
+    }
+
+    function _makeShares(uint256 seed) internal pure returns (bytes memory) {
+        return abi.encodePacked(uint64(seed));
     }
 
     function _currentClusterIndexEth(uint64[] memory operatorIdsLocal) internal view returns (uint64) {

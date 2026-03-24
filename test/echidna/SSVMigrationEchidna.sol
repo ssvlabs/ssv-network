@@ -176,14 +176,7 @@ contract SSVMigrationEchidna is SSVClusters, SSVOperators(0), SSVDAO {
         expected.updateBalanceSSV(clusterIndexSSV, currentNfiSSV);
         uint256 expectedRefund = expected.balance;
 
-        uint64 burnRateETH = _predictedMigrationBurnRateEth();
-        uint64 vUnits = ClusterLib.getVUnits(ssvClusterId, clusterBefore.validatorCount);
-        uint256 thresholdUnits = (uint256(sp.minimumBlocksBeforeLiquidation) *
-            uint256(burnRateETH + PackedETH.unwrap(sp.ethNetworkFee)) *
-            uint256(vUnits)) / BPS_DENOMINATOR;
-        uint256 minRequired = thresholdUnits * ETH_DEDUCTED_DIGITS;
-        uint256 collateral = PackedETHLib.unpack(sp.minimumLiquidationCollateral);
-        if (collateral > minRequired) minRequired = collateral;
+        uint256 minRequired = _migrationMinRequired(clusterBefore, sp);
 
         if (unallocatedEth <= minRequired) return;
         uint256 amount = seed % (unallocatedEth + 1);
@@ -232,6 +225,25 @@ contract SSVMigrationEchidna is SSVClusters, SSVOperators(0), SSVDAO {
             ssvRecord.exists = false;
             unallocatedEth -= amount;
         } catch {}
+    }
+
+    /// @notice Ensures migration preconditions are reachable and immediately attempts migration.
+    function action_prepare_migration_and_attempt(uint256 seed) external payable {
+        if (!ssvRecord.exists) return;
+        if (msg.value != 0) {
+            unallocatedEth += msg.value;
+        }
+
+        StorageProtocol storage sp = SSVStorageProtocol.load();
+        uint256 minRequired = _migrationMinRequired(ssvRecord.cluster, sp);
+        if (unallocatedEth <= minRequired) {
+            uint256 required = minRequired + 1 - unallocatedEth;
+            uint256 freeBalance = address(this).balance > unallocatedEth ? address(this).balance - unallocatedEth : 0;
+            if (required > freeBalance) return;
+            unallocatedEth += required;
+        }
+
+        this.action_migrate_ssv_to_eth(seed);
     }
 
     function echidna_migration_removed_refund_exact() external view returns (bool) {
@@ -380,6 +392,23 @@ contract SSVMigrationEchidna is SSVClusters, SSVOperators(0), SSVDAO {
             if (operator.snapshot.block == 0 && operator.ethSnapshot.block == 0) continue;
             burnRateETH += PackedETH.unwrap(operator.ethFee);
         }
+    }
+
+    function _migrationMinRequired(ISSVNetworkCore.Cluster memory clusterBefore, StorageProtocol storage sp)
+        internal
+        view
+        returns (uint256 minRequired)
+    {
+        uint64 burnRateETH = _predictedMigrationBurnRateEth();
+        uint64 vUnits = ClusterLib.getVUnits(ssvClusterId, clusterBefore.validatorCount);
+        uint256 thresholdUnits = (
+            uint256(sp.minimumBlocksBeforeLiquidation) *
+            uint256(burnRateETH + PackedETH.unwrap(sp.ethNetworkFee)) *
+            uint256(vUnits)
+        ) / BPS_DENOMINATOR;
+        minRequired = thresholdUnits * ETH_DEDUCTED_DIGITS;
+        uint256 collateral = PackedETHLib.unpack(sp.minimumLiquidationCollateral);
+        if (collateral > minRequired) minRequired = collateral;
     }
 
     function _settleSsvCluster() internal {
