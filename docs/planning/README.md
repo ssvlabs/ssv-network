@@ -7,7 +7,7 @@
 | Pre-work | Setup | 1 | ✅ Done |
 | W1 | Phase 1: Individual Module Scenarios (983 scenarios) | 13 | ✅ Done |
 | W2 | Phase 1b: Cross-Module Scenarios (410 scenarios) | 5 | ✅ Done |
-| W3 | Phase 1c: Removed Operator + Invariants | 9 | ⏳ Pending |
+| W3 | Phase 1c: Removed Operator + Invariants (365 scenarios) | 9 | ✅ Done |
 | W4 | Phase 2: Coverage Verification | 10 | ⏳ Pending |
 | — | Phase 3: Gap Analysis | 1 | ⏳ Pending |
 | W5 | Phase 4: RM-* Tests | 9 | ⏳ Pending |
@@ -37,13 +37,13 @@
 | scenarios-xm-lq-react-chains.md | XL | W2-C | 102 | ✅ |
 | scenarios-xm-migration-staking.md | XG | W2-D | 53 | ✅ |
 | scenarios-xm-full-lifecycle.md | XF | W2-E | 97 | ✅ |
-| scenarios-rm-updateOperatorVUnits.md | RM1 | W3-A | 20-30 | ⏳ |
-| scenarios-rm-executeLiquidation.md | RM2 | W3-B | 20-30 | ⏳ |
-| scenarios-rm-bulkRemoveValidator.md | RM3 | W3-C | 20-30 | ⏳ |
-| scenarios-rm-migrateClusterToETH.md | RM4 | W3-D | 20-30 | ⏳ |
-| scenarios-rm-reactivation.md | RM5 | W3-E | 15-20 | ⏳ |
-| scenarios-rm-migration-init.md | RM6 | W3-F | 15-20 | ⏳ |
-| scenarios-rm-auto-liquidation.md | RMA | W3-G | 20-30 | ⏳ |
-| scenarios-rm-chains.md | RMC | W3-H | 30-50 | ⏳ |
-| scenarios-invariants.md | INV | W3-I | 30-50 | ⏳ |
+| scenarios-rm-updateOperatorVUnits.md | RM1 | W3-A | 28 | ✅ |
+| scenarios-rm-executeLiquidation.md | RM2 | W3-B | 32 | ✅ |
+| scenarios-rm-bulkRemoveValidator.md | RM3 | W3-C | 27 | ✅ |
+| scenarios-rm-migrateClusterToETH.md | RM4 | W3-D | 27 | ✅ |
+| scenarios-rm-reactivation.md | RM5 | W3-E | 35 | ✅ |
+| scenarios-rm-migration-init.md | RM6 | W3-F | 21 | ✅ |
+| scenarios-rm-auto-liquidation.md | RMA | W3-G | 53 | ✅ |
+| scenarios-rm-chains.md | RMC | W3-H | 56 | ✅ |
+| scenarios-invariants.md | INV | W3-I | 86 | ✅ |
 | GAP-ANALYSIS.md | — | Phase 3 | — | ⏳ |
