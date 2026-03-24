@@ -1,7 +1,7 @@
 # Echidna Invariant Coverage Report
 
 **Generated:** 2026-03-19
-**Last updated:** 2026-03-23
+**Last updated:** 2026-03-24
 **Sources:** SPEC.md, FLOWS.md, MAINNET-READINESS.md, echidna test files, unit/integration tests
 
 ---
@@ -264,9 +264,9 @@ Some gaps above ARE tested in the JS test suite but NOT under fuzzing:
 7. **B9** - Add `echidna_fee_settle_before_change` to SSVOperatorsEchidna `[DONE 2026-03-23]`
 
 ### Phase 3: Staking Reward Edge Cases (HIGH impact, moderate effort)
-8. **C8** - Add `echidna_unstake_stops_accrual` to SSVStakingEchidna
-9. **C9** - Add `echidna_dust_forfeiture_correct` to SSVStakingEchidna
-10. **C10** - Add `echidna_zero_cssv_no_accrual` to SSVStakingEchidna
+8. **C8** - Add `echidna_unstake_stops_accrual` to SSVStakingEchidna `[DONE 2026-03-24]`
+9. **C9** - Add `echidna_dust_forfeiture_correct` to SSVStakingEchidna `[DONE 2026-03-24]`
+10. **C10** - Add `echidna_zero_cssv_no_accrual` to SSVStakingEchidna `[DONE 2026-03-24]`
 
 ### Phase 4: Cluster Lifecycle Edges (MEDIUM impact, lower effort)
 11. **B11** - Add `echidna_cluster_balance_non_negative` to SSVClustersEchidna
@@ -292,7 +292,7 @@ Some gaps above ARE tested in the JS test suite but NOT under fuzzing:
 |------|-------|--------|
 | Phase 1 | Global accounting invariants (`A3`, `A9`, `A10`, `E3`) | COMPLETED |
 | Phase 2 | Fee calculation correctness (`B7`, `B8`, `B9`) | COMPLETED |
-| Phase 3 | Staking reward edge cases (`C8`, `C9`, `C10`) | NOT STARTED |
+| Phase 3 | Staking reward edge cases (`C8`, `C9`, `C10`) | COMPLETED |
 | Phase 4 | Cluster lifecycle edges (`B11`, `C11`, `D3`, `D4`, `D6`) | NOT STARTED |
 | Phase 5 | Operator lifecycle (`G1`, `G2`, `G6`) | NOT STARTED |
 | Phase 6 | Token & oracle edges (`C12`, `F9`, `F10`, `F11`) | NOT STARTED |
@@ -340,3 +340,20 @@ Some gaps above ARE tested in the JS test suite but NOT under fuzzing:
 | `SSVLegacyClustersEchidna` with seed `985768268619296310` | PASS |
 | `SSVOperatorsEchidna` with seed `8525641213984558505` | PASS |
 | `SSVOperatorsEchidna` with seed `985768268619296310` | PASS |
+
+### Phase 3 Completion
+
+| Gap ID | Invariant | Harness | Status |
+|-------|-----------|---------|--------|
+| C8 | `echidna_unstake_stops_accrual` | `SSVStakingEchidna.sol` | COMPLETED |
+| C9 | `echidna_dust_forfeiture_correct` | `SSVStakingEchidna.sol` | COMPLETED |
+| C10 | `echidna_zero_cssv_no_accrual` | `SSVStakingEchidna.sol` | COMPLETED |
+
+### Phase 3 Validation
+
+| Check | Result |
+|------|--------|
+| `npx hardhat compile` | PASS |
+| `echidna test/echidna/SSVStakingEchidna.sol --contract SSVStakingEchidna --config test/echidna/echidna.yaml` | PASS |
+| `SSVStakingEchidna` with seed `8525641213984558505` | PASS |
+| `SSVStakingEchidna` with seed `985768268619296310` | PASS |
