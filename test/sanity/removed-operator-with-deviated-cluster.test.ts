@@ -15,6 +15,7 @@ import {
 } from "../common/helpers.ts";
 import { DEFAULT_SHARES, DEFAULT_ETH_REGISTER_VALUE, BPS_DENOMINATOR } from "../common/constants.ts";
 import { Events } from "../common/events.ts";
+import { Errors } from "../common/errors.ts";
 
 const OPERATOR_FEE = 10_000_000_000n;
 const OPERATOR_COUNTS = [4, 7, 10, 13];
@@ -513,6 +514,401 @@ describe("'removeOperator()' deletes operatorEthVUnits and does not affect clust
         expect(await clusters.getOperatorEthVUnits(opId)).to.equal(0n);
       }
       expect(await clusters.getDaoTotalEthVUnits()).to.equal(BPS_DENOMINATOR);
+    });
+
+    it("R-11: liquidation does not revert after removing 2 operators from explicit EB cluster", async function () {
+      const { clusters, operatorIds } = await loadFixtureForCount();
+
+      const networkFeeRate = 100_000n;
+      await clusters.mockEthNetworkFee(networkFeeRate);
+      await clusters.mockMinimumBlocksBeforeLiquidation(10n);
+      await clusters.mockMinimumLiquidationCollateral(0n);
+
+      const clusterId = computeClusterId(clusterOwner.address, operatorIds);
+
+      const depositValue = 5_000_000_000_000n;
+      const regTx = await clusters.registerValidator(
+        makePublicKey(1),
+        operatorIds,
+        DEFAULT_SHARES,
+        createCluster(),
+        { value: depositValue },
+      );
+      const regReceipt = await regTx.wait();
+      const clusterAfterReg = parseClusterFromEvent(clusters, regReceipt, Events.VALIDATOR_ADDED);
+
+      const root1 = computeEBRoot(clusterId, 64);
+      await clusters.mockSetEBRoot(1, root1);
+
+      const ebTx = await clusters.updateClusterBalance(
+        1, clusterOwner.address, operatorIds, clusterAfterReg, 64, [],
+      );
+      const clusterAfterEB = parseClusterFromEvent(clusters, await ebTx.wait(), Events.CLUSTER_BALANCE_UPDATED);
+
+      const expectedDeviation = 20000n - BPS_DENOMINATOR;
+      await assertOperatorVUnits(clusters, operatorIds, expectedDeviation, 20000n);
+      expect(await clusters.getDaoTotalEthVUnits()).to.equal(20000n);
+
+      // Remove 2 operators — larger underflow surface
+      const removedOp1 = operatorIds[0];
+      const removedOp2 = operatorIds[1];
+      await clusters.mockRemoveOperator(removedOp1);
+      await clusters.mockRemoveOperator(removedOp2);
+
+      expect(await clusters.getOperatorEthVUnits(removedOp1)).to.equal(0n);
+      expect(await clusters.getOperatorEthVUnits(removedOp2)).to.equal(0n);
+
+      await networkHelpers.mine(200);
+
+      await expect(
+        clusters.connect(liquidator).liquidate(clusterOwner.address, operatorIds, clusterAfterEB),
+      ).to.not.revert(connection.ethers);
+
+      // Both removed operators stay at 0, survivors clean up
+      expect(await clusters.getOperatorEthVUnits(removedOp1)).to.equal(0n);
+      expect(await clusters.getOperatorEthVUnits(removedOp2)).to.equal(0n);
+      for (const opId of operatorIds.slice(2)) {
+        expect(await clusters.getOperatorEthVUnits(opId)).to.equal(0n);
+      }
+      expect(await clusters.getDaoTotalEthVUnits()).to.equal(0n);
+    });
+
+    it("EC-03: maximum EB (2048) + removed operator + liquidate does not underflow", async function () {
+      const { clusters, operatorIds } = await loadFixtureForCount();
+
+      // Use high network fee but zero operator fee impact to isolate the deviation math
+      const networkFeeRate = 100_000n;
+      await clusters.mockEthNetworkFee(networkFeeRate);
+      await clusters.mockMinimumBlocksBeforeLiquidation(10n);
+      await clusters.mockMinimumLiquidationCollateral(0n);
+
+      const clusterId = computeClusterId(clusterOwner.address, operatorIds);
+
+      // Large deposit to survive EB=2048 burn rate (640000 vUnits × 64x fees)
+      const depositValue = 500_000_000_000_000n;
+      const regTx = await clusters.registerValidator(
+        makePublicKey(1),
+        operatorIds,
+        DEFAULT_SHARES,
+        createCluster(),
+        { value: depositValue },
+      );
+      const regReceipt = await regTx.wait();
+      const clusterAfterReg = parseClusterFromEvent(clusters, regReceipt, Events.VALIDATOR_ADDED);
+
+      // Maximum EB: 2048 ETH → 640,000 vUnits → deviation = 630,000 per operator
+      const root1 = computeEBRoot(clusterId, 2048);
+      await clusters.mockSetEBRoot(1, root1);
+
+      const ebTx = await clusters.updateClusterBalance(
+        1, clusterOwner.address, operatorIds, clusterAfterReg, 2048, [],
+      );
+      const ebReceipt = await ebTx.wait();
+
+      // Check if auto-liquidation happened (cluster may be insolvent at 64x burn rate)
+      let clusterAfterEB;
+      try {
+        clusterAfterEB = parseClusterFromEvent(clusters, ebReceipt, Events.CLUSTER_BALANCE_UPDATED);
+      } catch {
+        // Auto-liquidated during EB update — deviation was cleaned up in the same tx
+        clusterAfterEB = parseClusterFromEvent(clusters, ebReceipt, Events.CLUSTER_LIQUIDATED);
+        // Even if auto-liquidated, verify removed op invariant holds
+        const removedOperator = operatorIds[0];
+        await clusters.mockRemoveOperator(removedOperator);
+        expect(await clusters.getOperatorEthVUnits(removedOperator)).to.equal(0n);
+        expect(await clusters.getDaoTotalEthVUnits()).to.equal(0n);
+        return;
+      }
+
+      const maxVUnits = 640000n;
+      const maxDeviation = maxVUnits - BPS_DENOMINATOR;
+      expect(await clusters.getClusterVUnits(clusterId)).to.equal(maxVUnits);
+      expect(await clusters.getDaoTotalEthVUnits()).to.equal(maxVUnits);
+      // Check each operator individually to get better error messages
+      for (const opId of operatorIds) {
+        expect(await clusters.getOperatorEthVUnits(opId)).to.equal(maxDeviation);
+      }
+
+      const removedOperator = operatorIds[0];
+      await clusters.mockRemoveOperator(removedOperator);
+
+      expect(await clusters.getOperatorEthVUnits(removedOperator)).to.equal(0n);
+
+      await networkHelpers.mine(200);
+
+      // Liquidation must not underflow despite 630,000 deviation on dead slot
+      await expect(
+        clusters.connect(liquidator).liquidate(clusterOwner.address, operatorIds, clusterAfterEB),
+      ).to.not.revert(connection.ethers);
+
+      expect(await clusters.getOperatorEthVUnits(removedOperator)).to.equal(0n);
+      for (const opId of operatorIds.slice(1)) {
+        expect(await clusters.getOperatorEthVUnits(opId)).to.equal(0n);
+      }
+      expect(await clusters.getDaoTotalEthVUnits()).to.equal(0n);
+    });
+
+    it("RI-04: implicit EB cluster → remove operator → first oracle EB update skips dead operator", async function () {
+      const { clusters, operatorIds } = await loadFixtureForCount();
+
+      await clusters.mockEthNetworkFee(0n);
+      await clusters.mockMinimumBlocksBeforeLiquidation(10n);
+      await clusters.mockMinimumLiquidationCollateral(0n);
+
+      const clusterId = computeClusterId(clusterOwner.address, operatorIds);
+
+      // Register at implicit EB (no oracle update yet)
+      const clusterAfterReg = await registerAndParseCluster(clusters, operatorIds);
+
+      // All operators at 0 deviation (implicit EB)
+      for (const opId of operatorIds) {
+        expect(await clusters.getOperatorEthVUnits(opId)).to.equal(0n);
+      }
+      expect(await clusters.getDaoTotalEthVUnits()).to.equal(BPS_DENOMINATOR);
+
+      // Remove operator BEFORE any oracle update
+      const removedOperator = operatorIds[0];
+      await clusters.mockRemoveOperator(removedOperator);
+
+      // First oracle EB update — deviation write must skip removed operator
+      const root1 = computeEBRoot(clusterId, 64);
+      await clusters.mockSetEBRoot(1, root1);
+
+      await expect(
+        clusters.updateClusterBalance(1, clusterOwner.address, operatorIds, clusterAfterReg, 64, []),
+      ).to.not.revert(connection.ethers);
+
+      const expectedDeviation = 20000n - BPS_DENOMINATOR;
+      expect(await clusters.getOperatorEthVUnits(removedOperator)).to.equal(0n);
+      for (const opId of operatorIds.slice(1)) {
+        expect(await clusters.getOperatorEthVUnits(opId)).to.equal(expectedDeviation);
+      }
+      expect(await clusters.getClusterVUnits(clusterId)).to.equal(20000n);
+      expect(await clusters.getDaoTotalEthVUnits()).to.equal(20000n);
+    });
+
+    it("R-13: withdraw succeeds after operator removal on explicit EB cluster (balance settlement correctness)", async function () {
+      const { clusters, operatorIds } = await loadFixtureForCount();
+
+      await clusters.mockEthNetworkFee(0n);
+      await clusters.mockMinimumBlocksBeforeLiquidation(10n);
+      await clusters.mockMinimumLiquidationCollateral(0n);
+
+      const clusterId = computeClusterId(clusterOwner.address, operatorIds);
+
+      const clusterAfterReg = await registerAndParseCluster(clusters, operatorIds);
+
+      const root1 = computeEBRoot(clusterId, 64);
+      await clusters.mockSetEBRoot(1, root1);
+
+      const ebTx = await clusters.updateClusterBalance(
+        1, clusterOwner.address, operatorIds, clusterAfterReg, 64, [],
+      );
+      const clusterAfterEB = parseClusterFromEvent(clusters, await ebTx.wait(), Events.CLUSTER_BALANCE_UPDATED);
+
+      const removedOperator = operatorIds[0];
+      await clusters.mockRemoveOperator(removedOperator);
+
+      await networkHelpers.mine(50);
+
+      // Withdraw a small amount — triggers fee settlement + liquidation check with removed operator
+      const withdrawAmount = 100_000n;
+      const withdrawTx = await clusters.withdraw(operatorIds, withdrawAmount, clusterAfterEB);
+      const withdrawReceipt = await withdrawTx.wait();
+      const clusterAfterWithdraw = parseClusterFromEvent(clusters, withdrawReceipt, Events.CLUSTER_WITHDRAWN);
+
+      // Cluster still active after small withdrawal
+      expect(clusterAfterWithdraw.active).to.equal(true);
+      // Removed operator stays clean
+      expect(await clusters.getOperatorEthVUnits(removedOperator)).to.equal(0n);
+    });
+
+    it("R-11 variant: removing 2 operators + EB decrease does not underflow", async function () {
+      const { clusters, operatorIds } = await loadFixtureForCount();
+
+      await clusters.mockEthNetworkFee(0n);
+      await clusters.mockMinimumBlocksBeforeLiquidation(10n);
+      await clusters.mockMinimumLiquidationCollateral(0n);
+
+      const clusterId = computeClusterId(clusterOwner.address, operatorIds);
+
+      const clusterAfterReg = await registerAndParseCluster(clusters, operatorIds);
+
+      const root1 = computeEBRoot(clusterId, 64);
+      await clusters.mockSetEBRoot(1, root1);
+
+      const ebTx1 = await clusters.updateClusterBalance(
+        1, clusterOwner.address, operatorIds, clusterAfterReg, 64, [],
+      );
+      const clusterAfterEB64 = parseClusterFromEvent(clusters, await ebTx1.wait(), Events.CLUSTER_BALANCE_UPDATED);
+
+      expect(await clusters.getClusterVUnits(clusterId)).to.equal(20000n);
+
+      // Remove 2 operators
+      const removedOp1 = operatorIds[0];
+      const removedOp2 = operatorIds[1];
+      await clusters.mockRemoveOperator(removedOp1);
+      await clusters.mockRemoveOperator(removedOp2);
+
+      // EB decrease from 64 → 32: subtracts deviation from each active operator
+      const root2 = computeEBRoot(clusterId, 32);
+      await clusters.mockSetEBRoot(2, root2);
+
+      await expect(
+        clusters.updateClusterBalance(2, clusterOwner.address, operatorIds, clusterAfterEB64, 32, []),
+      ).to.not.revert(connection.ethers);
+
+      expect(await clusters.getOperatorEthVUnits(removedOp1)).to.equal(0n);
+      expect(await clusters.getOperatorEthVUnits(removedOp2)).to.equal(0n);
+      for (const opId of operatorIds.slice(2)) {
+        expect(await clusters.getOperatorEthVUnits(opId)).to.equal(0n);
+      }
+      expect(await clusters.getClusterVUnits(clusterId)).to.equal(BPS_DENOMINATOR);
+      expect(await clusters.getDaoTotalEthVUnits()).to.equal(BPS_DENOMINATOR);
+    });
+
+    it("R-07: registerValidator reverts with OperatorDoesNotExist after operator removal on explicit EB cluster", async function () {
+      const { clusters, operatorIds } = await loadFixtureForCount();
+
+      await clusters.mockEthNetworkFee(0n);
+      await clusters.mockMinimumBlocksBeforeLiquidation(10n);
+      await clusters.mockMinimumLiquidationCollateral(0n);
+
+      const clusterId = computeClusterId(clusterOwner.address, operatorIds);
+
+      const clusterAfterReg = await registerAndParseCluster(clusters, operatorIds);
+
+      // Set explicit EB=64
+      const root1 = computeEBRoot(clusterId, 64);
+      await clusters.mockSetEBRoot(1, root1);
+
+      const ebTx = await clusters.updateClusterBalance(
+        1, clusterOwner.address, operatorIds, clusterAfterReg, 64, [],
+      );
+      const clusterAfterEB = parseClusterFromEvent(clusters, await ebTx.wait(), Events.CLUSTER_BALANCE_UPDATED);
+
+      expect(await clusters.getClusterVUnits(clusterId)).to.equal(20000n);
+
+      const removedOperator = operatorIds[0];
+      await clusters.mockRemoveOperator(removedOperator);
+
+      // Attempting to register a second validator must revert — removed operator no longer exists
+      await expect(
+        clusters.registerValidator(
+          makePublicKey(99),
+          operatorIds,
+          DEFAULT_SHARES,
+          clusterAfterEB,
+          { value: DEFAULT_ETH_REGISTER_VALUE },
+        ),
+      ).to.be.revertedWithCustomError(clusters, Errors.OPERATOR_DOES_NOT_EXIST);
+
+      // vUnits unchanged — revert was atomic
+      expect(await clusters.getOperatorEthVUnits(removedOperator)).to.equal(0n);
+      expect(await clusters.getClusterVUnits(clusterId)).to.equal(20000n);
+    });
+
+    it("R-10: explicit EB=32 (zero deviation) + removed operator + self-liquidate does not revert", async function () {
+      const { clusters, operatorIds } = await loadFixtureForCount();
+
+      const networkFeeRate = 100_000n;
+      await clusters.mockEthNetworkFee(networkFeeRate);
+      await clusters.mockMinimumBlocksBeforeLiquidation(10n);
+      await clusters.mockMinimumLiquidationCollateral(0n);
+
+      const clusterId = computeClusterId(clusterOwner.address, operatorIds);
+
+      const depositValue = 5_000_000_000_000n;
+      const regTx = await clusters.registerValidator(
+        makePublicKey(1),
+        operatorIds,
+        DEFAULT_SHARES,
+        createCluster(),
+        { value: depositValue },
+      );
+      const regReceipt = await regTx.wait();
+      const clusterAfterReg = parseClusterFromEvent(clusters, regReceipt, Events.VALIDATOR_ADDED);
+
+      // Explicit EB=32 — same as default, so deviation = 0 per operator
+      const root1 = computeEBRoot(clusterId, 32);
+      await clusters.mockSetEBRoot(1, root1);
+
+      const ebTx = await clusters.updateClusterBalance(
+        1, clusterOwner.address, operatorIds, clusterAfterReg, 32, [],
+      );
+      const clusterAfterEB = parseClusterFromEvent(clusters, await ebTx.wait(), Events.CLUSTER_BALANCE_UPDATED);
+
+      // Explicit EB=32 means vUnits = 10000, deviation = 0
+      expect(await clusters.getClusterVUnits(clusterId)).to.equal(BPS_DENOMINATOR);
+      for (const opId of operatorIds) {
+        expect(await clusters.getOperatorEthVUnits(opId)).to.equal(0n);
+      }
+
+      const removedOperator = operatorIds[0];
+      await clusters.mockRemoveOperator(removedOperator);
+
+      await networkHelpers.mine(200);
+
+      // Self-liquidate — deviation is 0, so no subtraction at all, but guard must still hold
+      await expect(
+        clusters.liquidate(clusterOwner.address, operatorIds, clusterAfterEB),
+      ).to.not.revert(connection.ethers);
+
+      for (const opId of operatorIds) {
+        expect(await clusters.getOperatorEthVUnits(opId)).to.equal(0n);
+      }
+      expect(await clusters.getDaoTotalEthVUnits()).to.equal(0n);
+    });
+
+    it("EC-05: all operators removed from explicit EB cluster → self-liquidate does not revert", async function () {
+      const { clusters, operatorIds } = await loadFixtureForCount();
+
+      const networkFeeRate = 100_000n;
+      await clusters.mockEthNetworkFee(networkFeeRate);
+      await clusters.mockMinimumBlocksBeforeLiquidation(10n);
+      await clusters.mockMinimumLiquidationCollateral(0n);
+
+      const clusterId = computeClusterId(clusterOwner.address, operatorIds);
+
+      const depositValue = 5_000_000_000_000n;
+      const regTx = await clusters.registerValidator(
+        makePublicKey(1),
+        operatorIds,
+        DEFAULT_SHARES,
+        createCluster(),
+        { value: depositValue },
+      );
+      const regReceipt = await regTx.wait();
+      const clusterAfterReg = parseClusterFromEvent(clusters, regReceipt, Events.VALIDATOR_ADDED);
+
+      const root1 = computeEBRoot(clusterId, 64);
+      await clusters.mockSetEBRoot(1, root1);
+
+      const ebTx = await clusters.updateClusterBalance(
+        1, clusterOwner.address, operatorIds, clusterAfterReg, 64, [],
+      );
+      const clusterAfterEB = parseClusterFromEvent(clusters, await ebTx.wait(), Events.CLUSTER_BALANCE_UPDATED);
+
+      const expectedDeviation = 20000n - BPS_DENOMINATOR;
+      await assertOperatorVUnits(clusters, operatorIds, expectedDeviation, 20000n);
+
+      // Remove ALL operators
+      for (const opId of operatorIds) {
+        await clusters.mockRemoveOperator(opId);
+        expect(await clusters.getOperatorEthVUnits(opId)).to.equal(0n);
+      }
+
+      await networkHelpers.mine(200);
+
+      // Self-liquidation must not revert even with all operators removed
+      await expect(
+        clusters.liquidate(clusterOwner.address, operatorIds, clusterAfterEB),
+      ).to.not.revert(connection.ethers);
+
+      for (const opId of operatorIds) {
+        expect(await clusters.getOperatorEthVUnits(opId)).to.equal(0n);
+      }
+      expect(await clusters.getDaoTotalEthVUnits()).to.equal(0n);
     });
   }
 
