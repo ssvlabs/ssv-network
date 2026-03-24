@@ -276,9 +276,9 @@ Some gaps above ARE tested in the JS test suite but NOT under fuzzing:
 15. **D6** - Add `echidna_reactivate_with_removed_operators` to SSVClustersEchidna
 
 ### Phase 5: Operator Lifecycle (MEDIUM impact, lower effort)
-16. **G1** - Add `echidna_removed_operator_owner_preserved` to SSVOperatorsEchidna
-17. **G2** - Add `echidna_removed_operator_earnings_withdrawable` to SSVOperatorsEchidna
-18. **G6** - Add `echidna_ensure_eth_defaults_correct` to SSVOperatorsEchidna
+16. **G1** - Add `echidna_removed_operator_owner_preserved` to SSVOperatorsEchidna `[DONE 2026-03-24]`
+17. **G2** - Add `echidna_removed_operator_earnings_withdrawable` to SSVOperatorsEchidna `[DONE 2026-03-24]`
+18. **G6** - Add `echidna_ensure_eth_defaults_correct` to SSVOperatorsEchidna `[DONE 2026-03-24]`
 
 ### Phase 6: Token & Oracle Edges (LOW impact, low effort)
 19. **C12** - Add `echidna_cssv_supply_lte_ssv_total_supply` to CSSVTokenEchidna
@@ -294,7 +294,7 @@ Some gaps above ARE tested in the JS test suite but NOT under fuzzing:
 | Phase 2 | Fee calculation correctness (`B7`, `B8`, `B9`) | COMPLETED |
 | Phase 3 | Staking reward edge cases (`C8`, `C9`, `C10`) | COMPLETED |
 | Phase 4 | Cluster lifecycle edges (`B11`, `C11`, `D3`, `D4`, `D6`) | NOT STARTED |
-| Phase 5 | Operator lifecycle (`G1`, `G2`, `G6`) | NOT STARTED |
+| Phase 5 | Operator lifecycle (`G1`, `G2`, `G6`) | COMPLETED |
 | Phase 6 | Token & oracle edges (`C12`, `F9`, `F10`, `F11`) | NOT STARTED |
 
 ### Phase 1 Completion
@@ -357,3 +357,20 @@ Some gaps above ARE tested in the JS test suite but NOT under fuzzing:
 | `echidna test/echidna/SSVStakingEchidna.sol --contract SSVStakingEchidna --config test/echidna/echidna.yaml` | PASS |
 | `SSVStakingEchidna` with seed `8525641213984558505` | PASS |
 | `SSVStakingEchidna` with seed `985768268619296310` | PASS |
+
+### Phase 5 Completion
+
+| Gap ID | Invariant | Harness | Status |
+|-------|-----------|---------|--------|
+| G1 | `echidna_removed_operator_owner_preserved` | `SSVOperatorsEchidna.sol` | COMPLETED |
+| G2 | `echidna_removed_operator_earnings_withdrawable` | `SSVOperatorsEchidna.sol` | COMPLETED |
+| G6 | `echidna_ensure_eth_defaults_correct` | `SSVOperatorsEchidna.sol` | COMPLETED |
+
+### Phase 5 Validation
+
+| Check | Result |
+|------|--------|
+| `npx hardhat compile` | PASS |
+| `echidna test/echidna/SSVOperatorsEchidna.sol --contract SSVOperatorsEchidna --config test/echidna/echidna.yaml` | PASS |
+| `SSVOperatorsEchidna` with seed `8525641213984558505` | PASS |
+| `SSVOperatorsEchidna` with seed `985768268619296310` | PASS |
