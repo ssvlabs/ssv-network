@@ -100,6 +100,8 @@ contract SSVStakingEchidna is SSVStaking {
     uint256 private constant ACCRUAL_PRECISION = 1e18;
     // Mirror SSVStaking.MAX_PENDING_REQUESTS to avoid harness-only false negatives.
     uint256 private constant MAX_PENDING_REQUESTS = 2000;
+    uint256 private constant CANONICAL_TEST_STAKE = 1 ether;
+    uint64 private constant MAX_REWARD_WINDOW_UNITS = 1_000_000_000;
 
     MockToken private token;
     CSSVTokenMock private cssv;
@@ -123,6 +125,9 @@ contract SSVStakingEchidna is SSVStaking {
     bool private claimPayoutPrecisionMismatch;
     bool private freeRewardsOnTransferDetected;
     bool private payoutAccountingOverflow;
+    bool private unstakeStopsAccrualViolation;
+    bool private dustForfeitureViolation;
+    bool private zeroCssvAccrualViolation;
 
     uint256 private expectedCssvSupply;
     uint256 private totalEthCreditedWei;
@@ -378,6 +383,286 @@ contract SSVStakingEchidna is SSVStaking {
         _trackPoolCredit(beforePool, PackedETH.unwrap(s.stakingEthPoolBalance));
     }
 
+    function action_request_unstake_stops_accrual(
+        uint256 unstakeSeed,
+        uint256 preWindowSeed,
+        uint256 postWindowSeed,
+        uint256 userSeed
+    ) external {
+        StorageStaking storage s = SSVStorageStaking.load();
+        StorageProtocol storage sp = SSVStorageProtocol.load();
+
+        StakingUser user = _user(uint8(userSeed));
+        if (!_ensureBalanceAtLeast(user, CANONICAL_TEST_STAKE)) return;
+
+        address userAddr = address(user);
+        uint256 balanceBefore = cssv.balanceOf(userAddr);
+        if (balanceBefore <= 1) return;
+        if (s.withdrawalRequests[userAddr].length >= MAX_PENDING_REQUESTS) return;
+
+        _setUserRewardState(userAddr, 0);
+        _forceCurrentDaoBalance(s, sp);
+
+        (bool preOk, uint256 accBefore, uint256 accAfterPre) = _creditFeeWindow(_boundRewardUnits(preWindowSeed));
+        if (!preOk || accAfterPre <= accBefore) return;
+
+        uint256 expectedAccruedAtRequest = _pendingReward(balanceBefore, accAfterPre, accBefore);
+        if (expectedAccruedAtRequest == 0) return;
+
+        uint256 beforeSupply = cssv.totalSupply();
+        uint256 unstakeAmount = (unstakeSeed % (balanceBefore - 1)) + 1;
+        uint256 poolBeforeRequest = uint256(PackedETH.unwrap(s.stakingEthPoolBalance)) * ETH_DEDUCTED_DIGITS;
+
+        try user.requestUnstake(unstakeAmount) {
+            uint256 remainingBalance = cssv.balanceOf(userAddr);
+            if (remainingBalance != balanceBefore - unstakeAmount) {
+                unstakeStopsAccrualViolation = true;
+            }
+            if (s.userIndex[userAddr] != accAfterPre) {
+                unstakeStopsAccrualViolation = true;
+            }
+            if (s.accrued[userAddr] != expectedAccruedAtRequest) {
+                unstakeStopsAccrualViolation = true;
+            }
+            if (cssv.totalSupply() != beforeSupply - unstakeAmount) {
+                cssvSupplyDeltaMismatch = true;
+            }
+            if (expectedCssvSupply < unstakeAmount) {
+                cssvSupplyDeltaMismatch = true;
+            } else {
+                expectedCssvSupply -= unstakeAmount;
+            }
+            if (uint256(PackedETH.unwrap(s.stakingEthPoolBalance)) * ETH_DEDUCTED_DIGITS != poolBeforeRequest) {
+                unstakeStopsAccrualViolation = true;
+            }
+
+            (bool postOk, , uint256 accAfterPost) = _creditFeeWindow(_boundRewardUnits(postWindowSeed));
+            if (!postOk || accAfterPost <= accAfterPre) return;
+
+            uint256 expectedPostRequestPending = _pendingReward(remainingBalance, accAfterPost, accAfterPre);
+            uint256 wrongPostRequestPending = _pendingReward(balanceBefore, accAfterPost, accAfterPre);
+            uint256 expectedTotalAccrued = expectedAccruedAtRequest + expectedPostRequestPending;
+            uint256 wrongTotalAccrued = expectedAccruedAtRequest + wrongPostRequestPending;
+
+            uint256 expectedPayout = _roundedDownToPayoutPrecision(expectedTotalAccrued);
+            uint256 wrongPayout = _roundedDownToPayoutPrecision(wrongTotalAccrued);
+            uint256 expectedRemainder = expectedTotalAccrued - expectedPayout;
+            uint256 wrongRemainder = wrongTotalAccrued - wrongPayout;
+            if (expectedPayout == 0) return;
+
+            uint64 poolBeforeClaimUnits = PackedETH.unwrap(s.stakingEthPoolBalance);
+            uint64 daoBeforeClaimUnits = PackedETH.unwrap(sp.ethDaoBalance);
+            uint64 payoutUnits = uint64(expectedPayout / ETH_DEDUCTED_DIGITS);
+            if (
+                payoutUnits > poolBeforeClaimUnits ||
+                payoutUnits > daoBeforeClaimUnits ||
+                expectedPayout > address(this).balance
+            ) {
+                return;
+            }
+
+            uint256 userEthBefore = userAddr.balance;
+            try user.claim() {
+                uint256 actualPayout = userAddr.balance - userEthBefore;
+                if (actualPayout != expectedPayout) {
+                    unstakeStopsAccrualViolation = true;
+                }
+                if (s.accrued[userAddr] != expectedRemainder) {
+                    unstakeStopsAccrualViolation = true;
+                }
+                if (s.userIndex[userAddr] != accAfterPost) {
+                    unstakeStopsAccrualViolation = true;
+                }
+                if (PackedETH.unwrap(s.stakingEthPoolBalance) != poolBeforeClaimUnits - payoutUnits) {
+                    unstakeStopsAccrualViolation = true;
+                }
+                if (PackedETH.unwrap(sp.ethDaoBalance) != daoBeforeClaimUnits - payoutUnits) {
+                    unstakeStopsAccrualViolation = true;
+                }
+                if (
+                    wrongTotalAccrued != expectedTotalAccrued &&
+                    actualPayout == wrongPayout &&
+                    s.accrued[userAddr] == wrongRemainder
+                ) {
+                    unstakeStopsAccrualViolation = true;
+                }
+                _addPaidOut(actualPayout);
+            } catch {
+                unstakeStopsAccrualViolation = true;
+            }
+        } catch {}
+    }
+
+    function action_claim_dust_zero_balance(uint256 dustSeed, uint256 userSeed) external {
+        StorageStaking storage s = SSVStorageStaking.load();
+        StorageProtocol storage sp = SSVStorageProtocol.load();
+
+        (StakingUser user, address userAddr, bool found) = _pickZeroCssvUser(userSeed);
+        if (!found) return;
+
+        uint256 dust = _boundDust(dustSeed);
+        _setUserRewardState(userAddr, dust);
+        _forceCurrentDaoBalance(s, sp);
+
+        uint256 accruedBefore = s.accrued[userAddr];
+        uint256 indexBefore = s.userIndex[userAddr];
+        uint64 poolBefore = PackedETH.unwrap(s.stakingEthPoolBalance);
+        uint64 daoBefore = PackedETH.unwrap(sp.ethDaoBalance);
+        uint256 ethBefore = userAddr.balance;
+
+        try user.claim() {
+            if (s.accrued[userAddr] != 0) {
+                dustForfeitureViolation = true;
+            }
+            if (s.userIndex[userAddr] != indexBefore) {
+                dustForfeitureViolation = true;
+            }
+            if (PackedETH.unwrap(s.stakingEthPoolBalance) != poolBefore) {
+                dustForfeitureViolation = true;
+            }
+            if (PackedETH.unwrap(sp.ethDaoBalance) != daoBefore) {
+                dustForfeitureViolation = true;
+            }
+            if (userAddr.balance != ethBefore) {
+                dustForfeitureViolation = true;
+            }
+            if (accruedBefore != dust) {
+                dustForfeitureViolation = true;
+            }
+        } catch {
+            dustForfeitureViolation = true;
+        }
+    }
+
+    function action_claim_dust_positive_balance(uint256 dustSeed, uint256 userSeed) external {
+        StorageStaking storage s = SSVStorageStaking.load();
+        StorageProtocol storage sp = SSVStorageProtocol.load();
+
+        StakingUser user = _user(uint8(userSeed));
+        if (!_ensureBalanceAtLeast(user, CANONICAL_TEST_STAKE)) return;
+
+        address userAddr = address(user);
+        uint256 dust = _boundDust(dustSeed);
+        _setUserRewardState(userAddr, dust);
+        _forceCurrentDaoBalance(s, sp);
+
+        uint256 accruedBefore = s.accrued[userAddr];
+        uint256 indexBefore = s.userIndex[userAddr];
+        uint64 poolBefore = PackedETH.unwrap(s.stakingEthPoolBalance);
+        uint64 daoBefore = PackedETH.unwrap(sp.ethDaoBalance);
+        uint256 cssvBefore = cssv.balanceOf(userAddr);
+        uint256 ethBefore = userAddr.balance;
+
+        try user.claim() {
+            dustForfeitureViolation = true;
+        } catch {
+            if (s.accrued[userAddr] != accruedBefore) {
+                dustForfeitureViolation = true;
+            }
+            if (s.userIndex[userAddr] != indexBefore) {
+                dustForfeitureViolation = true;
+            }
+            if (PackedETH.unwrap(s.stakingEthPoolBalance) != poolBefore) {
+                dustForfeitureViolation = true;
+            }
+            if (PackedETH.unwrap(sp.ethDaoBalance) != daoBefore) {
+                dustForfeitureViolation = true;
+            }
+            if (cssv.balanceOf(userAddr) != cssvBefore) {
+                dustForfeitureViolation = true;
+            }
+            if (userAddr.balance != ethBefore) {
+                dustForfeitureViolation = true;
+            }
+        }
+    }
+
+    function action_zero_cssv_no_accrual(
+        uint256 zeroWindowSeed,
+        uint256 postWindowSeed,
+        uint256 userSeed
+    ) external {
+        StorageStaking storage s = SSVStorageStaking.load();
+        StorageProtocol storage sp = SSVStorageProtocol.load();
+
+        (StakingUser targetUser, address targetAddr, bool found) = _pickZeroCssvUser(userSeed);
+        if (!found) return;
+
+        (StakingUser supportUser, , bool distinctFound) = _pickDistinctUser(targetAddr, userSeed + 1);
+        if (!distinctFound) return;
+        if (!_ensureBalanceAtLeast(supportUser, CANONICAL_TEST_STAKE)) return;
+
+        _setUserRewardState(targetAddr, 0);
+        _forceCurrentDaoBalance(s, sp);
+
+        uint256 accBeforeZeroWindow = s.accEthPerShare;
+        (bool zeroOk, , uint256 accAfterZeroWindow) = _creditFeeWindow(_boundRewardUnits(zeroWindowSeed));
+        if (!zeroOk || accAfterZeroWindow <= accBeforeZeroWindow) return;
+
+        if (!_stakeExact(targetUser, CANONICAL_TEST_STAKE)) return;
+
+        uint256 targetBalance = cssv.balanceOf(targetAddr);
+        if (targetBalance == 0) return;
+        if (s.userIndex[targetAddr] != accAfterZeroWindow) {
+            zeroCssvAccrualViolation = true;
+        }
+        if (s.accrued[targetAddr] != 0) {
+            zeroCssvAccrualViolation = true;
+        }
+
+        (bool postOk, , uint256 accAfterPostWindow) = _creditFeeWindow(_boundRewardUnits(postWindowSeed));
+        if (!postOk || accAfterPostWindow <= accAfterZeroWindow) return;
+
+        uint256 expectedPostStakeAccrued = _pendingReward(targetBalance, accAfterPostWindow, accAfterZeroWindow);
+        uint256 wrongTotalAccrued = _pendingReward(targetBalance, accAfterPostWindow, accBeforeZeroWindow);
+        uint256 expectedPayout = _roundedDownToPayoutPrecision(expectedPostStakeAccrued);
+        uint256 wrongPayout = _roundedDownToPayoutPrecision(wrongTotalAccrued);
+        uint256 expectedRemainder = expectedPostStakeAccrued - expectedPayout;
+        uint256 wrongRemainder = wrongTotalAccrued - wrongPayout;
+        if (expectedPayout == 0) return;
+
+        uint64 poolBeforeClaimUnits = PackedETH.unwrap(s.stakingEthPoolBalance);
+        uint64 daoBeforeClaimUnits = PackedETH.unwrap(sp.ethDaoBalance);
+        uint64 payoutUnits = uint64(expectedPayout / ETH_DEDUCTED_DIGITS);
+        if (
+            payoutUnits > poolBeforeClaimUnits ||
+            payoutUnits > daoBeforeClaimUnits ||
+            expectedPayout > address(this).balance
+        ) {
+            return;
+        }
+
+        uint256 ethBefore = targetAddr.balance;
+        try targetUser.claim() {
+            uint256 actualPayout = targetAddr.balance - ethBefore;
+            if (actualPayout != expectedPayout) {
+                zeroCssvAccrualViolation = true;
+            }
+            if (s.accrued[targetAddr] != expectedRemainder) {
+                zeroCssvAccrualViolation = true;
+            }
+            if (s.userIndex[targetAddr] != accAfterPostWindow) {
+                zeroCssvAccrualViolation = true;
+            }
+            if (PackedETH.unwrap(s.stakingEthPoolBalance) != poolBeforeClaimUnits - payoutUnits) {
+                zeroCssvAccrualViolation = true;
+            }
+            if (PackedETH.unwrap(sp.ethDaoBalance) != daoBeforeClaimUnits - payoutUnits) {
+                zeroCssvAccrualViolation = true;
+            }
+            if (
+                wrongTotalAccrued != expectedPostStakeAccrued &&
+                actualPayout == wrongPayout &&
+                s.accrued[targetAddr] == wrongRemainder
+            ) {
+                zeroCssvAccrualViolation = true;
+            }
+            _addPaidOut(actualPayout);
+        } catch {
+            zeroCssvAccrualViolation = true;
+        }
+    }
+
     function echidna_sync_fees_handles_decrease() external view returns (bool) {
         if (!sawDecrease) return true;
         return !syncFeesFailed && !syncFeesMismatch;
@@ -475,6 +760,18 @@ contract SSVStakingEchidna is SSVStaking {
         return !freeRewardsOnTransferDetected;
     }
 
+    function echidna_unstake_stops_accrual() external view returns (bool) {
+        return !unstakeStopsAccrualViolation;
+    }
+
+    function echidna_dust_forfeiture_correct() external view returns (bool) {
+        return !dustForfeitureViolation;
+    }
+
+    function echidna_zero_cssv_no_accrual() external view returns (bool) {
+        return !zeroCssvAccrualViolation;
+    }
+
     function _boundShrunk(uint256 seed, uint64 maxValue) internal pure returns (uint64) {
         if (maxValue == 0) return 0;
         return uint64(seed % (uint256(maxValue) + 1));
@@ -484,6 +781,14 @@ contract SSVStakingEchidna is SSVStaking {
         uint256 amount = seed % MAX_STAKE;
         if (amount == 0) amount = 1;
         return amount;
+    }
+
+    function _boundRewardUnits(uint256 seed) internal pure returns (uint64) {
+        return uint64(seed % MAX_REWARD_WINDOW_UNITS) + 1;
+    }
+
+    function _boundDust(uint256 seed) internal pure returns (uint256) {
+        return (seed % (ETH_DEDUCTED_DIGITS - 1)) + 1;
     }
 
     function _user(uint8 seed) internal view returns (StakingUser) {
@@ -547,6 +852,125 @@ contract SSVStakingEchidna is SSVStaking {
         StorageProtocol storage sp = SSVStorageProtocol.load();
         sp.ethDaoBalance = PackedETH.wrap(balance);
         sp.ethDaoIndexBlockNumber = uint32(block.number);
+    }
+
+    function _forceCurrentDaoBalance(StorageStaking storage s, StorageProtocol storage sp) internal {
+        sp.ethDaoBalance = s.stakingEthPoolBalance;
+        sp.ethDaoIndexBlockNumber = uint32(block.number);
+    }
+
+    function _setUserRewardState(address user, uint256 accruedAmount) internal {
+        StorageStaking storage s = SSVStorageStaking.load();
+        s.userIndex[user] = s.accEthPerShare;
+        s.accrued[user] = accruedAmount;
+    }
+
+    function _pendingReward(uint256 balance, uint256 idxAfter, uint256 idxBefore) internal pure returns (uint256) {
+        if (balance == 0 || idxAfter <= idxBefore) return 0;
+        return (balance * (idxAfter - idxBefore)) / ACCRUAL_PRECISION;
+    }
+
+    function _creditFeeWindow(uint64 addUnits) internal returns (bool ok, uint256 accBefore, uint256 accAfter) {
+        StorageStaking storage s = SSVStorageStaking.load();
+        StorageProtocol storage sp = SSVStorageProtocol.load();
+
+        if (addUnits == 0) return (false, 0, 0);
+
+        uint64 beforePool = PackedETH.unwrap(s.stakingEthPoolBalance);
+        if (beforePool > type(uint64).max - addUnits) return (false, 0, 0);
+
+        uint64 oldDao = PackedETH.unwrap(sp.ethDaoBalance);
+        uint32 oldIndex = sp.ethDaoIndexBlockNumber;
+        uint64 targetPool = beforePool + addUnits;
+        accBefore = s.accEthPerShare;
+
+        sp.ethDaoBalance = PackedETH.wrap(targetPool);
+        sp.ethDaoIndexBlockNumber = uint32(block.number);
+
+        try this.syncFees() {
+            uint64 afterPool = PackedETH.unwrap(s.stakingEthPoolBalance);
+            if (afterPool != targetPool) {
+                syncFeesMismatch = true;
+                return (false, accBefore, s.accEthPerShare);
+            }
+            _trackPoolCredit(beforePool, afterPool);
+            return (true, accBefore, s.accEthPerShare);
+        } catch {
+            syncFeesFailed = true;
+            sp.ethDaoBalance = PackedETH.wrap(oldDao);
+            sp.ethDaoIndexBlockNumber = oldIndex;
+            return (false, accBefore, accBefore);
+        }
+    }
+
+    function _stakeExact(StakingUser user, uint256 amount) internal returns (bool) {
+        if (amount < MINIMAL_STAKING_AMOUNT) return false;
+
+        StorageStaking storage s = SSVStorageStaking.load();
+        uint64 beforePool = PackedETH.unwrap(s.stakingEthPoolBalance);
+        uint256 beforeSupply = cssv.totalSupply();
+
+        token.mint(address(user), amount);
+        try user.approve(amount) {} catch {
+            return false;
+        }
+
+        try user.stake(amount) {
+            uint256 afterSupply = cssv.totalSupply();
+            if (afterSupply != beforeSupply + amount) {
+                cssvSupplyDeltaMismatch = true;
+            }
+            if (expectedCssvSupply > type(uint256).max - amount) {
+                payoutAccountingOverflow = true;
+            } else {
+                expectedCssvSupply += amount;
+            }
+            _checkSettledUser(address(user));
+            _trackPoolCredit(beforePool, PackedETH.unwrap(s.stakingEthPoolBalance));
+            return true;
+        } catch {
+            return false;
+        }
+    }
+
+    function _ensureBalanceAtLeast(StakingUser user, uint256 targetBalance) internal returns (bool) {
+        uint256 balance = cssv.balanceOf(address(user));
+        if (balance >= targetBalance) return true;
+
+        uint256 deficit = targetBalance - balance;
+        if (deficit < MINIMAL_STAKING_AMOUNT) {
+            deficit = MINIMAL_STAKING_AMOUNT;
+        }
+        return _stakeExact(user, deficit);
+    }
+
+    function _pickZeroCssvUser(
+        uint256 seed
+    ) internal view returns (StakingUser user, address userAddr, bool found) {
+        for (uint256 i; i < 4; ++i) {
+            user = _user(uint8((seed + i) % 4));
+            userAddr = address(user);
+            if (cssv.balanceOf(userAddr) == 0) {
+                return (user, userAddr, true);
+            }
+        }
+
+        return (user1, address(user1), false);
+    }
+
+    function _pickDistinctUser(
+        address excluded,
+        uint256 seed
+    ) internal view returns (StakingUser user, address userAddr, bool found) {
+        for (uint256 i; i < 4; ++i) {
+            user = _user(uint8((seed + i) % 4));
+            userAddr = address(user);
+            if (userAddr != excluded) {
+                return (user, userAddr, true);
+            }
+        }
+
+        return (user1, address(user1), false);
     }
 
     function _roundedDownToPayoutPrecision(uint256 amount) internal pure returns (uint256) {
