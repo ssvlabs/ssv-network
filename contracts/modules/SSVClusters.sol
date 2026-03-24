@@ -318,6 +318,7 @@ contract SSVClusters is ISSVClusters, SSVReentrancyGuard {
                 // Operator deviation accounting
                 uint256 n = operatorIds.length;
                 for (uint256 i; i < n; ++i) {
+                    if (s.operators[operatorIds[i]].ethSnapshot.block == 0) continue;
                     seb.operatorEthVUnits[operatorIds[i]] += deviation;
                 }
             }
@@ -501,9 +502,11 @@ contract SSVClusters is ISSVClusters, SSVReentrancyGuard {
         bool deltaPositive = newVUnits > storedVUnits;
         uint64 deltaAbs = deltaPositive ? newVUnits - storedVUnits : storedVUnits - newVUnits;
 
+        StorageData storage s = SSVStorage.load();
         uint256 operatorsLength = operatorIds.length;
         for (uint256 i; i < operatorsLength; ++i) {
             uint64 operatorId = operatorIds[i];
+            if (s.operators[operatorId].ethSnapshot.block == 0) continue;
             if (deltaPositive) seb.operatorEthVUnits[operatorId] += deltaAbs;
             else seb.operatorEthVUnits[operatorId] -= deltaAbs;
         }
@@ -584,6 +587,7 @@ contract SSVClusters is ISSVClusters, SSVReentrancyGuard {
                 // But we handle both cases for safety
                 uint256 n = operatorIds.length;
                 for (uint256 i; i < n; ++i) {
+                    if (s.operators[operatorIds[i]].ethSnapshot.block == 0) continue;
                     if (moreThanBaseline) {
                         seb.operatorEthVUnits[operatorIds[i]] -= deviation;
                     } else {

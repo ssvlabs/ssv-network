@@ -74,6 +74,7 @@ contract SSVDAOEchidna is SSVDAO {
     uint8 private dustyVoteCount;
     bool private dustyRoundSeeded;
     bool private dustyPrematureCommit;
+    uint256 private dustySeedNonce;
     bool private belowOracleCountCommitSucceeded;
 
     mapping(bytes32 => mapping(uint32 => bool)) private localVotes;
@@ -314,7 +315,8 @@ contract SSVDAOEchidna is SSVDAO {
         _mockupdateQuorumBps(DUSTY_QUORUM_BPS);
         _setCssvSupply(DUSTY_RAW_SUPPLY);
 
-        dustyRoot = keccak256(abi.encodePacked("dusty-root", seed));
+        dustySeedNonce++;
+        dustyRoot = keccak256(abi.encodePacked("dusty-root", seed, dustySeedNonce));
         dustyBlock = _validBlock(seed);
         dustyVoteCount = 0;
         dustyRoundSeeded = true;
