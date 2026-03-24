@@ -498,3 +498,19 @@ Wave 2 cross-module scenarios covering STATE CONTAMINATION paths between operato
 - **Privacy/whitelist boundary scenarios:** 6 (XO-027 to XO-032)
 - **Migration cross-paths:** 2 (XO-025, XO-026)
 - **W1 cross-references:** 30+ explicit references to OP-*, OF-*, OE-*, CL-*, EB-* scenarios
+
+## ask-codex Review Findings
+
+### Corrections
+- XO-041 WRONG: Removing all 4 operators does NOT let owner drain balance while validators exist — liquidation guard at SSVClusters.sol:235 still enforces collateral floor. Fix: should be a revert scenario.
+- XO-022 UNREACHABLE: `withdrawOperatorEarnings` after removal reverts in `checkOwner` because `_resetOperatorState` zeros snapshot blocks at SSVOperators.sol:347. Fix: mark as revert.
+- XO-006 WRONG: Note 6 claims prior SSV-history branch survives removal — false. `removeOperator` zeros `snapshot.block` at SSVOperators.sol:351, so `ensureOperatorExist` at OperatorLib.sol:139 always reverts.
+- XO-026 WRONG MECHANISM: Doc says migration revives removed operator via `ensureETHDefaults` — in code, removed operators are skipped entirely (OperatorLib.sol:363). Real contamination is the deviation loop at SSVClusters.sol:320.
+- XO-005 withdraw path misdescribed: `withdraw` doesn't skip removed operators — it always adds `ethSnapshot.index + (block - ethSnapshot.block) * ethFee` at SSVClusters.sol:219. Lower burn rate comes from zeroed `ethFee`, not a branch.
+- Scope drift: XO-004 duplicates CL-012, XO-005 duplicates CL-031, XO-036 duplicates CL-035, XO-016/018/023 duplicate EB-055/057/069.
+
+### Additional Scenarios
+| XO-066 | removeOperator → liquidate (no EB update between) | Explicit-EB cluster: removeOperator deletes operatorEthVUnits at SSVOperators.sol:93, then _executeLiquidation subtracts deviation for ALL operatorIds at SSVClusters.sol:587 → underflow revert. Cluster becomes unliquidatable. | `entry:liquidate; bug:removed-op; revert:yes` | [ ] | SSVOperators.sol:93, SSVClusters.sol:587 |
+| XO-067 | removeOperator → removeValidator (last) | Explicit-EB cluster: removeOperator then remove last validator. Cleanup loop at SSVValidators.sol:217 subtracts deviation from zero → underflow revert. Cluster becomes unremovable. | `entry:bulkRemoveValidator; bug:removed-op; revert:yes` | [ ] | SSVOperators.sol:93, SSVValidators.sol:217 |
+| XO-068 | removeOperator (shared) → other cluster EB update | Shared operator across 2 explicit-EB clusters. removeOperator wipes operatorEthVUnits globally (SSVOperators.sol:93). Second cluster's EB decrease at SSVClusters.sol:508 underflows from wiped state. | `entry:updateClusterEB; bug:shared-op; revert:yes` | [ ] | SSVOperators.sol:93, SSVClusters.sol:508 |
+| XO-069 | reactivate with hasDeviation=true from other cluster | Another explicit-EB cluster's deviation makes hasDeviation=true. Reactivation adds to existing deviation at OperatorLib.sol:313 instead of initializing. Tests additive path not covered by XO-035/057. | `entry:reactivate; revert:no` | [ ] | OperatorLib.sol:285, 313 |

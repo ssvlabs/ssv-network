@@ -529,3 +529,15 @@ Scenarios that exercise each location:
 | Cross-Module Deviation Edge Cases | 10 | XL-056 to XL-065 |
 | **Total** | **65** | **XL-001 to XL-065** |
 | Detailed Scenario Blocks | 12 | XL-001, XL-011, XL-012, XL-017, XL-024, XL-031, XL-041, XL-049, XL-053, XL-056, XL-058, XL-064 |
+
+## ask-codex Review Findings
+
+### Corrections
+- XL rows with `register → reactivate` flow are WRONG: `reactivate` reverts on active cluster (SSVClusters.sol:137), and first registration requires active cluster (ClusterLib.sol:208). Fix: need liquidation step between.
+- XL-063 WRONG: Doc says stored vUnits stay unchanged after removeValidator — code reduces ebSnapshot.vUnits by removed baseline at SSVValidators.sol:204.
+- XL-018 "DAO drift" WRONG MECHANISM: Real issue is stale writes to dead operators, not DAO drift. removeOperator deletes operatorEthVUnits (SSVOperators.sol:93), then _updateOperatorVUnits rewrites it (SSVClusters.sol:494), then _executeLiquidation tries to clean it (SSVClusters.sol:552).
+
+### Additional Scenarios
+| XL-066 | explicit-EB + all-operators-removed → reactivate → liquidate | All operators removed. Reactivation skips all in deviation loop (OperatorLib.sol:291) but SSVClusters.sol:174 still re-adds DAO deviation. Later liquidation hits unguarded subtraction at SSVClusters.sol:586 → underflow. | `entry:liquidate; bug:all-removed; revert:yes` | [ ] | OperatorLib.sol:291, SSVClusters.sol:174, 586 |
+| XL-067 | removed operators + hasDeviation=true reactivation | Another cluster keeps DAO deviation non-zero. Reactivation of cluster with removed ops enters hasDeviation=true branch (OperatorLib.sol:285) but skips dead ops in snapshot loop → partial deviation restoration. | `entry:reactivate; bug:removed-op; revert:no` | [ ] | OperatorLib.sol:285, 291, 313 |
+| XL-068 | validator-count mutation after reactivation → EB update | Reactivate explicit-EB cluster, add validators (changing baseline), then EB update. New validators get baseline vUnits but stored deviation doesn't account for them → deviation/baseline mismatch. | `entry:updateClusterEB; revert:no` | [ ] | SSVValidators.sol:138, SSVClusters.sol:504 |

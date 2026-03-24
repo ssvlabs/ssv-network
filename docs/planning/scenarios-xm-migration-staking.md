@@ -526,3 +526,15 @@
   - `migrateClusterToETH + updateNetworkFee + syncFees`: 3 scenarios
 - **Known edge cases covered:** BUG-6 with migration fees, stranded deviation on removed operators, EB volatility effect on rewards, pack/unpack round-trip precision, `ethDaoIndexBlockNumber` reset during migration, zero-validator migration, same-block race between migration and sync, MAX_EB overflow boundary
 - **W1 cross-references:** MG-001, MG-005, MG-008, MG-018, MG-033, MG-044, MG-052, MG-055, ST-011, ST-016, ST-060, ST-068, ST-070, ST-071, ST-076
+
+## ask-codex Review Findings
+
+### Corrections
+- XG-042 WRONG: Documented as successful `removeOperator → liquidate → sync/claim` but should REVERT. `_executeLiquidation` blindly subtracts deviation for removed operator at SSVClusters.sol:586 → underflow from zero (operatorEthVUnits deleted at SSVOperators.sol:93). Fix: mark as revert/bug scenario.
+- XG-012 DOUBLY WRONG: Implicit EB cannot create deviation. Migration only adds deviation when vUnitsCluster > baseline at SSVClusters.sol:309.
+- XG staker over-reward claim INCORRECT: Removed operators only affect operator-fee burn (SSVClusters.sol:461), not staking's network-fee source. Staking rewards come from networkTotalEarnings() (ProtocolLib.sol:84). XG-011/012/040 sections describing staker over-reward from removed ops are not faithful to code.
+- XG-003: "pre-migration staker gets SSV-era fees" is wrong. _syncFees only reads ETH earnings (SSVStaking.sol:186). SSV earnings are separate (ProtocolLib.sol:97).
+
+### Additional Scenarios
+| XG-051 | liquidated SSV cluster with explicit EB → migrate → claim | Liquidated cluster with explicit EB before migration. Migration code applies explicit deviation even when isLiquidated=true (SSVClusters.sol:265/304 not gated by liquidation). Distinct post-migration reward-rate path. | `entry:migrateClusterToETH+claimEthRewards; revert:no` | [ ] | SSVClusters.sol:265, 304 |
+| XG-052 | removeOperator → liquidate (revert) → verify staking unaffected | removeOperator on explicit-EB cluster, then liquidation underflows at SSVClusters.sol:586. Verify staking pool is NOT corrupted by the failed liquidation — syncFees/claim still work for other clusters. | `entry:liquidate+claimEthRewards; revert:partial` | [ ] | SSVClusters.sol:586, SSVStaking.sol:186 |

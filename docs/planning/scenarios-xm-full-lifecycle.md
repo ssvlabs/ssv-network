@@ -518,3 +518,20 @@ These invariants must hold after any valid sequence of operations. Every scenari
 | XF-028, XF-029 | ST-016, ST-068 |
 | XF-038 | EB-051, EB-066, EB-067 |
 | XF-045 | EB-051, EB-095 |
+
+## ask-codex Review Findings
+
+### Corrections
+- XF-006/007 NOT EXECUTABLE: No SSV registration in current codebase. Current `registerValidator` writes to `s.ethClusters` (ClusterLib.sol:276). SSV clusters are legacy/preloaded state only. Fix: should use preloaded SSV cluster state, not SSV registration.
+- XF-017 ORDERING WRONG: `commitRoot` before any staking reverts `ZeroCSSVSupply` at SSVDAO.sol:193. Stake must come before first root commit.
+- "3+ modules per scenario" OVERSTATED: Only ~21 of 55 scenarios actually hit 3+ core modules. Many (XF-016, XF-043, XF-051 etc.) are 1-2 module chains.
+- DAO invariant MISSTATED: `daoTotalEthVUnits` includes baseline via updateDAO (ProtocolLib.sol:107), not just deviation.
+- ETH conservation rule INCOMPLETE: Omits `ethDaoBalance` which is protocol's actual ETH liability tracker (ProtocolLib.sol:84, SSVStaking.sol:183).
+- XF-043 question about cSSV hook timing is answered in code: `CSSVToken` calls `onCSSVTransfer` in `_beforeTokenTransfer` (CSSVToken.sol:26), so settlement happens before balances move.
+
+### Additional Scenarios
+| XF-056 | all stakers exit → cSSV supply zero → commitRoot reverts | requestUnstake burns cSSV to zero (SSVStaking.sol:90). Next commitRoot reverts ZeroCSSVSupply (SSVDAO.sol:193). Live clusters can no longer get updateClusterBalance. Tests ST+DAO+CL dependency. | `entry:commitRoot; revert:yes; modules:3+` | [ ] | SSVStaking.sol:90, SSVDAO.sol:193, SSVClusters.sol:419 |
+| XF-057 | whitelist module end-to-end on live cluster | setOperatorsWhitelists → existing cluster deposit/withdraw/liquidate/reactivate unaffected → new registerValidator gated by whitelist. Tests 4 modules: Whitelist+Operators+Clusters+Validators. | `entry:setOperatorsWhitelists+registerValidator; revert:partial; modules:4` | [ ] | SSVOperatorsWhitelist.sol:15,37, OperatorLib.sol:183 |
+| XF-058 | mid-round oracle governance → updateClusterBalance fails | Partial votes exist, DAO raises quorum via updateQuorumBps. Next vote doesn't reach threshold, no root committed. Active cluster's updateClusterBalance fails with RootNotFound/MustUseLatestRoot. | `entry:updateClusterBalance; revert:yes; modules:3+` | [ ] | SSVDAO.sol:207,254, SSVClusters.sol:419,434 |
+| XF-059 | SSVViews consistency after mutation chain | Full lifecycle: register → EB update → fee change → liquidate → reactivate. After each step verify getBurnRate, getBalance, isLiquidatable, getEffectiveBalance return consistent values. | `entry:SSVViews; revert:no; modules:5` | [ ] | SSVViews.sol:222,309,389,438 |
+| XF-060 | full protocol bootstrap (corrected ordering) | Deploy → DAO params → register operators → stake cSSV → register validators → deposit → commitRoot → updateClusterBalance → fee changes → withdraw → claimEthRewards → unstake. Corrects XF-017 ordering. | `entry:all; revert:no; modules:6` | [ ] | All modules |

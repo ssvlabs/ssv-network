@@ -620,3 +620,14 @@ at SSVValidators.sol:216, before subtracting from `operatorEthVUnits`.
   - Removed operator vUnits interaction across both `_updateOperatorVUnits` and deviation cleanup
   - Implicit/explicit EB transition round-trips
   - Fee settlement correctness with EB-weighted vUnits after validator count changes
+
+## ask-codex Review Findings
+
+### Corrections
+- XV-035 IMPOSSIBLE PATH: `liquidate → remove → register` is unreachable. After liquidation, cluster stays `active=false`. Next registration rejected by `validateClusterIsNotLiquidated` at ClusterLib.sol:193/221. Matrix/index entries reusing XV-035 are also wrong.
+- XV-026 tag should be `revert:yes` not `revert:depends` — Solidity 0.8 checked arithmetic makes the underflow deterministic.
+- XV empty-cluster EB-update edge (around XV-016/017): With validatorCount==0 and positive effectiveBalance, reverts `EBExceedsMaximum` at SSVClusters.sol:454, NOT `EBBelowMinimum`. With effectiveBalance==0, succeeds and short-circuits at SSVClusters.sol:529.
+
+### Additional Scenarios
+| XV-061 | liquidate → remove subset → reactivate → updateClusterBalance | Liquidated cluster, remove some (not all) validators while inactive. Inactive removal still subtracts baseline from ebSnapshot.vUnits (SSVValidators.sol:204/207). Reactivate with reduced validator count, then EB update recomputes deviation from new baseline. | `entry:updateClusterEB; revert:no` | [ ] | SSVValidators.sol:204, SSVClusters.sol:142,145 |
+| XV-062 | liquidate → remove subset → reactivate → updateClusterBalance (with removed operator) | Same as XV-061 but one operator was also removed. Reactivation skips dead operator in deviation loop. Tests compound validator-count-change + operator-removal on deviation accounting. | `entry:updateClusterEB; bug:removed-op; revert:no` | [ ] | OperatorLib.sol:291, SSVClusters.sol:504 |
