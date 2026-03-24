@@ -31,6 +31,7 @@
 | BUG-18 | ~~Staking Rewards Accumulator Precision Loss~~ | High Bug Fix | P1 | ✅ Closed (accepted as part of the accumulator model) |
 | BUG-19 | ~~Aggregate vs per-cluster rounding causes conservation law violation~~ | Medium Bug Fix | P1 | ✅ Closed (accepted as a known precision limitation) |
 | BUG-20 | Dust permanently trapped on reward claim with zero cSSV balance | Low Bug Fix | P1 | ✅ Closed (Fixed on SEC-16b) |
+| BUG-21 | `removeOperator` deletes `operatorEthVUnits` causing underflow in cluster operations | Critical Bug Fix | P0 | ✅ Fixed |
 | SEC-1 | ~~`updateQuorumBps(0)` allows zero-threshold oracle commits~~ | Security Hardening | P2 | ✅ Mitigated (owner-only) |
 | SEC-2 | ~~`quorumBps` not initialized during upgrade — zero by default~~ | Security Hardening | P0 | ✅ Fixed — `initializeSSVStaking` now takes `quorumBps` param and validates `!= 0 && <= 10_000` |
 | SEC-3 | ~~`replaceOracle` doesn't invalidate pending votes~~ | Security Hardening | ~~P1~~ P2 | ✅ Mitigated (owner-only + coordinated oracles) |
@@ -650,6 +651,54 @@ if (remainder != 0 && userBalance == 0) {
 ```
 
 **Resolution:** ✅ Closed — The SEC-16b fix covers this exact code path. Maximum dust per user (99,999 wei) is accepted as negligible. Cross-referenced in CONSOLIDATED-AUDIT-FINDINGS CA-17.
+
+---
+
+### [BUG-21] `removeOperator` deletes `operatorEthVUnits` causing underflow in cluster operations
+- **Type:** Critical Bug Fix
+- **Priority:** P0
+- **Status:** ✅ Fixed
+- **Owner:** N/A
+- **Timeline:** 2026-03-24
+- **Github Link:** (branch `fix/removed-operator-vunits-skip`)
+
+**Requirement:**
+Prevent `removeOperator` from bricking cluster operations (liquidation, validator removal, EB updates, reactivation, migration) for clusters that include the removed operator and have explicit EB tracking.
+
+**Context:**
+In `SSVOperators.sol:93`, `removeOperator` executes `delete seb.operatorEthVUnits[operatorId]`, zeroing the operator's stored deviation. However, clusters using this operator still hold explicit EB snapshots with non-zero deviation. When those clusters later attempt operations that adjust `operatorEthVUnits` (via `-=`), the subtraction underflows (Solidity 0.8+ reverts), permanently blocking the operation.
+
+Six mutation sites were identified:
+
+| # | Location | Risk |
+|---|---|---|
+| 1 | `_updateOperatorVUnits` (SSVClusters.sol:507-508) | Underflow on `-=` during EB decrease |
+| 2 | `_executeLiquidation` (SSVClusters.sol:588,590) | Underflow on `-=` during liquidation cleanup |
+| 3 | `_bulkRemoveValidator` (SSVValidators.sol:217) | Underflow on `-=` when emptying cluster |
+| 4 | `updateClusterOperatorsOnReactivation` (OperatorLib.sol:299,314-317) | Already safe — wrapped in `if (operator.ethSnapshot.block != 0)` |
+| 5 | `updateClusterOperatorsMigration` (OperatorLib.sol:343-384) | Already safe — removed operators hit `continue` at line 363-364 |
+| 6 | `migrateClusterToETH` (SSVClusters.sol:320-321) | Writes `+= deviation` to removed operator (stale state) |
+
+**Fix:**
+At each unguarded mutation site (1, 2, 3, 6), add a guard that skips the `operatorEthVUnits` adjustment when the operator has been removed (`s.operators[operatorId].ethSnapshot.block == 0`). This matches the existing pattern used throughout the codebase for skipping removed operators (e.g., `updateClusterOperators` at OperatorLib.sol:247, `_liquidateETH` ethValidatorCount decrement at SSVClusters.sol:542).
+
+The `daoTotalEthVUnits` adjustment is per-cluster (not per-operator) and continues to work correctly regardless of operator removal.
+
+**Acceptance Criteria:**
+- [x] Liquidating a cluster with explicit EB after operator removal does not revert
+- [x] `updateClusterBalance` with EB decrease after operator removal does not revert
+- [x] `updateClusterBalance` with EB increase after operator removal does not re-add deviation to removed operator
+- [x] Removing all validators from a cluster with explicit EB after operator removal does not revert
+- [x] Auto-liquidation via `updateClusterBalance` after operator removal does not revert
+- [x] Reactivating a cluster with explicit EB after operator removal does not add deviation to removed operator
+- [x] `migrateClusterToETH` with explicit EB after operator removal does not write deviation to removed operator
+- [x] Multi-cluster scenario: two clusters sharing a removed operator can both be liquidated with correct accounting
+- [x] `operatorEthVUnits` for active operators is correctly adjusted in all cases
+- [x] `daoTotalEthVUnits` is correctly adjusted in all cases
+- [x] All scenarios verified with 4, 7, 10, and 13 operator cluster sizes
+
+**Test Coverage:**
+`test/sanity/removed-operator-with-deviated-cluster.test.ts` — 9 test cases × 4 operator counts (4, 7, 10, 13) = 36 tests covering all mutation sites with full state assertions.
 
 ---
 
