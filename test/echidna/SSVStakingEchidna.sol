@@ -128,6 +128,7 @@ contract SSVStakingEchidna is SSVStaking {
     bool private unstakeStopsAccrualViolation;
     bool private dustForfeitureViolation;
     bool private zeroCssvAccrualViolation;
+    bool private withdrawUnlockedBatchViolation;
 
     uint256 private expectedCssvSupply;
     uint256 private totalEthCreditedWei;
@@ -232,6 +233,121 @@ contract SSVStakingEchidna is SSVStaking {
         try user.withdrawUnlocked() {
             if (withdrawable == 0) invalidWithdrawSucceeded = true;
         } catch {}
+    }
+
+    function action_withdraw_unlocked_batch_processing(uint256 seed, uint8 userSeed) external {
+        StorageStaking storage s = SSVStorageStaking.load();
+
+        (StakingUser user, address userAddr, bool found) = _pickUserWithoutPendingRequests(uint256(userSeed) + seed);
+        if (!found) return;
+        if (!_ensureBalanceAtLeast(user, CANONICAL_TEST_STAKE)) return;
+
+        uint256[4] memory requestAmounts = [uint256(1), uint256(2), uint256(3), uint256(4)];
+        uint256 totalRequested = 0;
+        for (uint256 i; i < requestAmounts.length; ++i) {
+            totalRequested += requestAmounts[i];
+        }
+        if (cssv.balanceOf(userAddr) < totalRequested) return;
+
+        for (uint256 i; i < requestAmounts.length; ++i) {
+            if (!_requestUnstakeExact(user, requestAmounts[i])) {
+                return;
+            }
+        }
+
+        UnstakeRequest[] storage requests = s.withdrawalRequests[userAddr];
+        if (requests.length != 4) {
+            withdrawUnlockedBatchViolation = true;
+            return;
+        }
+
+        uint64 nowTs = uint64(block.timestamp);
+        UnstakeRequest memory req0 = UnstakeRequest({amount: uint192(requestAmounts[0]), unlockTime: nowTs});
+        UnstakeRequest memory req1 = UnstakeRequest({amount: uint192(requestAmounts[1]), unlockTime: nowTs + 1});
+        UnstakeRequest memory req2 = UnstakeRequest({amount: uint192(requestAmounts[2]), unlockTime: nowTs});
+        UnstakeRequest memory req3 = UnstakeRequest({amount: uint192(requestAmounts[3]), unlockTime: nowTs + 2});
+        UnstakeRequest[4] memory expectedRequests;
+
+        uint256 scenario = seed % 3;
+        if (scenario == 0) {
+            requests[0].unlockTime = req0.unlockTime;
+            requests[1].unlockTime = req1.unlockTime;
+            requests[2].unlockTime = req2.unlockTime;
+            requests[3].unlockTime = req3.unlockTime;
+            expectedRequests[0] = req0;
+            expectedRequests[1] = req1;
+            expectedRequests[2] = req2;
+            expectedRequests[3] = req3;
+        } else if (scenario == 1) {
+            requests[0].unlockTime = nowTs;
+            requests[1].unlockTime = nowTs;
+            requests[2].unlockTime = nowTs;
+            requests[3].unlockTime = nowTs;
+            expectedRequests[0] = UnstakeRequest({amount: uint192(requestAmounts[0]), unlockTime: nowTs});
+            expectedRequests[1] = UnstakeRequest({amount: uint192(requestAmounts[1]), unlockTime: nowTs});
+            expectedRequests[2] = UnstakeRequest({amount: uint192(requestAmounts[2]), unlockTime: nowTs});
+            expectedRequests[3] = UnstakeRequest({amount: uint192(requestAmounts[3]), unlockTime: nowTs});
+        } else {
+            requests[0].unlockTime = nowTs + 1;
+            requests[1].unlockTime = nowTs + 2;
+            requests[2].unlockTime = nowTs + 3;
+            requests[3].unlockTime = nowTs + 4;
+            expectedRequests[0] = UnstakeRequest({amount: uint192(requestAmounts[0]), unlockTime: nowTs + 1});
+            expectedRequests[1] = UnstakeRequest({amount: uint192(requestAmounts[1]), unlockTime: nowTs + 2});
+            expectedRequests[2] = UnstakeRequest({amount: uint192(requestAmounts[2]), unlockTime: nowTs + 3});
+            expectedRequests[3] = UnstakeRequest({amount: uint192(requestAmounts[3]), unlockTime: nowTs + 4});
+        }
+
+        uint256 userTokenBefore = token.balanceOf(userAddr);
+        uint256 contractTokenBefore = token.balanceOf(address(this));
+        uint256 supplyBefore = cssv.totalSupply();
+
+        if (scenario == 2) {
+            try user.withdrawUnlocked() {
+                invalidWithdrawSucceeded = true;
+                withdrawUnlockedBatchViolation = true;
+            } catch {
+                if (token.balanceOf(userAddr) != userTokenBefore) {
+                    withdrawUnlockedBatchViolation = true;
+                }
+                if (token.balanceOf(address(this)) != contractTokenBefore) {
+                    withdrawUnlockedBatchViolation = true;
+                }
+                if (cssv.totalSupply() != supplyBefore) {
+                    withdrawUnlockedBatchViolation = true;
+                }
+                if (!_requestsMatchFourExact(s.withdrawalRequests[userAddr], expectedRequests)) {
+                    withdrawUnlockedBatchViolation = true;
+                }
+            }
+            return;
+        }
+
+        uint256 expectedPayout = scenario == 0
+            ? requestAmounts[0] + requestAmounts[2]
+            : requestAmounts[0] + requestAmounts[1] + requestAmounts[2] + requestAmounts[3];
+
+        try user.withdrawUnlocked() {
+            if (token.balanceOf(userAddr) != userTokenBefore + expectedPayout) {
+                withdrawUnlockedBatchViolation = true;
+            }
+            if (token.balanceOf(address(this)) != contractTokenBefore - expectedPayout) {
+                withdrawUnlockedBatchViolation = true;
+            }
+            if (cssv.totalSupply() != supplyBefore) {
+                withdrawUnlockedBatchViolation = true;
+            }
+
+            if (scenario == 0) {
+                if (!_requestsMatchTwoAsMultiset(s.withdrawalRequests[userAddr], req1, req3)) {
+                    withdrawUnlockedBatchViolation = true;
+                }
+            } else if (s.withdrawalRequests[userAddr].length != 0) {
+                withdrawUnlockedBatchViolation = true;
+            }
+        } catch {
+            withdrawUnlockedBatchViolation = true;
+        }
     }
 
     function action_claim_rewards(uint8 userSeed) external {
@@ -772,6 +888,10 @@ contract SSVStakingEchidna is SSVStaking {
         return !zeroCssvAccrualViolation;
     }
 
+    function echidna_withdraw_unlocked_batch_correct() external view returns (bool) {
+        return !withdrawUnlockedBatchViolation;
+    }
+
     function _boundShrunk(uint256 seed, uint64 maxValue) internal pure returns (uint64) {
         if (maxValue == 0) return 0;
         return uint64(seed % (uint256(maxValue) + 1));
@@ -933,6 +1053,35 @@ contract SSVStakingEchidna is SSVStaking {
         }
     }
 
+    function _requestUnstakeExact(StakingUser user, uint256 amount) internal returns (bool) {
+        if (amount == 0) return false;
+
+        StorageStaking storage s = SSVStorageStaking.load();
+        address userAddr = address(user);
+        if (cssv.balanceOf(userAddr) < amount) return false;
+        if (s.withdrawalRequests[userAddr].length >= MAX_PENDING_REQUESTS) return false;
+
+        uint64 beforePool = PackedETH.unwrap(s.stakingEthPoolBalance);
+        uint256 beforeSupply = cssv.totalSupply();
+
+        try user.requestUnstake(amount) {
+            uint256 afterSupply = cssv.totalSupply();
+            if (beforeSupply < amount || afterSupply != beforeSupply - amount) {
+                cssvSupplyDeltaMismatch = true;
+            }
+            if (expectedCssvSupply < amount) {
+                cssvSupplyDeltaMismatch = true;
+            } else {
+                expectedCssvSupply -= amount;
+            }
+            _checkSettledUser(userAddr);
+            _trackPoolCredit(beforePool, PackedETH.unwrap(s.stakingEthPoolBalance));
+            return true;
+        } catch {
+            return false;
+        }
+    }
+
     function _ensureBalanceAtLeast(StakingUser user, uint256 targetBalance) internal returns (bool) {
         uint256 balance = cssv.balanceOf(address(user));
         if (balance >= targetBalance) return true;
@@ -973,8 +1122,53 @@ contract SSVStakingEchidna is SSVStaking {
         return (user1, address(user1), false);
     }
 
+    function _pickUserWithoutPendingRequests(
+        uint256 seed
+    ) internal view returns (StakingUser user, address userAddr, bool found) {
+        StorageStaking storage s = SSVStorageStaking.load();
+        for (uint256 i; i < 4; ++i) {
+            user = _user(uint8((seed + i) % 4));
+            userAddr = address(user);
+            if (s.withdrawalRequests[userAddr].length == 0) {
+                return (user, userAddr, true);
+            }
+        }
+
+        return (user1, address(user1), false);
+    }
+
     function _roundedDownToPayoutPrecision(uint256 amount) internal pure returns (uint256) {
         return amount - (amount % ETH_DEDUCTED_DIGITS);
+    }
+
+    function _requestsMatchTwoAsMultiset(
+        UnstakeRequest[] storage requests,
+        UnstakeRequest memory expectedA,
+        UnstakeRequest memory expectedB
+    ) internal view returns (bool) {
+        if (requests.length != 2) return false;
+
+        bool direct = requests[0].amount == expectedA.amount && requests[0].unlockTime == expectedA.unlockTime
+            && requests[1].amount == expectedB.amount && requests[1].unlockTime == expectedB.unlockTime;
+        bool swapped = requests[0].amount == expectedB.amount && requests[0].unlockTime == expectedB.unlockTime
+            && requests[1].amount == expectedA.amount && requests[1].unlockTime == expectedA.unlockTime;
+
+        return direct || swapped;
+    }
+
+    function _requestsMatchFourExact(
+        UnstakeRequest[] storage storedRequests,
+        UnstakeRequest[4] memory expectedRequests
+    ) internal view returns (bool) {
+        if (storedRequests.length != expectedRequests.length) return false;
+
+        uint256 count = storedRequests.length;
+        for (uint256 i; i < count; ++i) {
+            if (storedRequests[i].amount != expectedRequests[i].amount) return false;
+            if (storedRequests[i].unlockTime != expectedRequests[i].unlockTime) return false;
+        }
+
+        return true;
     }
 
     function _checkSettledUser(address user) internal {
