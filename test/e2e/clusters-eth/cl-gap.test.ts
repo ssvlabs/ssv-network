@@ -264,9 +264,10 @@ describe("CL Gap Tests — Cluster Deposit/Withdraw", () => {
 
       expect(cluster.balance).to.equal(DEFAULT_ETH_REGISTER_VALUE + depositVal);
 
-      // Verify removed operator has zero fee (confirming removal)
+      // Verify removed operator state (confirming removal)
       const opData = await views.getOperatorById(operatorIds[0]);
-      expect(opData.fee).to.equal(0n);
+      expect(opData.isActive).to.equal(false, "CL-012: removed op isActive == false");
+      expect(opData.fee).to.equal(0n, "CL-012: removed op fee == 0");
       expect(opData.validatorCount).to.equal(0);
     });
 
@@ -696,7 +697,7 @@ describe("CL Gap Tests — Cluster Deposit/Withdraw", () => {
   describe("Deposit+Withdraw Combination Gaps", () => {
     // CL-042: Deposit+withdraw with all operators removed — zero burn rate
     it("CL-042: Deposit+withdraw with all operators removed — zero burn rate", async function () {
-      const { network, operatorIds } = await networkHelpers.loadFixture(deploy4OpFixture);
+      const { network, views, operatorIds } = await networkHelpers.loadFixture(deploy4OpFixture);
       const provider = connection.ethers.provider;
 
       const regTx = await network.connect(clusterOwner).registerValidator(
@@ -715,6 +716,13 @@ describe("CL Gap Tests — Cluster Deposit/Withdraw", () => {
       // Remove all operators
       for (const opId of operatorIds) {
         await network.connect(clusterOwner).removeOperator(opId);
+      }
+
+      // Verify all removed operators
+      for (const opId of operatorIds) {
+        const opData = await views.getOperatorById(opId);
+        expect(opData.isActive).to.equal(false, `CL-042: op${opId} isActive == false`);
+        expect(opData.fee).to.equal(0n, `CL-042: op${opId} fee == 0`);
       }
 
       await mineBlocks(provider, 10);

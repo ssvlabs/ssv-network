@@ -1077,7 +1077,7 @@ describe("XV: Validator↔EB Cross-Module Tests", function () {
   // =========================================================================
   describe("Removed Operator Bug Paths", () => {
     it("XV-023: register → removeOperator → EB → remove last val — guard skips removed op", async function () {
-      const { network } = await networkHelpers.loadFixture(baseFixture);
+      const { network, views } = await networkHelpers.loadFixture(baseFixture);
       const prov = connection.ethers.provider;
       const addr = await network.getAddress();
       const ops = await setupOps(network, opOwner, 4, [clusterOwner.address]);
@@ -1090,6 +1090,9 @@ describe("XV: Validator↔EB Cross-Module Tests", function () {
         0n,
         "operatorEthVUnits==0 immediately after removeOperator",
       );
+      const removedOp23 = await views.getOperatorById(BigInt(ops[2]));
+      expect(removedOp23.isActive).to.equal(false, "XV-023: removed op isActive == false");
+      expect(removedOp23.fee).to.equal(0n, "XV-023: removed op fee == 0");
 
       // EB update (48 ETH) — guard skips removed op
       cl = await doEB(network, prov, clusterOwner, ops, cl, 48, oracles());

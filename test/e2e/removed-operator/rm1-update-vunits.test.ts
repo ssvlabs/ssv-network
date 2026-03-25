@@ -132,7 +132,7 @@ describe("RM1: _updateOperatorVUnits + removeOperator", () => {
   // ── Parametric fixture factory ──
   function createFixture(numOps: number) {
     async function fixture() {
-      const { network, ssvToken } =
+      const { network, views, ssvToken } =
         await ssvNetworkFullFixture(connection);
       await network.updateNetworkFee(DEFAULT_NETWORK_FEE_UNPACKED);
       await network.updateMinimumLiquidationCollateral(0n);
@@ -151,7 +151,7 @@ describe("RM1: _updateOperatorVUnits + removeOperator", () => {
         clusterOwner.address,
         clusterOwner2.address,
       ]);
-      return { network, operatorIds, ssvToken };
+      return { network, views, operatorIds, ssvToken };
     }
     return fixture;
   }
@@ -268,7 +268,7 @@ describe("RM1: _updateOperatorVUnits + removeOperator", () => {
     const deployFixture = createFixture(4);
 
     it("RM1-001: removeOp + EB increase → guard skips removed op", async function () {
-      const { network, operatorIds } =
+      const { network, views, operatorIds } =
         await networkHelpers.loadFixture(deployFixture);
       const provider = connection.ethers.provider;
       const proxyAddr = await network.getAddress();
@@ -291,6 +291,9 @@ describe("RM1: _updateOperatorVUnits + removeOperator", () => {
 
       await network.connect(operatorOwner).removeOperator(operatorIds[0]);
       expect(await readOperatorEthVUnits(provider, proxyAddr, operatorIds[0])).to.equal(0n, "removeOperator must zero vUnits");
+      const removedOp1 = await views.getOperatorById(BigInt(operatorIds[0]));
+      expect(removedOp1.isActive).to.equal(false, "RM1-001: removed op isActive == false");
+      expect(removedOp1.fee).to.equal(0n, "RM1-001: removed op fee == 0");
 
       // EB increase → 40 (newVUnits=12500, delta=+2500)
       ({ cluster } = await commitAndUpdateEB(
@@ -317,7 +320,7 @@ describe("RM1: _updateOperatorVUnits + removeOperator", () => {
     });
 
     it("RM1-002: removeOp + EB decrease → guard skips removed op", async function () {
-      const { network, operatorIds } =
+      const { network, views, operatorIds } =
         await networkHelpers.loadFixture(deployFixture);
       const provider = connection.ethers.provider;
       const proxyAddr = await network.getAddress();
@@ -346,6 +349,9 @@ describe("RM1: _updateOperatorVUnits + removeOperator", () => {
 
       await network.connect(operatorOwner).removeOperator(operatorIds[0]);
       expect(await readOperatorEthVUnits(provider, proxyAddr, operatorIds[0])).to.equal(0n, "removeOperator must zero vUnits");
+      const removedOp2 = await views.getOperatorById(BigInt(operatorIds[0]));
+      expect(removedOp2.isActive).to.equal(false, "RM1-002: removed op isActive == false");
+      expect(removedOp2.fee).to.equal(0n, "RM1-002: removed op fee == 0");
 
       // EB decrease → 32 (newVUnits=10000, delta=-2500)
       // Guard skips removed op, active ops get -2500

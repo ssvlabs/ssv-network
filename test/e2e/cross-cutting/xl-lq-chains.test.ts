@@ -533,7 +533,7 @@ describe("XL: Liquidation-Reactivation Chain Tests", function () {
     });
 
     it("XL-012: EB 32→48 → remove op4 → EB 48→64 → liquidate succeeds (guard skips removed op)", async function () {
-      const { network } = await networkHelpers.loadFixture(baseFixture);
+      const { network, views } = await networkHelpers.loadFixture(baseFixture);
       const prov = connection.ethers.provider;
       const addr = await network.getAddress();
       const ops = await setupOps(network, opOwner, 4, [clusterOwner.address]);
@@ -543,6 +543,9 @@ describe("XL: Liquidation-Reactivation Chain Tests", function () {
 
       await network.connect(opOwner).removeOperator(ops[3]);
       expect(await readOpVUnits(prov, addr, BigInt(ops[3]))).to.equal(0n, "removeOperator zeroes vUnits");
+      const removedOp12 = await views.getOperatorById(BigInt(ops[3]));
+      expect(removedOp12.isActive).to.equal(false, "XL-012: removed op isActive == false");
+      expect(removedOp12.fee).to.equal(0n, "XL-012: removed op fee == 0");
 
       // Second EB update — guard skips removed op
       cl = await doEB(network, prov, clusterOwner, ops, cl, 64, oracles3());

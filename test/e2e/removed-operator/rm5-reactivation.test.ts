@@ -437,6 +437,8 @@ describe("RM5 — Removed Operator Reactivation Guard", () => {
         network, clusterOwner, operatorIds, liquidatedCluster,
       );
       expect(reactivatedCluster.active).to.equal(true);
+      expect(reactivatedCluster.balance).to.equal(DEFAULT_ETH_REGISTER_VALUE, "RM5-002: reactivated balance == deposit");
+      expect(reactivatedCluster.validatorCount).to.equal(2n, "RM5-002: validatorCount preserved");
     });
 
     it("RM5-002b: Remove op BEFORE liquidation with implicit EB — works, then reactivate", async function () {
@@ -470,6 +472,8 @@ describe("RM5 — Removed Operator Reactivation Guard", () => {
         network, clusterOwner, operatorIds, liquidatedCluster,
       );
       expect(reactivatedCluster.active).to.equal(true);
+      expect(reactivatedCluster.balance).to.equal(DEFAULT_ETH_REGISTER_VALUE, "RM5-002b: reactivated balance == deposit");
+      expect(reactivatedCluster.validatorCount).to.equal(1n, "RM5-002b: validatorCount preserved");
 
       // INV-11: removed op stays at 0, no deviation for anyone
       // daoTotalEthVUnits = baseline = 1 * BPS = 10000 (implicit EB)

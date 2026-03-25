@@ -377,6 +377,9 @@ describe("RM2: _executeLiquidation Deviation Cleanup With Removed Operators", ()
       // Remove op1
       await network.connect(opOwner).removeOperator(operatorIds[0]);
       expect(await readOperatorEthVUnits(provider, proxyAddress, BigInt(operatorIds[0]))).to.equal(0n, "removeOperator must zero vUnits");
+      const removedOpBaseline = await views.getOperatorById(BigInt(operatorIds[0]));
+      expect(removedOpBaseline.isActive).to.equal(false, `${scenarioId}: removed op isActive == false`);
+      expect(removedOpBaseline.fee).to.equal(0n, `${scenarioId}: removed op fee == 0`);
 
       // Drain and liquidate
       const numActiveOps = BigInt(numOps - 1);

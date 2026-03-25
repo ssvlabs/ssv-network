@@ -657,6 +657,9 @@ describe("MG Gap Tests — Migration Coverage Gaps", () => {
 
       // Now remove op4
       await network.connect(clusterOwner).removeOperator(operatorIds[3]);
+      const removedOp52 = await views.getOperatorById(operatorIds[3]);
+      expect(removedOp52.isActive).to.equal(false, "MG-052: removed op isActive == false");
+      expect(removedOp52.fee).to.equal(0n, "MG-052: removed op fee == 0");
 
       await mineBlocks(provider, 10);
 
@@ -686,6 +689,7 @@ describe("MG Gap Tests — Migration Coverage Gaps", () => {
       const clusterAfter = parseClusterFromEvent(network, receipt, Events.CLUSTER_MIGRATED_TO_ETH);
       expect(clusterAfter.active).to.equal(true);
       expect(clusterAfter.validatorCount).to.equal(2n);
+      expect(clusterAfter.balance).to.equal(ethDeposit, "MG-052: cluster balance == ethDeposit");
     });
   });
 
@@ -1057,6 +1061,9 @@ describe("MG Gap Tests — Migration Coverage Gaps", () => {
       // Step 2: Remove op4
       const removeTx = await network.connect(clusterOwner).removeOperator(operatorIds[3]);
       const removeReceipt = await removeTx.wait();
+      const removedOp18 = await views.getOperatorById(operatorIds[3]);
+      expect(removedOp18.isActive).to.equal(false, "MG-018: removed op isActive == false");
+      expect(removedOp18.fee).to.equal(0n, "MG-018: removed op fee == 0");
 
       await mineBlocks(provider, 50);
 

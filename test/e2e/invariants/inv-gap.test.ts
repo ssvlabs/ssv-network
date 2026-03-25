@@ -215,6 +215,7 @@ async function assertG11Holds(
 ): Promise<void> {
   const opData = await views.getOperatorById(BigInt(operatorId));
   expect(opData.isActive).to.equal(false, `${label}: isActive should be false`);
+  expect(opData.fee).to.equal(0n, `${label}: fee should be 0`);
   const vUnits = await readOperatorEthVUnits(provider, contractAddress, operatorId);
   expect(vUnits).to.equal(0n, `${label}: operatorEthVUnits should be 0`);
   const ethSnapBlock = await readOperatorEthSnapshotBlock(provider, contractAddress, operatorId);

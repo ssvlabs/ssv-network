@@ -281,12 +281,15 @@ describe("W7-A: OP/OF/OE Operator Module Gap Tests", function () {
     });
 
     it("OP-035: Set public on removed operator → OperatorDoesNotExist", async () => {
-      const { network } = await networkHelpers.loadFixture(deployFixture);
+      const { network, views } = await networkHelpers.loadFixture(deployFixture);
 
       const operatorIds = await registerOperators(network, operatorOwner, 1);
 
       // Remove the operator
       await network.connect(operatorOwner).removeOperator(operatorIds[0]);
+      const removedOp35 = await views.getOperatorById(BigInt(operatorIds[0]));
+      expect(removedOp35.isActive).to.equal(false, "OP-035: removed op isActive == false");
+      expect(removedOp35.fee).to.equal(0n, "OP-035: removed op fee == 0");
 
       // Try to set public on removed operator
       await expect(
@@ -355,7 +358,8 @@ describe("W7-A: OP/OF/OE Operator Module Gap Tests", function () {
 
       // Verify operator state reset
       const opData = await views.getOperatorById(BigInt(operatorIds[0]));
-      expect(opData.isActive).to.be.false;
+      expect(opData.isActive).to.equal(false, "OP-039: removed op isActive == false");
+      expect(opData.fee).to.equal(0n, "OP-039: removed op fee == 0");
       expect(opData.validatorCount).to.equal(0n);
     });
 
