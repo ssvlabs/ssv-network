@@ -19,6 +19,7 @@ import {
   DEFAULT_NETWORK_FEE_RAW,
   DEFAULT_NETWORK_FEE_UNPACKED,
   MINIMAL_LIQUIDATION_THRESHOLD,
+  MINIMAL_OPERATOR_ETH_FEE,
 } from "../../common/constants.ts";
 import { Events } from "../../common/events.ts";
 import { Errors } from "../../common/errors.ts";
@@ -235,6 +236,24 @@ async function removeOps(
   }
 }
 
+async function assertRemovedOps(
+  views: any,
+  provider: any,
+  proxyAddr: string,
+  operatorIds: number[],
+  removedIndices: number[],
+): Promise<void> {
+  for (const idx of removedIndices) {
+    const opData = await views.getOperatorById(operatorIds[idx]);
+    expect(opData[5]).to.equal(false, `op${operatorIds[idx]} isActive should be false after removal`);
+    expect(opData[1]).to.equal(0n, `op${operatorIds[idx]} fee should be 0 after removal`);
+    expect(opData[2]).to.equal(0n, `op${operatorIds[idx]} validatorCount should be 0 after removal`);
+    expect(
+      await readOperatorEthVUnits(provider, proxyAddr, BigInt(operatorIds[idx])),
+    ).to.equal(0n, `operatorEthVUnits[op${operatorIds[idx]}] should be 0 after removal`);
+  }
+}
+
 async function reactivate(
   network: any,
   clusterOwner: HardhatEthersSigner,
@@ -344,11 +363,8 @@ describe("RM5 — Removed Operator Reactivation Guard", () => {
         // Remove operators
         await removeOps(network, operatorOwner, operatorIds, cfg.removeIdxs);
 
-        // Verify removed operator state via views
-        for (const idx of cfg.removeIdxs) {
-          const opData = await views.getOperatorById(operatorIds[idx]);
-          expect(opData[2]).to.equal(0n); // ethValidatorCount
-        }
+        // Verify removed operator state: isActive=false, fee=0, validatorCount=0, vUnits=0
+        await assertRemovedOps(views, provider, proxyAddr, operatorIds, cfg.removeIdxs);
 
         // Reactivate
         const reactivatedCluster = await reactivate(
@@ -356,6 +372,7 @@ describe("RM5 — Removed Operator Reactivation Guard", () => {
         );
         expect(reactivatedCluster.active).to.equal(true);
         expect(reactivatedCluster.validatorCount).to.equal(BigInt(cfg.vals));
+        expect(reactivatedCluster.balance).to.equal(DEFAULT_ETH_REGISTER_VALUE);
 
         // INV-11: removed ops have vUnits==0, active ops have deviation, DAO consistent
         // daoTotalEthVUnits = baseline + deviation = vUnitsCluster (full vUnits)
@@ -364,23 +381,14 @@ describe("RM5 — Removed Operator Reactivation Guard", () => {
           expectedDeviation, vUnitsCluster,
         );
 
-        // Active operators have ethValidatorCount incremented
+        // Active operators have ethValidatorCount == cluster validatorCount
         const activeIndices = operatorIds.map((_, i) => i).filter((i) => !cfg.removeIdxs.includes(i));
         for (const idx of activeIndices) {
           const opData = await views.getOperatorById(operatorIds[idx]);
-          expect(opData[2]).to.be.gt(0n); // ethValidatorCount > 0
+          expect(opData[2]).to.equal(BigInt(cfg.vals)); // ethValidatorCount = validatorCount
+          expect(opData[1]).to.equal(MINIMAL_OPERATOR_ETH_FEE); // fee unchanged
+          expect(opData[5]).to.equal(true); // isActive
         }
-
-        // Burn rate reflects only active operators
-        const activeOps = BigInt(cfg.ops - cfg.removeIdxs.length);
-        const burnPerBlock = calcClusterBurn({
-          blockDiff: 1n,
-          numOperators: activeOps,
-          ethFee: OP_ETH_FEE_RAW,
-          networkFee: DEFAULT_NETWORK_FEE_RAW,
-          effectiveVUnits: vUnitsCluster,
-        });
-        expect(burnPerBlock).to.be.gt(0n);
       });
     }
   });
@@ -391,7 +399,7 @@ describe("RM5 — Removed Operator Reactivation Guard", () => {
   // -----------------------------------------------------------------------
   describe("Order invariance (RM5-002)", () => {
     it("RM5-002: Remove op BEFORE liquidation with explicit EB — guard skips removed op, liquidation succeeds", async function () {
-      const { network, proxyAddr } =
+      const { network, views, proxyAddr } =
         await networkHelpers.loadFixture(deployFixture);
       const provider = connection.ethers.provider;
 
@@ -407,6 +415,7 @@ describe("RM5 — Removed Operator Reactivation Guard", () => {
 
       // Remove op BEFORE liquidation
       await network.connect(operatorOwner).removeOperator(operatorIds[1]);
+      await assertRemovedOps(views, provider, proxyAddr, operatorIds, [1]);
 
       // Drain balance
       await mineBlocks(provider, 1_000_000_000_000);
@@ -431,7 +440,7 @@ describe("RM5 — Removed Operator Reactivation Guard", () => {
     });
 
     it("RM5-002b: Remove op BEFORE liquidation with implicit EB — works, then reactivate", async function () {
-      const { network, proxyAddr } =
+      const { network, views, proxyAddr } =
         await networkHelpers.loadFixture(deployFixture);
       const provider = connection.ethers.provider;
 
@@ -443,7 +452,7 @@ describe("RM5 — Removed Operator Reactivation Guard", () => {
 
       // Remove op BEFORE liquidation (implicit EB, no deviation)
       await network.connect(operatorOwner).removeOperator(operatorIds[1]);
-      expect(await readOperatorEthVUnits(provider, proxyAddr, BigInt(operatorIds[1]))).to.equal(0n);
+      await assertRemovedOps(views, provider, proxyAddr, operatorIds, [1]);
 
       // Drain and liquidate — succeeds because no deviation to subtract
       await mineBlocks(provider, 1_000_000_000_000);
@@ -490,11 +499,7 @@ describe("RM5 — Removed Operator Reactivation Guard", () => {
 
       // Remove ALL 4 operators
       await removeOps(network, operatorOwner, operatorIds, [0, 1, 2, 3]);
-
-      for (const opId of operatorIds) {
-        const opData = await views.getOperatorById(opId);
-        expect(opData[2]).to.equal(0n); // ethValidatorCount == 0
-      }
+      await assertRemovedOps(views, provider, proxyAddr, operatorIds, [0, 1, 2, 3]);
 
       // Reactivate — burn rate is 0 (all ops removed), only network fee matters
       // Solvency check: with burnRate=0, only needs to cover network fee threshold
@@ -513,7 +518,7 @@ describe("RM5 — Removed Operator Reactivation Guard", () => {
     });
 
     it("RM5-007: 7-op, ALL 7 removed, reactivate — burnRate=0", async function () {
-      const { network, proxyAddr } =
+      const { network, views, proxyAddr } =
         await networkHelpers.loadFixture(deployFixture);
       const provider = connection.ethers.provider;
 
@@ -529,6 +534,7 @@ describe("RM5 — Removed Operator Reactivation Guard", () => {
 
       // Remove ALL 7 operators
       await removeOps(network, operatorOwner, operatorIds, [0, 1, 2, 3, 4, 5, 6]);
+      await assertRemovedOps(views, provider, proxyAddr, operatorIds, [0, 1, 2, 3, 4, 5, 6]);
 
       const reactivatedCluster = await reactivate(
         network, clusterOwner, operatorIds, liquidatedCluster, ethers.parseEther("1"),
@@ -546,7 +552,7 @@ describe("RM5 — Removed Operator Reactivation Guard", () => {
   // -----------------------------------------------------------------------
   describe("Deviation distribution to active ops only (RM5-008, 009, 013)", () => {
     it("RM5-008: 4-op, explicit EB with deviation, remove 1 op — deviation distributed to 3 active ops only", async function () {
-      const { network, proxyAddr } =
+      const { network, views, proxyAddr } =
         await networkHelpers.loadFixture(deployFixture);
       const provider = connection.ethers.provider;
 
@@ -569,7 +575,7 @@ describe("RM5 — Removed Operator Reactivation Guard", () => {
 
       // Remove op3 (index 2)
       await removeOps(network, operatorOwner, operatorIds, [2]);
-      expect(await readOperatorEthVUnits(provider, proxyAddr, BigInt(operatorIds[2]))).to.equal(0n);
+      await assertRemovedOps(views, provider, proxyAddr, operatorIds, [2]);
 
       // Reactivate
       await reactivate(network, clusterOwner, operatorIds, cluster);
@@ -586,7 +592,7 @@ describe("RM5 — Removed Operator Reactivation Guard", () => {
     });
 
     it("RM5-009: 4-op, explicit EB, remove 2 ops — daoTotalEthVUnits = full vUnits regardless of removed ops", async function () {
-      const { network, proxyAddr } =
+      const { network, views, proxyAddr } =
         await networkHelpers.loadFixture(deployFixture);
       const provider = connection.ethers.provider;
 
@@ -607,6 +613,7 @@ describe("RM5 — Removed Operator Reactivation Guard", () => {
 
       // Remove op2 AND op3 (2 of 4 removed)
       await removeOps(network, operatorOwner, operatorIds, [1, 2]);
+      await assertRemovedOps(views, provider, proxyAddr, operatorIds, [1, 2]);
 
       // Reactivate
       await reactivate(network, clusterOwner, operatorIds, cluster);
@@ -621,19 +628,17 @@ describe("RM5 — Removed Operator Reactivation Guard", () => {
       const daoVUnits = await readDaoTotalEthVUnits(provider, proxyAddr);
       expect(daoVUnits).to.equal(calcVUnits(128n));
 
-      // Solvency uses effectiveVUnits=40000 and 2-op burn rate
-      const burnPerBlock = calcClusterBurn({
-        blockDiff: 1n,
-        numOperators: 2n,
-        ethFee: OP_ETH_FEE_RAW,
-        networkFee: DEFAULT_NETWORK_FEE_RAW,
-        effectiveVUnits: calcVUnits(128n),
-      });
-      expect(burnPerBlock).to.be.gt(0n);
+      // Verify active ops have correct fee and validator count after reactivation
+      for (const idx of [0, 3]) {
+        const opData = await views.getOperatorById(operatorIds[idx]);
+        expect(opData[1]).to.equal(MINIMAL_OPERATOR_ETH_FEE); // fee unchanged
+        expect(opData[2]).to.equal(2n); // ethValidatorCount = 2 validators
+        expect(opData[5]).to.equal(true); // isActive
+      }
     });
 
     it("RM5-013: Removed op operatorEthVUnits stays 0 — no stale deviation written back", async function () {
-      const { network, proxyAddr } =
+      const { network, views, proxyAddr } =
         await networkHelpers.loadFixture(deployFixture);
       const provider = connection.ethers.provider;
 
@@ -661,7 +666,7 @@ describe("RM5 — Removed Operator Reactivation Guard", () => {
 
       // Remove op1 — operatorEthVUnits[op1] is already 0, delete has no visible effect
       await removeOps(network, operatorOwner, operatorIds, [0]);
-      expect(await readOperatorEthVUnits(provider, proxyAddr, BigInt(operatorIds[0]))).to.equal(0n);
+      await assertRemovedOps(views, provider, proxyAddr, operatorIds, [0]);
 
       // Reactivate — reactivation should NOT write deviation back to removed op
       await reactivate(network, clusterOwner, operatorIds, cluster);
@@ -682,7 +687,7 @@ describe("RM5 — Removed Operator Reactivation Guard", () => {
   // -----------------------------------------------------------------------
   describe("Implicit EB — no deviation (RM5-010)", () => {
     it("RM5-010: 4-op, implicit EB, liquidate, remove 1 op, reactivate — clusterDeviation=0", async function () {
-      const { network, proxyAddr } =
+      const { network, views, proxyAddr } =
         await networkHelpers.loadFixture(deployFixture);
       const provider = connection.ethers.provider;
 
@@ -704,15 +709,25 @@ describe("RM5 — Removed Operator Reactivation Guard", () => {
 
       // Remove op2
       await removeOps(network, operatorOwner, operatorIds, [1]);
+      await assertRemovedOps(views, provider, proxyAddr, operatorIds, [1]);
 
       // Reactivate
       const reactivatedCluster = await reactivate(
         network, clusterOwner, operatorIds, liquidatedCluster,
       );
       expect(reactivatedCluster.active).to.equal(true);
+      expect(reactivatedCluster.balance).to.equal(DEFAULT_ETH_REGISTER_VALUE);
 
       // INV-11: no deviation for any operator, but DAO baseline = 1 * BPS
       await assertINV11(provider, proxyAddr, operatorIds, [1], 0n, defaultVUnits(1n));
+
+      // Active operators have correct state
+      for (const idx of [0, 2, 3]) {
+        const opData = await views.getOperatorById(operatorIds[idx]);
+        expect(opData[1]).to.equal(MINIMAL_OPERATOR_ETH_FEE); // fee unchanged
+        expect(opData[2]).to.equal(1n); // ethValidatorCount = 1
+        expect(opData[5]).to.equal(true); // isActive
+      }
 
       // ethDaoValidatorCount reflects the reactivated cluster
       const daoValCount = await readEthDaoValidatorCount(provider, proxyAddr);
@@ -737,7 +752,9 @@ describe("RM5 — Removed Operator Reactivation Guard", () => {
 
       // Verify pre-removal: operator has non-zero state
       const preRemoval = await views.getOperatorById(operatorIds[1]);
-      expect(preRemoval[2]).to.be.gt(0n); // ethValidatorCount > 0
+      expect(preRemoval[2]).to.equal(1n); // ethValidatorCount = 1 validator
+      expect(preRemoval[1]).to.equal(MINIMAL_OPERATOR_ETH_FEE); // fee set
+      expect(preRemoval[5]).to.equal(true); // isActive
 
       // Liquidate
       const liquidatedCluster = await drainAndLiquidate(
@@ -749,6 +766,7 @@ describe("RM5 — Removed Operator Reactivation Guard", () => {
 
       // Verify post-removal: all fields zeroed by _resetOperatorState
       const postRemoval = await views.getOperatorById(operatorIds[1]);
+      expect(postRemoval[5]).to.equal(false); // isActive == false
       expect(postRemoval[1]).to.equal(0n); // ethFee == 0
       expect(postRemoval[2]).to.equal(0n); // ethValidatorCount == 0
       expect(await readOperatorEthVUnits(provider, proxyAddr, BigInt(operatorIds[1]))).to.equal(0n);
@@ -761,13 +779,14 @@ describe("RM5 — Removed Operator Reactivation Guard", () => {
 
       // Removed op stays zeroed after reactivation
       const afterReactivation = await views.getOperatorById(operatorIds[1]);
+      expect(afterReactivation[5]).to.equal(false); // isActive still false
       expect(afterReactivation[1]).to.equal(0n); // ethFee still 0
       expect(afterReactivation[2]).to.equal(0n); // ethValidatorCount still 0
       expect(await readOperatorEthVUnits(provider, proxyAddr, BigInt(operatorIds[1]))).to.equal(0n);
     });
 
     it("RM5-012: Active op has ethSnapshot.block!=0 — fee accrual computed, ethValidatorCount incremented", async function () {
-      const { network, views } =
+      const { network, views, proxyAddr } =
         await networkHelpers.loadFixture(deployFixture);
       const provider = connection.ethers.provider;
 
@@ -784,19 +803,22 @@ describe("RM5 — Removed Operator Reactivation Guard", () => {
 
       // Remove op2 (only op2, leave op1, op3, op4 active)
       await removeOps(network, operatorOwner, operatorIds, [1]);
+      await assertRemovedOps(views, provider, proxyAddr, operatorIds, [1]);
 
       // Reactivate
       await reactivate(network, clusterOwner, operatorIds, liquidatedCluster);
 
-      // Active operators (op1, op3, op4) should have ethValidatorCount > 0
+      // Active operators (op1, op3, op4) have exact fee and validator count
       for (const idx of [0, 2, 3]) {
         const opData = await views.getOperatorById(operatorIds[idx]);
-        expect(opData[1]).to.be.gt(0n); // ethFee > 0 (not reset)
-        expect(opData[2]).to.be.gt(0n); // ethValidatorCount incremented
+        expect(opData[1]).to.equal(MINIMAL_OPERATOR_ETH_FEE); // ethFee = registered fee
+        expect(opData[2]).to.equal(1n); // ethValidatorCount = 1
+        expect(opData[5]).to.equal(true); // isActive
       }
 
-      // Removed operator (op2) should have ethValidatorCount == 0
+      // Removed operator (op2) stays zeroed after reactivation
       const removedOp = await views.getOperatorById(operatorIds[1]);
+      expect(removedOp[5]).to.equal(false); // isActive == false
       expect(removedOp[1]).to.equal(0n); // ethFee == 0
       expect(removedOp[2]).to.equal(0n); // ethValidatorCount == 0
     });
@@ -807,7 +829,7 @@ describe("RM5 — Removed Operator Reactivation Guard", () => {
   // -----------------------------------------------------------------------
   describe("EB update on liquidated cluster (RM5-014)", () => {
     it("RM5-014: EB update while liquidated changes deviation on reactivation", async function () {
-      const { network, proxyAddr } =
+      const { network, views, proxyAddr } =
         await networkHelpers.loadFixture(deployFixture);
       const provider = connection.ethers.provider;
 
@@ -847,6 +869,7 @@ describe("RM5 — Removed Operator Reactivation Guard", () => {
 
       // Remove op4
       await removeOps(network, operatorOwner, operatorIds, [3]);
+      await assertRemovedOps(views, provider, proxyAddr, operatorIds, [3]);
 
       // Reactivate — uses updated vUnits=20000
       const reactivatedCluster = await reactivate(
@@ -874,7 +897,7 @@ describe("RM5 — Removed Operator Reactivation Guard", () => {
   // -----------------------------------------------------------------------
   describe("Global hasDeviation flag (RM5-015, RM5-016)", () => {
     it("RM5-015: hasDeviation=true (global), removed op skipped — effectiveVUnits uses stored deviation path", async function () {
-      const { network, proxyAddr } =
+      const { network, views, proxyAddr } =
         await networkHelpers.loadFixture(deployFixture);
       const provider = connection.ethers.provider;
 
@@ -894,8 +917,9 @@ describe("RM5 — Removed Operator Reactivation Guard", () => {
       );
       // cluster2 has deviation=10000, now daoTotalEthVUnits > 0
 
+      // cluster2 has vUnits=20000 (EB=64, 1 val). daoTotalEthVUnits = vUnits = calcVUnits(64)
       const daoVUnitsBefore = await readDaoTotalEthVUnits(provider, proxyAddr);
-      expect(daoVUnitsBefore).to.be.gt(0n); // hasDeviation = true globally
+      expect(daoVUnitsBefore).to.equal(calcVUnits(64n)); // hasDeviation = true globally
 
       // Create the TEST cluster with the second set of operators
       await whitelistAddresses(network, operatorOwner, operatorIds, [clusterOwner.address]);
@@ -914,6 +938,7 @@ describe("RM5 — Removed Operator Reactivation Guard", () => {
 
       // Remove op1 (index 0)
       await removeOps(network, operatorOwner, operatorIds, [0]);
+      await assertRemovedOps(views, provider, proxyAddr, operatorIds, [0]);
 
       // Reactivate — hasDeviation is true globally (cluster2 still has deviation)
       await reactivate(network, clusterOwner, operatorIds, cluster);
@@ -932,7 +957,7 @@ describe("RM5 — Removed Operator Reactivation Guard", () => {
     });
 
     it("RM5-016: hasDeviation=false (global), implicit EB, removed op skipped — baseline path for active ops", async function () {
-      const { network, proxyAddr } =
+      const { network, views, proxyAddr } =
         await networkHelpers.loadFixture(deployFixture);
       const provider = connection.ethers.provider;
 
@@ -954,6 +979,7 @@ describe("RM5 — Removed Operator Reactivation Guard", () => {
 
       // Remove op3
       await removeOps(network, operatorOwner, operatorIds, [2]);
+      await assertRemovedOps(views, provider, proxyAddr, operatorIds, [2]);
 
       // Reactivate — hasDeviation=false, baseline path for active ops
       await reactivate(network, clusterOwner, operatorIds, liquidatedCluster);
@@ -968,7 +994,7 @@ describe("RM5 — Removed Operator Reactivation Guard", () => {
   // -----------------------------------------------------------------------
   describe("Validator limit on reactivation (RM5-017)", () => {
     it("RM5-017: Active op at validator limit — reactivation reverts ExceedValidatorLimitWithData", async function () {
-      const { network, proxyAddr } =
+      const { network, views, proxyAddr } =
         await networkHelpers.loadFixture(deployFixture);
       const provider = connection.ethers.provider;
 
@@ -1021,6 +1047,7 @@ describe("RM5 — Removed Operator Reactivation Guard", () => {
 
       // Remove op[1]
       await removeOps(network, operatorOwner, operatorIds, [1]);
+      await assertRemovedOps(views, provider, proxyAddr, operatorIds, [1]);
 
       // Reactivate Cluster B → active ops 0,2,3 would go from 3 to 4 → exceeds limit 3
       await expect(
@@ -1038,7 +1065,7 @@ describe("RM5 — Removed Operator Reactivation Guard", () => {
   // -----------------------------------------------------------------------
   describe("Removed op position in array (RM5-018, 019, 020)", () => {
     it("RM5-018: Removed op at position [0] (first) — guard triggers on first iteration", async function () {
-      const { network, proxyAddr } =
+      const { network, views, proxyAddr } =
         await networkHelpers.loadFixture(deployFixture);
       const provider = connection.ethers.provider;
 
@@ -1058,6 +1085,7 @@ describe("RM5 — Removed Operator Reactivation Guard", () => {
 
       // Remove first operator (index 0)
       await removeOps(network, operatorOwner, operatorIds, [0]);
+      await assertRemovedOps(views, provider, proxyAddr, operatorIds, [0]);
 
       await reactivate(network, clusterOwner, operatorIds, cluster);
 
@@ -1066,7 +1094,7 @@ describe("RM5 — Removed Operator Reactivation Guard", () => {
     });
 
     it("RM5-019: Removed op at position [last] — guard triggers on last iteration", async function () {
-      const { network, proxyAddr } =
+      const { network, views, proxyAddr } =
         await networkHelpers.loadFixture(deployFixture);
       const provider = connection.ethers.provider;
 
@@ -1086,6 +1114,7 @@ describe("RM5 — Removed Operator Reactivation Guard", () => {
 
       // Remove last operator (index 3)
       await removeOps(network, operatorOwner, operatorIds, [3]);
+      await assertRemovedOps(views, provider, proxyAddr, operatorIds, [3]);
 
       await reactivate(network, clusterOwner, operatorIds, cluster);
 
@@ -1094,7 +1123,7 @@ describe("RM5 — Removed Operator Reactivation Guard", () => {
     });
 
     it("RM5-020: Two removed ops at mixed positions [1] and [5] in 7-op cluster", async function () {
-      const { network, proxyAddr } =
+      const { network, views, proxyAddr } =
         await networkHelpers.loadFixture(deployFixture);
       const provider = connection.ethers.provider;
 
@@ -1114,6 +1143,7 @@ describe("RM5 — Removed Operator Reactivation Guard", () => {
 
       // Remove ops at positions [1] and [5]
       await removeOps(network, operatorOwner, operatorIds, [1, 5]);
+      await assertRemovedOps(views, provider, proxyAddr, operatorIds, [1, 5]);
 
       await reactivate(network, clusterOwner, operatorIds, cluster);
 
