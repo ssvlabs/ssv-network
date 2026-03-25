@@ -77,7 +77,7 @@ export const rm3ExplicitEBRemoveValidator: Scenario = {
     await ctx.step(
       "eb-update",
       async () => {
-        await performEBUpdate(ctx, record, 48);
+        await performEBUpdate(ctx, record, 48 * record.validatorKeys.length);
       },
       async (_pre, _post) => {},
     );

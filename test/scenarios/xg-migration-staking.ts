@@ -183,7 +183,7 @@ export const xg003MigrateEBStakeClaim: Scenario = {
     await ctx.step(
       "eb-update-increase",
       async () => {
-        await performEBUpdate(ctx, record, 128);
+        await performEBUpdate(ctx, record, 128 * record.validatorKeys.length);
       },
       async (_pre, post) => {
         assertDaoVUnitsNonNegative(post, "after-eb-increase");
@@ -508,7 +508,7 @@ export const xg008MigrateRemovedOpEBStake: Scenario = {
     await ctx.step(
       "eb-update",
       async () => {
-        await performEBUpdate(ctx, record, 64);
+        await performEBUpdate(ctx, record, 64 * record.validatorKeys.length);
       },
       async (_pre, post) => {
         assertOperatorRemoved(post, op.id, "after-eb");

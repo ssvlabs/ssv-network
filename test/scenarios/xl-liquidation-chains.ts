@@ -41,7 +41,7 @@ export const xl001FullCycleEB: Scenario = {
     await ctx.step(
       "eb-update-48",
       async () => {
-        await performEBUpdate(ctx, record, 48);
+        await performEBUpdate(ctx, record, 48 * record.validatorKeys.length);
       },
       async (_pre, post) => {
         assertDaoVUnitsNonNegative(post, "after-eb-48");
@@ -79,7 +79,7 @@ export const xl001FullCycleEB: Scenario = {
     await ctx.step(
       "eb-update-64",
       async () => {
-        await performEBUpdate(ctx, record, 64);
+        await performEBUpdate(ctx, record, 64 * record.validatorKeys.length);
       },
       async (_pre, post) => {
         assertDaoVUnitsNonNegative(post, "after-eb-64");
@@ -104,7 +104,7 @@ export const xl002EBDecreaseAfterReactivation: Scenario = {
     await ctx.step(
       "eb-update-64",
       async () => {
-        await performEBUpdate(ctx, record, 64);
+        await performEBUpdate(ctx, record, 64 * record.validatorKeys.length);
       },
       async (_pre, post) => {
         assertDaoVUnitsNonNegative(post, "after-eb-64");
@@ -140,7 +140,7 @@ export const xl002EBDecreaseAfterReactivation: Scenario = {
     await ctx.step(
       "eb-decrease-48",
       async () => {
-        await performEBUpdate(ctx, record, 48);
+        await performEBUpdate(ctx, record, 48 * record.validatorKeys.length);
       },
       async (_pre, post) => {
         assertDaoVUnitsNonNegative(post, "after-eb-decrease");
@@ -216,7 +216,7 @@ export const xl004EBRemoveOpLiquidate: Scenario = {
     await ctx.step(
       "eb-update",
       async () => {
-        await performEBUpdate(ctx, record, 48);
+        await performEBUpdate(ctx, record, 48 * record.validatorKeys.length);
       },
       async (_pre, post) => {
         assertDaoVUnitsNonNegative(post, "after-eb");
@@ -265,7 +265,7 @@ export const xl005EBRemoveOpLiqReact: Scenario = {
     await ctx.step(
       "eb-update",
       async () => {
-        await performEBUpdate(ctx, record, 48);
+        await performEBUpdate(ctx, record, 48 * record.validatorKeys.length);
       },
       async (_pre, _post) => {},
     );
@@ -324,7 +324,7 @@ export const xl006DoubleLiqReactCycle: Scenario = {
     await ctx.step(
       "eb-update",
       async () => {
-        await performEBUpdate(ctx, record, 48);
+        await performEBUpdate(ctx, record, 48 * record.validatorKeys.length);
       },
       async (_pre, _post) => {},
     );
@@ -392,7 +392,7 @@ export const xl007TripleCycleEBChanges: Scenario = {
     await ctx.step(
       "eb-48",
       async () => {
-        await performEBUpdate(ctx, record, 48);
+        await performEBUpdate(ctx, record, 48 * record.validatorKeys.length);
       },
       async (_pre, _post) => {},
     );
@@ -421,7 +421,7 @@ export const xl007TripleCycleEBChanges: Scenario = {
     await ctx.step(
       "eb-64",
       async () => {
-        await performEBUpdate(ctx, record, 64);
+        await performEBUpdate(ctx, record, 64 * record.validatorKeys.length);
       },
       async (_pre, _post) => {},
     );
@@ -450,7 +450,7 @@ export const xl007TripleCycleEBChanges: Scenario = {
     await ctx.step(
       "eb-96",
       async () => {
-        await performEBUpdate(ctx, record, 96);
+        await performEBUpdate(ctx, record, 96 * record.validatorKeys.length);
       },
       async (_pre, _post) => {},
     );
@@ -602,7 +602,7 @@ export const xl010EBOnLiquidatedCluster: Scenario = {
     await ctx.step(
       "eb-update-48",
       async () => {
-        await performEBUpdate(ctx, record, 48);
+        await performEBUpdate(ctx, record, 48 * record.validatorKeys.length);
       },
       async (_pre, post) => {
         assertDaoVUnitsNonNegative(post, "after-eb-48");
@@ -625,7 +625,7 @@ export const xl010EBOnLiquidatedCluster: Scenario = {
     await ctx.step(
       "eb-update-on-liquidated",
       async () => {
-        await performEBUpdate(ctx, record, 64);
+        await performEBUpdate(ctx, record, 64 * record.validatorKeys.length);
       },
       async (_pre, _post) => {
         // Cluster remains inactive

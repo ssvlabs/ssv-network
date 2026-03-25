@@ -91,7 +91,7 @@ export const rm5ExplicitEBReactivation: Scenario = {
     await ctx.step(
       "eb-update",
       async () => {
-        await performEBUpdate(ctx, record, 64);
+        await performEBUpdate(ctx, record, 64 * record.validatorKeys.length);
       },
       async (_pre, _post) => {},
     );
@@ -311,7 +311,7 @@ export const rm5ReactivateThenEB: Scenario = {
     await ctx.step(
       "eb-update-after-reactivation",
       async () => {
-        await performEBUpdate(ctx, record, 48);
+        await performEBUpdate(ctx, record, 48 * record.validatorKeys.length);
       },
       async (_pre, post) => {
         assertRemovedOpInvariant(post, op.id, "after-eb-post-reactivation");

@@ -79,7 +79,7 @@ export const rm2ExplicitEBLiquidation: Scenario = {
     await ctx.step(
       "eb-update-baseline",
       async () => {
-        await performEBUpdate(ctx, record, 48);
+        await performEBUpdate(ctx, record, 48 * record.validatorKeys.length);
       },
       async (_pre, _post) => {},
     );
@@ -182,7 +182,7 @@ export const rm2DaoVUnitsAfterLiq: Scenario = {
     await ctx.step(
       "eb-update",
       async () => {
-        await performEBUpdate(ctx, record, 64);
+        await performEBUpdate(ctx, record, 64 * record.validatorKeys.length);
       },
       async (_pre, _post) => {},
     );
@@ -238,7 +238,7 @@ export const rm2EBDecreaseBeforeLiq: Scenario = {
     await ctx.step(
       "eb-update-high",
       async () => {
-        await performEBUpdate(ctx, record, 96);
+        await performEBUpdate(ctx, record, 96 * record.validatorKeys.length);
       },
       async (_pre, _post) => {},
     );
@@ -258,7 +258,7 @@ export const rm2EBDecreaseBeforeLiq: Scenario = {
     await ctx.step(
       "eb-update-decrease",
       async () => {
-        await performEBUpdate(ctx, record, 32);
+        await performEBUpdate(ctx, record, 32 * record.validatorKeys.length);
       },
       async (_pre, post) => {
         assertRemovedOpInvariant(post, op.id, "after-eb-decrease");

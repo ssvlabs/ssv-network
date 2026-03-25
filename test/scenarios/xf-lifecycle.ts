@@ -107,7 +107,7 @@ export const xf002DepositEBWithdraw: Scenario = {
     await ctx.step(
       "eb-update-48",
       async () => {
-        await performEBUpdate(ctx, record, 48);
+        await performEBUpdate(ctx, record, 48 * record.validatorKeys.length);
       },
       async (_pre, post) => {
         assertDaoVUnitsNonNegative(post, "after-eb");
@@ -157,7 +157,7 @@ export const xf003EBIncreaseDecrease: Scenario = {
     await ctx.step(
       "eb-increase",
       async () => {
-        await performEBUpdate(ctx, record, 96);
+        await performEBUpdate(ctx, record, 96 * record.validatorKeys.length);
       },
       async (_pre, post) => {
         assertDaoVUnitsNonNegative(post, "after-eb-increase");
@@ -170,7 +170,7 @@ export const xf003EBIncreaseDecrease: Scenario = {
     await ctx.step(
       "eb-decrease",
       async () => {
-        await performEBUpdate(ctx, record, 64);
+        await performEBUpdate(ctx, record, 64 * record.validatorKeys.length);
       },
       async (_pre, post) => {
         assertDaoVUnitsNonNegative(post, "after-eb-decrease");
@@ -335,7 +335,7 @@ export const xf006EBRemoveValidatorCleanup: Scenario = {
     await ctx.step(
       "eb-update",
       async () => {
-        await performEBUpdate(ctx, record, 48);
+        await performEBUpdate(ctx, record, 48 * record.validatorKeys.length);
       },
       async (_pre, post) => {
         assertDaoVUnitsNonNegative(post, "after-eb");
@@ -429,7 +429,7 @@ export const xf008ExplicitEBDeposit: Scenario = {
     await ctx.step(
       "eb-update-48",
       async () => {
-        await performEBUpdate(ctx, record, 48);
+        await performEBUpdate(ctx, record, 48 * record.validatorKeys.length);
       },
       async (_pre, post) => {
         assertDaoVUnitsNonNegative(post, "after-eb-48");
@@ -506,7 +506,7 @@ export const xf009RemoveOpEBRemoveVal: Scenario = {
     await ctx.step(
       "eb-update",
       async () => {
-        await performEBUpdate(ctx, record, 64);
+        await performEBUpdate(ctx, record, 64 * record.validatorKeys.length);
       },
       async (_pre, post) => {
         assertOperatorRemoved(post, op.id, "after-eb");

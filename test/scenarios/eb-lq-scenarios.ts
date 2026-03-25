@@ -105,7 +105,7 @@ export const eblq002EBIncreaseHigherBurn: Scenario = {
     await ctx.step(
       "eb-baseline",
       async () => {
-        await performEBUpdate(ctx, record, 64);
+        await performEBUpdate(ctx, record, 64 * record.validatorKeys.length);
       },
       async (_pre, _post) => {},
     );
@@ -116,7 +116,7 @@ export const eblq002EBIncreaseHigherBurn: Scenario = {
     await ctx.step(
       "eb-increase",
       async () => {
-        await performEBUpdate(ctx, record, 96);
+        await performEBUpdate(ctx, record, 96 * record.validatorKeys.length);
       },
       async (_pre, post) => {
         assertDaoVUnitsNonNegative(post, "after-eb-increase");
@@ -167,7 +167,7 @@ export const eblq003AutoLiquidation: Scenario = {
     await ctx.step(
       "eb-increase-auto-liq",
       async () => {
-        await performEBUpdate(ctx, record, 128);
+        await performEBUpdate(ctx, record, 128 * record.validatorKeys.length);
       },
       async (_pre, post) => {
         // May be liquidated (auto-liquidation) or still active
@@ -201,7 +201,7 @@ export const eblq004FeeSettlementOldVUnits: Scenario = {
     await ctx.step(
       "eb-first",
       async () => {
-        await performEBUpdate(ctx, record, 64);
+        await performEBUpdate(ctx, record, 64 * record.validatorKeys.length);
       },
       async (_pre, _post) => {},
     );
@@ -212,7 +212,7 @@ export const eblq004FeeSettlementOldVUnits: Scenario = {
     await ctx.step(
       "eb-second-settlement",
       async () => {
-        await performEBUpdate(ctx, record, 96);
+        await performEBUpdate(ctx, record, 96 * record.validatorKeys.length);
       },
       async (pre, post) => {
         assertBalanceDecreased(pre, post, "fees-settled-at-old-vunits");
@@ -246,7 +246,7 @@ export const eblq005EBOperatorEarnings: Scenario = {
     await ctx.step(
       "eb-update",
       async () => {
-        await performEBUpdate(ctx, record, 48);
+        await performEBUpdate(ctx, record, 48 * record.validatorKeys.length);
       },
       async (_pre, _post) => {},
     );
@@ -287,7 +287,7 @@ export const eblq006EBRemovedOpEarnings: Scenario = {
     await ctx.step(
       "eb-update",
       async () => {
-        await performEBUpdate(ctx, record, 48);
+        await performEBUpdate(ctx, record, 48 * record.validatorKeys.length);
       },
       async (_pre, _post) => {},
     );
@@ -350,7 +350,7 @@ export const eblq007EBCrossLiqThreshold: Scenario = {
     await ctx.step(
       "eb-update-1",
       async () => {
-        await performEBUpdate(ctx, record, 64);
+        await performEBUpdate(ctx, record, 64 * record.validatorKeys.length);
       },
       async (_pre, post) => {
         assertDaoVUnitsNonNegative(post, "after-eb-1");
@@ -363,7 +363,7 @@ export const eblq007EBCrossLiqThreshold: Scenario = {
     await ctx.step(
       "eb-update-2",
       async () => {
-        await performEBUpdate(ctx, record, 128);
+        await performEBUpdate(ctx, record, 128 * record.validatorKeys.length);
       },
       async (_pre, post) => {
         assertDaoVUnitsNonNegative(post, "after-eb-2");
@@ -459,7 +459,7 @@ export const eblq009DoubleEBRemovedOp: Scenario = {
     await ctx.step(
       "eb-update-1",
       async () => {
-        await performEBUpdate(ctx, record, 48);
+        await performEBUpdate(ctx, record, 48 * record.validatorKeys.length);
       },
       async (_pre, _post) => {},
     );
@@ -481,7 +481,7 @@ export const eblq009DoubleEBRemovedOp: Scenario = {
     await ctx.step(
       "eb-update-2",
       async () => {
-        await performEBUpdate(ctx, record, 96);
+        await performEBUpdate(ctx, record, 96 * record.validatorKeys.length);
       },
       async (_pre, post) => {
         // Removed op must remain clean (ethVUnits == 0)

@@ -74,10 +74,10 @@ export class ScenarioContext {
   /** Pick a random active ETH cluster from the cluster book. */
   pickCluster(): ClusterRecord {
     const active = [...this.simState.clusterBook.values()].filter(
-      (c) => c.cluster.active,
+      (c) => c.cluster.active && c.version === 1, // ETH clusters only
     );
     if (active.length === 0) {
-      throw new Error("No active clusters available");
+      throw new Error("No active ETH clusters available");
     }
     return this.rng.pick(active);
   }

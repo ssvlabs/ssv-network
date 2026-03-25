@@ -97,7 +97,7 @@ export const rmcEBRemoveLiqReactivate: Scenario = {
     await ctx.step(
       "eb-update",
       async () => {
-        await performEBUpdate(ctx, record, 48);
+        await performEBUpdate(ctx, record, 48 * record.validatorKeys.length);
       },
       async (_pre, _post) => {},
     );
@@ -170,7 +170,7 @@ export const rmcEBRemoveValidator: Scenario = {
     await ctx.step(
       "eb-update",
       async () => {
-        await performEBUpdate(ctx, record, 64);
+        await performEBUpdate(ctx, record, 64 * record.validatorKeys.length);
       },
       async (_pre, post) => {
         assertRemovedOpInvariant(post, op.id, "after-eb");
@@ -258,7 +258,7 @@ export const rmcMultiOpFullChain: Scenario = {
     await ctx.step(
       "eb-update-after-chain",
       async () => {
-        await performEBUpdate(ctx, record, 48);
+        await performEBUpdate(ctx, record, 48 * record.validatorKeys.length);
       },
       async (_pre, post) => {
         assertRemovedOpInvariant(post, op1.id, "op1-after-eb");
@@ -307,7 +307,7 @@ export const rmcDepositRemoveEBWithdraw: Scenario = {
     await ctx.step(
       "eb-update",
       async () => {
-        await performEBUpdate(ctx, record, 48);
+        await performEBUpdate(ctx, record, 48 * record.validatorKeys.length);
       },
       async (_pre, post) => {
         assertRemovedOpInvariant(post, op.id, "after-eb");
@@ -381,7 +381,7 @@ export const rmcFullLifecycle: Scenario = {
     await ctx.step(
       "eb-update",
       async () => {
-        await performEBUpdate(ctx, record, 48);
+        await performEBUpdate(ctx, record, 48 * record.validatorKeys.length);
       },
       async (_pre, post) => {
         assertRemovedOpInvariant(post, op.id, "after-eb");
@@ -429,7 +429,7 @@ export const rmcEBSwingStress: Scenario = {
     await ctx.step(
       "eb-swing-up-1",
       async () => {
-        await performEBUpdate(ctx, record, 64);
+        await performEBUpdate(ctx, record, 64 * record.validatorKeys.length);
       },
       async (_pre, post) => {
         assertRemovedOpInvariant(post, op.id, "after-swing-up-1");
@@ -442,7 +442,7 @@ export const rmcEBSwingStress: Scenario = {
     await ctx.step(
       "eb-swing-down",
       async () => {
-        await performEBUpdate(ctx, record, 32);
+        await performEBUpdate(ctx, record, 32 * record.validatorKeys.length);
       },
       async (_pre, post) => {
         assertRemovedOpInvariant(post, op.id, "after-swing-down");
@@ -455,7 +455,7 @@ export const rmcEBSwingStress: Scenario = {
     await ctx.step(
       "eb-swing-up-2",
       async () => {
-        await performEBUpdate(ctx, record, 128);
+        await performEBUpdate(ctx, record, 128 * record.validatorKeys.length);
       },
       async (_pre, post) => {
         assertRemovedOpInvariant(post, op.id, "after-swing-up-2");

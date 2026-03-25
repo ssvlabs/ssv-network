@@ -49,7 +49,7 @@ export const rm1GuardEBIncrease: Scenario = {
     await ctx.step(
       "eb-update-increase",
       async () => {
-        await performEBUpdate(ctx, record, 48);
+        await performEBUpdate(ctx, record, 48 * record.validatorKeys.length);
       },
       async (_pre, post) => {
         // Removed op must still have ethVUnits == 0
@@ -76,7 +76,7 @@ export const rm1GuardEBDecrease: Scenario = {
     await ctx.step(
       "eb-update-baseline",
       async () => {
-        await performEBUpdate(ctx, record, 64);
+        await performEBUpdate(ctx, record, 64 * record.validatorKeys.length);
       },
       async (_pre, _post) => {},
     );
@@ -98,7 +98,7 @@ export const rm1GuardEBDecrease: Scenario = {
     await ctx.step(
       "eb-update-decrease",
       async () => {
-        await performEBUpdate(ctx, record, 32);
+        await performEBUpdate(ctx, record, 32 * record.validatorKeys.length);
       },
       async (_pre, post) => {
         // Guard must skip removed op during subtraction
@@ -151,7 +151,7 @@ export const rm1GuardMultiOp: Scenario = {
     await ctx.step(
       "eb-update-after-multi-removal",
       async () => {
-        await performEBUpdate(ctx, record, 48);
+        await performEBUpdate(ctx, record, 48 * record.validatorKeys.length);
       },
       async (_pre, post) => {
         assertRemovedOpInvariant(post, op1.id, "op1-after-eb");
@@ -200,7 +200,7 @@ export const rm1DaoVUnitsConsistency: Scenario = {
     await ctx.step(
       "eb-update-check-dao",
       async () => {
-        await performEBUpdate(ctx, record, 48);
+        await performEBUpdate(ctx, record, 48 * record.validatorKeys.length);
       },
       async (_pre, post) => {
         assertRemovedOpInvariant(post, op.id, "after-eb");
@@ -240,7 +240,7 @@ export const rm1GuardPersistsOverTime: Scenario = {
     await ctx.step(
       "eb-update-after-long-wait",
       async () => {
-        await performEBUpdate(ctx, record, 64);
+        await performEBUpdate(ctx, record, 64 * record.validatorKeys.length);
       },
       async (_pre, post) => {
         assertRemovedOpInvariant(post, op.id, "after-long-wait-eb");
@@ -254,7 +254,7 @@ export const rm1GuardPersistsOverTime: Scenario = {
     await ctx.step(
       "eb-update-second",
       async () => {
-        await performEBUpdate(ctx, record, 96);
+        await performEBUpdate(ctx, record, 96 * record.validatorKeys.length);
       },
       async (_pre, post) => {
         assertRemovedOpInvariant(post, op.id, "after-second-eb");

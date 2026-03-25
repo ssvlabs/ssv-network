@@ -56,7 +56,7 @@ export const rmaBasicAutoLiquidation: Scenario = {
     await ctx.step(
       "eb-update-trigger-auto-liq",
       async () => {
-        await performEBUpdate(ctx, record, 96);
+        await performEBUpdate(ctx, record, 96 * record.validatorKeys.length);
       },
       async (_pre, post) => {
         // Whether auto-liquidated or not, removed op must have ethVUnits == 0
@@ -83,7 +83,7 @@ export const rmaExplicitEBAutoLiq: Scenario = {
     await ctx.step(
       "eb-update-baseline",
       async () => {
-        await performEBUpdate(ctx, record, 48);
+        await performEBUpdate(ctx, record, 48 * record.validatorKeys.length);
       },
       async (_pre, _post) => {},
     );
@@ -106,7 +106,7 @@ export const rmaExplicitEBAutoLiq: Scenario = {
     await ctx.step(
       "eb-update-high-auto-liq",
       async () => {
-        await performEBUpdate(ctx, record, 128);
+        await performEBUpdate(ctx, record, 128 * record.validatorKeys.length);
       },
       async (_pre, post) => {
         assertRemovedOpInvariant(post, op.id, "after-explicit-auto-liq");
@@ -157,7 +157,7 @@ export const rmaMultiOpAutoLiq: Scenario = {
     await ctx.step(
       "eb-update-multi-auto-liq",
       async () => {
-        await performEBUpdate(ctx, record, 96);
+        await performEBUpdate(ctx, record, 96 * record.validatorKeys.length);
       },
       async (_pre, post) => {
         assertRemovedOpInvariant(post, op1.id, "op1-after-auto-liq");
@@ -195,7 +195,7 @@ export const rmaSequentialEBAutoLiq: Scenario = {
     await ctx.step(
       "eb-update-1",
       async () => {
-        await performEBUpdate(ctx, record, 48);
+        await performEBUpdate(ctx, record, 48 * record.validatorKeys.length);
       },
       async (_pre, post) => {
         assertRemovedOpInvariant(post, op.id, "after-eb-1");
@@ -209,7 +209,7 @@ export const rmaSequentialEBAutoLiq: Scenario = {
     await ctx.step(
       "eb-update-2-auto-liq",
       async () => {
-        await performEBUpdate(ctx, record, 128);
+        await performEBUpdate(ctx, record, 128 * record.validatorKeys.length);
       },
       async (_pre, post) => {
         assertRemovedOpInvariant(post, op.id, "after-sequential-auto-liq");
@@ -235,7 +235,7 @@ export const rmaEBDecreaseAutoLiq: Scenario = {
     await ctx.step(
       "eb-update-high",
       async () => {
-        await performEBUpdate(ctx, record, 128);
+        await performEBUpdate(ctx, record, 128 * record.validatorKeys.length);
       },
       async (_pre, _post) => {},
     );
@@ -259,7 +259,7 @@ export const rmaEBDecreaseAutoLiq: Scenario = {
     await ctx.step(
       "eb-update-decrease-auto-liq",
       async () => {
-        await performEBUpdate(ctx, record, 64);
+        await performEBUpdate(ctx, record, 64 * record.validatorKeys.length);
       },
       async (_pre, post) => {
         assertRemovedOpInvariant(post, op.id, "after-eb-decrease-auto-liq");

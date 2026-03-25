@@ -241,7 +241,7 @@ export const xv005EBRemoveOpRemoveVal: Scenario = {
     await ctx.step(
       "eb-update",
       async () => {
-        await performEBUpdate(ctx, record, 48);
+        await performEBUpdate(ctx, record, 48 * record.validatorKeys.length);
       },
       async (_pre, post) => {
         assertDaoVUnitsNonNegative(post, "after-eb");
@@ -299,7 +299,7 @@ export const xv006EBIncreaseDaoVUnits: Scenario = {
     await ctx.step(
       "eb-update-64",
       async () => {
-        await performEBUpdate(ctx, record, 64);
+        await performEBUpdate(ctx, record, 64 * record.validatorKeys.length);
       },
       async (_pre, post) => {
         assertDaoVUnitsNonNegative(post, "after-eb-64");
@@ -312,7 +312,7 @@ export const xv006EBIncreaseDaoVUnits: Scenario = {
     await ctx.step(
       "eb-update-96",
       async () => {
-        await performEBUpdate(ctx, record, 96);
+        await performEBUpdate(ctx, record, 96 * record.validatorKeys.length);
       },
       async (_pre, post) => {
         assertDaoVUnitsNonNegative(post, "after-eb-96");
@@ -345,7 +345,7 @@ export const xv007EBDecreaseBurnRate: Scenario = {
     await ctx.step(
       "eb-increase",
       async () => {
-        await performEBUpdate(ctx, record, 96);
+        await performEBUpdate(ctx, record, 96 * record.validatorKeys.length);
       },
       async (_pre, post) => {
         assertDaoVUnitsNonNegative(post, "after-eb-increase");
@@ -358,7 +358,7 @@ export const xv007EBDecreaseBurnRate: Scenario = {
     await ctx.step(
       "eb-decrease",
       async () => {
-        await performEBUpdate(ctx, record, 64);
+        await performEBUpdate(ctx, record, 64 * record.validatorKeys.length);
       },
       async (_pre, post) => {
         assertDaoVUnitsNonNegative(post, "after-eb-decrease");
@@ -397,7 +397,7 @@ export const xv008EBWithRemovedOp: Scenario = {
     await ctx.step(
       "eb-update-with-removed",
       async () => {
-        await performEBUpdate(ctx, record, 48);
+        await performEBUpdate(ctx, record, 48 * record.validatorKeys.length);
       },
       async (_pre, post) => {
         assertOperatorRemoved(post, op.id, "removed-after-eb");
@@ -437,7 +437,7 @@ export const xv009MultipleEBUpdates: Scenario = {
     await ctx.step(
       "eb-update-48",
       async () => {
-        await performEBUpdate(ctx, record, 48);
+        await performEBUpdate(ctx, record, 48 * record.validatorKeys.length);
       },
       async (_pre, post) => {
         assertDaoVUnitsNonNegative(post, "after-eb-48");
@@ -450,7 +450,7 @@ export const xv009MultipleEBUpdates: Scenario = {
     await ctx.step(
       "eb-update-96",
       async () => {
-        await performEBUpdate(ctx, record, 96);
+        await performEBUpdate(ctx, record, 96 * record.validatorKeys.length);
       },
       async (_pre, post) => {
         assertDaoVUnitsNonNegative(post, "after-eb-96");
@@ -463,7 +463,7 @@ export const xv009MultipleEBUpdates: Scenario = {
     await ctx.step(
       "eb-update-64-decrease",
       async () => {
-        await performEBUpdate(ctx, record, 64);
+        await performEBUpdate(ctx, record, 64 * record.validatorKeys.length);
       },
       async (_pre, post) => {
         assertDaoVUnitsNonNegative(post, "after-eb-64");
@@ -492,7 +492,7 @@ export const xv010EBRemoveAllVals: Scenario = {
     await ctx.step(
       "eb-update",
       async () => {
-        await performEBUpdate(ctx, record, 64);
+        await performEBUpdate(ctx, record, 64 * record.validatorKeys.length);
       },
       async (_pre, post) => {
         assertDaoVUnitsNonNegative(post, "after-eb");
