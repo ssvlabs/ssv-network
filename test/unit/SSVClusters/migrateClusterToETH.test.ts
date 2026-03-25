@@ -1244,7 +1244,7 @@ describe("SSVClusters function `migrateClusterToETH()`", async () => {
   });
 
   describe("Post-migration EB updates", async function () {
-    it("[M-06] first ETH-side updateClusterBalance after migration applies explicit EB", async function () {
+    it("first ETH-side updateClusterBalance after migration applies explicit EB", async function () {
       const { clusters, operatorIds } =
         await networkHelpers.loadFixture(deploySSVClustersAndPrepareOperatorsFixture);
 
@@ -1287,7 +1287,7 @@ describe("SSVClusters function `migrateClusterToETH()`", async () => {
       }
     });
 
-    it("[M-07] removed operator remains skipped in first post-migration EB update", async function () {
+    it("removed operator remains skipped in first post-migration EB update", async function () {
       const { clusters, operatorIds } =
         await networkHelpers.loadFixture(deploySSVClustersAndPrepareOperatorsFixture);
 
@@ -1332,7 +1332,7 @@ describe("SSVClusters function `migrateClusterToETH()`", async () => {
       }
     });
 
-    it("[ST-06] migrateClusterToETH rejects stale caller-supplied SSV cluster state", async function () {
+    it("migrateClusterToETH rejects stale caller-supplied SSV cluster state", async function () {
       const { clusters, operatorIds } =
         await networkHelpers.loadFixture(deploySSVClustersAndPrepareOperatorsFixture);
 
