@@ -927,18 +927,35 @@ describe("Cross-Cutting: XF Full Lifecycle Chains", () => {
     const feesCharged = balanceBefore - cluster.balance;
     expect(feesCharged).to.be.greaterThan(0n);
 
+    // Verify operator vUnits now reflect new EB (deviation = 20000 - 10000 = 10000)
+    for (const opId of operatorIds) {
+      const vUnits = await readOperatorEthVUnits(provider, networkAddress, opId);
+      expect(vUnits).to.equal(10000n, `op${opId} should have 10000 deviation after EB 64`);
+    }
+
     // Now advance and withdraw — this settlement uses NEW vUnits (20000)
-    await mineBlocks(provider, 1000);
+    const blocksPhase2 = 1000;
+    await mineBlocks(provider, blocksPhase2);
 
     const balanceBeforeW = cluster.balance;
     const txW = await network.connect(clusterOwner).withdraw(
       operatorIds, ethers.parseEther("1"), cluster,
     );
     cluster = parseClusterFromEvent(network, await txW.wait(), Events.CLUSTER_WITHDRAWN);
-
-    // Fees in second phase should be roughly 2x the first phase per block
-    // (since vUnits doubled)
     expect(cluster.active).to.be.true;
+
+    // Fees in second phase use NEW vUnits (20000) = ~2x the old rate (10000)
+    // feesPhase2 is the balance decrease during the withdrawal (includes the 1 ETH withdrawn)
+    const feesPhase2 = balanceBeforeW - cluster.balance - ethers.parseEther("1");
+    expect(feesPhase2).to.be.greaterThan(0n, "fees charged in phase 2");
+
+    // Phase 2 fees should be roughly 2x phase 1 per-block (vUnits doubled from 10000 to 20000).
+    // feesCharged covers ~1000 blocks at old vUnits, feesPhase2 covers ~1000 blocks at new vUnits.
+    // Allow some tolerance for block-boundary differences.
+    expect(feesPhase2).to.be.greaterThan(
+      feesCharged,
+      "phase 2 fees (2x vUnits) should exceed phase 1 fees (1x vUnits) over same block span",
+    );
   });
 
   it("XF-042: Register validator into explicit-EB cluster → vUnits increase by baseline only", async function () {
@@ -1006,6 +1023,10 @@ describe("Cross-Cutting: XF Full Lifecycle Chains", () => {
     const earningsBeforeRemoval = BigInt(await views.getOperatorEarnings(BigInt(operatorIds[0])));
     expect(earningsBeforeRemoval).to.be.greaterThan(0n);
 
+    // Record burn rate before removal (4 active ops)
+    const burnRateBefore = BigInt(await views.getBurnRate(clusterOwner.address, operatorIds, cluster));
+    expect(burnRateBefore).to.be.greaterThan(0n, "4-op burn rate should be positive");
+
     // Remove operator 0
     const ownerBalBefore = await provider.getBalance(operatorOwner.address);
     const txRO = await network.connect(operatorOwner).removeOperator(operatorIds[0]);
@@ -1016,6 +1037,10 @@ describe("Cross-Cutting: XF Full Lifecycle Chains", () => {
     // Operator owner should have received earnings
     const earningsPaid = ownerBalAfter - ownerBalBefore + gasCost;
     expect(earningsPaid).to.be.greaterThan(0n);
+
+    // operatorEthVUnits[removedOp] should be zeroed immediately
+    const removedVUnits = await readOperatorEthVUnits(provider, networkAddress, operatorIds[0]);
+    expect(removedVUnits).to.equal(0n, "operatorEthVUnits zeroed after removeOperator");
 
     const opRemoved = await views.getOperatorById(BigInt(operatorIds[0]));
     expect(opRemoved.isActive).to.be.false;
@@ -1029,11 +1054,10 @@ describe("Cross-Cutting: XF Full Lifecycle Chains", () => {
     cluster = parseClusterFromEvent(network, await txW.wait(), Events.CLUSTER_WITHDRAWN);
     expect(cluster.active).to.be.true;
 
-    // Liquidation threshold should be lower with 3 active ops
-    // (the cluster should be more solvent than with 4 ops)
-    const opData = await views.getOperatorById(BigInt(operatorIds[1]));
-    const ethFeePacked = BigInt(opData.fee) / BigInt(ETH_DEDUCTED_DIGITS);
-    const networkFeePacked = BigInt(await views.getNetworkFee()) / BigInt(ETH_DEDUCTED_DIGITS);
+    // Burn rate after removal should be lower (3 active ops vs 4)
+    const burnRateAfter = BigInt(await views.getBurnRate(clusterOwner.address, operatorIds, cluster));
+    expect(burnRateAfter).to.be.lessThan(burnRateBefore, "burn rate drops after operator removal");
+    expect(burnRateAfter).to.be.greaterThan(0n, "3-op burn rate still positive");
 
     // The cluster uses operatorIds which includes the removed one,
     // but removed op contributes 0 fee
@@ -1128,18 +1152,36 @@ describe("Cross-Cutting: XF Full Lifecycle Chains", () => {
     const [operatorOwner, clusterOwner] = signers;
     const { network, views } = await networkHelpers.loadFixture(deployFixture);
     const provider = connection.ethers.provider;
+    const networkAddress = await network.getAddress();
 
     const operatorIds = await registerOperators(network, operatorOwner, 4);
     await whitelistAddresses(network, operatorOwner, operatorIds, [clusterOwner.address]);
 
     const deposit = ethers.parseEther("10");
-    const { cluster: regCluster, block: regBlock } = await registerCluster(
+    const { cluster: regCluster } = await registerCluster(
       network, clusterOwner, operatorIds, deposit,
     );
     let cluster = regCluster;
 
+    // Record burn rate before removal (4 active ops)
+    const burnRateBefore = BigInt(await views.getBurnRate(clusterOwner.address, operatorIds, cluster));
+
     // Remove one operator
     await network.connect(operatorOwner).removeOperator(operatorIds[0]);
+    // operatorEthVUnits zeroed immediately
+    expect(await readOperatorEthVUnits(provider, networkAddress, operatorIds[0])).to.equal(
+      0n,
+      "operatorEthVUnits zeroed after removeOperator",
+    );
+
+    // Burn rate should drop
+    // We need to settle first before checking burn rate — just mine and do a 0-withdraw
+    await mineBlocks(provider, 10);
+    const txSettle = await network.connect(clusterOwner).withdraw(operatorIds, 0n, cluster);
+    cluster = parseClusterFromEvent(network, await txSettle.wait(), Events.CLUSTER_WITHDRAWN);
+
+    const burnRateAfter = BigInt(await views.getBurnRate(clusterOwner.address, operatorIds, cluster));
+    expect(burnRateAfter).to.be.lessThan(burnRateBefore, "burn rate drops after operator removal");
 
     await mineBlocks(provider, 1000);
 
@@ -1150,7 +1192,6 @@ describe("Cross-Cutting: XF Full Lifecycle Chains", () => {
     cluster = parseClusterFromEvent(network, await txDep.wait(), Events.CLUSTER_DEPOSITED);
 
     // Withdraw (triggers settlement)
-    const balBefore = cluster.balance;
     const txW = await network.connect(clusterOwner).withdraw(
       operatorIds, ethers.parseEther("0.01"), cluster,
     );
@@ -1376,7 +1417,7 @@ describe("Cross-Cutting: XF Full Lifecycle Chains", () => {
     const operatorIds = await registerOperators(network, operatorOwner, 4);
     await whitelistAddresses(network, operatorOwner, operatorIds, [clusterOwner.address]);
 
-    // Register with thin balance
+    // Register with thin balance — deliberately small to ensure auto-liquidation fires
     const deposit = ethers.parseEther("0.5");
     const { cluster: regCluster } = await registerCluster(network, clusterOwner, operatorIds, deposit);
     let cluster = regCluster;
@@ -1388,10 +1429,13 @@ describe("Cross-Cutting: XF Full Lifecycle Chains", () => {
       opVUnitsBefore.push(await readOperatorEthVUnits(provider, networkAddress, opId));
     }
 
-    // Advance blocks to drain most of balance
-    await mineBlocks(provider, 3000);
+    // Advance blocks to drain most of balance — use enough blocks so that at doubled
+    // vUnits (20000 instead of 10000), the remaining balance is below liquidation threshold.
+    // At default fees (4 ops * ~17788 packed + ~5000 net fee) * 10000 vUnits / 10000 BPS * 100000 per block,
+    // burning 0.5 ETH takes ~3000-4000 blocks. Drain aggressively to ensure EB doubling triggers auto-liq.
+    await mineBlocks(provider, 5000);
 
-    // EB update to 64 ETH → doubles vUnits, may trigger auto-liquidation
+    // EB update to 64 ETH → doubles vUnits, MUST trigger auto-liquidation
     const clusterId = computeClusterId(clusterOwner.address, operatorIds);
     const entries = [{ clusterId, effectiveBalance: 64 }];
     const { root, proofs } = generateMerkleForClusterEB(connection, entries);
@@ -1413,17 +1457,18 @@ describe("Cross-Cutting: XF Full Lifecycle Chains", () => {
       cluster = parseClusterFromEvent(network, receipt, Events.CLUSTER_BALANCE_UPDATED);
     }
 
-    if (wasLiquidated) {
-      // Net effect on operatorEthVUnits should be zero:
-      // _updateOperatorVUnits added +10000, _executeLiquidation subtracted -10000
-      for (let i = 0; i < operatorIds.length; i++) {
-        const vUnitsAfter = await readOperatorEthVUnits(provider, networkAddress, operatorIds[i]);
-        expect(vUnitsAfter).to.equal(opVUnitsBefore[i],
-          "net deviation change should be zero after add+subtract in auto-liquidation");
-      }
-      const daoVUnitsAfter = await readDaoTotalEthVUnits(provider, networkAddress);
-      expect(daoVUnitsAfter).to.equal(daoVUnitsBefore);
+    // Auto-liquidation MUST fire — if not, the test setup is broken
+    expect(wasLiquidated).to.be.true;
+
+    // Net effect on operatorEthVUnits should be zero:
+    // _updateOperatorVUnits added +10000, _executeLiquidation subtracted -10000
+    for (let i = 0; i < operatorIds.length; i++) {
+      const vUnitsAfter = await readOperatorEthVUnits(provider, networkAddress, operatorIds[i]);
+      expect(vUnitsAfter).to.equal(opVUnitsBefore[i],
+        "net deviation change should be zero after add+subtract in auto-liquidation");
     }
+    const daoVUnitsAfter = await readDaoTotalEthVUnits(provider, networkAddress);
+    expect(daoVUnitsAfter).to.equal(daoVUnitsBefore);
   });
 
   it("XF-048: Reactivate cluster with explicit EB → deviation restored to operators and DAO", async function () {
@@ -1848,34 +1893,11 @@ describe("Cross-Cutting: XF Full Lifecycle Chains", () => {
 
   // ── Contract rejection ─────────────────────────────────────────────
 
-  it("XF-051: Contract owner without receive() → withdraw reverts ETHTransferFailed", async function () {
-    const [operatorOwner] = signers;
-    const { network, views } = await networkHelpers.loadFixture(deployFixture);
-    const provider = connection.ethers.provider;
-
-    const operatorIds = await registerOperators(network, operatorOwner, 4);
-
-    // Deploy a contract that rejects ETH
-    const RejecterFactory = new ethers.ContractFactory(
-      ["constructor()", "function registerAndWithdraw(address network, uint64[] operatorIds, bytes shares, tuple(uint32 validatorCount, uint64 networkFeeIndex, uint64 index, bool active, uint256 balance) cluster, bytes pubkey, uint256 withdrawAmount) external payable"],
-      // Minimal bytecode: a contract with no receive/fallback
-      "0x6080604052348015600e575f80fd5b50603e80601a5f395ff3fe6080604052348015600e575f80fd5b50602a80601a5f395ff3fe",
-      operatorOwner,
-    );
-
-    // Use a simpler approach: try to withdraw operator earnings to a contract that rejects ETH
-    // Register an operator, earn fees, then check the removal path
-    // Actually, let's test at the cluster level: register a validator via a contract
-
-    // Since deploying complex proxy contracts is too involved, verify the error is available
-    // by directly testing the scenario concept:
-    // An operator owner who is a contract without receive() should get ETHTransferFailed on removeOperator
-
-    // For now, verify the revert concept exists — full e2e requires a deployed rejector contract
-    // We can test by setting operator fee recipient to a contract address
-    // Skip full contract deployment but verify the error constant is wired correctly
-    expect(Errors.ETH_TRANSFER_FAILED).to.equal("ETHTransferFailed");
-  });
+  // XF-051: REMOVED — false positive. Testing ETHTransferFailed requires a deployed
+  // rejector contract that owns an operator and calls removeOperator. The previous
+  // test only checked a string constant. A real test needs a Solidity helper contract
+  // (with no receive/fallback) deployed, operator registered via that contract, and
+  // then removeOperator called — out of scope for this cross-cutting suite.
 
   // ── Views consistency ──────────────────────────────────────────────
 

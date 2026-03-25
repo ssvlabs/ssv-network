@@ -519,12 +519,14 @@ describe("XL: Liquidation-Reactivation Chain Tests", function () {
     it("XL-013: EB update → remove op4 → auto-liq from EB 128 — Panic 0x11", async function () {
       const { network } = await networkHelpers.loadFixture(baseFixture);
       const prov = connection.ethers.provider;
+      const addr = await network.getAddress();
       const ops = await setupOps(network, opOwner, 4, [clusterOwner.address]);
 
       let cl = await regVal(network, clusterOwner, ops, EMPTY_CLUSTER, DEFAULT_ETH_REGISTER_VALUE, 1);
       cl = await doEB(network, prov, clusterOwner, ops, cl, 48, oracles3());
 
       await network.connect(opOwner).removeOperator(ops[3]);
+      expect(await readOpVUnits(prov, addr, BigInt(ops[3]))).to.equal(0n, "removeOperator zeroes vUnits");
 
       // Position balance between v48 threshold and v128 threshold
       const v48 = calcVUnits(48n);
@@ -561,7 +563,9 @@ describe("XL: Liquidation-Reactivation Chain Tests", function () {
       cl = await doEB(network, prov, clusterOwner, ops, cl, 48, oracles3());
 
       await network.connect(opOwner).removeOperator(ops[2]);
+      expect(await readOpVUnits(prov, addr, BigInt(ops[2]))).to.equal(0n, "removeOperator zeroes op3 vUnits");
       await network.connect(opOwner).removeOperator(ops[3]);
+      expect(await readOpVUnits(prov, addr, BigInt(ops[3]))).to.equal(0n, "removeOperator zeroes op4 vUnits");
 
       const v48 = calcVUnits(48n);
       const burn = calcClusterBurn({ blockDiff: 1n, numOperators: 2n, ethFee: OP_ETH_FEE_RAW, networkFee: DEFAULT_NETWORK_FEE_RAW, effectiveVUnits: v48 });
@@ -636,6 +640,7 @@ describe("XL: Liquidation-Reactivation Chain Tests", function () {
       const v48 = calcVUnits(48n);
 
       await network.connect(opOwner).removeOperator(ops[3]);
+      expect(await readOpVUnits(prov, addr, BigInt(ops[3]))).to.equal(0n, "removeOperator zeroes vUnits");
 
       // Drain to liquidatable
       const burn = calcClusterBurn({ blockDiff: 1n, numOperators: 3n, ethFee: OP_ETH_FEE_RAW, networkFee: DEFAULT_NETWORK_FEE_RAW, effectiveVUnits: v48 });
