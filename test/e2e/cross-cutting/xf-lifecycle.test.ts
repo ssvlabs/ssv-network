@@ -286,13 +286,13 @@ describe("Cross-Cutting: XF Full Lifecycle Chains", () => {
       cluster = parseClusterFromEvent(network, receiptWFinal, Events.CLUSTER_WITHDRAWN);
       expect(cluster.balance).to.equal(0n);
 
-      // Remove all operators and verify earnings payout
+      // Remove all operators and verify state reset
       for (const opId of operatorIds) {
-        const earningsBefore = BigInt(await views.getOperatorEarnings(BigInt(opId)));
         const txRO = await network.connect(operatorOwner).removeOperator(opId);
         await txRO.wait();
         const opAfter = await views.getOperatorById(BigInt(opId));
         expect(opAfter.isActive).to.be.false;
+        expect(BigInt(opAfter.fee)).to.equal(0n, `operator ${opId} fee must be 0 after removal`);
       }
 
       // INV-11: all removed operators must have 0 vUnits
@@ -428,7 +428,14 @@ describe("Cross-Cutting: XF Full Lifecycle Chains", () => {
     // Verify op1 earnings are higher than other ops (higher fee)
     const op1Earnings = BigInt(await views.getOperatorEarnings(BigInt(operatorIds[0])));
     const op2Earnings = BigInt(await views.getOperatorEarnings(BigInt(operatorIds[1])));
-    expect(op1Earnings).to.be.greaterThan(op2Earnings);
+    expect(op1Earnings).to.be.greaterThan(op2Earnings,
+      "op1 earnings must exceed op2 (higher post-change fee)");
+    // Verify all non-changed operators (2-4) have identical earnings (same fee history)
+    for (let i = 2; i < operatorIds.length; i++) {
+      const opEarnings = BigInt(await views.getOperatorEarnings(BigInt(operatorIds[i])));
+      expect(opEarnings).to.equal(op2Earnings,
+        `op${operatorIds[i]} should have identical earnings to op${operatorIds[1]} (same fee)`);
+    }
 
     // vUnit consistency: 10 clusters × 10 validators = 100 validators, all implicit EB
     // daoTotalEthVUnits = 100 × 10000 = 1_000_000
@@ -752,10 +759,11 @@ describe("Cross-Cutting: XF Full Lifecycle Chains", () => {
     // Block N+5: remove operators
     for (const opId of operatorIds) {
       await network.connect(operatorOwner).removeOperator(opId);
+      const opAfter = await views.getOperatorById(BigInt(opId));
+      expect(opAfter.isActive).to.be.false;
+      expect(BigInt(opAfter.fee)).to.equal(0n, `operator ${opId} fee must be 0 after removal`);
     }
 
-    // Verify micro-accruals: small positive earnings for each operator
-    // (operators removed, so getOperatorEarnings might be zero after removal since earnings paid out)
     const daoVal = BigInt(await views.getNetworkValidatorsCount());
     expect(daoVal).to.equal(0n);
 
@@ -987,10 +995,23 @@ describe("Cross-Cutting: XF Full Lifecycle Chains", () => {
     const pendingB = await views.pendingUnstake(stakerB.address);
     const unlockTimeB = BigInt(pendingB[0].unlockTime);
 
-    // B's unlock time (request_timestamp + 100s) must be far below A's (request_timestamp + 604800s)
-    // The cooldown difference (604800 - 100 = 604700s) dwarfs any block-timestamp gap.
-    expect(unlockTimeA - unlockTimeB).to.be.greaterThan(604000n,
-      "A's unlock (old cooldown 604800s) must be >604000s after B's unlock (new cooldown 100s)");
+    // A's unlock = timestampA + oldCooldown, B's unlock = timestampB + newCooldown
+    // The difference (unlockTimeA - unlockTimeB) = (timestampA - timestampB) + (oldCooldown - newCooldown)
+    // oldCooldown = 604800, newCooldown = 100, so the cooldown gap = 604700
+    // timestampA <= timestampB (A requested first), so (timestampA - timestampB) <= 0
+    // Thus: unlockTimeA - unlockTimeB = negative_or_zero + 604700
+    // But since timestamps are close (a few blocks apart), the result is near 604700.
+    // Capture old cooldown from A's unlock computation: oldCooldown = unlockTimeA - requestTimestampA
+    // We know both unlock times, and the cooldown values, so we can verify exactly:
+    const oldCooldown = 604800n; // default from fixture
+    const cooldownGap = oldCooldown - newCooldown;
+    // The difference in unlock times equals (cooldown gap) + (timestamp_diff between requests)
+    // Since A requested before B, timestamp_diff <= 0, making the total <= cooldownGap
+    expect(unlockTimeA - unlockTimeB).to.be.lessThanOrEqual(cooldownGap,
+      "unlock time difference must not exceed cooldown gap");
+    // And it must be close to cooldownGap (within a few blocks of timestamp difference)
+    expect(unlockTimeA - unlockTimeB).to.be.greaterThanOrEqual(cooldownGap - 100n,
+      "unlock time difference must be near cooldown gap (604700)");
 
     // Wait for B's cooldown to pass
     await provider.send("evm_increaseTime", [Number(newCooldown) + 1]);
@@ -1168,8 +1189,17 @@ describe("Cross-Cutting: XF Full Lifecycle Chains", () => {
     const feesPhase2 = balanceBeforeW - cluster.balance - withdrawAmt41;
     expect(feesPhase2).to.equal(expectedFeesPhase2);
 
-    // Phase 2 fees (2x vUnits) exceed phase 1 fees (1x vUnits) over similar block span
-    expect(feesPhase2).to.be.greaterThan(feesCharged);
+    // Phase 2 uses 2x vUnits → exactly 2x burn rate per block vs phase 1
+    // With similar block spans (~1000 blocks each), phase 2 fees ≈ 2x phase 1 fees
+    // Exact ratio: (blockDiffPhase2 * 20000) / (blockDiffPhase1 * 10000) = blockDiffPhase2 / blockDiffPhase1 * 2
+    const expectedPhase2Fees = calcClusterBurn({
+      blockDiff: blockDiffPhase2_41,
+      numOperators: 4n,
+      ethFee: ethFeePacked41,
+      networkFee: networkFeePacked41,
+      effectiveVUnits: 20000n,
+    });
+    expect(feesPhase2).to.equal(expectedPhase2Fees, "phase 2 fees must match exact computation at 2x vUnits");
 
     // daoTotalEthVUnits = baseline (10000) + deviation (10000) = 20000
     const daoVUnits = await readDaoTotalEthVUnits(provider, networkAddress);
@@ -1272,6 +1302,7 @@ describe("Cross-Cutting: XF Full Lifecycle Chains", () => {
 
     const opRemoved = await views.getOperatorById(BigInt(operatorIds[0]));
     expect(opRemoved.isActive).to.be.false;
+    expect(BigInt(opRemoved.fee)).to.equal(0n, "removed operator fee must be 0");
 
     // Advance and withdraw — burn rate should be lower (3 ops instead of 4)
     await mineBlocks(provider, 1000);
@@ -1324,6 +1355,9 @@ describe("Cross-Cutting: XF Full Lifecycle Chains", () => {
     // Remove operator 0 — operatorEthVUnits[0] is deleted
     await network.connect(operatorOwner).removeOperator(operatorIds[0]);
     await assertINV11(provider, networkAddress, [operatorIds[0]]);
+    const opRemovedXF024 = await views.getOperatorById(BigInt(operatorIds[0]));
+    expect(opRemovedXF024.isActive).to.be.false;
+    expect(BigInt(opRemovedXF024.fee)).to.equal(0n, "removed operator fee must be 0");
 
     // EB update to 48 ETH
     const ebResult = await setupExplicitEB(
@@ -1369,6 +1403,11 @@ describe("Cross-Cutting: XF Full Lifecycle Chains", () => {
     await network.connect(operatorOwner).removeOperator(operatorIds[1]);
 
     await assertINV11(provider, networkAddress, [operatorIds[0], operatorIds[1]]);
+    for (const removedId of [operatorIds[0], operatorIds[1]]) {
+      const opR = await views.getOperatorById(BigInt(removedId));
+      expect(opR.isActive).to.be.false;
+      expect(BigInt(opR.fee)).to.equal(0n, `operator ${removedId} fee must be 0 after removal`);
+    }
 
     // EB update
     const ebResult = await setupExplicitEB(
@@ -1424,6 +1463,9 @@ describe("Cross-Cutting: XF Full Lifecycle Chains", () => {
       0n,
       "operatorEthVUnits zeroed after removeOperator",
     );
+    const opRemovedXF050 = await views.getOperatorById(BigInt(operatorIds[0]));
+    expect(opRemovedXF050.isActive).to.be.false;
+    expect(BigInt(opRemovedXF050.fee)).to.equal(0n, "removed operator fee must be 0");
 
     // Burn rate should drop to 3-op rate
     // We need to settle first before checking burn rate — just mine and do a 0-withdraw
@@ -1971,14 +2013,27 @@ describe("Cross-Cutting: XF Full Lifecycle Chains", () => {
     // Step 14: Advance 10,000 blocks
     await mineBlocks(provider, 10000);
 
-    // Step 15: syncFees
+    // Step 15: syncFees — capture network earnings before sync for exact verification
+    const networkEarningsBeforeSync = BigInt(await views.getNetworkEarnings());
     const txSync = await network.syncFees();
     await txSync.wait();
 
     // Step 16: Claim rewards
     const accBefore = BigInt(await views.accEthPerShare());
-    // accEthPerShare must be non-zero after syncFees pushed protocol fees to the accumulator
-    expect(accBefore).to.be.greaterThan(0n, "accumulator must be non-zero after syncFees");
+    // accEthPerShare = networkEarnings * 1e18 / totalCSSVSupply (first sync, previous pool = 0)
+    // syncFees reads networkTotalEarnings at its execution block (1 block after our read above)
+    // so accBefore includes 1 extra block of accrual vs our pre-sync read.
+    // Verify accBefore >= expectedFromPreRead (lower bound from pre-sync earnings)
+    const expectedAccMin = networkEarningsBeforeSync * (10n ** 18n) / stakeAmount;
+    expect(accBefore).to.be.greaterThanOrEqual(expectedAccMin,
+      "accEthPerShare must be >= computation from pre-sync network earnings");
+    // And at most 1 extra block of accrual above expectedAccMin
+    // 1 block of network fee: ethNetworkFee * daoTotalEthVUnits / BPS * ETH_DEDUCTED_DIGITS
+    // ethNetworkFee = 3,550,900,000 packed, daoTotalEthVUnits = 20000
+    const oneBlockFee = 3_550_900_000n * 20000n / BPS_DENOMINATOR * ETH_DEDUCTED_DIGITS;
+    const expectedAccMax = (networkEarningsBeforeSync + oneBlockFee) * (10n ** 18n) / stakeAmount;
+    expect(accBefore).to.be.lessThanOrEqual(expectedAccMax,
+      "accEthPerShare must be <= computation with 1 extra block of accrual");
 
     const stakerBalBefore = await provider.getBalance(staker.address);
     const txClaim = await network.connect(staker).claimEthRewards();
@@ -2219,11 +2274,51 @@ describe("Cross-Cutting: XF Full Lifecycle Chains", () => {
 
   // ── Contract rejection ─────────────────────────────────────────────
 
-  // XF-051: REMOVED — false positive. Testing ETHTransferFailed requires a deployed
-  // rejector contract that owns an operator and calls removeOperator. The previous
-  // test only checked a string constant. A real test needs a Solidity helper contract
-  // (with no receive/fallback) deployed, operator registered via that contract, and
-  // then removeOperator called — out of scope for this cross-cutting suite.
+  it("XF-051: Cluster owner is a contract without receive() → withdraw reverts ETHTransferFailed", async function () {
+    const [operatorOwner] = signers;
+    const { network, views } = await networkHelpers.loadFixture(deployFixture);
+    const provider = connection.ethers.provider;
+    const networkAddress = await network.getAddress();
+
+    const operatorIds = await registerOperators(network, operatorOwner, 4);
+
+    // Deploy ETHRejectingClusterOwner contract
+    const factory = await connection.ethers.getContractFactory("ETHRejectingClusterOwner");
+    const rejector = await factory.deploy(networkAddress);
+    await rejector.waitForDeployment();
+    const rejectorAddress = await rejector.getAddress();
+
+    // Whitelist the rejector contract
+    await whitelistAddresses(network, operatorOwner, operatorIds, [rejectorAddress]);
+
+    // Register validator via the rejector contract (it becomes the cluster owner)
+    // ETH is passed through the payable registerValidator call — no need to pre-fund
+    const deposit = ethers.parseEther("5");
+    const opIds64 = operatorIds.map((id: number) => BigInt(id));
+    const txReg = await rejector.registerValidator(
+      makePublicKey(1), opIds64, DEFAULT_SHARES, EMPTY_CLUSTER, { value: deposit },
+    );
+    const receiptReg = await txReg.wait();
+    const cluster = parseClusterFromEvent(network, receiptReg, Events.VALIDATOR_ADDED);
+    expect(cluster.active).to.be.true;
+    expect(cluster.balance).to.equal(deposit);
+
+    // Attempt withdraw — ETH transfer to rejector (no receive()) should revert
+    await expect(
+      rejector.withdraw(opIds64, ethers.parseEther("1"), cluster),
+    ).to.be.revertedWithCustomError(network, Errors.ETH_TRANSFER_FAILED);
+
+    // Cluster state should be unchanged (revert rolls back)
+    const balance = BigInt(await views.getBalance(rejectorAddress, operatorIds, cluster));
+    // Balance may have decreased by fees since registration, but should still be close to deposit
+    expect(balance).to.be.greaterThan(0n);
+    const isLiq = await views.isLiquidatable(rejectorAddress, operatorIds, cluster);
+    expect(isLiq).to.be.false;
+
+    // vUnit consistency: 1 validator, implicit EB → daoTotalEthVUnits = 10000
+    const daoVUnits = await readDaoTotalEthVUnits(provider, networkAddress);
+    expect(daoVUnits).to.equal(10000n, "daoTotalEthVUnits = 10000 (1 validator, cluster owned by rejector)");
+  });
 
   // ── Views consistency ──────────────────────────────────────────────
 
