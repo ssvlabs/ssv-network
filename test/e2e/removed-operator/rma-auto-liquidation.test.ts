@@ -189,6 +189,7 @@ describe("RMA — Removed-Operator x Auto-Liquidation Compound Path", () => {
       });
     const regReceipt = await regTx.wait();
     let cluster = parseClusterFromEvent(network, regReceipt, Events.VALIDATOR_ADDED);
+    expect(cluster.validatorCount).to.equal(1n);
     const regBlock = regReceipt!.blockNumber;
 
     const clusterId = computeClusterId(clusterOwner.address, operatorIds);
@@ -378,6 +379,7 @@ describe("RMA — Removed-Operator x Auto-Liquidation Compound Path", () => {
 
         const removedOpId = operatorIds[2];
         await network.connect(operatorOwner).removeOperator(removedOpId);
+        expect(await readOperatorEthVUnits(provider, networkAddr, removedOpId)).to.equal(0n);
 
         await mineBlocks(provider, 100);
 
@@ -429,6 +431,7 @@ describe("RMA — Removed-Operator x Auto-Liquidation Compound Path", () => {
           value: deposit,
         });
       let cluster = parseClusterFromEvent(network, await regTx.wait(), Events.VALIDATOR_ADDED);
+      expect(cluster.validatorCount).to.equal(1n);
       const clusterId = computeClusterId(clusterOwner.address, operatorIds);
 
       // First EB update: set explicit EB = 64 (vUnits = 20000, deviation = 10000)
@@ -441,6 +444,7 @@ describe("RMA — Removed-Operator x Auto-Liquidation Compound Path", () => {
       // Remove operators 3 AND 4 — delete their operatorEthVUnits (were 10000 each)
       await network.connect(operatorOwner).removeOperator(operatorIds[2]);
       await network.connect(operatorOwner).removeOperator(operatorIds[3]);
+      expect(await readOperatorEthVUnits(provider, networkAddr, operatorIds[3])).to.equal(0n);
 
       // Drain cluster below threshold at EB=128 with 2 active ops
       await mineBlocks(provider, 25000);
@@ -486,6 +490,7 @@ describe("RMA — Removed-Operator x Auto-Liquidation Compound Path", () => {
           value: deposit,
         });
       let cluster = parseClusterFromEvent(network, await regTx.wait(), Events.VALIDATOR_ADDED);
+      expect(cluster.validatorCount).to.equal(1n);
       const clusterId = computeClusterId(clusterOwner.address, operatorIds);
 
       // Set explicit EB = 64
@@ -499,6 +504,7 @@ describe("RMA — Removed-Operator x Auto-Liquidation Compound Path", () => {
       await network.connect(operatorOwner).removeOperator(operatorIds[1]);
       await network.connect(operatorOwner).removeOperator(operatorIds[2]);
       await network.connect(operatorOwner).removeOperator(operatorIds[3]);
+      expect(await readOperatorEthVUnits(provider, networkAddr, operatorIds[3])).to.equal(0n);
 
       // Drain with 1 active op — need balance below threshold@128(1op)
       await mineBlocks(provider, 80000);
@@ -544,6 +550,7 @@ describe("RMA — Removed-Operator x Auto-Liquidation Compound Path", () => {
 
       const removedOpId = operatorIds[2];
       await network.connect(operatorOwner).removeOperator(removedOpId);
+      expect(await readOperatorEthVUnits(provider, networkAddr, removedOpId)).to.equal(0n);
 
       await mineBlocks(provider, 100);
 
@@ -594,6 +601,7 @@ describe("RMA — Removed-Operator x Auto-Liquidation Compound Path", () => {
 
       const removedOpId = operatorIds[2];
       await network.connect(operatorOwner).removeOperator(removedOpId);
+      expect(await readOperatorEthVUnits(provider, networkAddr, removedOpId)).to.equal(0n);
 
       // 2048 ETH/validator → vUnits = ceil(2048 * 10000 / 32) = 640000
       const newVUnits = calcVUnits(2048n);
@@ -634,6 +642,7 @@ describe("RMA — Removed-Operator x Auto-Liquidation Compound Path", () => {
           value: deposit,
         });
       let cluster = parseClusterFromEvent(network, await regTx.wait(), Events.VALIDATOR_ADDED);
+      expect(cluster.validatorCount).to.equal(1n);
       const clusterId = computeClusterId(clusterOwner.address, operatorIds);
 
       // First EB update: 64 ETH (vUnits = 20000)
@@ -645,6 +654,7 @@ describe("RMA — Removed-Operator x Auto-Liquidation Compound Path", () => {
 
       // Remove operator 3 — deletes operatorEthVUnits[3] (was 10000, now 0)
       await network.connect(operatorOwner).removeOperator(operatorIds[2]);
+      expect(await readOperatorEthVUnits(provider, networkAddr, operatorIds[2])).to.equal(0n);
 
       await mineBlocks(provider, 100);
 
@@ -683,6 +693,7 @@ describe("RMA — Removed-Operator x Auto-Liquidation Compound Path", () => {
 
       const removedOpId = operatorIds[2];
       await network.connect(operatorOwner).removeOperator(removedOpId);
+      expect(await readOperatorEthVUnits(provider, networkAddr, removedOpId)).to.equal(0n);
 
       // Calculate exactly how many blocks to drain to threshold boundary
       // Burn rate at 32 ETH with 3 active ops (removed op excluded from burnRate)
@@ -780,6 +791,7 @@ describe("RMA — Removed-Operator x Auto-Liquidation Compound Path", () => {
 
       const removedOpId = operatorIds[2];
       await network.connect(operatorOwner).removeOperator(removedOpId);
+      expect(await readOperatorEthVUnits(provider, networkAddr, removedOpId)).to.equal(0n);
 
       await mineBlocks(provider, 50);
 
@@ -837,6 +849,7 @@ describe("RMA — Removed-Operator x Auto-Liquidation Compound Path", () => {
 
       // Remove the operator
       await network.connect(operatorOwner).removeOperator(targetOpId);
+      expect(await readOperatorEthVUnits(provider, networkAddr, targetOpId)).to.equal(0n);
 
       // Small drain — deposit is already near threshold@64 for 3 ops
       await mineBlocks(provider, 100);
@@ -874,6 +887,7 @@ describe("RMA — Removed-Operator x Auto-Liquidation Compound Path", () => {
 
       const removedOpId = operatorIds[2];
       await network.connect(operatorOwner).removeOperator(removedOpId);
+      expect(await readOperatorEthVUnits(provider, networkAddr, removedOpId)).to.equal(0n);
 
       // EB update (no auto-liq — cluster is well-funded, just verifying fee settlement)
       const rootBlockNum = await commitNewEB(network, clusterId, 64);
@@ -890,7 +904,8 @@ describe("RMA — Removed-Operator x Auto-Liquidation Compound Path", () => {
 
       // Cluster should still be active — burn rate was lower due to removed op
       expect(updatedCluster.active).to.equal(true);
-      expect(updatedCluster.balance).to.be.greaterThan(0n);
+      // 10 ETH deposit minus ~20 blocks of fees (3 active ops at EB=32→64) — balance stays well above 9 ETH
+      expect(updatedCluster.balance).to.be.greaterThan(ethers.parseEther("9"));
 
       // Verify removed op's fee is NOT reflected in operator's earnings
       const removedOpData = await views.getOperatorById(removedOpId);
@@ -923,6 +938,7 @@ describe("RMA — Removed-Operator x Auto-Liquidation Compound Path", () => {
           value: deposit,
         });
       let cluster = parseClusterFromEvent(network, await regTx.wait(), Events.VALIDATOR_ADDED);
+      expect(cluster.validatorCount).to.equal(1n);
       const clusterId = computeClusterId(clusterOwner.address, operatorIds);
 
       // Set explicit EB = 64 (vUnits = 20000)
@@ -934,6 +950,7 @@ describe("RMA — Removed-Operator x Auto-Liquidation Compound Path", () => {
 
       const removedOpId = operatorIds[2];
       await network.connect(operatorOwner).removeOperator(removedOpId);
+      expect(await readOperatorEthVUnits(provider, networkAddr, removedOpId)).to.equal(0n);
 
       // Drain until liquidatable at EB=64 with 3 active ops
       await mineBlocks(provider, 25000);
@@ -967,6 +984,7 @@ describe("RMA — Removed-Operator x Auto-Liquidation Compound Path", () => {
 
       const removedOpId = operatorIds[2];
       await network.connect(operatorOwner).removeOperator(removedOpId);
+      expect(await readOperatorEthVUnits(provider, networkAddr, removedOpId)).to.equal(0n);
 
       await mineBlocks(provider, 100);
 
@@ -1027,11 +1045,11 @@ describe("RMA — Removed-Operator x Auto-Liquidation Compound Path", () => {
       const removedVUnits = await readOperatorEthVUnits(provider, networkAddr, removedOpId);
       expect(removedVUnits).to.equal(0n, "RMA-024: removed op vUnits stays 0 (guard skips)");
 
-      // Active operators have correct deviation
+      // Active operators have exact deviation from EB 32→64: calcVUnits(64) - calcVUnits(32) = 20000 - 10000 = 10000
       for (const opId of operatorIds) {
         if (opId !== removedOpId) {
           const vUnits = await readOperatorEthVUnits(provider, networkAddr, opId);
-          expect(vUnits).to.be.greaterThan(0n, "Active operator has positive deviation after EB increase");
+          expect(vUnits).to.equal(10000n, `Active op${opId} deviation = 10000 (EB 32→64)`);
         }
       }
     });
@@ -1044,6 +1062,7 @@ describe("RMA — Removed-Operator x Auto-Liquidation Compound Path", () => {
     it("Remaining cluster balance sent to updater as bounty", async function () {
       const { network, operatorIds } = await networkHelpers.loadFixture(deploy4Ops);
       const provider = connection.ethers.provider;
+      const networkAddr = (await network.getAddress()) as string;
 
       const vUnits32 = defaultVUnits(1n);
       const threshold32 = calcLiquidationThreshold({
@@ -1064,6 +1083,7 @@ describe("RMA — Removed-Operator x Auto-Liquidation Compound Path", () => {
 
       const removedOpId = operatorIds[2];
       await network.connect(operatorOwner).removeOperator(removedOpId);
+      expect(await readOperatorEthVUnits(provider, networkAddr, removedOpId)).to.equal(0n);
 
       await mineBlocks(provider, 50);
 
@@ -1093,6 +1113,7 @@ describe("RMA — Removed-Operator x Auto-Liquidation Compound Path", () => {
     it("Both ClusterLiquidated and ClusterBalanceUpdated events emitted", async function () {
       const { network, operatorIds } = await networkHelpers.loadFixture(deploy4Ops);
       const provider = connection.ethers.provider;
+      const networkAddr = (await network.getAddress()) as string;
 
       const threshold32 = calcLiquidationThreshold({
         minimumBlocksBeforeLiquidation: MIN_BLOCKS_LIQ,
@@ -1106,6 +1127,7 @@ describe("RMA — Removed-Operator x Auto-Liquidation Compound Path", () => {
       const { cluster, clusterId } = await registerAndSetBaselineEB(network, operatorIds, deposit, 32);
 
       await network.connect(operatorOwner).removeOperator(operatorIds[2]);
+      expect(await readOperatorEthVUnits(provider, networkAddr, operatorIds[2])).to.equal(0n);
       await mineBlocks(provider, 100);
 
       const rootBlockNum = await commitNewEB(network, clusterId, 64);
@@ -1140,6 +1162,7 @@ describe("RMA — Removed-Operator x Auto-Liquidation Compound Path", () => {
     it("New vUnits persisted in EB snapshot even when auto-liquidation fires", async function () {
       const { network, views, operatorIds } = await networkHelpers.loadFixture(deploy4Ops);
       const provider = connection.ethers.provider;
+      const networkAddr = (await network.getAddress()) as string;
 
       const threshold32 = calcLiquidationThreshold({
         minimumBlocksBeforeLiquidation: MIN_BLOCKS_LIQ,
@@ -1153,6 +1176,7 @@ describe("RMA — Removed-Operator x Auto-Liquidation Compound Path", () => {
       const { cluster, clusterId } = await registerAndSetBaselineEB(network, operatorIds, deposit, 32);
 
       await network.connect(operatorOwner).removeOperator(operatorIds[2]);
+      expect(await readOperatorEthVUnits(provider, networkAddr, operatorIds[2])).to.equal(0n);
       await mineBlocks(provider, 100);
 
       const rootBlockNum = await commitNewEB(network, clusterId, 64);
@@ -1210,6 +1234,7 @@ describe("RMA — Removed-Operator x Auto-Liquidation Compound Path", () => {
           value: deposit,
         });
       let cluster = parseClusterFromEvent(network, await regTx.wait(), Events.VALIDATOR_ADDED);
+      expect(cluster.validatorCount).to.equal(1n);
       const clusterId = computeClusterId(clusterOwner.address, operatorIds);
 
       // First EB update: 64 ETH/validator → vUnits = 20000 (deviation = 10000)
@@ -1221,6 +1246,7 @@ describe("RMA — Removed-Operator x Auto-Liquidation Compound Path", () => {
 
       // Remove operator 3 — delete operatorEthVUnits[3] (was 10000)
       await network.connect(operatorOwner).removeOperator(operatorIds[2]);
+      expect(await readOperatorEthVUnits(provider, networkAddr, operatorIds[2])).to.equal(0n);
 
       // Drain cluster below threshold at EB=96 with 3 active ops
       await mineBlocks(provider, 20000);
@@ -1247,6 +1273,7 @@ describe("RMA — Removed-Operator x Auto-Liquidation Compound Path", () => {
     it("All operators removed: burnRate=0, auto-liquidation from collateral check if balance is tiny", async function () {
       const { network, operatorIds } = await networkHelpers.loadFixture(deploy4Ops);
       const provider = connection.ethers.provider;
+      const networkAddr = (await network.getAddress()) as string;
 
       // Deposit must be above liquidation threshold to register
       const deposit = ethers.parseEther("1");
@@ -1255,6 +1282,7 @@ describe("RMA — Removed-Operator x Auto-Liquidation Compound Path", () => {
       // Remove ALL operators
       for (const opId of operatorIds) {
         await network.connect(operatorOwner).removeOperator(opId);
+        expect(await readOperatorEthVUnits(provider, networkAddr, opId)).to.equal(0n);
       }
 
       // Since minimumLiquidationCollateral is 0 and all ops removed (burnRate=0),
@@ -1304,6 +1332,7 @@ describe("RMA — Removed-Operator x Auto-Liquidation Compound Path", () => {
 
       const removedOpId = operatorIds[2];
       await network.connect(operatorOwner).removeOperator(removedOpId);
+      expect(await readOperatorEthVUnits(provider, networkAddr, removedOpId)).to.equal(0n);
 
       await mineBlocks(provider, 100);
 
@@ -1341,7 +1370,8 @@ describe("RMA — Removed-Operator x Auto-Liquidation Compound Path", () => {
       const reactivatedCluster = parseClusterFromEvent(network, reactReceipt, Events.CLUSTER_REACTIVATED);
 
       expect(reactivatedCluster.active).to.equal(true);
-      expect(reactivatedCluster.balance).to.be.greaterThan(0n);
+      // Reactivation deposit is applied to the 0-balance liquidated cluster
+      expect(reactivatedCluster.balance).to.equal(reactivationDeposit);
 
       // After reactivation, the cluster is active again with the same operator set
       expect(await views.getNetworkValidatorsCount()).to.equal(1);
@@ -1379,6 +1409,7 @@ describe("RMA — Removed-Operator x Auto-Liquidation Compound Path", () => {
 
       const removedOpId = operatorIds[2];
       await network.connect(operatorOwner).removeOperator(removedOpId);
+      expect(await readOperatorEthVUnits(provider, networkAddr, removedOpId)).to.equal(0n);
 
       // Drain cluster via fee accrual — 25000 blocks at 3 active ops
       await mineBlocks(provider, 25000);
@@ -1414,6 +1445,7 @@ describe("RMA — Removed-Operator x Auto-Liquidation Compound Path", () => {
     it("Balance exactly at minimumLiquidationCollateral: NOT liquidatable (strict < check)", async function () {
       const { network, views, operatorIds } = await networkHelpers.loadFixture(deploy4Ops);
       const provider = connection.ethers.provider;
+      const networkAddr = (await network.getAddress()) as string;
 
       // Set a non-zero minimum collateral for this test
       const minCollateral = ethers.parseEther("0.001");
@@ -1425,6 +1457,7 @@ describe("RMA — Removed-Operator x Auto-Liquidation Compound Path", () => {
 
       const removedOpId = operatorIds[2];
       await network.connect(operatorOwner).removeOperator(removedOpId);
+      expect(await readOperatorEthVUnits(provider, networkAddr, removedOpId)).to.equal(0n);
 
       // With a very large balance, EB decrease won't trigger liquidation
       // We verify that the collateral boundary is respected
@@ -1452,6 +1485,7 @@ describe("RMA — Removed-Operator x Auto-Liquidation Compound Path", () => {
     it("_liquidateAfterEBUpdateIfNeeded short-circuits on !cluster.active", async function () {
       const { network, views, operatorIds } = await networkHelpers.loadFixture(deploy4Ops);
       const provider = connection.ethers.provider;
+      const networkAddr = (await network.getAddress()) as string;
 
       // Small deposit — just above threshold at EB=32 with 4 ops
       const vUnits32 = defaultVUnits(1n);
@@ -1469,6 +1503,7 @@ describe("RMA — Removed-Operator x Auto-Liquidation Compound Path", () => {
           value: deposit,
         });
       let cluster = parseClusterFromEvent(network, await regTx.wait(), Events.VALIDATOR_ADDED);
+      expect(cluster.validatorCount).to.equal(1n);
       const clusterId = computeClusterId(clusterOwner.address, operatorIds);
 
       // Set explicit EB = 32
@@ -1480,6 +1515,7 @@ describe("RMA — Removed-Operator x Auto-Liquidation Compound Path", () => {
 
       // Remove an operator
       await network.connect(operatorOwner).removeOperator(operatorIds[2]);
+      expect(await readOperatorEthVUnits(provider, networkAddr, operatorIds[2])).to.equal(0n);
 
       // Drain below threshold and manually liquidate
       await mineBlocks(provider, 25000);

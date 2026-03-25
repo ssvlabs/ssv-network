@@ -287,6 +287,7 @@ describe("RM2: _executeLiquidation Deviation Cleanup With Removed Operators", ()
 
       // Register validator
       let { cluster } = await registerValidator(network, clusterOwner, operatorIds, EMPTY_CLUSTER, DEFAULT_ETH_REGISTER_VALUE, 1);
+      expect(cluster.validatorCount).to.equal(1n);
 
       // EB update
       const oracles = [oracle1, oracle2, oracle3];
@@ -359,6 +360,7 @@ describe("RM2: _executeLiquidation Deviation Cleanup With Removed Operators", ()
       const operatorIds = await setupOperators(network, opOwner, numOps, [clusterOwner.address]);
 
       let { cluster } = await registerValidator(network, clusterOwner, operatorIds, EMPTY_CLUSTER, DEFAULT_ETH_REGISTER_VALUE, 1);
+      expect(cluster.validatorCount).to.equal(1n);
 
       // EB update at baseline (32 ETH = deviation 0)
       const oracles = [oracle1, oracle2, oracle3];
@@ -369,6 +371,7 @@ describe("RM2: _executeLiquidation Deviation Cleanup With Removed Operators", ()
 
       // Remove op1
       await network.connect(opOwner).removeOperator(operatorIds[0]);
+      expect(await readOperatorEthVUnits(provider, proxyAddress, BigInt(operatorIds[0]))).to.equal(0n, "removeOperator must zero vUnits");
 
       // Drain and liquidate
       const numActiveOps = BigInt(numOps - 1);
@@ -420,11 +423,13 @@ describe("RM2: _executeLiquidation Deviation Cleanup With Removed Operators", ()
 
       const operatorIds = await setupOperators(network, opOwner, 4, [clusterOwner.address]);
       let { cluster } = await registerValidator(network, clusterOwner, operatorIds, EMPTY_CLUSTER, DEFAULT_ETH_REGISTER_VALUE, 1);
+      expect(cluster.validatorCount).to.equal(1n);
 
       const oracles = [oracle1, oracle2, oracle3];
       ({ cluster } = await doEBUpdate(network, provider, clusterOwner, operatorIds, cluster, 48, oracles));
 
       await network.connect(opOwner).removeOperator(operatorIds[0]);
+      expect(await readOperatorEthVUnits(provider, proxyAddress, BigInt(operatorIds[0]))).to.equal(0n, "removeOperator must zero vUnits");
 
       // Self-liquidation (owner == msg.sender bypasses solvency check)
       const tx = await network.connect(clusterOwner).liquidate(
@@ -457,12 +462,13 @@ describe("RM2: _executeLiquidation Deviation Cleanup With Removed Operators", ()
 
       const operatorIds = await setupOperators(network, opOwner, 4, [clusterOwner.address]);
       let { cluster } = await registerValidator(network, clusterOwner, operatorIds, EMPTY_CLUSTER, DEFAULT_ETH_REGISTER_VALUE, 1);
+      expect(cluster.validatorCount).to.equal(1n);
 
       const oracles = [oracle1, oracle2, oracle3];
       ({ cluster } = await doEBUpdate(network, provider, clusterOwner, operatorIds, cluster, 48, oracles));
 
       const deviation = calcVUnits(48n) - defaultVUnits(1n);
-      expect(deviation).to.be.greaterThan(0n);
+      expect(deviation).to.equal(5000n, "RM2-010: calcVUnits(48)-defaultVUnits(1) = 5000");
 
       // Pre-removal check
       for (const opId of operatorIds) {
@@ -476,7 +482,8 @@ describe("RM2: _executeLiquidation Deviation Cleanup With Removed Operators", ()
 
       // Liquidate
       const vUnits = calcVUnits(48n);
-      await drainAndLiquidate(network, provider, clusterOwner, liquidator, operatorIds, cluster, 3n, vUnits);
+      const { cluster: liqCluster } = await drainAndLiquidate(network, provider, clusterOwner, liquidator, operatorIds, cluster, 3n, vUnits);
+      expect(liqCluster.active).to.equal(false);
 
       // Post-liquidation: removed op still 0
       expect(await readOperatorEthVUnits(provider, proxyAddress, BigInt(operatorIds[0]))).to.equal(
@@ -497,6 +504,7 @@ describe("RM2: _executeLiquidation Deviation Cleanup With Removed Operators", ()
 
       const operatorIds = await setupOperators(network, opOwner, 4, [clusterOwner.address]);
       let { cluster } = await registerValidator(network, clusterOwner, operatorIds, EMPTY_CLUSTER, DEFAULT_ETH_REGISTER_VALUE, 1);
+      expect(cluster.validatorCount).to.equal(1n);
 
       const oracles = [oracle1, oracle2, oracle3];
       ({ cluster } = await doEBUpdate(network, provider, clusterOwner, operatorIds, cluster, 48, oracles));
@@ -506,8 +514,10 @@ describe("RM2: _executeLiquidation Deviation Cleanup With Removed Operators", ()
       expect(await readDaoTotalEthVUnits(provider, proxyAddress)).to.equal(vUnits, "Pre-liquidation daoTotalEthVUnits = baseline + deviation");
 
       await network.connect(opOwner).removeOperator(operatorIds[0]);
+      expect(await readOperatorEthVUnits(provider, proxyAddress, BigInt(operatorIds[0]))).to.equal(0n, "removeOperator must zero vUnits");
 
-      await drainAndLiquidate(network, provider, clusterOwner, liquidator, operatorIds, cluster, 3n, vUnits);
+      const { cluster: liqCluster } = await drainAndLiquidate(network, provider, clusterOwner, liquidator, operatorIds, cluster, 3n, vUnits);
+      expect(liqCluster.active).to.equal(false);
 
       // daoTotalEthVUnits should be 0 (deviation fully subtracted)
       expect(await readDaoTotalEthVUnits(provider, proxyAddress)).to.equal(0n, "daoTotalEthVUnits must be 0 after liquidation");
@@ -521,9 +531,11 @@ describe("RM2: _executeLiquidation Deviation Cleanup With Removed Operators", ()
     it("RM2-012: ethValidatorCount NOT decremented for removed op (already 0)", async function () {
       const { network, views } = await networkHelpers.loadFixture(baseFixture);
       const provider = connection.ethers.provider;
+      const proxyAddress = await network.getAddress();
 
       const operatorIds = await setupOperators(network, opOwner, 4, [clusterOwner.address]);
       let { cluster } = await registerValidator(network, clusterOwner, operatorIds, EMPTY_CLUSTER, DEFAULT_ETH_REGISTER_VALUE, 1);
+      expect(cluster.validatorCount).to.equal(1n);
 
       const oracles = [oracle1, oracle2, oracle3];
       ({ cluster } = await doEBUpdate(network, provider, clusterOwner, operatorIds, cluster, 48, oracles));
@@ -535,6 +547,7 @@ describe("RM2: _executeLiquidation Deviation Cleanup With Removed Operators", ()
       }
 
       await network.connect(opOwner).removeOperator(operatorIds[0]);
+      expect(await readOperatorEthVUnits(provider, proxyAddress, BigInt(operatorIds[0]))).to.equal(0n, "removeOperator must zero vUnits");
 
       // Removed op: validatorCount already 0 from removal
       const removedOpData = await views.getOperatorById(BigInt(operatorIds[0]));
@@ -542,7 +555,8 @@ describe("RM2: _executeLiquidation Deviation Cleanup With Removed Operators", ()
 
       // Liquidate
       const vUnits = calcVUnits(48n);
-      await drainAndLiquidate(network, provider, clusterOwner, liquidator, operatorIds, cluster, 3n, vUnits);
+      const { cluster: liqCluster } = await drainAndLiquidate(network, provider, clusterOwner, liquidator, operatorIds, cluster, 3n, vUnits);
+      expect(liqCluster.active).to.equal(false);
 
       // Post-liquidation: all ops have validatorCount=0
       for (const opId of operatorIds) {
@@ -566,6 +580,7 @@ describe("RM2: _executeLiquidation Deviation Cleanup With Removed Operators", ()
 
       const operatorIds = await setupOperators(network, opOwner, 4, [clusterOwner.address]);
       let { cluster } = await registerValidator(network, clusterOwner, operatorIds, EMPTY_CLUSTER, DEFAULT_ETH_REGISTER_VALUE, 1);
+      expect(cluster.validatorCount).to.equal(1n);
 
       // Remove op1 BEFORE EB update
       await network.connect(opOwner).removeOperator(operatorIds[0]);
@@ -608,11 +623,13 @@ describe("RM2: _executeLiquidation Deviation Cleanup With Removed Operators", ()
 
       const operatorIds = await setupOperators(network, opOwner, 4, [clusterOwner.address]);
       let { cluster } = await registerValidator(network, clusterOwner, operatorIds, EMPTY_CLUSTER, DEFAULT_ETH_REGISTER_VALUE, 1);
+      expect(cluster.validatorCount).to.equal(1n);
 
       const oracles = [oracle1, oracle2, oracle3];
       ({ cluster } = await doEBUpdate(network, provider, clusterOwner, operatorIds, cluster, 48, oracles));
 
       await network.connect(opOwner).removeOperator(operatorIds[0]);
+      expect(await readOperatorEthVUnits(provider, proxyAddress, BigInt(operatorIds[0]))).to.equal(0n, "removeOperator must zero vUnits");
 
       const vUnits = calcVUnits(48n);
       const numActiveOps = 3n;
@@ -640,6 +657,7 @@ describe("RM2: _executeLiquidation Deviation Cleanup With Removed Operators", ()
 
       const operatorIds = await setupOperators(network, opOwner, 4, [clusterOwner.address]);
       let { cluster } = await registerValidator(network, clusterOwner, operatorIds, EMPTY_CLUSTER, SMALL_ETH_REGISTER_VALUE, 1);
+      expect(cluster.validatorCount).to.equal(1n);
 
       // No EB update — implicit EB, vUnitsCluster=0
       // All operatorEthVUnits should be 0
@@ -648,6 +666,7 @@ describe("RM2: _executeLiquidation Deviation Cleanup With Removed Operators", ()
       }
 
       await network.connect(opOwner).removeOperator(operatorIds[0]);
+      expect(await readOperatorEthVUnits(provider, proxyAddress, BigInt(operatorIds[0]))).to.equal(0n, "removeOperator must zero vUnits");
 
       // Drain and liquidate with implicit vUnits
       const implicitVUnits = defaultVUnits(1n);
@@ -690,6 +709,7 @@ describe("RM2: _executeLiquidation Deviation Cleanup With Removed Operators", ()
       const operatorIds = await setupOperators(network, opOwner, 4, [clusterOwner.address]);
       const deposit = connection.ethers.parseEther("10");
       let { cluster } = await registerValidator(network, clusterOwner, operatorIds, EMPTY_CLUSTER, deposit, 1);
+      expect(cluster.validatorCount).to.equal(1n);
 
       // Remove op1
       await network.connect(opOwner).removeOperator(operatorIds[0]);
@@ -728,6 +748,7 @@ describe("RM2: _executeLiquidation Deviation Cleanup With Removed Operators", ()
 
       const operatorIds = await setupOperators(network, opOwner, 4, [clusterOwner.address]);
       let { cluster } = await registerValidator(network, clusterOwner, operatorIds, EMPTY_CLUSTER, DEFAULT_ETH_REGISTER_VALUE, 1);
+      expect(cluster.validatorCount).to.equal(1n);
 
       const oracles = [oracle1, oracle2, oracle3];
       ({ cluster } = await doEBUpdate(network, provider, clusterOwner, operatorIds, cluster, 48, oracles));
@@ -748,7 +769,8 @@ describe("RM2: _executeLiquidation Deviation Cleanup With Removed Operators", ()
 
       // Liquidate
       const vUnits = calcVUnits(48n);
-      await drainAndLiquidate(network, provider, clusterOwner, liquidator, operatorIds, cluster, 3n, vUnits);
+      const { cluster: liqCluster } = await drainAndLiquidate(network, provider, clusterOwner, liquidator, operatorIds, cluster, 3n, vUnits);
+      expect(liqCluster.active).to.equal(false);
 
       // Post-liquidation: live ops' deviation cleaned to 0
       for (let i = 1; i < 4; i++) {
@@ -775,6 +797,7 @@ describe("RM2: _executeLiquidation Deviation Cleanup With Removed Operators", ()
       // Need a large deposit because burn rate with high vUnits is enormous
       const largeDeposit = connection.ethers.parseEther("100");
       let { cluster } = await registerValidator(network, clusterOwner, operatorIds, EMPTY_CLUSTER, largeDeposit, 1);
+      expect(cluster.validatorCount).to.equal(1n);
 
       const oracles = [oracle1, oracle2, oracle3];
       ({ cluster } = await doEBUpdate(network, provider, clusterOwner, operatorIds, cluster, 2048, oracles));
@@ -784,6 +807,7 @@ describe("RM2: _executeLiquidation Deviation Cleanup With Removed Operators", ()
       expect(deviation).to.equal(630000n);
 
       await network.connect(opOwner).removeOperator(operatorIds[0]);
+      expect(await readOperatorEthVUnits(provider, proxyAddress, BigInt(operatorIds[0]))).to.equal(0n, "removeOperator must zero vUnits");
 
       const { cluster: liqCluster } = await drainAndLiquidate(
         network, provider, clusterOwner, liquidator, operatorIds, cluster, 3n, vUnits,
@@ -809,6 +833,7 @@ describe("RM2: _executeLiquidation Deviation Cleanup With Removed Operators", ()
 
       const operatorIds = await setupOperators(network, opOwner, 4, [clusterOwner.address]);
       let { cluster } = await registerValidator(network, clusterOwner, operatorIds, EMPTY_CLUSTER, DEFAULT_ETH_REGISTER_VALUE, 1);
+      expect(cluster.validatorCount).to.equal(1n);
 
       const oracles = [oracle1, oracle2, oracle3];
       ({ cluster } = await doEBUpdate(network, provider, clusterOwner, operatorIds, cluster, 48, oracles));
@@ -846,14 +871,18 @@ describe("RM2: _executeLiquidation Deviation Cleanup With Removed Operators", ()
 
       const operatorIds = await setupOperators(network, opOwner, 4, [clusterOwner.address]);
       let { cluster } = await registerValidator(network, clusterOwner, operatorIds, EMPTY_CLUSTER, DEFAULT_ETH_REGISTER_VALUE, 1);
+      expect(cluster.validatorCount).to.equal(1n);
 
       const oracles = [oracle1, oracle2, oracle3];
       ({ cluster } = await doEBUpdate(network, provider, clusterOwner, operatorIds, cluster, 48, oracles));
 
       // Remove 3 ops
       await network.connect(opOwner).removeOperator(operatorIds[0]);
+      expect(await readOperatorEthVUnits(provider, proxyAddress, BigInt(operatorIds[0]))).to.equal(0n, "removeOperator must zero vUnits");
       await network.connect(opOwner).removeOperator(operatorIds[1]);
+      expect(await readOperatorEthVUnits(provider, proxyAddress, BigInt(operatorIds[1]))).to.equal(0n, "removeOperator must zero vUnits");
       await network.connect(opOwner).removeOperator(operatorIds[2]);
+      expect(await readOperatorEthVUnits(provider, proxyAddress, BigInt(operatorIds[2]))).to.equal(0n, "removeOperator must zero vUnits");
 
       // Liquidate with 1 active op
       const vUnits = calcVUnits(48n);
@@ -880,6 +909,7 @@ describe("RM2: _executeLiquidation Deviation Cleanup With Removed Operators", ()
 
       const operatorIds = await setupOperators(network, opOwner, 4, [clusterOwner.address]);
       let { cluster } = await registerValidator(network, clusterOwner, operatorIds, EMPTY_CLUSTER, DEFAULT_ETH_REGISTER_VALUE, 1);
+      expect(cluster.validatorCount).to.equal(1n);
 
       const oracles = [oracle1, oracle2, oracle3];
       ({ cluster } = await doEBUpdate(network, provider, clusterOwner, operatorIds, cluster, 48, oracles));
@@ -939,9 +969,11 @@ describe("RM2: _executeLiquidation Deviation Cleanup With Removed Operators", ()
       const deposit = implicitThreshold + (implicitThreshold / 2n);
 
       let { cluster } = await registerValidator(network, clusterOwner, operatorIds, EMPTY_CLUSTER, deposit, 1);
+      expect(cluster.validatorCount).to.equal(1n);
 
       // Remove op1
       await network.connect(opOwner).removeOperator(operatorIds[0]);
+      expect(await readOperatorEthVUnits(provider, proxyAddress, BigInt(operatorIds[0]))).to.equal(0n, "removeOperator must zero vUnits");
 
       // EB update with massive increase (128 ETH = 40000 vUnits) triggers auto-liquidation
       const clusterId = computeClusterId(clusterOwner.address, operatorIds);
@@ -992,9 +1024,11 @@ describe("RM2: _executeLiquidation Deviation Cleanup With Removed Operators", ()
       const deposit = implicitThreshold + (implicitThreshold / 2n);
 
       let { cluster } = await registerValidator(network, clusterOwner, operatorIds, EMPTY_CLUSTER, deposit, 1);
+      expect(cluster.validatorCount).to.equal(1n);
 
       // Remove op1
       await network.connect(opOwner).removeOperator(operatorIds[0]);
+      expect(await readOperatorEthVUnits(provider, proxyAddress, BigInt(operatorIds[0]))).to.equal(0n, "removeOperator must zero vUnits");
 
       // Removed op should have validatorCount=0 already
       const removedOpData = await views.getOperatorById(BigInt(operatorIds[0]));
@@ -1038,6 +1072,7 @@ describe("RM2: _executeLiquidation Deviation Cleanup With Removed Operators", ()
 
       const operatorIds = await setupOperators(network, opOwner, 4, [clusterOwner.address]);
       let { cluster } = await registerValidator(network, clusterOwner, operatorIds, EMPTY_CLUSTER, DEFAULT_ETH_REGISTER_VALUE, 1);
+      expect(cluster.validatorCount).to.equal(1n);
 
       const oracles = [oracle1, oracle2, oracle3];
       ({ cluster } = await doEBUpdate(network, provider, clusterOwner, operatorIds, cluster, 48, oracles));
@@ -1048,12 +1083,14 @@ describe("RM2: _executeLiquidation Deviation Cleanup With Removed Operators", ()
       expect(await readDaoTotalEthVUnits(provider, proxyAddress)).to.equal(vUnits);
 
       await network.connect(opOwner).removeOperator(operatorIds[0]);
+      expect(await readOperatorEthVUnits(provider, proxyAddress, BigInt(operatorIds[0]))).to.equal(0n, "removeOperator must zero vUnits");
 
       // daoTotalEthVUnits unchanged by operator removal
       expect(await readDaoTotalEthVUnits(provider, proxyAddress)).to.equal(vUnits);
 
       // Liquidate
-      await drainAndLiquidate(network, provider, clusterOwner, liquidator, operatorIds, cluster, 3n, vUnits);
+      const { cluster: liqCluster } = await drainAndLiquidate(network, provider, clusterOwner, liquidator, operatorIds, cluster, 3n, vUnits);
+      expect(liqCluster.active).to.equal(false);
 
       // After liquidation, daoTotalEthVUnits decremented by full deviation
       expect(await readDaoTotalEthVUnits(provider, proxyAddress)).to.equal(0n);
@@ -1067,17 +1104,20 @@ describe("RM2: _executeLiquidation Deviation Cleanup With Removed Operators", ()
     it("RM2-025: Liquidation bounty reflects 3-op burn rate after op removal", async function () {
       const { network } = await networkHelpers.loadFixture(baseFixture);
       const provider = connection.ethers.provider;
+      const proxyAddress = await network.getAddress();
 
       const operatorIds = await setupOperators(network, opOwner, 4, [clusterOwner.address]);
       const deposit = DEFAULT_ETH_REGISTER_VALUE;
       let { cluster } = await registerValidator(
         network, clusterOwner, operatorIds, EMPTY_CLUSTER, deposit, 1,
       );
+      expect(cluster.validatorCount).to.equal(1n);
 
       const oracles = [oracle1, oracle2, oracle3];
       ({ cluster } = await doEBUpdate(network, provider, clusterOwner, operatorIds, cluster, 48, oracles));
 
       await network.connect(opOwner).removeOperator(operatorIds[0]);
+      expect(await readOperatorEthVUnits(provider, proxyAddress, BigInt(operatorIds[0]))).to.equal(0n, "removeOperator must zero vUnits");
 
       const vUnits = calcVUnits(48n);
       const liqThreshold = calcLiquidationThreshold({
@@ -1127,9 +1167,11 @@ describe("RM2: _executeLiquidation Deviation Cleanup With Removed Operators", ()
       const operatorIds = await setupOperators(network, opOwner, 4, [clusterOwner.address]);
       const deposit = connection.ethers.parseEther("50");
       let { cluster } = await registerValidator(network, clusterOwner, operatorIds, EMPTY_CLUSTER, deposit, 1);
+      expect(cluster.validatorCount).to.equal(1n);
 
       // Remove op1
       await network.connect(opOwner).removeOperator(operatorIds[0]);
+      expect(await readOperatorEthVUnits(provider, proxyAddress, BigInt(operatorIds[0]))).to.equal(0n, "removeOperator must zero vUnits");
 
       const oracles = [oracle1, oracle2, oracle3];
 
@@ -1170,11 +1212,13 @@ describe("RM2: _executeLiquidation Deviation Cleanup With Removed Operators", ()
 
       const operatorIds = await setupOperators(network, opOwner, 4, [clusterOwner.address]);
       let { cluster } = await registerValidator(network, clusterOwner, operatorIds, EMPTY_CLUSTER, DEFAULT_ETH_REGISTER_VALUE, 1);
+      expect(cluster.validatorCount).to.equal(1n);
 
       const oracles = [oracle1, oracle2, oracle3];
       ({ cluster } = await doEBUpdate(network, provider, clusterOwner, operatorIds, cluster, 48, oracles));
 
       await network.connect(opOwner).removeOperator(operatorIds[0]);
+      expect(await readOperatorEthVUnits(provider, proxyAddress, BigInt(operatorIds[0]))).to.equal(0n, "removeOperator must zero vUnits");
 
       const vUnits = calcVUnits(48n);
       const { cluster: liqCluster } = await drainAndLiquidate(
@@ -1210,14 +1254,17 @@ describe("RM2: _executeLiquidation Deviation Cleanup With Removed Operators", ()
     it("RM2-028: cluster.active=false, balance=0, index=0, networkFeeIndex=0", async function () {
       const { network } = await networkHelpers.loadFixture(baseFixture);
       const provider = connection.ethers.provider;
+      const proxyAddress = await network.getAddress();
 
       const operatorIds = await setupOperators(network, opOwner, 4, [clusterOwner.address]);
       let { cluster } = await registerValidator(network, clusterOwner, operatorIds, EMPTY_CLUSTER, DEFAULT_ETH_REGISTER_VALUE, 1);
+      expect(cluster.validatorCount).to.equal(1n);
 
       const oracles = [oracle1, oracle2, oracle3];
       ({ cluster } = await doEBUpdate(network, provider, clusterOwner, operatorIds, cluster, 48, oracles));
 
       await network.connect(opOwner).removeOperator(operatorIds[0]);
+      expect(await readOperatorEthVUnits(provider, proxyAddress, BigInt(operatorIds[0]))).to.equal(0n, "removeOperator must zero vUnits");
 
       const vUnits = calcVUnits(48n);
       const { cluster: liqCluster } = await drainAndLiquidate(
@@ -1238,14 +1285,17 @@ describe("RM2: _executeLiquidation Deviation Cleanup With Removed Operators", ()
     it("RM2-029: ClusterLiquidated event emitted with correct owner, operatorIds, zeroed cluster", async function () {
       const { network } = await networkHelpers.loadFixture(baseFixture);
       const provider = connection.ethers.provider;
+      const proxyAddress = await network.getAddress();
 
       const operatorIds = await setupOperators(network, opOwner, 4, [clusterOwner.address]);
       let { cluster } = await registerValidator(network, clusterOwner, operatorIds, EMPTY_CLUSTER, DEFAULT_ETH_REGISTER_VALUE, 1);
+      expect(cluster.validatorCount).to.equal(1n);
 
       const oracles = [oracle1, oracle2, oracle3];
       ({ cluster } = await doEBUpdate(network, provider, clusterOwner, operatorIds, cluster, 48, oracles));
 
       await network.connect(opOwner).removeOperator(operatorIds[0]);
+      expect(await readOperatorEthVUnits(provider, proxyAddress, BigInt(operatorIds[0]))).to.equal(0n, "removeOperator must zero vUnits");
 
       const vUnits = calcVUnits(48n);
       const liqThreshold = calcLiquidationThreshold({
@@ -1309,11 +1359,13 @@ describe("RM2: _executeLiquidation Deviation Cleanup With Removed Operators", ()
       let { cluster: clusterA } = await registerValidator(
         network, clusterOwner, opsA, EMPTY_CLUSTER, DEFAULT_ETH_REGISTER_VALUE, 1,
       );
+      expect(clusterA.validatorCount).to.equal(1n);
 
       // Register cluster B (different owner)
       let { cluster: clusterB } = await registerValidator(
         network, extra1, opsB, EMPTY_CLUSTER, DEFAULT_ETH_REGISTER_VALUE, 2,
       );
+      expect(clusterB.validatorCount).to.equal(1n);
 
       const oracles = [oracle1, oracle2, oracle3];
 

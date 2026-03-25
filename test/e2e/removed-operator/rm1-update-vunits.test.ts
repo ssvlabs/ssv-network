@@ -278,6 +278,7 @@ describe("RM1: _updateOperatorVUnits + removeOperator", () => {
         clusterOwner,
         operatorIds,
       );
+      expect(cluster.validatorCount).to.equal(1n);
       // Baseline explicit EB=32 (storedVUnits=10000, no delta)
       ({ cluster } = await commitAndUpdateEB(
         network,
@@ -289,6 +290,7 @@ describe("RM1: _updateOperatorVUnits + removeOperator", () => {
       ));
 
       await network.connect(operatorOwner).removeOperator(operatorIds[0]);
+      expect(await readOperatorEthVUnits(provider, proxyAddr, operatorIds[0])).to.equal(0n, "removeOperator must zero vUnits");
 
       // EB increase → 40 (newVUnits=12500, delta=+2500)
       ({ cluster } = await commitAndUpdateEB(
@@ -325,6 +327,7 @@ describe("RM1: _updateOperatorVUnits + removeOperator", () => {
         clusterOwner,
         operatorIds,
       );
+      expect(cluster.validatorCount).to.equal(1n);
       // EB=40 → storedVUnits=12500, deviation +2500 for all ops
       ({ cluster } = await commitAndUpdateEB(
         network,
@@ -342,6 +345,7 @@ describe("RM1: _updateOperatorVUnits + removeOperator", () => {
       }
 
       await network.connect(operatorOwner).removeOperator(operatorIds[0]);
+      expect(await readOperatorEthVUnits(provider, proxyAddr, operatorIds[0])).to.equal(0n, "removeOperator must zero vUnits");
 
       // EB decrease → 32 (newVUnits=10000, delta=-2500)
       // Guard skips removed op, active ops get -2500
@@ -387,6 +391,7 @@ describe("RM1: _updateOperatorVUnits + removeOperator", () => {
         clusterOwner,
         operatorIds,
       );
+      expect(cluster.validatorCount).to.equal(1n);
       ({ cluster } = await commitAndUpdateEB(
         network,
         provider,
@@ -397,6 +402,7 @@ describe("RM1: _updateOperatorVUnits + removeOperator", () => {
       ));
 
       await network.connect(operatorOwner).removeOperator(operatorIds[0]);
+      expect(await readOperatorEthVUnits(provider, proxyAddr, operatorIds[0])).to.equal(0n, "removeOperator must zero vUnits");
 
       ({ cluster } = await commitAndUpdateEB(
         network,
@@ -432,6 +438,7 @@ describe("RM1: _updateOperatorVUnits + removeOperator", () => {
         clusterOwner,
         operatorIds,
       );
+      expect(cluster.validatorCount).to.equal(1n);
       ({ cluster } = await commitAndUpdateEB(
         network,
         provider,
@@ -442,6 +449,7 @@ describe("RM1: _updateOperatorVUnits + removeOperator", () => {
       ));
 
       await network.connect(operatorOwner).removeOperator(operatorIds[0]);
+      expect(await readOperatorEthVUnits(provider, proxyAddr, operatorIds[0])).to.equal(0n, "removeOperator must zero vUnits");
 
       // EB decrease → 32 — guard skips removed op
       ({ cluster } = await commitAndUpdateEB(
@@ -486,6 +494,7 @@ describe("RM1: _updateOperatorVUnits + removeOperator", () => {
         clusterOwner,
         operatorIds,
       );
+      expect(cluster.validatorCount).to.equal(1n);
       ({ cluster } = await commitAndUpdateEB(
         network,
         provider,
@@ -496,6 +505,7 @@ describe("RM1: _updateOperatorVUnits + removeOperator", () => {
       ));
 
       await network.connect(operatorOwner).removeOperator(operatorIds[0]);
+      expect(await readOperatorEthVUnits(provider, proxyAddr, operatorIds[0])).to.equal(0n, "removeOperator must zero vUnits");
 
       ({ cluster } = await commitAndUpdateEB(
         network,
@@ -531,6 +541,7 @@ describe("RM1: _updateOperatorVUnits + removeOperator", () => {
         clusterOwner,
         operatorIds,
       );
+      expect(cluster.validatorCount).to.equal(1n);
       ({ cluster } = await commitAndUpdateEB(
         network,
         provider,
@@ -541,6 +552,7 @@ describe("RM1: _updateOperatorVUnits + removeOperator", () => {
       ));
 
       await network.connect(operatorOwner).removeOperator(operatorIds[0]);
+      expect(await readOperatorEthVUnits(provider, proxyAddr, operatorIds[0])).to.equal(0n, "removeOperator must zero vUnits");
 
       // EB decrease → 32 — guard skips removed op
       ({ cluster } = await commitAndUpdateEB(
@@ -585,6 +597,7 @@ describe("RM1: _updateOperatorVUnits + removeOperator", () => {
         clusterOwner,
         operatorIds,
       );
+      expect(cluster.validatorCount).to.equal(1n);
       ({ cluster } = await commitAndUpdateEB(
         network,
         provider,
@@ -595,6 +608,7 @@ describe("RM1: _updateOperatorVUnits + removeOperator", () => {
       ));
 
       await network.connect(operatorOwner).removeOperator(operatorIds[0]);
+      expect(await readOperatorEthVUnits(provider, proxyAddr, operatorIds[0])).to.equal(0n, "removeOperator must zero vUnits");
 
       ({ cluster } = await commitAndUpdateEB(
         network,
@@ -630,6 +644,7 @@ describe("RM1: _updateOperatorVUnits + removeOperator", () => {
         clusterOwner,
         operatorIds,
       );
+      expect(cluster.validatorCount).to.equal(1n);
       ({ cluster } = await commitAndUpdateEB(
         network,
         provider,
@@ -640,6 +655,7 @@ describe("RM1: _updateOperatorVUnits + removeOperator", () => {
       ));
 
       await network.connect(operatorOwner).removeOperator(operatorIds[0]);
+      expect(await readOperatorEthVUnits(provider, proxyAddr, operatorIds[0])).to.equal(0n, "removeOperator must zero vUnits");
 
       // EB decrease → 32 — guard skips removed op
       ({ cluster } = await commitAndUpdateEB(
@@ -684,6 +700,7 @@ describe("RM1: _updateOperatorVUnits + removeOperator", () => {
         clusterOwner,
         operatorIds,
       );
+      expect(cluster.validatorCount).to.equal(1n);
       ({ cluster } = await commitAndUpdateEB(
         network,
         provider,
@@ -701,6 +718,7 @@ describe("RM1: _updateOperatorVUnits + removeOperator", () => {
       }
 
       await network.connect(operatorOwner).removeOperator(operatorIds[0]);
+      expect(await readOperatorEthVUnits(provider, proxyAddr, operatorIds[0])).to.equal(0n, "removeOperator must zero vUnits");
 
       // EB increase → 40 (delta +2500)
       ({ cluster } = await commitAndUpdateEB(
@@ -735,6 +753,7 @@ describe("RM1: _updateOperatorVUnits + removeOperator", () => {
         clusterOwner,
         operatorIds,
       );
+      expect(cluster.validatorCount).to.equal(1n);
       // EB=40 → deviation +2500 on all ops
       ({ cluster } = await commitAndUpdateEB(
         network,
@@ -753,6 +772,7 @@ describe("RM1: _updateOperatorVUnits + removeOperator", () => {
       }
 
       await network.connect(operatorOwner).removeOperator(operatorIds[0]);
+      expect(await readOperatorEthVUnits(provider, proxyAddr, operatorIds[0])).to.equal(0n, "removeOperator must zero vUnits");
 
       // EB decrease → 32 (delta -2500) — guard skips removed op
       ({ cluster } = await commitAndUpdateEB(
@@ -794,10 +814,12 @@ describe("RM1: _updateOperatorVUnits + removeOperator", () => {
         clusterOwner,
         operatorIds,
       );
+      expect(cluster.validatorCount).to.equal(1n);
       // After register: daoTotalEthVUnits = 1 * 10000 = 10000
       expect(await readDaoTotalEthVUnits(provider, proxyAddr)).to.equal(
         10000n,
       );
+      expect(cluster.validatorCount).to.equal(1n);
 
       ({ cluster } = await commitAndUpdateEB(
         network,
@@ -850,6 +872,7 @@ describe("RM1: _updateOperatorVUnits + removeOperator", () => {
         clusterOwner,
         operatorIds,
       );
+      expect(cluster.validatorCount).to.equal(1n);
       // EB=40 → daoTotalEthVUnits: 10000 + 2500 = 12500
       ({ cluster } = await commitAndUpdateEB(
         network,
@@ -864,6 +887,7 @@ describe("RM1: _updateOperatorVUnits + removeOperator", () => {
       );
 
       await network.connect(operatorOwner).removeOperator(operatorIds[0]);
+      expect(await readOperatorEthVUnits(provider, proxyAddr, operatorIds[0])).to.equal(0n, "removeOperator must zero vUnits");
 
       // EB decrease → 32 (delta -2500) — guard skips removed op
       ({ cluster } = await commitAndUpdateEB(
@@ -909,6 +933,7 @@ describe("RM1: _updateOperatorVUnits + removeOperator", () => {
         clusterOwner,
         operatorIds,
       );
+      expect(cluster.validatorCount).to.equal(1n);
       ({ cluster } = await commitAndUpdateEB(
         network,
         provider,
@@ -919,6 +944,7 @@ describe("RM1: _updateOperatorVUnits + removeOperator", () => {
       ));
 
       await network.connect(operatorOwner).removeOperator(operatorIds[0]);
+      expect(await readOperatorEthVUnits(provider, proxyAddr, operatorIds[0])).to.equal(0n, "removeOperator must zero vUnits");
 
       // EB increase — guard skips removed op
       ({ cluster } = await commitAndUpdateEB(
@@ -966,6 +992,7 @@ describe("RM1: _updateOperatorVUnits + removeOperator", () => {
         clusterOwner,
         operatorIds,
       );
+      expect(cluster.validatorCount).to.equal(1n);
       // EB=40 → deviation +2500 for all ops
       ({ cluster } = await commitAndUpdateEB(
         network,
@@ -977,6 +1004,7 @@ describe("RM1: _updateOperatorVUnits + removeOperator", () => {
       ));
 
       await network.connect(operatorOwner).removeOperator(operatorIds[0]);
+      expect(await readOperatorEthVUnits(provider, proxyAddr, operatorIds[0])).to.equal(0n, "removeOperator must zero vUnits");
 
       // EB decrease → 32 (delta -2500) — guard skips removed op
       ({ cluster } = await commitAndUpdateEB(
@@ -1018,11 +1046,13 @@ describe("RM1: _updateOperatorVUnits + removeOperator", () => {
         clusterOwner,
         operatorIds,
       );
+      expect(cluster.validatorCount).to.equal(1n);
       // No explicit EB committed yet. Cluster has implicit vUnits = 10000.
       // All operatorEthVUnits = 0 (no deviation)
 
       // Remove op1 BEFORE any EB update
       await network.connect(operatorOwner).removeOperator(operatorIds[0]);
+      expect(await readOperatorEthVUnits(provider, proxyAddr, operatorIds[0])).to.equal(0n, "removeOperator must zero vUnits");
 
       // First explicit EB update: EB=40 → newVUnits=12500
       // storedVUnits fallback: validatorCount * BPS_DENOMINATOR = 10000
@@ -1068,6 +1098,7 @@ describe("RM1: _updateOperatorVUnits + removeOperator", () => {
         clusterOwner,
         operatorIds,
       );
+      expect(cluster.validatorCount).to.equal(1n);
       ({ cluster } = await commitAndUpdateEB(
         network,
         provider,
@@ -1079,6 +1110,7 @@ describe("RM1: _updateOperatorVUnits + removeOperator", () => {
 
       // Step 1: Remove op1
       await network.connect(operatorOwner).removeOperator(operatorIds[0]);
+      expect(await readOperatorEthVUnits(provider, proxyAddr, operatorIds[0])).to.equal(0n, "removeOperator must zero vUnits");
 
       // Step 2: EB increase → 40 (delta +2500). Guard skips op1.
       ({ cluster } = await commitAndUpdateEB(
@@ -1105,6 +1137,7 @@ describe("RM1: _updateOperatorVUnits + removeOperator", () => {
 
       // Step 3: Remove op2 — deletes op2's slot to 0
       await network.connect(operatorOwner).removeOperator(operatorIds[1]);
+      expect(await readOperatorEthVUnits(provider, proxyAddr, operatorIds[1])).to.equal(0n, "removeOperator must zero vUnits");
 
       // Step 4: EB decrease → 36 (newVUnits=11250, storedVUnits=12500, delta=-1250)
       // Guard skips both op1 and op2
@@ -1155,6 +1188,7 @@ describe("RM1: _updateOperatorVUnits + removeOperator", () => {
         clusterOwner,
         operatorIds,
       );
+      expect(cluster.validatorCount).to.equal(1n);
       ({ cluster } = await commitAndUpdateEB(
         network,
         provider,
@@ -1165,6 +1199,7 @@ describe("RM1: _updateOperatorVUnits + removeOperator", () => {
       ));
 
       await network.connect(operatorOwner).removeOperator(operatorIds[0]);
+      expect(await readOperatorEthVUnits(provider, proxyAddr, operatorIds[0])).to.equal(0n, "removeOperator must zero vUnits");
 
       // EB increase → 40 (delta +2500)
       ({ cluster } = await commitAndUpdateEB(
@@ -1224,6 +1259,7 @@ describe("RM1: _updateOperatorVUnits + removeOperator", () => {
         clusterOwner,
         operatorIds,
       );
+      expect(cluster.validatorCount).to.equal(1n);
       ({ cluster } = await commitAndUpdateEB(
         network,
         provider,
@@ -1269,6 +1305,7 @@ describe("RM1: _updateOperatorVUnits + removeOperator", () => {
         clusterOwner,
         operatorIds,
       );
+      expect(cluster.validatorCount).to.equal(1n);
       // EB=40 → deviation +2500 for all
       ({ cluster } = await commitAndUpdateEB(
         network,
@@ -1280,6 +1317,7 @@ describe("RM1: _updateOperatorVUnits + removeOperator", () => {
       ));
 
       await network.connect(operatorOwner).removeOperator(operatorIds[0]);
+      expect(await readOperatorEthVUnits(provider, proxyAddr, operatorIds[0])).to.equal(0n, "removeOperator must zero vUnits");
 
       // EB decrease → 32 — guard skips removed op, no underflow
       ({ cluster } = await commitAndUpdateEB(
@@ -1316,6 +1354,7 @@ describe("RM1: _updateOperatorVUnits + removeOperator", () => {
         clusterOwner,
         operatorIds,
       );
+      expect(cluster.validatorCount).to.equal(1n);
       ({ cluster } = await commitAndUpdateEB(
         network,
         provider,
@@ -1326,6 +1365,7 @@ describe("RM1: _updateOperatorVUnits + removeOperator", () => {
       ));
 
       await network.connect(operatorOwner).removeOperator(operatorIds[0]);
+      expect(await readOperatorEthVUnits(provider, proxyAddr, operatorIds[0])).to.equal(0n, "removeOperator must zero vUnits");
 
       // EB increase → 40 (delta +2500) — guard skips removed op
       ({ cluster } = await commitAndUpdateEB(
@@ -1383,6 +1423,7 @@ describe("RM1: _updateOperatorVUnits + removeOperator", () => {
         clusterOwner,
         operatorIds,
       );
+      expect(cluster.validatorCount).to.equal(1n);
       // EB=40 → gives each op deviation 2500
       ({ cluster } = await commitAndUpdateEB(
         network,
@@ -1437,6 +1478,7 @@ describe("RM1: _updateOperatorVUnits + removeOperator", () => {
         clusterOwner,
         operatorIds,
       );
+      expect(cluster.validatorCount).to.equal(1n);
       // EB=48 → deviation +5000 for all
       ({ cluster } = await commitAndUpdateEB(
         network,
@@ -1452,6 +1494,7 @@ describe("RM1: _updateOperatorVUnits + removeOperator", () => {
 
       // Real removeOperator: slot deleted → 0
       await network.connect(operatorOwner).removeOperator(operatorIds[0]);
+      expect(await readOperatorEthVUnits(provider, proxyAddr, operatorIds[0])).to.equal(0n, "removeOperator must zero vUnits");
 
       // EB decrease → 40 (delta -2500) — guard skips removed op
       ({ cluster } = await commitAndUpdateEB(
@@ -1511,6 +1554,7 @@ describe("RM1: _updateOperatorVUnits + removeOperator", () => {
         clusterOwner,
         opsA,
       );
+      expect(clusterA.validatorCount).to.equal(1n);
       let { cluster: clusterB } = await registerCluster(
         network,
         clusterOwner2,
@@ -1518,6 +1562,7 @@ describe("RM1: _updateOperatorVUnits + removeOperator", () => {
         undefined,
         2,
       );
+      expect(clusterB.validatorCount).to.equal(1n);
 
       // Set initial explicit EB=32 for both clusters
       const clusterIdA = computeClusterId(clusterOwner.address, opsA);
@@ -1624,6 +1669,7 @@ describe("RM1: _updateOperatorVUnits + removeOperator", () => {
         clusterOwner,
         operatorIds,
       );
+      expect(cluster.validatorCount).to.equal(1n);
       ({ cluster } = await commitAndUpdateEB(
         network,
         provider,
@@ -1636,6 +1682,7 @@ describe("RM1: _updateOperatorVUnits + removeOperator", () => {
       // Remove ALL 4 operators
       for (const opId of operatorIds) {
         await network.connect(operatorOwner).removeOperator(opId);
+        expect(await readOperatorEthVUnits(provider, proxyAddr, opId)).to.equal(0n, "removeOperator must zero vUnits");
       }
 
       // Verify all are zeroed
@@ -1686,6 +1733,7 @@ describe("RM1: _updateOperatorVUnits + removeOperator", () => {
         clusterOwner,
         operatorIds,
       );
+      expect(cluster.validatorCount).to.equal(1n);
       // Set explicit EB=32 → storedVUnits=10000
       ({ cluster } = await commitAndUpdateEB(
         network,
@@ -1697,6 +1745,7 @@ describe("RM1: _updateOperatorVUnits + removeOperator", () => {
       ));
 
       await network.connect(operatorOwner).removeOperator(operatorIds[0]);
+      expect(await readOperatorEthVUnits(provider, proxyAddr, operatorIds[0])).to.equal(0n, "removeOperator must zero vUnits");
 
       // EB update with same value: EB=32 → newVUnits=10000 = storedVUnits
       // The condition `newVUnits != storedVUnits` at SSVClusters.sol:400 is false

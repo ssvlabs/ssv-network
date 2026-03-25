@@ -320,11 +320,13 @@ describe("Removed-Operator Multi-Step Chains (RMC)", function () {
       await mineBlocks(provider, 99999999);
       tx = await network.connect(owner).liquidate(owner.address, operatorIds, cluster);
       cluster = parseClusterFromEvent(network, await tx.wait(), Events.CLUSTER_LIQUIDATED);
+      expect(cluster.active).to.be.false;
       await assertDeadOperatorVUnitsZero(provider, networkAddress, [operatorIds[3]], "after liquidate");
 
       // Step 4: Reactivate
       tx = await network.connect(owner).reactivate(operatorIds, cluster, { value: ethers.parseEther("20") });
       cluster = parseClusterFromEvent(network, await tx.wait(), Events.CLUSTER_REACTIVATED);
+      expect(cluster.active).to.be.true;
       await assertDeadOperatorVUnitsZero(provider, networkAddress, [operatorIds[3]], "after reactivate");
 
       // Step 5: EB update 48→64
@@ -334,6 +336,7 @@ describe("Removed-Operator Multi-Step Chains (RMC)", function () {
       // Step 6: Remove validator
       tx = await network.connect(owner).removeValidator(makePublicKey(1), operatorIds, cluster);
       cluster = parseClusterFromEvent(network, await tx.wait(), Events.VALIDATOR_REMOVED);
+      expect(cluster.validatorCount).to.equal(0n);
       await assertDeadOperatorVUnitsZero(provider, networkAddress, [operatorIds[3]], "after removeValidator");
     });
 
@@ -371,11 +374,13 @@ describe("Removed-Operator Multi-Step Chains (RMC)", function () {
       await mineBlocks(provider, 99999999);
       tx = await network.connect(owner).liquidate(owner.address, operatorIds, cluster);
       cluster = parseClusterFromEvent(network, await tx.wait(), Events.CLUSTER_LIQUIDATED);
+      expect(cluster.active).to.be.false;
       await assertDeadOperatorVUnitsZero(provider, networkAddress, [operatorIds[6]], "after liquidate");
 
       // Reactivate
       tx = await network.connect(owner).reactivate(operatorIds, cluster, { value: ethers.parseEther("50") });
       cluster = parseClusterFromEvent(network, await tx.wait(), Events.CLUSTER_REACTIVATED);
+      expect(cluster.active).to.be.true;
 
       // EB 128→64 (decrease back to minimum for 2 validators)
       cluster = await performEBUpdate(connection, network, oracles, provider, owner, operatorIds, cluster, clusterId, 64);
@@ -417,11 +422,13 @@ describe("Removed-Operator Multi-Step Chains (RMC)", function () {
       await mineBlocks(provider, 99999999);
       tx = await network.connect(owner).liquidate(owner.address, operatorIds, cluster);
       cluster = parseClusterFromEvent(network, await tx.wait(), Events.CLUSTER_LIQUIDATED);
+      expect(cluster.active).to.be.false;
       await assertDeadOperatorVUnitsZero(provider, networkAddress, deadOps, "after liquidate");
 
       // Reactivate
       tx = await network.connect(owner).reactivate(operatorIds, cluster, { value: ethers.parseEther("20") });
       cluster = parseClusterFromEvent(network, await tx.wait(), Events.CLUSTER_REACTIVATED);
+      expect(cluster.active).to.be.true;
       await assertDeadOperatorVUnitsZero(provider, networkAddress, deadOps, "after reactivate");
 
       // EB 48→32 (decrease to baseline)
@@ -431,6 +438,7 @@ describe("Removed-Operator Multi-Step Chains (RMC)", function () {
       // Remove all validators
       tx = await network.connect(owner).removeValidator(makePublicKey(1), operatorIds, cluster);
       cluster = parseClusterFromEvent(network, await tx.wait(), Events.VALIDATOR_REMOVED);
+      expect(cluster.validatorCount).to.equal(0n);
       await assertDeadOperatorVUnitsZero(provider, networkAddress, deadOps, "after removeValidator");
     });
 
@@ -459,10 +467,12 @@ describe("Removed-Operator Multi-Step Chains (RMC)", function () {
       await mineBlocks(provider, 99999999);
       tx = await network.connect(owner).liquidate(owner.address, operatorIds, cluster);
       cluster = parseClusterFromEvent(network, await tx.wait(), Events.CLUSTER_LIQUIDATED);
+      expect(cluster.active).to.be.false;
 
       // Reactivate
       tx = await network.connect(owner).reactivate(operatorIds, cluster, { value: ethers.parseEther("50") });
       cluster = parseClusterFromEvent(network, await tx.wait(), Events.CLUSTER_REACTIVATED);
+      expect(cluster.active).to.be.true;
 
       // EB 48→64
       cluster = await performEBUpdate(connection, network, oracles, provider, owner, operatorIds, cluster, clusterId, 64);
@@ -478,6 +488,7 @@ describe("Removed-Operator Multi-Step Chains (RMC)", function () {
       // Remove validator
       tx = await network.connect(owner).removeValidator(makePublicKey(1), operatorIds, cluster);
       cluster = parseClusterFromEvent(network, await tx.wait(), Events.VALIDATOR_REMOVED);
+      expect(cluster.validatorCount).to.equal(0n);
       await assertDeadOperatorVUnitsZero(provider, networkAddress, [operatorIds[3]], "after removeValidator");
     });
 
@@ -506,10 +517,12 @@ describe("Removed-Operator Multi-Step Chains (RMC)", function () {
       await mineBlocks(provider, 99999999);
       tx = await network.connect(owner).liquidate(owner.address, operatorIds, cluster);
       cluster = parseClusterFromEvent(network, await tx.wait(), Events.CLUSTER_LIQUIDATED);
+      expect(cluster.active).to.be.false;
 
       // Reactivate
       tx = await network.connect(owner).reactivate(operatorIds, cluster, { value: ethers.parseEther("50") });
       cluster = parseClusterFromEvent(network, await tx.wait(), Events.CLUSTER_REACTIVATED);
+      expect(cluster.active).to.be.true;
 
       // EB 48→64
       cluster = await performEBUpdate(connection, network, oracles, provider, owner, operatorIds, cluster, clusterId, 64);
@@ -549,11 +562,13 @@ describe("Removed-Operator Multi-Step Chains (RMC)", function () {
       await mineBlocks(provider, 99999999);
       tx = await network.connect(owner).liquidate(owner.address, operatorIds, cluster);
       cluster = parseClusterFromEvent(network, await tx.wait(), Events.CLUSTER_LIQUIDATED);
+      expect(cluster.active).to.be.false;
       await assertDeadOperatorVUnitsZero(provider, networkAddress, [operatorIds[3]], "after liquidate");
 
       // Reactivate
       tx = await network.connect(owner).reactivate(operatorIds, cluster, { value: ethers.parseEther("20") });
       cluster = parseClusterFromEvent(network, await tx.wait(), Events.CLUSTER_REACTIVATED);
+      expect(cluster.active).to.be.true;
       await assertDeadOperatorVUnitsZero(provider, networkAddress, [operatorIds[3]], "after reactivate");
 
       // First EB update: implicit→explicit (32→48)
@@ -563,6 +578,7 @@ describe("Removed-Operator Multi-Step Chains (RMC)", function () {
       // Remove validator
       tx = await network.connect(owner).removeValidator(makePublicKey(1), operatorIds, cluster);
       cluster = parseClusterFromEvent(network, await tx.wait(), Events.VALIDATOR_REMOVED);
+      expect(cluster.validatorCount).to.equal(0n);
       await assertDeadOperatorVUnitsZero(provider, networkAddress, [operatorIds[3]], "after removeValidator");
     });
 
@@ -595,11 +611,13 @@ describe("Removed-Operator Multi-Step Chains (RMC)", function () {
       await mineBlocks(provider, 99999999);
       tx = await network.connect(owner).liquidate(owner.address, operatorIds, cluster);
       cluster = parseClusterFromEvent(network, await tx.wait(), Events.CLUSTER_LIQUIDATED);
+      expect(cluster.active).to.be.false;
       await assertDeadOperatorVUnitsZero(provider, networkAddress, deadOps, "after liquidate");
 
       // Reactivate
       tx = await network.connect(owner).reactivate(operatorIds, cluster, { value: ethers.parseEther("100") });
       cluster = parseClusterFromEvent(network, await tx.wait(), Events.CLUSTER_REACTIVATED);
+      expect(cluster.active).to.be.true;
 
       // EB 48→64
       cluster = await performEBUpdate(connection, network, oracles, provider, owner, operatorIds, cluster, clusterId, 64);
@@ -608,6 +626,7 @@ describe("Removed-Operator Multi-Step Chains (RMC)", function () {
       // Remove validator
       tx = await network.connect(owner).removeValidator(makePublicKey(1), operatorIds, cluster);
       cluster = parseClusterFromEvent(network, await tx.wait(), Events.VALIDATOR_REMOVED);
+      expect(cluster.validatorCount).to.equal(0n);
       await assertDeadOperatorVUnitsZero(provider, networkAddress, deadOps, "after removeValidator");
 
       // Verify 4 live operators intact
@@ -652,11 +671,13 @@ describe("Removed-Operator Multi-Step Chains (RMC)", function () {
       await mineBlocks(provider, 99999999);
       tx = await network.connect(owner).liquidate(owner.address, operatorIds, cluster);
       cluster = parseClusterFromEvent(network, await tx.wait(), Events.CLUSTER_LIQUIDATED);
+      expect(cluster.active).to.be.false;
       await assertDeadOperatorVUnitsZero(provider, networkAddress, deadOps, "after liquidate");
 
       // Step 5: Reactivate
       tx = await network.connect(owner).reactivate(operatorIds, cluster, { value: ethers.parseEther("20") });
       cluster = parseClusterFromEvent(network, await tx.wait(), Events.CLUSTER_REACTIVATED);
+      expect(cluster.active).to.be.true;
 
       // Step 6: EB 48→64
       cluster = await performEBUpdate(connection, network, oracles, provider, owner, operatorIds, cluster, clusterId, 64);
@@ -701,6 +722,7 @@ describe("Removed-Operator Multi-Step Chains (RMC)", function () {
       await mineBlocks(provider, 99999999);
       tx = await network.connect(owner).liquidate(owner.address, operatorIds, cluster);
       cluster = parseClusterFromEvent(network, await tx.wait(), Events.CLUSTER_LIQUIDATED);
+      expect(cluster.active).to.be.false;
       await assertDeadOperatorVUnitsZero(provider, networkAddress, deadOps, "after liquidate");
     });
 
@@ -733,11 +755,13 @@ describe("Removed-Operator Multi-Step Chains (RMC)", function () {
       await mineBlocks(provider, 99999999);
       tx = await network.connect(owner).liquidate(owner.address, operatorIds, cluster);
       cluster = parseClusterFromEvent(network, await tx.wait(), Events.CLUSTER_LIQUIDATED);
+      expect(cluster.active).to.be.false;
       await assertDeadOperatorVUnitsZero(provider, networkAddress, deadOps, "after liquidate");
 
       // Reactivate
       tx = await network.connect(owner).reactivate(operatorIds, cluster, { value: ethers.parseEther("20") });
       cluster = parseClusterFromEvent(network, await tx.wait(), Events.CLUSTER_REACTIVATED);
+      expect(cluster.active).to.be.true;
 
       // EB 48→64
       cluster = await performEBUpdate(connection, network, oracles, provider, owner, operatorIds, cluster, clusterId, 64);
@@ -776,10 +800,12 @@ describe("Removed-Operator Multi-Step Chains (RMC)", function () {
       await mineBlocks(provider, 99999999);
       tx = await network.connect(owner).liquidate(owner.address, operatorIds, cluster);
       cluster = parseClusterFromEvent(network, await tx.wait(), Events.CLUSTER_LIQUIDATED);
+      expect(cluster.active).to.be.false;
       await assertDeadOperatorVUnitsZero(provider, networkAddress, deadOps, "after liquidate");
 
       tx = await network.connect(owner).reactivate(operatorIds, cluster, { value: ethers.parseEther("50") });
       cluster = parseClusterFromEvent(network, await tx.wait(), Events.CLUSTER_REACTIVATED);
+      expect(cluster.active).to.be.true;
 
       // EB 64→96, remove op2
       cluster = await performEBUpdate(connection, network, oracles, provider, owner, operatorIds, cluster, clusterId, 96);
@@ -831,6 +857,7 @@ describe("Removed-Operator Multi-Step Chains (RMC)", function () {
       await mineBlocks(provider, 99999999);
       tx = await network.connect(owner).liquidate(owner.address, operatorIds, cluster);
       cluster = parseClusterFromEvent(network, await tx.wait(), Events.CLUSTER_LIQUIDATED);
+      expect(cluster.active).to.be.false;
       await assertDeadOperatorVUnitsZero(provider, networkAddress, deadOps, "after liquidate");
     });
 
@@ -870,11 +897,13 @@ describe("Removed-Operator Multi-Step Chains (RMC)", function () {
       await mineBlocks(provider, 99999999);
       tx = await network.connect(owner).liquidate(owner.address, operatorIds, cluster);
       cluster = parseClusterFromEvent(network, await tx.wait(), Events.CLUSTER_LIQUIDATED);
+      expect(cluster.active).to.be.false;
       await assertDeadOperatorVUnitsZero(provider, networkAddress, deadOps, "after liquidate");
 
       // Reactivate
       tx = await network.connect(owner).reactivate(operatorIds, cluster, { value: ethers.parseEther("50") });
       cluster = parseClusterFromEvent(network, await tx.wait(), Events.CLUSTER_REACTIVATED);
+      expect(cluster.active).to.be.true;
 
       // EB 64→48 (decrease with 3 dead ops)
       cluster = await performEBUpdate(connection, network, oracles, provider, owner, operatorIds, cluster, clusterId, 48);
@@ -920,10 +949,12 @@ describe("Removed-Operator Multi-Step Chains (RMC)", function () {
       await mineBlocks(provider, 99999999);
       tx = await network.connect(owner).liquidate(owner.address, operatorIds, cluster);
       cluster = parseClusterFromEvent(network, await tx.wait(), Events.CLUSTER_LIQUIDATED);
+      expect(cluster.active).to.be.false;
       await assertDeadOperatorVUnitsZero(provider, networkAddress, deadOps, "after liquidate");
 
       tx = await network.connect(owner).reactivate(operatorIds, cluster, { value: ethers.parseEther("50") });
       cluster = parseClusterFromEvent(network, await tx.wait(), Events.CLUSTER_REACTIVATED);
+      expect(cluster.active).to.be.true;
       await assertDeadOperatorVUnitsZero(provider, networkAddress, deadOps, "after reactivate");
 
       // Verify op1 is the single live operator
@@ -1038,6 +1069,7 @@ describe("Removed-Operator Multi-Step Chains (RMC)", function () {
       await mineBlocks(provider, 99999999);
       tx = await network.connect(owner).liquidate(owner.address, operatorIds, cluster);
       cluster = parseClusterFromEvent(network, await tx.wait(), Events.CLUSTER_LIQUIDATED);
+      expect(cluster.active).to.be.false;
 
       // Reactivate with sufficient ETH — should succeed (burn rate=0 with all dead ops)
       tx = await network.connect(owner).reactivate(operatorIds, cluster, { value: ethers.parseEther("20") });
@@ -1222,11 +1254,13 @@ describe("Removed-Operator Multi-Step Chains (RMC)", function () {
       await mineBlocks(provider, 99999999);
       tx = await network.connect(clusterOwnerA).liquidate(clusterOwnerA.address, operatorIds, clusterA);
       clusterA = parseClusterFromEvent(network, await tx.wait(), Events.CLUSTER_LIQUIDATED);
+      expect(clusterA.active).to.be.false;
       await assertDeadOperatorVUnitsZero(provider, networkAddress, [operatorIds[3]], "after liquidate A");
 
       // Liquidate B
       tx = await network.connect(clusterOwnerB).liquidate(clusterOwnerB.address, operatorIds, clusterB);
       clusterB = parseClusterFromEvent(network, await tx.wait(), Events.CLUSTER_LIQUIDATED);
+      expect(clusterB.active).to.be.false;
       await assertDeadOperatorVUnitsZero(provider, networkAddress, [operatorIds[3]], "after liquidate B");
     });
 
@@ -1299,20 +1333,22 @@ describe("Removed-Operator Multi-Step Chains (RMC)", function () {
       // Cluster B should have valid validator count (1 validator)
       expect(clusterB.validatorCount).to.equal(1n, "RMC-025: cluster B validatorCount == 1");
 
-      // Cluster B balance should still be positive (deposit + additional - withdraw - fees)
-      expect(BigInt(clusterB.balance)).to.be.greaterThan(0n, "RMC-025: cluster B has positive balance");
+      // Cluster B balance: 50 ETH + 5 ETH deposit - 1 ETH withdraw - fees (~20 blocks, negligible)
+      // Must be well above 50 ETH (fees are tiny relative to deposit)
+      expect(BigInt(clusterB.balance)).to.be.greaterThan(ethers.parseEther("50"), "RMC-025: cluster B balance > 50 ETH");
 
       // Shared operators (0,1) should reflect validators from BOTH clusters
+      // A: 32→48 (+5000) + 48→64 (+5000) + B: 32→48 (+5000) = 15000
       for (const opId of [operatorIds[0], operatorIds[1]]) {
         const opData = await readOperatorEthVUnits(provider, networkAddress, BigInt(opId));
-        // Shared ops have deviation from both clusters' EB updates
-        expect(opData).to.be.greaterThan(0n, `RMC-025: shared op${opId} has vUnits deviation`);
+        expect(opData).to.equal(15000n, `RMC-025: shared op${opId} vUnits = 15000 (3x EB deltas)`);
       }
 
       // Cluster B-only operators (4,5) should have deviation from cluster B's EB update
+      // B: 32→48 (+5000) = 5000
       for (const opId of [operatorIds[4], operatorIds[5]]) {
         const opVUnits = await readOperatorEthVUnits(provider, networkAddress, BigInt(opId));
-        expect(opVUnits).to.be.greaterThan(0n, `RMC-025: cluster-B-only op${opId} has vUnits deviation`);
+        expect(opVUnits).to.equal(5000n, `RMC-025: cluster-B-only op${opId} vUnits = 5000 (1x EB delta)`);
       }
     });
 
@@ -1386,6 +1422,7 @@ describe("Removed-Operator Multi-Step Chains (RMC)", function () {
       await mineBlocks(provider, 99999999);
       tx = await network.connect(clusterOwnerB).liquidate(clusterOwnerB.address, opsB, clusterB);
       clusterB = parseClusterFromEvent(network, await tx.wait(), Events.CLUSTER_LIQUIDATED);
+      expect(clusterB.active).to.be.false;
       await assertDeadOperatorVUnitsZero(provider, networkAddress, [operatorIds[0]], "after liquidate B");
     });
 
@@ -1466,6 +1503,7 @@ describe("Removed-Operator Multi-Step Chains (RMC)", function () {
       await mineBlocks(provider, 99999999);
       tx = await network.connect(owner).liquidate(owner.address, operatorIds, cluster);
       cluster = parseClusterFromEvent(network, await tx.wait(), Events.CLUSTER_LIQUIDATED);
+      expect(cluster.active).to.be.false;
       await assertDeadOperatorVUnitsZero(provider, networkAddress, [operatorIds[3]], "after liquidate");
     });
 
@@ -1506,6 +1544,7 @@ describe("Removed-Operator Multi-Step Chains (RMC)", function () {
       await mineBlocks(provider, 99999999);
       tx = await network.connect(owner).liquidate(owner.address, operatorIds, cluster);
       cluster = parseClusterFromEvent(network, await tx.wait(), Events.CLUSTER_LIQUIDATED);
+      expect(cluster.active).to.be.false;
       await assertDeadOperatorVUnitsZero(provider, networkAddress, [operatorIds[3]], "after liquidate");
     });
 
@@ -1562,11 +1601,13 @@ describe("Removed-Operator Multi-Step Chains (RMC)", function () {
       await mineBlocks(provider, 99999999);
       tx = await network.connect(owner).liquidate(owner.address, operatorIds, cluster);
       cluster = parseClusterFromEvent(network, await tx.wait(), Events.CLUSTER_LIQUIDATED);
+      expect(cluster.active).to.be.false;
       await assertDeadOperatorVUnitsZero(provider, networkAddress, [operatorIds[3]], "step 10");
 
       // 11. Reactivate
       tx = await network.connect(owner).reactivate(operatorIds, cluster, { value: ethers.parseEther("200") });
       cluster = parseClusterFromEvent(network, await tx.wait(), Events.CLUSTER_REACTIVATED);
+      expect(cluster.active).to.be.true;
       await assertDeadOperatorVUnitsZero(provider, networkAddress, [operatorIds[3]], "step 11");
     });
 
@@ -1605,6 +1646,7 @@ describe("Removed-Operator Multi-Step Chains (RMC)", function () {
       await mineBlocks(provider, 99999999);
       tx = await network.connect(owner).liquidate(owner.address, operatorIds, cluster);
       cluster = parseClusterFromEvent(network, await tx.wait(), Events.CLUSTER_LIQUIDATED);
+      expect(cluster.active).to.be.false;
       await assertDeadOperatorVUnitsZero(provider, networkAddress, [operatorIds[3]], "after liquidate");
     });
 
@@ -1649,11 +1691,13 @@ describe("Removed-Operator Multi-Step Chains (RMC)", function () {
       await mineBlocks(provider, 99999999);
       tx = await network.connect(owner).liquidate(owner.address, operatorIds, cluster);
       cluster = parseClusterFromEvent(network, await tx.wait(), Events.CLUSTER_LIQUIDATED);
+      expect(cluster.active).to.be.false;
       await assertDeadOperatorVUnitsZero(provider, networkAddress, deadOps, "after liquidate");
 
       // Reactivate
       tx = await network.connect(owner).reactivate(operatorIds, cluster, { value: ethers.parseEther("200") });
       cluster = parseClusterFromEvent(network, await tx.wait(), Events.CLUSTER_REACTIVATED);
+      expect(cluster.active).to.be.true;
       await assertDeadOperatorVUnitsZero(provider, networkAddress, deadOps, "after reactivate");
 
       // Verify op1 correct
@@ -1742,10 +1786,12 @@ describe("Removed-Operator Multi-Step Chains (RMC)", function () {
       await mineBlocks(provider, 99999999);
       tx = await network.connect(clusterOwnerA).liquidate(clusterOwnerA.address, operatorIds, clusterA);
       clusterA = parseClusterFromEvent(network, await tx.wait(), Events.CLUSTER_LIQUIDATED);
+      expect(clusterA.active).to.be.false;
       await assertDeadOperatorVUnitsZero(provider, networkAddress, [operatorIds[3]], "after liquidate A");
 
       tx = await network.connect(clusterOwnerB).liquidate(clusterOwnerB.address, operatorIds, clusterB);
       clusterB = parseClusterFromEvent(network, await tx.wait(), Events.CLUSTER_LIQUIDATED);
+      expect(clusterB.active).to.be.false;
       await assertDeadOperatorVUnitsZero(provider, networkAddress, [operatorIds[3]], "after liquidate B");
     });
 
@@ -1783,10 +1829,12 @@ describe("Removed-Operator Multi-Step Chains (RMC)", function () {
       await mineBlocks(provider, 99999999);
       tx = await network.connect(clusterOwnerA).liquidate(clusterOwnerA.address, operatorIds, clusterA);
       clusterA = parseClusterFromEvent(network, await tx.wait(), Events.CLUSTER_LIQUIDATED);
+      expect(clusterA.active).to.be.false;
 
       // Reactivate A
       tx = await network.connect(clusterOwnerA).reactivate(operatorIds, clusterA, { value: ethers.parseEther("20") });
       clusterA = parseClusterFromEvent(network, await tx.wait(), Events.CLUSTER_REACTIVATED);
+      expect(clusterA.active).to.be.true;
       await assertDeadOperatorVUnitsZero(provider, networkAddress, [operatorIds[3]], "after reactivate A");
 
       // EB A 48→64 (after reactivation)
@@ -1837,14 +1885,17 @@ describe("Removed-Operator Multi-Step Chains (RMC)", function () {
       await mineBlocks(provider, 99999999);
       tx = await network.connect(clusterOwnerA).liquidate(clusterOwnerA.address, operatorIds, clusterA);
       clusterA = parseClusterFromEvent(network, await tx.wait(), Events.CLUSTER_LIQUIDATED);
+      expect(clusterA.active).to.be.false;
       await assertDeadOperatorVUnitsZero(provider, networkAddress, [operatorIds[3]], "after liq A");
 
       tx = await network.connect(clusterOwnerB).liquidate(clusterOwnerB.address, operatorIds, clusterB);
       clusterB = parseClusterFromEvent(network, await tx.wait(), Events.CLUSTER_LIQUIDATED);
+      expect(clusterB.active).to.be.false;
       await assertDeadOperatorVUnitsZero(provider, networkAddress, [operatorIds[3]], "after liq B");
 
       tx = await network.connect(clusterOwnerC).liquidate(clusterOwnerC.address, operatorIds, clusterC);
       clusterC = parseClusterFromEvent(network, await tx.wait(), Events.CLUSTER_LIQUIDATED);
+      expect(clusterC.active).to.be.false;
       await assertDeadOperatorVUnitsZero(provider, networkAddress, [operatorIds[3]], "after liq C");
     });
 
@@ -1889,6 +1940,7 @@ describe("Removed-Operator Multi-Step Chains (RMC)", function () {
       // Remove validators from A (2 validators)
       tx = await network.connect(clusterOwnerA).removeValidator(makePublicKey(1), operatorIds, clusterA);
       clusterA = parseClusterFromEvent(network, await tx.wait(), Events.VALIDATOR_REMOVED);
+      expect(clusterA.validatorCount).to.equal(1n);
       await assertDeadOperatorVUnitsZero(provider, networkAddress, [operatorIds[3]], "after rm val1 from A");
 
       tx = await network.connect(clusterOwnerA).removeValidator(makePublicKey(2), operatorIds, clusterA);
@@ -2013,11 +2065,13 @@ describe("Removed-Operator Multi-Step Chains (RMC)", function () {
       await mineBlocks(provider, 99999999);
       tx = await network.connect(clusterOwnerA).liquidate(clusterOwnerA.address, operatorIds, clusterA);
       clusterA = parseClusterFromEvent(network, await tx.wait(), Events.CLUSTER_LIQUIDATED);
+      expect(clusterA.active).to.be.false;
       await assertDeadOperatorVUnitsZero(provider, networkAddress, [operatorIds[3]], "after liq A");
 
       // Liquidate B (implicit — no deviation cleanup because ebSnapshot.vUnits == 0)
       tx = await network.connect(clusterOwnerB).liquidate(clusterOwnerB.address, operatorIds, clusterB);
       clusterB = parseClusterFromEvent(network, await tx.wait(), Events.CLUSTER_LIQUIDATED);
+      expect(clusterB.active).to.be.false;
       await assertDeadOperatorVUnitsZero(provider, networkAddress, [operatorIds[3]], "after liq B");
     });
 
@@ -2056,11 +2110,13 @@ describe("Removed-Operator Multi-Step Chains (RMC)", function () {
       await mineBlocks(provider, 99999999);
       tx = await network.connect(clusterOwnerA).liquidate(clusterOwnerA.address, operatorIds, clusterA);
       clusterA = parseClusterFromEvent(network, await tx.wait(), Events.CLUSTER_LIQUIDATED);
+      expect(clusterA.active).to.be.false;
       await assertDeadOperatorVUnitsZero(provider, networkAddress, [operatorIds[3]], "after liq A");
 
       // Reactivate A
       tx = await network.connect(clusterOwnerA).reactivate(operatorIds, clusterA, { value: ethers.parseEther("20") });
       clusterA = parseClusterFromEvent(network, await tx.wait(), Events.CLUSTER_REACTIVATED);
+      expect(clusterA.active).to.be.true;
 
       // A: EB 64→48 (decrease)
       clusterA = await performEBUpdate(connection, network, oracles, provider, clusterOwnerA, operatorIds, clusterA, clusterIdA, 48);
@@ -2069,11 +2125,13 @@ describe("Removed-Operator Multi-Step Chains (RMC)", function () {
       // Liquidate B (implicit)
       tx = await network.connect(clusterOwnerB).liquidate(clusterOwnerB.address, operatorIds, clusterB);
       clusterB = parseClusterFromEvent(network, await tx.wait(), Events.CLUSTER_LIQUIDATED);
+      expect(clusterB.active).to.be.false;
       await assertDeadOperatorVUnitsZero(provider, networkAddress, [operatorIds[3]], "after liq B");
 
       // Reactivate B
       tx = await network.connect(clusterOwnerB).reactivate(operatorIds, clusterB, { value: ethers.parseEther("20") });
       clusterB = parseClusterFromEvent(network, await tx.wait(), Events.CLUSTER_REACTIVATED);
+      expect(clusterB.active).to.be.true;
       await assertDeadOperatorVUnitsZero(provider, networkAddress, [operatorIds[3]], "after reactivate B");
     });
   });
@@ -2122,11 +2180,13 @@ describe("Removed-Operator Multi-Step Chains (RMC)", function () {
       await mineBlocks(provider, 99999999);
       tx = await network.connect(owner).liquidate(owner.address, operatorIds, cluster);
       cluster = parseClusterFromEvent(network, await tx.wait(), Events.CLUSTER_LIQUIDATED);
+      expect(cluster.active).to.be.false;
       await assertDeadOperatorVUnitsZero(provider, networkAddress, deadOps, "after liquidate");
 
       // Reactivate
       tx = await network.connect(owner).reactivate(operatorIds, cluster, { value: ethers.parseEther("200") });
       cluster = parseClusterFromEvent(network, await tx.wait(), Events.CLUSTER_REACTIVATED);
+      expect(cluster.active).to.be.true;
       await assertDeadOperatorVUnitsZero(provider, networkAddress, deadOps, "after reactivate");
 
       // Verify op1 is the single remaining live operator
@@ -2172,6 +2232,7 @@ describe("Removed-Operator Multi-Step Chains (RMC)", function () {
       await mineBlocks(provider, 99999999);
       tx = await network.connect(owner).liquidate(owner.address, operatorIds, cluster);
       cluster = parseClusterFromEvent(network, await tx.wait(), Events.CLUSTER_LIQUIDATED);
+      expect(cluster.active).to.be.false;
       await assertDeadOperatorVUnitsZero(provider, networkAddress, deadOps, "after liquidate");
     });
 
