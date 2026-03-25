@@ -11,6 +11,7 @@ import type { ScenarioContext } from "../simulation/scenario-context.ts";
 import type { StateSnapshot } from "../simulation/state-snapshot.ts";
 import type { ClusterRecord, OperatorRecord } from "../simulation/types.ts";
 import { VERSION_SSV } from "../simulation/types.ts";
+import { ScenarioSkipped } from "../simulation/scenario-types.ts";
 import { parseClusterFromReceipt } from "../simulation/bookkeeping.ts";
 import { computeClusterId, computeEBRoot } from "../helpers/oracle.ts";
 
@@ -23,18 +24,18 @@ export function pickETHCluster(ctx: ScenarioContext): ClusterRecord {
   return ctx.pickCluster();
 }
 
-/** Pick an SSV (legacy) cluster if available. Throws if none. */
+/** Pick an SSV (legacy) cluster if available. Throws ScenarioSkipped if none. */
 export function pickSSVCluster(ctx: ScenarioContext): ClusterRecord {
   const ssvClusters = [...ctx.simState.clusterBook.values()].filter(
     (c) => c.version === VERSION_SSV && c.cluster.active,
   );
   if (ssvClusters.length === 0) {
-    throw new Error("No SSV clusters available for migration");
+    throw new ScenarioSkipped("No SSV clusters available for migration");
   }
   return ctx.rng.pick(ssvClusters);
 }
 
-/** Find an active operator in a cluster. */
+/** Find an active operator in a cluster. Throws ScenarioSkipped if none. */
 export function findActiveOp(
   ctx: ScenarioContext,
   record: ClusterRecord,
@@ -43,7 +44,7 @@ export function findActiveOp(
     const op = ctx.actors.operators.get(opId);
     if (op && op.isActive) return op;
   }
-  throw new Error("No active operator found in cluster");
+  throw new ScenarioSkipped("No active operator found in cluster");
 }
 
 /** Find a second active operator in a cluster (different from excludeId). */
@@ -57,7 +58,7 @@ export function findSecondActiveOp(
     const op = ctx.actors.operators.get(opId);
     if (op && op.isActive) return op;
   }
-  throw new Error("No second active operator found in cluster");
+  throw new ScenarioSkipped("No second active operator found in cluster");
 }
 
 // ---------------------------------------------------------------------------
@@ -309,13 +310,18 @@ export function assertClusterActive(
   if (!snap.cluster.active) throw new Error(`${label}: cluster not active`);
 }
 
-/** Assert cluster is liquidated (inactive). */
+/** Assert cluster is liquidated (inactive, balance == 0). */
 export function assertClusterLiquidated(
   snap: StateSnapshot,
   label: string,
 ): void {
   if (!snap.cluster) throw new Error(`${label}: no cluster in snapshot`);
   if (snap.cluster.active) throw new Error(`${label}: cluster still active`);
+  if (snap.cluster.balance !== 0n) {
+    throw new Error(
+      `${label}: cluster balance=${snap.cluster.balance} (expected 0 after liquidation)`,
+    );
+  }
 }
 
 /** Assert cluster balance decreased (fees accrued). */
@@ -350,16 +356,16 @@ export function assertBalanceIncreased(
   }
 }
 
-/** Assert daoTotalEthVUnits is non-negative. */
+/**
+ * Assert daoTotalEthVUnits is non-negative.
+ * Note: daoTotalEthVUnits is read as uint256, so this is always true.
+ * Kept as a no-op for API compatibility with existing scenario call sites.
+ */
 export function assertDaoVUnitsNonNegative(
-  snap: StateSnapshot,
-  label: string,
+  _snap: StateSnapshot,
+  _label: string,
 ): void {
-  if (snap.daoTotalEthVUnits < 0n) {
-    throw new Error(
-      `${label}: daoTotalEthVUnits is negative (${snap.daoTotalEthVUnits})`,
-    );
-  }
+  // uint256 cannot be negative — this check is a no-op by design.
 }
 
 /** Assert daoTotalEthVUnits is zero. */

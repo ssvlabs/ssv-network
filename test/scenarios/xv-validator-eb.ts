@@ -10,6 +10,7 @@
  */
 
 import type { Scenario } from "../simulation/scenario-types.ts";
+import { ScenarioSkipped } from "../simulation/scenario-types.ts";
 import type { ScenarioContext } from "../simulation/scenario-context.ts";
 import {
   pickETHCluster,
@@ -37,7 +38,7 @@ export const xv001EBBaseline: Scenario = {
     ctx.setActiveCluster(record);
 
     if (record.validatorKeys.length === 0) {
-      throw new Error("No validators in cluster for XV-001");
+      throw new ScenarioSkipped("No validators in cluster for XV-001");
     }
 
     // Step 1: EB update at baseline (32 ETH per validator)
@@ -81,7 +82,7 @@ export const xv002EBDeviationCleanup: Scenario = {
     ctx.setActiveCluster(record);
 
     if (record.validatorKeys.length === 0) {
-      throw new Error("No validators in cluster for XV-002");
+      throw new ScenarioSkipped("No validators in cluster for XV-002");
     }
 
     // Step 1: EB update to 48 ETH per validator (creates deviation)
@@ -126,7 +127,7 @@ export const xv003PartialRemoveDevPreserved: Scenario = {
     ctx.setActiveCluster(record);
 
     if (record.validatorKeys.length < 2) {
-      throw new Error("Need at least 2 validators for XV-003");
+      throw new ScenarioSkipped("Need at least 2 validators for XV-003");
     }
 
     // Step 1: EB update
@@ -173,7 +174,7 @@ export const xv004DoubleEBValidatorChange: Scenario = {
     ctx.setActiveCluster(record);
 
     if (record.validatorKeys.length < 2) {
-      throw new Error("Need at least 2 validators for XV-004");
+      throw new ScenarioSkipped("Need at least 2 validators for XV-004");
     }
 
     // Step 1: First EB update
@@ -233,7 +234,7 @@ export const xv005EBRemoveOpRemoveVal: Scenario = {
     const op = findActiveOp(ctx, record);
 
     if (record.validatorKeys.length === 0) {
-      throw new Error("No validators in cluster for XV-005");
+      throw new ScenarioSkipped("No validators in cluster for XV-005");
     }
 
     // Step 1: EB update
@@ -484,7 +485,7 @@ export const xv010EBRemoveAllVals: Scenario = {
     ctx.setActiveCluster(record);
 
     if (record.validatorKeys.length === 0) {
-      throw new Error("No validators in cluster for XV-010");
+      throw new ScenarioSkipped("No validators in cluster for XV-010");
     }
 
     // Step 1: EB update to set deviation

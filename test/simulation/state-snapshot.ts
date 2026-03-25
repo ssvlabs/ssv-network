@@ -13,6 +13,7 @@ import {
 
 export interface OperatorSnapshot {
   id: bigint;
+  fee: bigint;
   earnings: bigint;
   ethVUnits: bigint;
   isActive: boolean;
@@ -65,6 +66,7 @@ export async function captureSnapshot(opts: SnapshotOptions): Promise<StateSnaps
   // Operator snapshots
   const operators = new Map<bigint, OperatorSnapshot>();
   for (const opId of operatorIds) {
+    let fee = 0n;
     let earnings = 0n;
     let isActive = true;
     try {
@@ -74,6 +76,7 @@ export async function captureSnapshot(opts: SnapshotOptions): Promise<StateSnaps
     }
     try {
       const opData = await views.getOperatorById(opId);
+      fee = BigInt(opData[1]); // fee field
       isActive = opData[5]; // isActive field
     } catch {
       isActive = false;
@@ -84,7 +87,7 @@ export async function captureSnapshot(opts: SnapshotOptions): Promise<StateSnaps
     } catch {
       // May not have vUnits
     }
-    operators.set(opId, { id: opId, earnings, ethVUnits, isActive });
+    operators.set(opId, { id: opId, fee, earnings, ethVUnits, isActive });
   }
 
   // Cluster snapshot

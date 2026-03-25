@@ -169,7 +169,7 @@ export function generateReport(filePath: string, allScenarioIds: string[]): stri
       lines.push(`        ${bug.assertionDetail}`);
       lines.push("");
       // Repro command
-      lines.push(`        Repro: SEED=${seed} RUN_SCENARIO_MC=true npx hardhat test test/simulation/scenario-mc.test.ts`);
+      lines.push(`        Repro: SIMULATION_SEED=${seed} RUN_SCENARIO_MC=true npx hardhat test test/simulation/scenario-mc.test.ts`);
       lines.push(`        Replay: REPLAY_SEED=${seed} npx hardhat test test/simulation/replay.test.ts`);
       lines.push("");
     }

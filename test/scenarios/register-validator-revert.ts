@@ -10,6 +10,7 @@
  */
 
 import type { Scenario } from "../simulation/scenario-types.ts";
+import { ScenarioSkipped } from "../simulation/scenario-types.ts";
 import type { ScenarioContext } from "../simulation/scenario-context.ts";
 import { EMPTY_CLUSTER, DEFAULT_SHARES } from "../common/constants.ts";
 
@@ -21,11 +22,11 @@ export const registerValidatorRevertScenario: Scenario = {
     // Pick an operator group (first 4 operators)
     const opIds = [...ctx.actors.operators.keys()].slice(0, 4);
     if (opIds.length < 4) {
-      throw new Error("Not enough operators for scenario");
+      throw new ScenarioSkipped("Not enough operators for scenario");
     }
 
     const owner = ctx.actors.clusterOwners[0];
-    if (!owner) throw new Error("No cluster owners available");
+    if (!owner) throw new ScenarioSkipped("No cluster owners available");
 
     // Generate a unique pubkey
     const seed = await ctx.getBlockNumber();

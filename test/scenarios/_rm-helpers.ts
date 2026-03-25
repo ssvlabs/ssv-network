@@ -9,6 +9,7 @@ import { ethers } from "ethers";
 import type { ScenarioContext } from "../simulation/scenario-context.ts";
 import type { StateSnapshot } from "../simulation/state-snapshot.ts";
 import type { ClusterRecord, OperatorRecord } from "../simulation/types.ts";
+import { ScenarioSkipped } from "../simulation/scenario-types.ts";
 import { parseClusterFromReceipt } from "../simulation/bookkeeping.ts";
 import { computeClusterId, computeEBRoot } from "../helpers/oracle.ts";
 
@@ -28,7 +29,7 @@ export function findActiveClusterOperator(
     const op = ctx.actors.operators.get(opId);
     if (op && op.isActive) return op;
   }
-  throw new Error("No active operator found in cluster");
+  throw new ScenarioSkipped("No active operator found in cluster");
 }
 
 /**
@@ -44,7 +45,7 @@ export function findSecondActiveClusterOperator(
     const op = ctx.actors.operators.get(opId);
     if (op && op.isActive) return op;
   }
-  throw new Error("No second active operator found in cluster");
+  throw new ScenarioSkipped("No second active operator found in cluster");
 }
 
 // ---------------------------------------------------------------------------
@@ -246,6 +247,11 @@ export function assertRemovedOpInvariant(
       `${label}: operator ${opId} ethVUnits=${opSnap.ethVUnits} (expected 0)`,
     );
   }
+  if (opSnap.fee !== 0n) {
+    throw new Error(
+      `${label}: operator ${opId} fee=${opSnap.fee} (expected 0)`,
+    );
+  }
 }
 
 /**
@@ -271,17 +277,15 @@ export function assertOpVUnitsUnchanged(
 }
 
 /**
- * Assert daoTotalEthVUnits is non-negative (sanity check).
+ * Assert daoTotalEthVUnits is non-negative.
+ * Note: daoTotalEthVUnits is read as uint256, so this is always true.
+ * Kept as a no-op for API compatibility with existing scenario call sites.
  */
 export function assertDaoVUnitsNonNegative(
-  snap: StateSnapshot,
-  label: string,
+  _snap: StateSnapshot,
+  _label: string,
 ): void {
-  if (snap.daoTotalEthVUnits < 0n) {
-    throw new Error(
-      `${label}: daoTotalEthVUnits is negative (${snap.daoTotalEthVUnits})`,
-    );
-  }
+  // uint256 cannot be negative — this check is a no-op by design.
 }
 
 /**
@@ -317,6 +321,11 @@ export function assertClusterLiquidated(
   }
   if (snap.cluster.active) {
     throw new Error(`${label}: cluster still active after liquidation`);
+  }
+  if (snap.cluster.balance !== 0n) {
+    throw new Error(
+      `${label}: cluster balance=${snap.cluster.balance} (expected 0 after liquidation)`,
+    );
   }
 }
 

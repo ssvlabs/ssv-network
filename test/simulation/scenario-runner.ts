@@ -9,9 +9,9 @@
 
 import * as path from "path";
 import type { Scenario, ScenarioCoverage, RunSummary } from "./scenario-types.ts";
-import type { SimulationState } from "./types.ts";
+import type { SimulationState, ClusterVersion } from "./types.ts";
 import type { InvariantContext } from "./invariants.ts";
-import { StepReverted, AssertionFailed } from "./scenario-types.ts";
+import { StepReverted, AssertionFailed, ScenarioSkipped } from "./scenario-types.ts";
 import { ScenarioContext } from "./scenario-context.ts";
 import { JsonlLogger, captureRunMetadata } from "./jsonl-logger.ts";
 import { SeededRNG } from "./rng.ts";
@@ -104,6 +104,10 @@ export class ScenarioRunner {
           tags: scenario.tags,
         });
 
+        // --- Snapshot isolation: save EVM + local state before each pick ---
+        const snapshotId = await state.provider.send("evm_snapshot", []);
+        const savedLocal = snapshotLocalState(state);
+
         // Create a fresh ScenarioContext for this run
         const ctx = new ScenarioContext({
           contracts: {
@@ -135,7 +139,14 @@ export class ScenarioRunner {
           totalCompleted++;
           cov.completed++;
         } catch (err) {
-          if (err instanceof StepReverted) {
+          if (err instanceof ScenarioSkipped) {
+            // Precondition not met — treat as "stopped" at precondition
+            outcome = "stopped";
+            stoppedAtStep = "precondition";
+            totalStopped++;
+            const count = cov.stoppedAtStep.get("precondition") ?? 0;
+            cov.stoppedAtStep.set("precondition", count + 1);
+          } else if (err instanceof StepReverted) {
             outcome = "stopped";
             stoppedAtStep = err.stepName;
             totalStopped++;
@@ -160,6 +171,10 @@ export class ScenarioRunner {
             });
           }
         }
+
+        // --- Revert EVM + local state after each pick ---
+        await state.provider.send("evm_revert", [snapshotId]);
+        restoreLocalState(state, savedLocal);
 
         this.logger.writeEvent({
           type: "scenario.end",
@@ -257,4 +272,61 @@ export class ScenarioRunner {
   getOutputPath(): string {
     return this.logger.getFilePath();
   }
+}
+
+// --- Snapshot/restore helpers for local simulation state ---
+
+interface LocalStateSnapshot {
+  operators: Map<bigint, { isActive: boolean; fee: bigint }>;
+  clusters: Map<string, { cluster: any; version: ClusterVersion; validatorKeys: string[] }>;
+  stakers: Array<{ cssvBalance: bigint; pendingRequests: Array<{ amount: bigint; unlockBlock: bigint }> }>;
+}
+
+function snapshotLocalState(state: SimulationState): LocalStateSnapshot {
+  const operators = new Map<bigint, { isActive: boolean; fee: bigint }>();
+  for (const [id, op] of state.operatorPool) {
+    operators.set(id, { isActive: op.isActive, fee: op.fee });
+  }
+
+  const clusters = new Map<string, { cluster: any; version: ClusterVersion; validatorKeys: string[] }>();
+  for (const [key, rec] of state.clusterBook) {
+    clusters.set(key, {
+      cluster: { ...rec.cluster },
+      version: rec.version as ClusterVersion,
+      validatorKeys: [...rec.validatorKeys],
+    });
+  }
+
+  const stakers = state.stakerPool.map((s) => ({
+    cssvBalance: s.cssvBalance,
+    pendingRequests: s.pendingRequests.map((r) => ({ ...r })),
+  }));
+
+  return { operators, clusters, stakers };
+}
+
+function restoreLocalState(state: SimulationState, saved: LocalStateSnapshot): void {
+  for (const [id, snap] of saved.operators) {
+    const op = state.operatorPool.get(id);
+    if (op) {
+      op.isActive = snap.isActive;
+      op.fee = snap.fee;
+    }
+  }
+
+  for (const [key, snap] of saved.clusters) {
+    const rec = state.clusterBook.get(key);
+    if (rec) {
+      rec.cluster = snap.cluster;
+      rec.version = snap.version;
+      rec.validatorKeys = snap.validatorKeys;
+    }
+  }
+
+  state.stakerPool.forEach((s, i) => {
+    if (i < saved.stakers.length) {
+      s.cssvBalance = saved.stakers[i].cssvBalance;
+      s.pendingRequests = saved.stakers[i].pendingRequests;
+    }
+  });
 }

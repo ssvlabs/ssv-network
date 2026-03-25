@@ -97,6 +97,20 @@ export class AssertionFailed extends Error {
   }
 }
 
+// --- ScenarioSkipped error ---
+
+/**
+ * Thrown by scenarios when a precondition is not met (e.g. no SSV clusters,
+ * no active operator in cluster). The runner catches this as "stopped"
+ * with reason "precondition" — NOT as a bug candidate.
+ */
+export class ScenarioSkipped extends Error {
+  constructor(public reason: string) {
+    super(`Scenario skipped: ${reason}`);
+    this.name = "ScenarioSkipped";
+  }
+}
+
 // --- JSONL event types ---
 
 export type JsonlEventType =

@@ -11,6 +11,7 @@
  */
 
 import type { Scenario } from "../simulation/scenario-types.ts";
+import { ScenarioSkipped } from "../simulation/scenario-types.ts";
 import type { ScenarioContext } from "../simulation/scenario-context.ts";
 import {
   pickETHCluster,
@@ -267,7 +268,7 @@ export const xf005RemoveValidator: Scenario = {
     ctx.setActiveCluster(record);
 
     if (record.validatorKeys.length === 0) {
-      throw new Error("No validators in cluster for XF-005");
+      throw new ScenarioSkipped("No validators in cluster for XF-005");
     }
 
     // Step 1: Deposit to ensure balance
@@ -318,7 +319,7 @@ export const xf006EBRemoveValidatorCleanup: Scenario = {
     ctx.setActiveCluster(record);
 
     if (record.validatorKeys.length === 0) {
-      throw new Error("No validators in cluster for XF-006");
+      throw new ScenarioSkipped("No validators in cluster for XF-006");
     }
 
     // Step 1: Deposit
@@ -485,7 +486,7 @@ export const xf009RemoveOpEBRemoveVal: Scenario = {
     const op = findActiveOp(ctx, record);
 
     if (record.validatorKeys.length === 0) {
-      throw new Error("No validators in cluster for XF-009");
+      throw new ScenarioSkipped("No validators in cluster for XF-009");
     }
 
     // Step 1: Remove operator

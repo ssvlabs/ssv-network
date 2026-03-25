@@ -14,6 +14,7 @@
 
 import { VERSION_SSV } from "../simulation/types.ts";
 import type { Scenario } from "../simulation/scenario-types.ts";
+import { ScenarioSkipped } from "../simulation/scenario-types.ts";
 import type { ScenarioContext } from "../simulation/scenario-context.ts";
 import type { ClusterRecord } from "../simulation/types.ts";
 import { parseClusterFromReceipt } from "../simulation/bookkeeping.ts";
@@ -30,7 +31,7 @@ function pickSSVCluster(ctx: ScenarioContext): ClusterRecord {
     (c) => c.version === VERSION_SSV && c.cluster.active,
   );
   if (ssvClusters.length === 0) {
-    throw new Error("No SSV clusters available for migration");
+    throw new ScenarioSkipped("No SSV clusters available for migration");
   }
   return ctx.rng.pick(ssvClusters);
 }
