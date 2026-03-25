@@ -258,10 +258,6 @@ contract CSSVTokenEchidna is CSSVToken {
         return balanceOf(address(0)) == 0;
     }
 
-    function echidna_supply_non_negative() public view returns (bool) {
-        return totalSupply() >= 0;
-    }
-
     function echidna_cssv_supply_lte_ssv_total_supply() public view returns (bool) {
         return totalSupply() <= ssvToken.totalSupply();
     }

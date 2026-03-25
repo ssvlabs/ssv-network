@@ -713,8 +713,8 @@ contract SSVDAOEchidna is SSVDAO {
 
         uint128 earningsUnits = (blockDelta * rawFee * vUnits) / BPS_DENOMINATOR;
 
-        if (earningsUnits > type(uint64).max) return true;
-        if (rawBalance + earningsUnits > type(uint64).max) return true;
+        if (earningsUnits > type(uint64).max) return false;
+        if (rawBalance + earningsUnits > type(uint64).max) return false;
 
         uint64 expectedRaw = uint64(rawBalance + earningsUnits);
         PackedETH libResult = ProtocolLib.networkTotalEarnings(sp);
