@@ -7,15 +7,16 @@
  * - Runs global invariants periodically
  */
 
+import * as path from "path";
 import type { Scenario, ScenarioCoverage, RunSummary } from "./scenario-types.ts";
 import type { SimulationState } from "./types.ts";
 import type { InvariantContext } from "./invariants.ts";
 import { StepReverted, AssertionFailed } from "./scenario-types.ts";
 import { ScenarioContext } from "./scenario-context.ts";
-import { JsonlLogger } from "./jsonl-logger.ts";
+import { JsonlLogger, captureRunMetadata } from "./jsonl-logger.ts";
 import { SeededRNG } from "./rng.ts";
 import { runPeriodicInvariants } from "./invariants.ts";
-import { generateReport } from "./report.ts";
+import { generateReport, generateReportToFile } from "./report.ts";
 
 export interface ScenarioRunnerConfig {
   /** Number of scenario picks to execute */
@@ -78,12 +79,15 @@ export class ScenarioRunner {
     let durationMs = 0;
 
     try {
+      const metadata = captureRunMetadata();
+      this.logger.setMetadata(metadata);
       this.logger.writeEvent({
         type: "run.start",
         timestamp: Date.now(),
         seed: (this.config.seed ?? 0xDEADBEEFCAFEBABEn).toString(16),
         totalPicks: this.config.totalPicks,
         scenarioCount: this.scenarios.length,
+        metadata,
       });
 
       for (let pick = 0; pick < this.config.totalPicks; pick++) {
@@ -199,6 +203,8 @@ export class ScenarioRunner {
         .filter((c) => c.picked === 0)
         .map((c) => c.id);
 
+      const scenariosPerSecond =
+        durationMs > 0 ? (this.config.totalPicks / (durationMs / 1000)).toFixed(2) : "0";
       this.logger.writeEvent({
         type: "run.end",
         timestamp: Date.now(),
@@ -208,6 +214,7 @@ export class ScenarioRunner {
         totalBugs,
         neverPicked,
         durationMs,
+        scenariosPerSecond,
       });
 
       this.logger.close();
@@ -233,6 +240,17 @@ export class ScenarioRunner {
   generateReport(): string {
     const allIds = this.scenarios.map((s) => s.id);
     return generateReport(this.logger.getFilePath(), allIds);
+  }
+
+  /**
+   * Generate a report and write it to the output directory.
+   * Returns the file path of the written report.
+   */
+  generateReportFile(): string {
+    const allIds = this.scenarios.map((s) => s.id);
+    const seedStr = (this.config.seed ?? 0xDEADBEEFCAFEBABEn).toString(16);
+    const outputDir = path.dirname(this.logger.getFilePath());
+    return generateReportToFile(this.logger.getFilePath(), allIds, outputDir, seedStr);
   }
 
   /** Get the JSONL output file path. */

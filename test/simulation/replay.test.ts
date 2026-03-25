@@ -1,15 +1,15 @@
 /**
- * Scenario Monte Carlo Test Runner
+ * Replay Tool — deterministic reproduction of any scenario MC run.
  *
- * Entry point for the scenario-driven simulation engine.
- * Runs only when RUN_SCENARIO_MC=true environment variable is set.
+ * Reads REPLAY_SEED from the environment and re-runs the scenario engine
+ * with that exact seed, producing a detailed JSONL log for comparison.
  *
  * Usage:
- *   RUN_SCENARIO_MC=true npx hardhat test test/simulation/scenario-mc.test.ts
- *   SIMULATION_SEED=12345 RUN_SCENARIO_MC=true npx hardhat test test/simulation/scenario-mc.test.ts
+ *   REPLAY_SEED=deadbeefcafebabe npx hardhat test test/simulation/replay.test.ts
+ *
+ * The output JSONL and report will be written to test/simulation/output/.
  */
 
-import { expect } from "chai";
 import { ethers } from "ethers";
 import type { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/types";
 import type { SSVNetwork, SSVNetworkViews } from "../../types/ethers-contracts/index.js";
@@ -49,7 +49,8 @@ import { ALL_SCENARIOS } from "../scenarios/index.ts";
 
 // --- Guard ---
 
-const RUN_SCENARIO_MC = process.env.RUN_SCENARIO_MC === "true";
+const REPLAY_SEED = process.env.REPLAY_SEED;
+const shouldRun = !!REPLAY_SEED;
 
 // --- Helpers ---
 
@@ -85,18 +86,19 @@ async function registerSimOperators(
 
 // --- Test suite ---
 
-(RUN_SCENARIO_MC ? describe : describe.skip)("Scenario MC Simulation", function () {
+(shouldRun ? describe : describe.skip)("Scenario MC Replay", function () {
   this.timeout(300_000);
 
   let state: SimulationState;
   let invCtx: InvariantContext;
 
   before(async function () {
-    console.log("[SCENARIO-MC] Setting up local environment...");
+    console.log(`[REPLAY] Replaying with seed: ${REPLAY_SEED}`);
+    console.log("[REPLAY] Setting up local environment...");
     const { connection } = await getTestConnection();
     const provider = connection.ethers.provider;
 
-    console.log("[SCENARIO-MC] Deploying full SSV v2.0.0 stack...");
+    console.log("[REPLAY] Deploying full SSV v2.0.0 stack...");
     const fixture = await ssvNetworkFullFixture(connection);
     const networkAddress = await fixture.network.getAddress();
 
@@ -106,8 +108,8 @@ async function registerSimOperators(
     const signers = await connection.ethers.getSigners();
     const operatorOwner = signers[1];
 
-    // Register operators
-    console.log("[SCENARIO-MC] Registering operators...");
+    // Register operators (same setup as scenario-mc.test.ts for determinism)
+    console.log("[REPLAY] Registering operators...");
     const simOpRecords = await registerSimOperators(
       fixture.network as unknown as SSVNetwork,
       operatorOwner,
@@ -124,12 +126,11 @@ async function registerSimOperators(
     }
 
     // Provision stakers
-    console.log("[SCENARIO-MC] Provisioning stakers...");
+    console.log("[REPLAY] Provisioning stakers...");
     const stakerSigners = signers.slice(2, 6);
     const stakerPool: StakerRecord[] = [];
 
     for (const signer of stakerSigners) {
-      // Mint SSV tokens
       await fixture.ssvToken.mint(signer.address, ethers.parseEther("100000"));
       await fixture.ssvToken.connect(signer).approve(networkAddress, ethers.MaxUint256);
       stakerPool.push({
@@ -140,15 +141,15 @@ async function registerSimOperators(
     }
 
     // Bootstrap cSSV supply
-    console.log("[SCENARIO-MC] Bootstrapping cSSV supply...");
+    console.log("[REPLAY] Bootstrapping cSSV supply...");
     const bootstrapStaker = stakerPool[0];
     await fixture.network.connect(bootstrapStaker.signer).stake(STAKE_AMOUNT);
     bootstrapStaker.cssvBalance = BigInt(
       await fixture.cssvToken.balanceOf(bootstrapStaker.signer.address),
     );
 
-    // Create clusters
-    console.log("[SCENARIO-MC] Creating clusters...");
+    // Create clusters (same deterministic setup)
+    console.log("[REPLAY] Creating clusters...");
     const clusterBook = new Map<string, ClusterRecord>();
     const simOpIds = simOpRecords.map((r) => r.id);
     const opGroups = [
@@ -163,7 +164,6 @@ async function registerSimOperators(
         const validatorKey = makePublicKey(keySeed);
 
         try {
-          // Fund the staker for registration
           const tx = await fixture.network
             .connect(staker.signer)
             .registerValidator(
@@ -197,14 +197,14 @@ async function registerSimOperators(
           }
         } catch (err) {
           console.warn(
-            `[SCENARIO-MC] Failed to create cluster: ${String(err).slice(0, 80)}`,
+            `[REPLAY] Failed to create cluster: ${String(err).slice(0, 80)}`,
           );
         }
       }
     }
 
     console.log(
-      `[SCENARIO-MC] Created ${clusterBook.size} clusters with ${operatorPool.size} operators`,
+      `[REPLAY] Created ${clusterBook.size} clusters with ${operatorPool.size} operators`,
     );
 
     const startBlock = await provider.getBlockNumber();
@@ -236,29 +236,27 @@ async function registerSimOperators(
       invCtx.prevAccEthPerShare = 0n;
     }
 
-    console.log("[SCENARIO-MC] Setup complete.");
+    console.log("[REPLAY] Setup complete.");
   });
 
-  it("runs scenario Monte Carlo simulation", async function () {
+  it("replays scenario MC with exact seed", async function () {
+    const seed = BigInt(`0x${REPLAY_SEED}`);
     const totalPicks = parseInt(process.env.SCENARIO_PICKS ?? "30", 10);
-    const seed = process.env.SIMULATION_SEED
-      ? BigInt(process.env.SIMULATION_SEED)
-      : undefined;
 
-    console.log(
-      `[SCENARIO-MC] Running ${totalPicks} scenario picks with ${ALL_SCENARIOS.length} scenarios`,
-    );
+    console.log(`[REPLAY] Seed: 0x${seed.toString(16)}`);
+    console.log(`[REPLAY] Running ${totalPicks} picks with ${ALL_SCENARIOS.length} scenarios`);
 
     const runner = new ScenarioRunner({
       totalPicks,
-      invariantEvery: 10,
+      invariantEvery: 5, // More frequent invariant checks during replay
       seed,
     });
     runner.registerScenarios(ALL_SCENARIOS);
 
     const summary = await runner.run(state, invCtx);
 
-    console.log(`\n[SCENARIO-MC] === Run Summary ===`);
+    console.log(`\n[REPLAY] === Replay Summary ===`);
+    console.log(`  Seed: 0x${summary.seed}`);
     console.log(`  Picks: ${summary.totalPicks}`);
     console.log(`  Completed: ${summary.totalCompleted}`);
     console.log(`  Stopped (reverts): ${summary.totalStopped}`);
@@ -266,40 +264,32 @@ async function registerSimOperators(
     console.log(`  Duration: ${(summary.durationMs / 1000).toFixed(1)}s`);
     console.log(`  JSONL: ${runner.getOutputPath()}`);
 
-    if (summary.neverPicked.length > 0) {
-      console.log(`  Never picked: ${summary.neverPicked.join(", ")}`);
-    }
-
-    // Print coverage
-    console.log(`\n  Coverage:`);
-    for (const [id, cov] of summary.coverage) {
-      if (cov.picked === 0) continue;
-      const stopped = [...cov.stoppedAtStep.values()].reduce((a, b) => a + b, 0);
-      console.log(
-        `    ${id}: picked=${cov.picked} completed=${cov.completed} stopped=${stopped} bugs=${cov.bugCandidates}`,
-      );
-    }
-
-    // Generate report (console + file)
+    // Generate and save report
     try {
       const report = runner.generateReport();
       console.log(`\n${report}`);
       const reportPath = runner.generateReportFile();
-      console.log(`[SCENARIO-MC] Report written to: ${reportPath}`);
+      console.log(`[REPLAY] Report written to: ${reportPath}`);
     } catch {
       // Report generation may fail if JSONL was not written
     }
 
     // Run final invariants
-    console.log("[SCENARIO-MC] Running final invariants...");
+    console.log("[REPLAY] Running final invariants...");
     const finals = await runFinalInvariants(state, invCtx);
     for (const r of finals) {
       if (!r.passed) {
         console.warn(`  FAIL: ${r.message}`);
+      } else {
+        console.log(`  OK: ${r.id}`);
       }
     }
 
-    // Assert no bugs found
-    expect(summary.totalBugs, "Bug candidates found during simulation").to.equal(0);
+    // In replay mode, we report but don't fail on bugs — the purpose
+    // is to reproduce and inspect, not to gate CI.
+    if (summary.totalBugs > 0) {
+      console.warn(`\n[REPLAY] WARNING: ${summary.totalBugs} bug candidate(s) reproduced.`);
+      console.warn(`[REPLAY] Review the JSONL output for details.`);
+    }
   });
 });

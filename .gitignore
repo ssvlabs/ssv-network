@@ -23,6 +23,10 @@ node_modules
 out/
 
 gas-report.json
+
+# Simulation output (JSONL logs and reports)
+test/simulation/output/*
+!test/simulation/output/.gitkeep
 crytic-export/combined_solc.json
 
 # subtask working files

@@ -17,6 +17,7 @@ import type { JsonlLogger } from "./jsonl-logger.ts";
 
 import { StepReverted, AssertionFailed } from "./scenario-types.ts";
 import { captureSnapshot, compactSnapshot } from "./state-snapshot.ts";
+import { compactStateDiff } from "./jsonl-logger.ts";
 import { SeededRNG } from "./rng.ts";
 
 // --- ScenarioContext ---
@@ -153,6 +154,7 @@ export class ScenarioContext {
         block: pre.block,
         revertReason: reason,
         elapsed_ms,
+        pre: compactSnapshot(pre),
       });
       throw new StepReverted(name, reason);
     }
@@ -168,6 +170,8 @@ export class ScenarioContext {
       // 7. Assertion failure → BUG CANDIDATE — log and throw
       const assertionDetail = err instanceof Error ? err.message : String(err);
       const elapsed_ms = Date.now() - startMs;
+      const compactPre = compactSnapshot(pre);
+      const compactPost = compactSnapshot(post);
       this.logger.writeEvent({
         type: "step.end",
         timestamp: Date.now(),
@@ -179,6 +183,8 @@ export class ScenarioContext {
         txHash,
         assertionDetail,
         elapsed_ms,
+        pre: compactPre,
+        post: compactPost,
       });
       this.logger.writeEvent({
         type: "bug_candidate",
@@ -188,23 +194,27 @@ export class ScenarioContext {
         stepIndex: this.stepIndex,
         block,
         assertionDetail,
-        pre: compactSnapshot(pre),
-        post: compactSnapshot(post),
+        pre: compactPre,
+        post: compactPost,
       });
       throw new AssertionFailed(name, assertionDetail);
     }
 
     // 6. Assertions passed → PASS
     const elapsed_ms = Date.now() - startMs;
+    const passPre = compactSnapshot(pre);
+    const passPost = compactSnapshot(post);
     const result: StepResult = {
       name: stepLabel,
       outcome: "PASS",
       block,
       txHash,
-      pre: compactSnapshot(pre),
-      post: compactSnapshot(post),
+      pre: passPre,
+      post: passPost,
       elapsed_ms,
     };
+    // Include compact diff (not full snapshots) for PASS to keep JSONL lean
+    const diff = compactStateDiff(passPre, passPost);
     this.logger.writeEvent({
       type: "step.end",
       timestamp: Date.now(),
@@ -213,7 +223,9 @@ export class ScenarioContext {
       stepIndex: this.stepIndex,
       outcome: "PASS",
       block,
+      txHash,
       elapsed_ms,
+      diff,
     });
     return result;
   }
