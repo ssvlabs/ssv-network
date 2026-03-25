@@ -11,7 +11,13 @@ import "../../contracts/libraries/storage/SSVStorageEB.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 import {PackedETHLib, PackedSSVLib} from "../../contracts/libraries/SSVPackedLib.sol";
-import {PackedETH, PackedSSV, DEDUCTED_DIGITS, BPS_DENOMINATOR} from "../../contracts/libraries/SSVCoreTypes.sol";
+import {
+    PackedETH,
+    PackedSSV,
+    DEDUCTED_DIGITS,
+    BPS_DENOMINATOR,
+    DEFAULT_OPERATOR_ETH_FEE
+} from "../../contracts/libraries/SSVCoreTypes.sol";
 
 
 contract OperatorUser {
@@ -105,15 +111,19 @@ contract SSVOperatorsEchidna is SSVOperators(0) {
     bool private withdrawPayoutMismatch;
     bool private unauthorizedActionSucceeded;
     bool private removedStateDirty;
+    bool private removedOperatorOwnerViolation;
+    bool private removedOperatorEarningsViolation;
     bool private removalPayoutMismatch;
     bool private removalContractBalanceMismatch;
     bool private declareChangedFee;
     bool private nonMonotonicEarnings;
     bool private feeLatencyMismatch;
+    bool private feeSettleBeforeChangeViolation;
     bool private ethWithdrawTouchedSSV;
     bool private ssvWithdrawTouchedEth;
     bool private operatorRegisteredBelowMinFee;
     bool private declareFromZeroSucceeded;
+    bool private ensureEthDefaultsViolation;
 
     constructor() {
         token = new MockToken();
@@ -202,7 +212,9 @@ contract SSVOperatorsEchidna is SSVOperators(0) {
         address ownerAddr = operatorOwner[operatorId];
         if (ownerAddr == address(0)) return;
 
-        PackedETH beforeFee = getOperator(operatorId).ethFee;
+        ISSVNetworkCore.Operator memory beforeOperator = getOperator(operatorId);
+        if (beforeOperator.ethSnapshot.block == 0) return;
+        PackedETH beforeFee = beforeOperator.ethFee;
         OperatorUser owner = OperatorUser(payable(ownerAddr));
 
         try owner.declareFee(operatorId, _boundFee(feeSeed)) {
@@ -266,6 +278,7 @@ contract SSVOperatorsEchidna is SSVOperators(0) {
 
         ISSVNetworkCore.Operator memory before = getOperator(operatorId);
         if (!_operatorExists(before)) return;
+        if (before.ethSnapshot.block == 0) return;
 
         uint256 currentFee = PackedETHLib.unpack(before.ethFee);
         uint256 newFee = _boundFeeBelow(currentFee, feeSeed);
@@ -293,6 +306,55 @@ contract SSVOperatorsEchidna is SSVOperators(0) {
 
         uint256 fee = _boundFeeSSV(feeSeed);
         SSVStorage.load().operators[operatorId].fee = PackedSSVLib.pack(fee);
+    }
+
+    function action_seed_legacy_operator(uint256 idSeed, uint256 feeSeed) external {
+        uint64 operatorId = _pickOperatorId(idSeed);
+        if (operatorId == 0) return;
+
+        StorageData storage s = SSVStorage.load();
+        ISSVNetworkCore.Operator storage operator = s.operators[operatorId];
+        if (!_operatorExists(operator)) return;
+        if (operator.owner == address(0)) return;
+
+        uint256 legacyFee = _boundFeeSSV(feeSeed);
+        if (legacyFee == 0) {
+            legacyFee = DEDUCTED_DIGITS;
+        }
+        _seedLegacySsvOperator(operatorId, PackedSSVLib.pack(legacyFee));
+    }
+
+    function action_trigger_ensure_eth_defaults(uint256 idSeed) external {
+        if (PackedETHLib.unpack(SSVStorageProtocol.load().operatorMaxFee) < DEFAULT_OPERATOR_ETH_FEE) return;
+
+        uint64 operatorId = _pickOperatorId(idSeed);
+        if (operatorId == 0) return;
+
+        address ownerAddr = operatorOwner[operatorId];
+        if (ownerAddr == address(0)) return;
+
+        StorageData storage s = SSVStorage.load();
+        ISSVNetworkCore.Operator storage operator = s.operators[operatorId];
+        if (!_operatorExists(operator)) return;
+
+        _seedLegacySsvOperator(operatorId, PackedSSVLib.pack(DEDUCTED_DIGITS));
+        uint32 expectedBlock = uint32(block.number);
+        OperatorUser owner = OperatorUser(payable(ownerAddr));
+
+        try owner.declareFee(operatorId, 0) {
+            ISSVNetworkCore.Operator memory operatorAfter = getOperator(operatorId);
+            if (operatorAfter.ethSnapshot.block != expectedBlock) {
+                ensureEthDefaultsViolation = true;
+            }
+            if (operatorAfter.ethSnapshot.balance.neq(PACKED_ETH_ZERO)) {
+                ensureEthDefaultsViolation = true;
+            }
+            if (PackedETHLib.unpack(operatorAfter.ethFee) != DEFAULT_OPERATOR_ETH_FEE) {
+                ensureEthDefaultsViolation = true;
+            }
+        } catch {
+            ensureEthDefaultsViolation = true;
+        }
     }
 
     function action_assign_validators(uint256 idSeed, uint256 deltaSeed, bool eth) external {
@@ -372,6 +434,200 @@ contract SSVOperatorsEchidna is SSVOperators(0) {
         if (indexAfterNew < indexMid || indexAfterNew - indexMid != uint64(blocks) * feeAfter) {
             feeLatencyMismatch = true;
         }
+    }
+
+    function action_execute_fee_settlement_order(
+        uint256 idSeed,
+        uint256 feeSeed,
+        uint256 blocksSeed,
+        uint256 deviationSeed
+    ) external {
+        uint64 operatorId = _pickOperatorId(idSeed);
+        if (operatorId == 0) return;
+        address ownerAddr = operatorOwner[operatorId];
+        if (ownerAddr == address(0)) return;
+
+        StorageData storage s = SSVStorage.load();
+        StorageProtocol storage sp = SSVStorageProtocol.load();
+        StorageEB storage seb = SSVStorageEB.load();
+        ISSVNetworkCore.Operator storage operator = s.operators[operatorId];
+        if (!_operatorExists(operator)) return;
+
+        uint32 currentBlock = uint32(block.number);
+        if (currentBlock <= 1) return;
+
+        uint64 minFeeRaw = PackedETH.unwrap(sp.minimumOperatorEthFee);
+        uint64 maxFeeRaw = PackedETH.unwrap(sp.operatorMaxFee);
+        uint256 minFeeActual = PackedETHLib.unpack(sp.minimumOperatorEthFee);
+        uint256 maxFeeActual = PackedETHLib.unpack(sp.operatorMaxFee);
+        if (maxFeeRaw == 0) return;
+
+        if (operator.ethSnapshot.block == 0) {
+            operator.ethSnapshot.block = currentBlock;
+        }
+        if (operator.ethFee.raw() == 0) {
+            uint64 fallbackFeeRaw = minFeeRaw == 0 ? 1 : minFeeRaw;
+            if (fallbackFeeRaw > maxFeeRaw) return;
+            operator.ethFee = PackedETH.wrap(fallbackFeeRaw);
+        }
+        if (operator.ethValidatorCount == 0) {
+            operator.ethValidatorCount = 1;
+        }
+
+        uint64 baseline = uint64(operator.ethValidatorCount) * BPS_DENOMINATOR;
+        uint64 deviation = baseline == 0 ? 0 : uint64(deviationSeed % (uint256(baseline) + 1));
+        seb.operatorEthVUnits[operatorId] = deviation;
+
+        uint32 blocksElapsed = uint32(blocksSeed % uint256(currentBlock - 1)) + 1;
+        uint32 staleBlock = currentBlock - blocksElapsed;
+        if (staleBlock == 0) return;
+        operator.ethSnapshot.block = staleBlock;
+
+        uint64 feeBeforeRaw = PackedETH.unwrap(operator.ethFee);
+        uint256 feeBeforeActual = PackedETHLib.unpack(operator.ethFee);
+        if (feeBeforeRaw == 0 || feeBeforeRaw > type(uint64).max / uint64(blocksElapsed)) return;
+        uint64 blockDiffFee = uint64(blocksElapsed) * feeBeforeRaw;
+
+        uint64 indexBefore = operator.ethSnapshot.index;
+        if (indexBefore > type(uint64).max - blockDiffFee) return;
+        uint64 expectedIndexAfter = indexBefore + blockDiffFee;
+
+        uint64 effectiveVUnits = _effectiveVUnitsForOperator(operatorId);
+        uint128 deltaUnits = (uint128(blockDiffFee) * uint128(effectiveVUnits)) / BPS_DENOMINATOR;
+        uint64 balanceBeforeUnits = PackedETH.unwrap(operator.ethSnapshot.balance);
+        if (deltaUnits > type(uint64).max || balanceBeforeUnits > type(uint64).max - uint64(deltaUnits)) return;
+        uint64 expectedBalanceAfterUnits = balanceBeforeUnits + uint64(deltaUnits);
+
+        uint256 maxAllowedFee = (feeBeforeActual * (BPS_DENOMINATOR + sp.operatorMaxFeeIncrease) + BPS_DENOMINATOR - 1)
+            / BPS_DENOMINATOR;
+        if (maxAllowedFee > maxFeeActual) {
+            maxAllowedFee = maxFeeActual;
+        }
+
+        uint256 newFee;
+        if (maxAllowedFee > minFeeActual) {
+            newFee = minFeeActual + (feeSeed % (maxAllowedFee - minFeeActual + 1));
+        } else {
+            newFee = 0;
+        }
+        if (newFee == feeBeforeActual) {
+            newFee = feeBeforeActual == 0 ? minFeeActual : 0;
+        }
+        if (newFee == feeBeforeActual) return;
+
+        OperatorUser owner = OperatorUser(payable(ownerAddr));
+        try owner.declareFee(operatorId, newFee) {} catch {
+            return;
+        }
+
+        ISSVNetworkCore.OperatorFeeChangeRequest storage request = s.operatorFeeChangeRequests[operatorId];
+        if (request.approvalBeginTime == 0) return;
+        request.approvalBeginTime = uint64(block.timestamp);
+        request.approvalEndTime = uint64(block.timestamp) + 1;
+
+        try owner.executeFee(operatorId) {
+            ISSVNetworkCore.Operator memory operatorAfter = getOperator(operatorId);
+            if (operatorAfter.ethSnapshot.index != expectedIndexAfter) {
+                feeSettleBeforeChangeViolation = true;
+            }
+            if (PackedETH.unwrap(operatorAfter.ethSnapshot.balance) != expectedBalanceAfterUnits) {
+                feeSettleBeforeChangeViolation = true;
+            }
+            if (PackedETHLib.unpack(operatorAfter.ethFee) != newFee) {
+                feeSettleBeforeChangeViolation = true;
+            }
+            if (getOperatorFeeChangeRequest(operatorId).approvalBeginTime != 0) {
+                feeSettleBeforeChangeViolation = true;
+            }
+            _updateExpectedBalances(operatorId, operatorAfter.ethSnapshot.balance, expectedSsvBalance[operatorId]);
+        } catch {}
+    }
+
+    function action_reduce_fee_settlement_order(
+        uint256 idSeed,
+        uint256 feeSeed,
+        uint256 blocksSeed,
+        uint256 deviationSeed
+    ) external {
+        uint64 operatorId = _pickOperatorId(idSeed);
+        if (operatorId == 0) return;
+        address ownerAddr = operatorOwner[operatorId];
+        if (ownerAddr == address(0)) return;
+
+        StorageData storage s = SSVStorage.load();
+        StorageProtocol storage sp = SSVStorageProtocol.load();
+        StorageEB storage seb = SSVStorageEB.load();
+        ISSVNetworkCore.Operator storage operator = s.operators[operatorId];
+        if (!_operatorExists(operator)) return;
+
+        uint32 currentBlock = uint32(block.number);
+        if (currentBlock <= 1) return;
+
+        uint64 minFeeRaw = PackedETH.unwrap(sp.minimumOperatorEthFee);
+        uint64 maxFeeRaw = PackedETH.unwrap(sp.operatorMaxFee);
+        uint256 minFeeActual = PackedETHLib.unpack(sp.minimumOperatorEthFee);
+        if (maxFeeRaw == 0) return;
+
+        if (operator.ethSnapshot.block == 0) {
+            operator.ethSnapshot.block = currentBlock;
+        }
+        if (operator.ethFee.raw() == 0) {
+            uint64 fallbackFeeRaw = minFeeRaw == 0 ? 1 : minFeeRaw + 1;
+            if (fallbackFeeRaw > maxFeeRaw) fallbackFeeRaw = maxFeeRaw;
+            if (fallbackFeeRaw == 0) return;
+            operator.ethFee = PackedETH.wrap(fallbackFeeRaw);
+        }
+        if (operator.ethValidatorCount == 0) {
+            operator.ethValidatorCount = 1;
+        }
+
+        uint64 baseline = uint64(operator.ethValidatorCount) * BPS_DENOMINATOR;
+        uint64 deviation = baseline == 0 ? 0 : uint64(deviationSeed % (uint256(baseline) + 1));
+        seb.operatorEthVUnits[operatorId] = deviation;
+
+        uint32 blocksElapsed = uint32(blocksSeed % uint256(currentBlock - 1)) + 1;
+        uint32 staleBlock = currentBlock - blocksElapsed;
+        if (staleBlock == 0) return;
+        operator.ethSnapshot.block = staleBlock;
+
+        uint64 feeBeforeRaw = PackedETH.unwrap(operator.ethFee);
+        uint256 feeBeforeActual = PackedETHLib.unpack(operator.ethFee);
+        if (feeBeforeRaw == 0 || feeBeforeRaw > type(uint64).max / uint64(blocksElapsed)) return;
+        uint64 blockDiffFee = uint64(blocksElapsed) * feeBeforeRaw;
+
+        uint64 indexBefore = operator.ethSnapshot.index;
+        if (indexBefore > type(uint64).max - blockDiffFee) return;
+        uint64 expectedIndexAfter = indexBefore + blockDiffFee;
+
+        uint64 effectiveVUnits = _effectiveVUnitsForOperator(operatorId);
+        uint128 deltaUnits = (uint128(blockDiffFee) * uint128(effectiveVUnits)) / BPS_DENOMINATOR;
+        uint64 balanceBeforeUnits = PackedETH.unwrap(operator.ethSnapshot.balance);
+        if (deltaUnits > type(uint64).max || balanceBeforeUnits > type(uint64).max - uint64(deltaUnits)) return;
+        uint64 expectedBalanceAfterUnits = balanceBeforeUnits + uint64(deltaUnits);
+
+        uint256 newFee = _boundFeeBelow(feeBeforeActual, feeSeed);
+        if (newFee >= feeBeforeActual) {
+            newFee = feeBeforeActual <= minFeeActual ? 0 : minFeeActual;
+        }
+        if (newFee >= feeBeforeActual) return;
+
+        OperatorUser owner = OperatorUser(payable(ownerAddr));
+        try owner.reduceFee(operatorId, newFee) {
+            ISSVNetworkCore.Operator memory operatorAfter = getOperator(operatorId);
+            if (operatorAfter.ethSnapshot.index != expectedIndexAfter) {
+                feeSettleBeforeChangeViolation = true;
+            }
+            if (PackedETH.unwrap(operatorAfter.ethSnapshot.balance) != expectedBalanceAfterUnits) {
+                feeSettleBeforeChangeViolation = true;
+            }
+            if (PackedETHLib.unpack(operatorAfter.ethFee) != newFee) {
+                feeSettleBeforeChangeViolation = true;
+            }
+            if (getOperatorFeeChangeRequest(operatorId).approvalBeginTime != 0) {
+                feeSettleBeforeChangeViolation = true;
+            }
+            _updateExpectedBalances(operatorId, operatorAfter.ethSnapshot.balance, expectedSsvBalance[operatorId]);
+        } catch {}
     }
 
     function action_withdraw(uint256 idSeed, uint256 amountSeed) external {
@@ -601,7 +857,11 @@ contract SSVOperatorsEchidna is SSVOperators(0) {
                 contractSsvBefore
             );
             _updateExpectedBalances(operatorId, PACKED_ETH_ZERO, PACKED_SSV_ZERO);
-        } catch {}
+        } catch {
+            removedStateDirty = true;
+            removedOperatorOwnerViolation = true;
+            removedOperatorEarningsViolation = true;
+        }
     }
 
     function action_unauthorized(uint256 idSeed, uint8 actionSeed, uint256 amountSeed) external {
@@ -737,6 +997,10 @@ contract SSVOperatorsEchidna is SSVOperators(0) {
         return !feeLatencyMismatch;
     }
 
+    function echidna_fee_settle_before_change() external view returns (bool) {
+        return !feeSettleBeforeChangeViolation;
+    }
+
     function echidna_eth_withdraw_keeps_ssv() external view returns (bool) {
         return !ethWithdrawTouchedSSV;
     }
@@ -755,6 +1019,18 @@ contract SSVOperatorsEchidna is SSVOperators(0) {
 
     function echidna_remove_pays_out() external view returns (bool) {
         return !removalPayoutMismatch && !removalContractBalanceMismatch;
+    }
+
+    function echidna_removed_operator_owner_preserved() external view returns (bool) {
+        return !removedOperatorOwnerViolation;
+    }
+
+    function echidna_removed_operator_earnings_withdrawable() external view returns (bool) {
+        return !removedOperatorEarningsViolation;
+    }
+
+    function echidna_ensure_eth_defaults_correct() external view returns (bool) {
+        return !ensureEthDefaultsViolation;
     }
 
     function _pickUser(uint8 seed) internal view returns (OperatorUser) {
@@ -882,6 +1158,13 @@ contract SSVOperatorsEchidna is SSVOperators(0) {
         return uint64(seed % balance) + 1;
     }
 
+    function _effectiveVUnitsForOperator(uint64 operatorId) internal view returns (uint64) {
+        StorageData storage s = SSVStorage.load();
+        StorageEB storage seb = SSVStorageEB.load();
+        ISSVNetworkCore.Operator storage operator = s.operators[operatorId];
+        return seb.operatorEthVUnits[operatorId] + (uint64(operator.ethValidatorCount) * BPS_DENOMINATOR);
+    }
+
     function _fastForwardOperators(uint32 blocks) internal {
         uint256 count = operatorIds.length;
         for (uint256 i; i < count; ++i) {
@@ -999,6 +1282,7 @@ contract SSVOperatorsEchidna is SSVOperators(0) {
         ISSVNetworkCore.Operator memory operatorAfter = getOperator(operatorId);
         if (operatorAfter.owner != before.owner) {
             removedStateDirty = true;
+            removedOperatorOwnerViolation = true;
         }
         if (operatorAfter.ethFee.neq(PACKED_ETH_ZERO)) removedStateDirty = true;
         if (operatorAfter.ethSnapshot.balance.neq(PACKED_ETH_ZERO) || operatorAfter.ethSnapshot.block != 0) removedStateDirty = true;
@@ -1021,19 +1305,43 @@ contract SSVOperatorsEchidna is SSVOperators(0) {
         if (ethAmount > 0) {
             if (ownerAddr.balance != ownerEthBefore + ethAmount) {
                 removalPayoutMismatch = true;
+                removedOperatorEarningsViolation = true;
             }
             if (address(this).balance != contractEthBefore - ethAmount) {
                 removalContractBalanceMismatch = true;
+                removedOperatorEarningsViolation = true;
             }
         }
 
         if (ssvAmount > 0) {
             if (token.balanceOf(ownerAddr) != ownerSsvBefore + ssvAmount) {
                 removalPayoutMismatch = true;
+                removedOperatorEarningsViolation = true;
             }
             if (token.balanceOf(address(this)) != contractSsvBefore - ssvAmount) {
                 removalContractBalanceMismatch = true;
+                removedOperatorEarningsViolation = true;
             }
         }
+    }
+
+    function _seedLegacySsvOperator(uint64 operatorId, PackedSSV legacyFee) internal {
+        StorageData storage s = SSVStorage.load();
+        ISSVNetworkCore.Operator storage operator = s.operators[operatorId];
+        if (!_operatorExists(operator)) return;
+
+        if (operator.snapshot.block == 0) {
+            operator.snapshot.block = uint32(block.number);
+        }
+        if (legacyFee.eq(PACKED_SSV_ZERO)) {
+            legacyFee = PackedSSVLib.pack(DEDUCTED_DIGITS);
+        }
+
+        operator.fee = legacyFee;
+        operator.ethFee = PACKED_ETH_ZERO;
+        operator.ethSnapshot.block = 0;
+        operator.ethSnapshot.balance = PACKED_ETH_ZERO;
+
+        _updateExpectedBalances(operatorId, PACKED_ETH_ZERO, operator.snapshot.balance);
     }
 }

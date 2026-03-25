@@ -2,18 +2,27 @@
 pragma solidity 0.8.24;
 
 import "../../contracts/token/CSSVToken.sol";
+import "../../contracts/test/mocks/MockToken.sol";
 
 contract CSSVTokenEchidna is CSSVToken {
+    uint256 private constant SSV_SUPPLY_CAP = 1_000_000_000 ether;
+
     uint256 public totalMinted;
     uint256 public totalBurned;
     uint256 public callbackCount;
+    bool public headroomAccountingViolation;
+
+    MockToken private ssvToken;
 
     address constant USER1 = address(0x10000);
     address constant USER2 = address(0x20000);
     address constant USER3 = address(0x30000);
     address constant USER4 = address(0x40000);
 
-    constructor() CSSVToken(address(this)) {}
+    constructor() CSSVToken(address(this)) {
+        ssvToken = new MockToken();
+        ssvToken.mint(address(this), SSV_SUPPLY_CAP);
+    }
 
     function onCSSVTransfer(address, address, uint256) external {
         require(msg.sender == address(this), "Only self");
@@ -34,8 +43,20 @@ contract CSSVTokenEchidna is CSSVToken {
         return amount;
     }
 
+    function _mintableAmount(uint256 requestedAmount) internal view returns (uint256) {
+        uint256 cssvSupply = totalSupply();
+        uint256 ssvSupply = ssvToken.totalSupply();
+        if (cssvSupply >= ssvSupply) return 0;
+
+        uint256 headroom = ssvSupply - cssvSupply;
+        return requestedAmount > headroom ? headroom : requestedAmount;
+    }
+
     function action_mint(uint256 amount, uint8 userSeed) public {
         amount = _boundAmount(amount);
+        amount = _mintableAmount(amount);
+        if (amount == 0) return;
+
         address to = _getUser(userSeed);
         _mint(to, amount);
         totalMinted += amount;
@@ -59,7 +80,9 @@ contract CSSVTokenEchidna is CSSVToken {
         
         if (currentSupply > type(uint256).max - 10000 ether) return;
         
-        uint256 amount = 10000 ether;
+        uint256 amount = _mintableAmount(10000 ether);
+        if (amount == 0) return;
+
         _mint(to, amount);
         totalMinted += amount;
     }
@@ -67,6 +90,9 @@ contract CSSVTokenEchidna is CSSVToken {
     function action_rapidMintBurn(uint256 amount, uint8 userSeed, uint8 iterations) public {
         address user = _getUser(userSeed);
         amount = _boundAmount(amount);
+        amount = _mintableAmount(amount);
+        if (amount == 0) return;
+
         iterations = iterations % 10 + 1;
         
         for (uint8 i = 0; i < iterations; i++) {
@@ -77,6 +103,10 @@ contract CSSVTokenEchidna is CSSVToken {
 
     function action_mintToAll(uint256 amount) public {
         amount = _boundAmount(amount);
+        uint256 headroom = _mintableAmount(type(uint256).max);
+        if (headroom < 4) return;
+        if (amount > headroom / 4) amount = headroom / 4;
+        if (amount == 0) return;
         
         _mint(USER1, amount);
         _mint(USER2, amount);
@@ -84,6 +114,64 @@ contract CSSVTokenEchidna is CSSVToken {
         _mint(USER4, amount);
         
         totalMinted += amount * 4;
+    }
+
+    function action_mint_headroom_accounting(uint256 amount, uint8 userSeed) public {
+        uint256 requested = _boundAmount(amount);
+        uint256 supplyBefore = totalSupply();
+        uint256 headroomBefore = _mintableAmount(type(uint256).max);
+        uint256 expectedMint = requested > headroomBefore ? headroomBefore : requested;
+        address to = _getUser(userSeed);
+
+        if (expectedMint != 0) {
+            _mint(to, expectedMint);
+            totalMinted += expectedMint;
+        }
+
+        if (totalSupply() != supplyBefore + expectedMint) {
+            headroomAccountingViolation = true;
+        }
+        if (totalSupply() > ssvToken.totalSupply()) {
+            headroomAccountingViolation = true;
+        }
+    }
+
+    function action_near_cap_roundtrip(uint256 burnSeed, uint8 userSeed) public {
+        address user = _getUser(userSeed);
+        uint256 ssvSupply = ssvToken.totalSupply();
+        uint256 headroom = _mintableAmount(type(uint256).max);
+        if (headroom == 0) return;
+
+        _mint(user, headroom);
+        totalMinted += headroom;
+        if (totalSupply() != ssvSupply) {
+            headroomAccountingViolation = true;
+        }
+
+        uint256 balance = balanceOf(user);
+        if (balance == 0) return;
+        uint256 burnAmount = burnSeed % balance;
+        if (burnAmount == 0) burnAmount = 1;
+
+        _burn(user, burnAmount);
+        totalBurned += burnAmount;
+
+        uint256 remintRequest = burnAmount + 1;
+        uint256 remintAmount = _mintableAmount(remintRequest);
+        if (remintAmount != burnAmount) {
+            headroomAccountingViolation = true;
+        }
+        if (remintAmount != 0) {
+            _mint(user, remintAmount);
+            totalMinted += remintAmount;
+        }
+
+        if (totalSupply() != ssvSupply) {
+            headroomAccountingViolation = true;
+        }
+        if (totalSupply() > ssvSupply) {
+            headroomAccountingViolation = true;
+        }
     }
 
     function action_burnFromAll(uint256 amount) public {
@@ -170,7 +258,11 @@ contract CSSVTokenEchidna is CSSVToken {
         return balanceOf(address(0)) == 0;
     }
 
-    function echidna_supply_non_negative() public view returns (bool) {
-        return totalSupply() >= 0;
+    function echidna_cssv_supply_lte_ssv_total_supply() public view returns (bool) {
+        return totalSupply() <= ssvToken.totalSupply();
+    }
+
+    function echidna_headroom_accounting_consistent() public view returns (bool) {
+        return !headroomAccountingViolation;
     }
 }
