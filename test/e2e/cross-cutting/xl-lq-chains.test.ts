@@ -494,7 +494,7 @@ describe("XL: Liquidation-Reactivation Chain Tests", function () {
   // =========================================================================
   describe("Section 2: Operator Removal Before Liquidation (XL-011 to XL-020)", function () {
     it("XL-011: EB update → remove op4 → liquidate succeeds (guard skips removed op)", async function () {
-      const { network } = await networkHelpers.loadFixture(baseFixture);
+      const { network, views } = await networkHelpers.loadFixture(baseFixture);
       const prov = connection.ethers.provider;
       const addr = await network.getAddress();
       const ops = await setupOps(network, opOwner, 4, [clusterOwner.address]);
@@ -511,6 +511,9 @@ describe("XL: Liquidation-Reactivation Chain Tests", function () {
       // Remove op4 — deletes operatorEthVUnits[op4]
       await network.connect(opOwner).removeOperator(ops[3]);
       expect(await readOpVUnits(prov, addr, BigInt(ops[3]))).to.equal(0n);
+      const deadOp11 = await views.getOperatorById(BigInt(ops[3]));
+      expect(deadOp11.isActive).to.equal(false, "XL-011: removed op isActive == false");
+      expect(deadOp11.fee).to.equal(0n, "XL-011: removed op fee == 0");
 
       // Remaining ops 0-2 still carry their deviation
       for (const id of ops.slice(0, 3)) {
@@ -672,7 +675,7 @@ describe("XL: Liquidation-Reactivation Chain Tests", function () {
     });
 
     it("XL-017: EB update → remove op4 → liquidate → reactivate succeeds (guard enables full path)", async function () {
-      const { network } = await networkHelpers.loadFixture(baseFixture);
+      const { network, views } = await networkHelpers.loadFixture(baseFixture);
       const prov = connection.ethers.provider;
       const addr = await network.getAddress();
       const ops = await setupOps(network, opOwner, 4, [clusterOwner.address]);
@@ -683,6 +686,9 @@ describe("XL: Liquidation-Reactivation Chain Tests", function () {
 
       await network.connect(opOwner).removeOperator(ops[3]);
       expect(await readOpVUnits(prov, addr, BigInt(ops[3]))).to.equal(0n, "removeOperator zeroes vUnits");
+      const deadOp17 = await views.getOperatorById(BigInt(ops[3]));
+      expect(deadOp17.isActive).to.equal(false, "XL-017: removed op isActive == false");
+      expect(deadOp17.fee).to.equal(0n, "XL-017: removed op fee == 0");
 
       // Liquidation succeeds — guard skips removed op
       cl = await drainAndLiq(network, prov, clusterOwner, liquidator, ops, cl, 3n, v48);
@@ -860,8 +866,9 @@ describe("XL: Liquidation-Reactivation Chain Tests", function () {
     });
 
     it("XL-024: liquidate → remove ALL ops → reactivate", async function () {
-      const { network } = await networkHelpers.loadFixture(baseFixture);
+      const { network, views } = await networkHelpers.loadFixture(baseFixture);
       const prov = connection.ethers.provider;
+      const addr = await network.getAddress();
       const ops = await setupOps(network, opOwner, 4, [clusterOwner.address]);
 
       let cl = await regVal(network, clusterOwner, ops, EMPTY_CLUSTER, DEFAULT_ETH_REGISTER_VALUE, 1);
@@ -869,7 +876,13 @@ describe("XL: Liquidation-Reactivation Chain Tests", function () {
       expect(cl.active).to.equal(false);
       expect(cl.balance).to.equal(0n);
 
-      for (const id of ops) await network.connect(opOwner).removeOperator(id);
+      for (const id of ops) {
+        await network.connect(opOwner).removeOperator(id);
+        const deadOp = await views.getOperatorById(BigInt(id));
+        expect(deadOp.isActive).to.equal(false, `XL-024: op${id} isActive == false`);
+        expect(deadOp.fee).to.equal(0n, `XL-024: op${id} fee == 0`);
+        expect(await readOpVUnits(prov, addr, BigInt(id))).to.equal(0n, `XL-024: op${id} vUnits == 0`);
+      }
 
       // Reactivate — all ops skipped, burn rate = network fee only
       cl = await react(network, clusterOwner, ops, cl, ethers.parseEther("5"));
@@ -1886,7 +1899,7 @@ describe("XL: Liquidation-Reactivation Chain Tests", function () {
     });
 
     it("XL-058: shared op removed between two cluster liquidations — second liq succeeds (guard skips removed op)", async function () {
-      const { network } = await networkHelpers.loadFixture(baseFixture);
+      const { network, views } = await networkHelpers.loadFixture(baseFixture);
       const prov = connection.ethers.provider;
       const addr = await network.getAddress();
 
@@ -1908,6 +1921,9 @@ describe("XL: Liquidation-Reactivation Chain Tests", function () {
       // Remove shared op1 — zeroes operatorEthVUnits[op1]
       await network.connect(opOwner).removeOperator(allOps[0]);
       expect(await readOpVUnits(prov, addr, BigInt(allOps[0]))).to.equal(0n);
+      const deadOp58 = await views.getOperatorById(BigInt(allOps[0]));
+      expect(deadOp58.isActive).to.equal(false, "XL-058: removed shared op isActive == false");
+      expect(deadOp58.fee).to.equal(0n, "XL-058: removed shared op fee == 0");
 
       // Liquidation of cluster B succeeds — guard skips removed op1
       const vB = calcVUnits(64n);
@@ -2078,7 +2094,7 @@ describe("XL: Liquidation-Reactivation Chain Tests", function () {
     });
 
     it("XL-065: EB → removeOperator → liquidate succeeds (guard skips removed op)", async function () {
-      const { network } = await networkHelpers.loadFixture(baseFixture);
+      const { network, views } = await networkHelpers.loadFixture(baseFixture);
       const prov = connection.ethers.provider;
       const addr = await network.getAddress();
       const ops = await setupOps(network, opOwner, 4, [clusterOwner.address]);
@@ -2090,12 +2106,165 @@ describe("XL: Liquidation-Reactivation Chain Tests", function () {
       await network.connect(opOwner).removeOperator(ops[3]);
       expect(await readOpVUnits(prov, addr, BigInt(ops[3]))).to.equal(0n);
 
+      // Verify removed operator state
+      const deadOp = await views.getOperatorById(BigInt(ops[3]));
+      expect(deadOp.isActive).to.equal(false, "XL-065: removed op isActive == false");
+      expect(deadOp.fee).to.equal(0n, "XL-065: removed op fee == 0");
+
       // Liquidation succeeds — guard skips removed op
       const v48 = calcVUnits(48n);
       cl = await drainAndLiq(network, prov, clusterOwner, liquidator, ops, cl, 3n, v48);
       expect(cl.active).to.equal(false, "cluster liquidated");
       expect(cl.balance).to.equal(0n);
       expect(await readOpVUnits(prov, addr, BigInt(ops[3]))).to.equal(0n, "removed op stays 0");
+    });
+  });
+
+  // =========================================================================
+  // Section 8: Additional Edge Cases (XL-066 to XL-068)
+  // =========================================================================
+  describe("Section 8: Additional Edge Cases (XL-066 to XL-068)", function () {
+    it("XL-066: explicit-EB + all-ops-removed → self-liquidate → reactivate → verify deviation + vUnits", async function () {
+      const { network, views } = await networkHelpers.loadFixture(baseFixture);
+      const prov = connection.ethers.provider;
+      const addr = await network.getAddress();
+      const ops = await setupOps(network, opOwner, 4, [clusterOwner.address]);
+
+      let cl = await regVal(network, clusterOwner, ops, EMPTY_CLUSTER, DEFAULT_ETH_REGISTER_VALUE, 1);
+
+      // EB update: 32→48 (explicit EB, deviation = 5000 per op)
+      cl = await doEB(network, prov, clusterOwner, ops, cl, 48, oracles3());
+      const v48 = calcVUnits(48n);
+      const dev48 = v48 - defaultVUnits(1n); // 5000
+      await assertAllOpVUnits(prov, addr, ops, dev48, "XL-066: after EB 48");
+      expect(await readDaoVUnits(prov, addr)).to.equal(v48, "XL-066: daoVUnits after EB 48");
+
+      // Remove ALL 4 operators
+      for (const id of ops) {
+        await network.connect(opOwner).removeOperator(id);
+        const deadOp = await views.getOperatorById(BigInt(id));
+        expect(deadOp.isActive).to.equal(false, `XL-066: op${id} isActive == false`);
+        expect(deadOp.fee).to.equal(0n, `XL-066: op${id} fee == 0`);
+        expect(await readOpVUnits(prov, addr, BigInt(id))).to.equal(0n, `XL-066: op${id} vUnits == 0`);
+      }
+
+      // Self-liquidation (no active ops → burn rate = 0, only owner can self-liquidate)
+      cl = await selfLiq(network, clusterOwner, ops, cl);
+      expect(cl.active).to.equal(false, "XL-066: cluster liquidated");
+      await assertAllOpVUnits(prov, addr, ops, 0n, "XL-066: after self-liq — all ops 0");
+      expect(await readDaoVUnits(prov, addr)).to.equal(0n, "XL-066: daoVUnits zeroed after self-liq");
+
+      // Reactivate — all ops dead, burn = network fee only
+      cl = await react(network, clusterOwner, ops, cl, ethers.parseEther("5"));
+      expect(cl.active).to.equal(true, "XL-066: reactivation succeeds");
+      expect(cl.validatorCount).to.equal(1n);
+
+      // All ops still removed: vUnits stay 0 (deviation loop skips dead ops)
+      await assertAllOpVUnits(prov, addr, ops, 0n, "XL-066: after react — all dead ops still 0");
+
+      // daoTotalEthVUnits includes baseline (from reactivation updateDAO) + deviation
+      // For removed ops, deviation is not added to operators but DAO vUnits gets baseline + stored deviation
+      const daoV = await readDaoVUnits(prov, addr);
+      // The cluster still has stored vUnits from EB (v48), so daoTotalEthVUnits = v48
+      expect(daoV).to.equal(v48, "XL-066: daoVUnits restored with stored EB vUnits");
+    });
+
+    it("XL-067: removed operators + hasDeviation=true reactivation — partial deviation", async function () {
+      const { network, views } = await networkHelpers.loadFixture(baseFixture);
+      const prov = connection.ethers.provider;
+      const addr = await network.getAddress();
+
+      // Two clusters to keep DAO deviation non-zero
+      const allOps = await setupOps(network, opOwner, 8, [clusterOwner.address, clusterOwner2.address]);
+      const opsA = [allOps[0], allOps[1], allOps[2], allOps[3]];
+      const opsB = [allOps[4], allOps[5], allOps[6], allOps[7]];
+
+      let clA = await regVal(network, clusterOwner, opsA, EMPTY_CLUSTER, DEFAULT_ETH_REGISTER_VALUE, 1);
+      let clB = await regVal(network, clusterOwner2, opsB, EMPTY_CLUSTER, DEFAULT_ETH_REGISTER_VALUE, 10);
+
+      // EB updates: A→48, B→64 — both have deviations, hasDeviation=true globally
+      clA = await doEB(network, prov, clusterOwner, opsA, clA, 48, oracles3());
+      clB = await doEB(network, prov, clusterOwner2, opsB, clB, 64, oracles3());
+
+      const devA = calcVUnits(48n) - defaultVUnits(1n); // 5000
+      const devB = calcVUnits(64n) - defaultVUnits(1n); // 10000
+      await assertAllOpVUnits(prov, addr, opsA, devA, "XL-067: clA ops after EB 48");
+      await assertAllOpVUnits(prov, addr, opsB, devB, "XL-067: clB ops after EB 64");
+
+      // Liquidate cluster A
+      const v48 = calcVUnits(48n);
+      clA = await drainAndLiq(network, prov, clusterOwner, liquidator, opsA, clA, NUM_OPS, v48);
+      expect(clA.active).to.equal(false);
+      expect(clA.balance).to.equal(0n);
+      await assertAllOpVUnits(prov, addr, opsA, 0n, "XL-067: clA ops after liq");
+
+      // Remove 2 of A's operators
+      await network.connect(opOwner).removeOperator(opsA[2]);
+      await network.connect(opOwner).removeOperator(opsA[3]);
+      for (const id of [opsA[2], opsA[3]]) {
+        const deadOp = await views.getOperatorById(BigInt(id));
+        expect(deadOp.isActive).to.equal(false, `XL-067: op${id} isActive == false`);
+        expect(deadOp.fee).to.equal(0n, `XL-067: op${id} fee == 0`);
+        expect(await readOpVUnits(prov, addr, BigInt(id))).to.equal(0n, `XL-067: op${id} vUnits == 0`);
+      }
+
+      // Reactivate cluster A — deviation loop should skip removed ops
+      // hasDeviation=true because cluster B's DAO deviation is non-zero
+      clA = await react(network, clusterOwner, opsA, clA);
+      expect(clA.active).to.equal(true, "XL-067: reactivation succeeds");
+      expect(clA.validatorCount).to.equal(1n);
+
+      // Live ops (0, 1) get deviation restored; dead ops (2, 3) stay 0
+      expect(await readOpVUnits(prov, addr, BigInt(opsA[0]))).to.equal(devA, "XL-067: live op0 deviation restored");
+      expect(await readOpVUnits(prov, addr, BigInt(opsA[1]))).to.equal(devA, "XL-067: live op1 deviation restored");
+      expect(await readOpVUnits(prov, addr, BigInt(opsA[2]))).to.equal(0n, "XL-067: dead op2 stays 0");
+      expect(await readOpVUnits(prov, addr, BigInt(opsA[3]))).to.equal(0n, "XL-067: dead op3 stays 0");
+
+      // Cluster B's operators unaffected
+      await assertAllOpVUnits(prov, addr, opsB, devB, "XL-067: clB ops preserved");
+    });
+
+    it("XL-068: reactivate explicit-EB cluster → add validator → EB update (baseline/deviation shift)", async function () {
+      const { network } = await networkHelpers.loadFixture(baseFixture);
+      const prov = connection.ethers.provider;
+      const addr = await network.getAddress();
+      const ops = await setupOps(network, opOwner, 4, [clusterOwner.address]);
+
+      let cl = await regVal(network, clusterOwner, ops, EMPTY_CLUSTER, ethers.parseEther("20"), 1);
+      cl = await doEB(network, prov, clusterOwner, ops, cl, 48, oracles3());
+      const v48 = calcVUnits(48n); // 15000
+      const dev48 = v48 - defaultVUnits(1n); // 5000
+      await assertAllOpVUnits(prov, addr, ops, dev48, "XL-068: after EB 48");
+      expect(await readDaoVUnits(prov, addr)).to.equal(v48);
+
+      // Liquidate
+      cl = await drainAndLiq(network, prov, clusterOwner, liquidator, ops, cl, NUM_OPS, v48);
+      expect(cl.active).to.equal(false);
+      expect(cl.balance).to.equal(0n);
+      await assertAllOpVUnits(prov, addr, ops, 0n, "XL-068: after liq");
+
+      // Reactivate
+      cl = await react(network, clusterOwner, ops, cl, ethers.parseEther("50"));
+      expect(cl.active).to.equal(true);
+      expect(cl.validatorCount).to.equal(1n);
+      await assertAllOpVUnits(prov, addr, ops, dev48, "XL-068: after react — deviation restored");
+
+      // Add second validator (changes baseline: 1→2 validators, baseline = 20000)
+      cl = await regVal(network, clusterOwner, ops, cl, 0n, 2);
+      expect(cl.validatorCount).to.equal(2n);
+
+      // New baseline = defaultVUnits(2) = 20000
+      // daoTotalEthVUnits = old stored vUnits (v48=15000) + new baseline addition (10000) = 25000
+      const newBaseline = defaultVUnits(2n); // 20000
+      expect(await readDaoVUnits(prov, addr)).to.equal(v48 + defaultVUnits(1n), "XL-068: daoVUnits after addValidator");
+
+      // EB update for 2 validators: totalEB=96 → vUnits=30000
+      cl = await doEB(network, prov, clusterOwner, ops, cl, 96, oracles3());
+      const v96 = calcVUnits(96n); // 30000
+      const dev96 = v96 - newBaseline; // 30000 - 20000 = 10000
+      expect(cl.active).to.equal(true);
+      await assertAllOpVUnits(prov, addr, ops, dev96, "XL-068: after EB 96 with 2 validators");
+      expect(await readDaoVUnits(prov, addr)).to.equal(v96, "XL-068: daoVUnits == v96");
     });
   });
 });

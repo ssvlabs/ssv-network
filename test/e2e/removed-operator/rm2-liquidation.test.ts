@@ -28,6 +28,7 @@ import {
   DEFAULT_NETWORK_FEE_UNPACKED,
   MINIMAL_LIQUIDATION_THRESHOLD,
   SMALL_ETH_REGISTER_VALUE,
+  ETH_DEDUCTED_DIGITS,
 } from "../../common/constants.ts";
 import { Events } from "../../common/events.ts";
 import {
@@ -37,6 +38,7 @@ import {
   calcVUnits,
   defaultVUnits,
   calcLiquidationThreshold,
+  calcOperatorFeeAccrual,
 } from "../../helpers/index.ts";
 import {
   setupOracles,
@@ -305,8 +307,11 @@ describe("RM2: _executeLiquidation Deviation Cleanup With Removed Operators", ()
       // Remove op1
       await network.connect(opOwner).removeOperator(operatorIds[0]);
 
-      // Verify removed op's vUnits is deleted
+      // Verify removed op's vUnits is deleted and operator state is inactive
       expect(await readOperatorEthVUnits(provider, proxyAddress, BigInt(operatorIds[0]))).to.equal(0n);
+      const removedOp = await views.getOperatorById(BigInt(operatorIds[0]));
+      expect(removedOp.isActive).to.equal(false, `${scenarioId}: removed op isActive == false`);
+      expect(removedOp.fee).to.equal(0n, `${scenarioId}: removed op fee == 0`);
 
       // Drain and liquidate (burn rate = numOps-1 active ops)
       const numActiveOps = BigInt(numOps - 1);
@@ -827,7 +832,7 @@ describe("RM2: _executeLiquidation Deviation Cleanup With Removed Operators", ()
   // =========================================================================
   describe("Multiple Operators Removed", () => {
     it("RM2-019: 4-op, remove op1 AND op2, liquidate — 2 removed ops skipped", async function () {
-      const { network } = await networkHelpers.loadFixture(baseFixture);
+      const { network, views } = await networkHelpers.loadFixture(baseFixture);
       const provider = connection.ethers.provider;
       const proxyAddress = await network.getAddress();
 
@@ -844,6 +849,11 @@ describe("RM2: _executeLiquidation Deviation Cleanup With Removed Operators", ()
 
       expect(await readOperatorEthVUnits(provider, proxyAddress, BigInt(operatorIds[0]))).to.equal(0n);
       expect(await readOperatorEthVUnits(provider, proxyAddress, BigInt(operatorIds[1]))).to.equal(0n);
+      for (const opId of [operatorIds[0], operatorIds[1]]) {
+        const deadOp = await views.getOperatorById(BigInt(opId));
+        expect(deadOp.isActive).to.equal(false, `RM2-019: op${opId} isActive == false`);
+        expect(deadOp.fee).to.equal(0n, `RM2-019: op${opId} fee == 0`);
+      }
 
       // Liquidate with 2 active ops
       const vUnits = calcVUnits(48n);
@@ -865,7 +875,7 @@ describe("RM2: _executeLiquidation Deviation Cleanup With Removed Operators", ()
     // RM2-020: Remove 3 of 4 operators
     // =========================================================================
     it("RM2-020: 4-op, remove op1/op2/op3, liquidate — 1 live op receives all deviation subtraction", async function () {
-      const { network } = await networkHelpers.loadFixture(baseFixture);
+      const { network, views } = await networkHelpers.loadFixture(baseFixture);
       const provider = connection.ethers.provider;
       const proxyAddress = await network.getAddress();
 
@@ -876,13 +886,14 @@ describe("RM2: _executeLiquidation Deviation Cleanup With Removed Operators", ()
       const oracles = [oracle1, oracle2, oracle3];
       ({ cluster } = await doEBUpdate(network, provider, clusterOwner, operatorIds, cluster, 48, oracles));
 
-      // Remove 3 ops
-      await network.connect(opOwner).removeOperator(operatorIds[0]);
-      expect(await readOperatorEthVUnits(provider, proxyAddress, BigInt(operatorIds[0]))).to.equal(0n, "removeOperator must zero vUnits");
-      await network.connect(opOwner).removeOperator(operatorIds[1]);
-      expect(await readOperatorEthVUnits(provider, proxyAddress, BigInt(operatorIds[1]))).to.equal(0n, "removeOperator must zero vUnits");
-      await network.connect(opOwner).removeOperator(operatorIds[2]);
-      expect(await readOperatorEthVUnits(provider, proxyAddress, BigInt(operatorIds[2]))).to.equal(0n, "removeOperator must zero vUnits");
+      // Remove 3 ops and verify each one's state
+      for (const opId of [operatorIds[0], operatorIds[1], operatorIds[2]]) {
+        await network.connect(opOwner).removeOperator(opId);
+        expect(await readOperatorEthVUnits(provider, proxyAddress, BigInt(opId))).to.equal(0n, "removeOperator must zero vUnits");
+        const deadOp = await views.getOperatorById(BigInt(opId));
+        expect(deadOp.isActive).to.equal(false, `RM2-020: op${opId} isActive == false`);
+        expect(deadOp.fee).to.equal(0n, `RM2-020: op${opId} fee == 0`);
+      }
 
       // Liquidate with 1 active op
       const vUnits = calcVUnits(48n);
@@ -903,7 +914,7 @@ describe("RM2: _executeLiquidation Deviation Cleanup With Removed Operators", ()
   // =========================================================================
   describe("All Operators Removed", () => {
     it("RM2-021: Remove all 4 ops, self-liquidate — all ops skipped, DAO deviation still cleaned", async function () {
-      const { network } = await networkHelpers.loadFixture(baseFixture);
+      const { network, views } = await networkHelpers.loadFixture(baseFixture);
       const provider = connection.ethers.provider;
       const proxyAddress = await network.getAddress();
 
@@ -918,9 +929,12 @@ describe("RM2: _executeLiquidation Deviation Cleanup With Removed Operators", ()
       // daoTotalEthVUnits = baseline + deviation = vUnits
       expect(await readDaoTotalEthVUnits(provider, proxyAddress)).to.equal(vUnits);
 
-      // Remove all 4 operators
+      // Remove all 4 operators and verify each one's state
       for (const opId of operatorIds) {
         await network.connect(opOwner).removeOperator(opId);
+        const deadOp = await views.getOperatorById(BigInt(opId));
+        expect(deadOp.isActive).to.equal(false, `RM2-021: op${opId} isActive == false`);
+        expect(deadOp.fee).to.equal(0n, `RM2-021: op${opId} fee == 0`);
       }
 
       // All operatorEthVUnits deleted
@@ -1114,12 +1128,16 @@ describe("RM2: _executeLiquidation Deviation Cleanup With Removed Operators", ()
       expect(cluster.validatorCount).to.equal(1n);
 
       const oracles = [oracle1, oracle2, oracle3];
-      ({ cluster } = await doEBUpdate(network, provider, clusterOwner, operatorIds, cluster, 48, oracles));
+      const ebResult = await doEBUpdate(network, provider, clusterOwner, operatorIds, cluster, 48, oracles);
+      cluster = ebResult.cluster;
+      const ebBlock = BigInt(ebResult.receipt.blockNumber);
 
-      await network.connect(opOwner).removeOperator(operatorIds[0]);
+      const removeTx = await network.connect(opOwner).removeOperator(operatorIds[0]);
+      const removeBlock = BigInt((await removeTx.wait())!.blockNumber);
       expect(await readOperatorEthVUnits(provider, proxyAddress, BigInt(operatorIds[0]))).to.equal(0n, "removeOperator must zero vUnits");
 
       const vUnits = calcVUnits(48n);
+      const BPS = 10000n;
       const liqThreshold = calcLiquidationThreshold({
         minimumBlocksBeforeLiquidation: MIN_BLOCKS_LIQ,
         numOperators: 3n,
@@ -1145,13 +1163,23 @@ describe("RM2: _executeLiquidation Deviation Cleanup With Removed Operators", ()
         clusterOwner.address, operatorIds, cluster,
       );
       const liqReceipt = await liqTx.wait();
+      const liqBlock = BigInt(liqReceipt!.blockNumber);
 
       const gasUsed = liqReceipt!.gasUsed * liqReceipt!.gasPrice;
       const liqBalAfter = await provider.getBalance(liquidator.address);
       const bounty = liqBalAfter - liqBalBefore + gasUsed;
 
-      // Bounty should be > 0 (remaining balance transferred)
-      expect(bounty).to.be.greaterThan(0n, "Liquidation bounty must be positive");
+      // Compute exact expected bounty: balance minus total fees.
+      // The removed op accrues at ethFee between EB and removal, then 0 after.
+      // 3 live ops accrue at ethFee for the full period (EB to liquidation).
+      // operatorIndexDelta = 3*(liqBlock-ebBlock)*ethFee + (removeBlock-ebBlock)*ethFee
+      const opIndexDelta = (3n * (liqBlock - ebBlock) + (removeBlock - ebBlock)) * OP_ETH_FEE_RAW;
+      const netIndexDelta = (liqBlock - ebBlock) * DEFAULT_NETWORK_FEE_RAW;
+      const opFeeUnits = (opIndexDelta * vUnits) / BPS;
+      const netFeeUnits = (netIndexDelta * vUnits) / BPS;
+      const totalBurn = (opFeeUnits + netFeeUnits) * ETH_DEDUCTED_DIGITS;
+      const expectedBounty = balance - totalBurn;
+      expect(bounty).to.equal(expectedBounty, "RM2-025: bounty == remaining cluster balance");
     });
   });
 
@@ -1345,7 +1373,7 @@ describe("RM2: _executeLiquidation Deviation Cleanup With Removed Operators", ()
   // =========================================================================
   describe("Shared Operators Across Clusters", () => {
     it("RM2-030: 2 clusters share ops, remove op1, liquidate cluster A — cluster B's deviation preserved", async function () {
-      const { network } = await networkHelpers.loadFixture(baseFixture);
+      const { network, views } = await networkHelpers.loadFixture(baseFixture);
       const provider = connection.ethers.provider;
       const proxyAddress = await network.getAddress();
 
@@ -1392,6 +1420,9 @@ describe("RM2: _executeLiquidation Deviation Cleanup With Removed Operators", ()
       // Remove op1 (only in cluster A)
       await network.connect(opOwner).removeOperator(operatorIds[0]);
       expect(await readOperatorEthVUnits(provider, proxyAddress, BigInt(operatorIds[0]))).to.equal(0n);
+      const deadOp30 = await views.getOperatorById(BigInt(operatorIds[0]));
+      expect(deadOp30.isActive).to.equal(false, "RM2-030: removed op isActive == false");
+      expect(deadOp30.fee).to.equal(0n, "RM2-030: removed op fee == 0");
 
       // Liquidate cluster A
       const vUnitsA = calcVUnits(48n);
