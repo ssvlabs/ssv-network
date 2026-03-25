@@ -12,6 +12,7 @@
  * NOTE: Requires SSV clusters in the simulation state.
  */
 
+import { ethers } from "ethers";
 import { VERSION_SSV } from "../simulation/types.ts";
 import type { Scenario } from "../simulation/scenario-types.ts";
 import { ScenarioSkipped } from "../simulation/scenario-types.ts";
@@ -40,10 +41,15 @@ async function migrateCluster(
   ctx: ScenarioContext,
   record: ClusterRecord,
 ): Promise<void> {
+  const deposit = ethers.parseEther("50");
+  await ctx.provider.send("hardhat_setBalance", [
+    record.owner,
+    "0x" + (deposit + ethers.parseEther("10")).toString(16),
+  ]);
   const tx = await ctx.contracts.network
     .connect(record.ownerSigner)
     .migrateClusterToETH(record.operatorIds, record.cluster, {
-      value: 0n,
+      value: deposit,
     });
   const receipt = await tx.wait();
   const updated = parseClusterFromReceipt(

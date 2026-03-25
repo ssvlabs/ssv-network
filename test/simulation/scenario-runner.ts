@@ -290,8 +290,16 @@ function snapshotLocalState(state: SimulationState): LocalStateSnapshot {
 
   const clusters = new Map<string, { cluster: any; version: ClusterVersion; validatorKeys: string[] }>();
   for (const [key, rec] of state.clusterBook) {
+    // Deep-clone cluster with explicit BigInt conversion to guard against
+    // getCurrentClusterState returning string-typed values
     clusters.set(key, {
-      cluster: { ...rec.cluster },
+      cluster: {
+        validatorCount: BigInt(rec.cluster.validatorCount),
+        networkFeeIndex: BigInt(rec.cluster.networkFeeIndex),
+        index: BigInt(rec.cluster.index),
+        active: Boolean(rec.cluster.active),
+        balance: BigInt(rec.cluster.balance),
+      },
       version: rec.version as ClusterVersion,
       validatorKeys: [...rec.validatorKeys],
     });

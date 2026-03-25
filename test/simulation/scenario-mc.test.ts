@@ -273,6 +273,35 @@ async function registerSimOperators(
       }
     }
 
+    // --- Phase 4b: Add a 2nd validator to some ETH clusters (for XV-003/XV-004) ---
+    for (const [, rec] of clusterBook) {
+      if (rec.version !== VERSION_ETH) continue;
+      if (rec.validatorKeys.length >= 2) continue;
+      const keySeed = 60000 + Number(rng.next() % 1000000n);
+      const extraKey = makePublicKey(keySeed);
+      try {
+        const tx = await newNetwork
+          .connect(rec.ownerSigner)
+          .registerValidator(
+            extraKey,
+            rec.operatorIds,
+            DEFAULT_SHARES,
+            rec.cluster,
+            { value: DEFAULT_ETH_REGISTER_VALUE },
+          );
+        const receipt = await tx.wait();
+        const updated = parseClusterFromReceipt(newNetwork, receipt, "ValidatorAdded");
+        if (updated) {
+          rec.cluster = updated;
+          rec.validatorKeys.push(extraKey);
+        }
+      } catch (err) {
+        console.warn(
+          `[SCENARIO-MC] Failed to add 2nd validator: ${String(err).slice(0, 80)}`,
+        );
+      }
+    }
+
     // --- Phase 5: Provision oracle signers ---
     console.log("[SCENARIO-MC] Provisioning oracle signers...");
     const oracleSigners = signers.slice(6, 9); // 3 oracle signers
@@ -344,7 +373,7 @@ async function registerSimOperators(
   });
 
   it("runs scenario Monte Carlo simulation", async function () {
-    const totalPicks = parseInt(process.env.SCENARIO_PICKS ?? "30", 10);
+    const totalPicks = parseInt(process.env.SCENARIO_PICKS ?? "150", 10);
     const seed = process.env.SIMULATION_SEED
       ? BigInt(process.env.SIMULATION_SEED)
       : undefined;

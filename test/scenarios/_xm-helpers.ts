@@ -10,7 +10,7 @@ import { ethers } from "ethers";
 import type { ScenarioContext } from "../simulation/scenario-context.ts";
 import type { StateSnapshot } from "../simulation/state-snapshot.ts";
 import type { ClusterRecord, OperatorRecord } from "../simulation/types.ts";
-import { VERSION_SSV } from "../simulation/types.ts";
+import { VERSION_SSV, VERSION_ETH } from "../simulation/types.ts";
 import { ScenarioSkipped } from "../simulation/scenario-types.ts";
 import { parseClusterFromReceipt } from "../simulation/bookkeeping.ts";
 import { computeClusterId, computeEBRoot } from "../helpers/oracle.ts";
@@ -19,9 +19,15 @@ import { computeClusterId, computeEBRoot } from "../helpers/oracle.ts";
 // Entity selection helpers
 // ---------------------------------------------------------------------------
 
-/** Pick an active ETH cluster. */
+/** Pick an active ETH cluster (version == 1). */
 export function pickETHCluster(ctx: ScenarioContext): ClusterRecord {
-  return ctx.pickCluster();
+  const ethClusters = [...ctx.simState.clusterBook.values()].filter(
+    (c) => c.version === VERSION_ETH && c.cluster.active,
+  );
+  if (ethClusters.length === 0) {
+    throw new ScenarioSkipped("No active ETH clusters available");
+  }
+  return ctx.rng.pick(ethClusters);
 }
 
 /** Pick an SSV (legacy) cluster if available. Throws ScenarioSkipped if none. */
@@ -69,7 +75,7 @@ export function findSecondActiveOp(
 export async function migrateCluster(
   ctx: ScenarioContext,
   record: ClusterRecord,
-  depositEth: string = "10",
+  depositEth: string = "50",
 ): Promise<void> {
   const deposit = ethers.parseEther(depositEth);
   await ctx.provider.send("hardhat_setBalance", [

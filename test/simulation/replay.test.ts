@@ -273,6 +273,35 @@ async function registerSimOperators(
       }
     }
 
+    // --- Phase 4b: Add a 2nd validator to some ETH clusters (for XV-003/XV-004) ---
+    for (const [, rec] of clusterBook) {
+      if (rec.version !== VERSION_ETH) continue;
+      if (rec.validatorKeys.length >= 2) continue;
+      const keySeed = 60000 + Number(rng.next() % 1000000n);
+      const extraKey = makePublicKey(keySeed);
+      try {
+        const tx = await newNetwork
+          .connect(rec.ownerSigner)
+          .registerValidator(
+            extraKey,
+            rec.operatorIds,
+            DEFAULT_SHARES,
+            rec.cluster,
+            { value: DEFAULT_ETH_REGISTER_VALUE },
+          );
+        const receipt = await tx.wait();
+        const updated = parseClusterFromReceipt(newNetwork, receipt, "ValidatorAdded");
+        if (updated) {
+          rec.cluster = updated;
+          rec.validatorKeys.push(extraKey);
+        }
+      } catch (err) {
+        console.warn(
+          `[REPLAY] Failed to add 2nd validator: ${String(err).slice(0, 80)}`,
+        );
+      }
+    }
+
     // --- Phase 5: Provision oracle signers ---
     console.log("[REPLAY] Provisioning oracle signers...");
     const oracleSigners = signers.slice(6, 9);
@@ -339,7 +368,7 @@ async function registerSimOperators(
 
   it("replays scenario MC with exact seed", async function () {
     const seed = BigInt(`0x${REPLAY_SEED}`);
-    const totalPicks = parseInt(process.env.SCENARIO_PICKS ?? "30", 10);
+    const totalPicks = parseInt(process.env.SCENARIO_PICKS ?? "150", 10);
 
     console.log(`[REPLAY] Seed: 0x${seed.toString(16)}`);
     console.log(`[REPLAY] Running ${totalPicks} picks with ${ALL_SCENARIOS.length} scenarios`);
