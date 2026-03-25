@@ -405,12 +405,13 @@ describe("RMA — Removed-Operator x Auto-Liquidation Compound Path", () => {
   });
 
   // =========================================================================
-  // RMA-008: 2 removed operators — potential underflow
+  // RMA-008: 2 removed operators — guard skips removed ops
   // =========================================================================
-  describe("RMA-008: 4-op, 2 removed, EB increase — underflow path", () => {
-    it("2 ops removed with non-baseline storedVUnits: EB increase hits underflow in _executeLiquidation", async function () {
+  describe("RMA-008: 4-op, 2 removed, EB increase — guard skips removed ops", () => {
+    it("2 ops removed with non-baseline storedVUnits: guard skips removed ops, auto-liq succeeds", async function () {
       const { network, views, operatorIds } = await networkHelpers.loadFixture(deploy4Ops);
       const provider = connection.ethers.provider;
+      const networkAddr = (await network.getAddress()) as string;
 
       // Deposit: enough for EB=64 with 4 ops to survive first update, small enough to drain
       const vUnits64 = calcVUnits(64n);
@@ -445,27 +446,29 @@ describe("RMA — Removed-Operator x Auto-Liquidation Compound Path", () => {
       await mineBlocks(provider, 25000);
 
       // Second EB update: EB = 128 (vUnits = 40000)
-      // storedVUnits = 20000, newVUnits = 40000, deltaAbs = 20000
-      // _updateOperatorVUnits: ghost writes 20000 to each removed op
-      // _executeLiquidation: deviation = 40000 - 10000 = 30000
-      // Subtracts 30000 from ghost value 20000 → underflow revert
+      // Guard skips removed ops in _updateOperatorVUnits and _executeLiquidation
       rootBlockNum = await commitNewEB(network, clusterId, 128);
 
-      await expect(
-        network
-          .connect(liquidator)
-          .updateClusterBalance(rootBlockNum, clusterOwner.address, operatorIds, cluster, 128, []),
-      ).to.be.revertedWithPanic(0x11); // arithmetic underflow
+      const updateTx = await network
+        .connect(liquidator)
+        .updateClusterBalance(rootBlockNum, clusterOwner.address, operatorIds, cluster, 128, []);
+      await expect(updateTx).to.emit(network, Events.CLUSTER_LIQUIDATED);
+
+      // Removed ops' vUnits stay 0
+      expect(await readOperatorEthVUnits(provider, networkAddr, operatorIds[2])).to.equal(0n);
+      expect(await readOperatorEthVUnits(provider, networkAddr, operatorIds[3])).to.equal(0n);
+      await assertINV11(provider, networkAddr, views, operatorIds, [operatorIds[2], operatorIds[3]], "RMA-008");
     });
   });
 
   // =========================================================================
-  // RMA-009: 3 removed operators (1 active)
+  // RMA-009: 3 removed operators (1 active) — guard skips removed ops
   // =========================================================================
-  describe("RMA-009: 4-op, 3 removed (1 active), EB increase — extreme case", () => {
-    it("3 ops removed with non-baseline EB: EB increase hits underflow", async function () {
-      const { network, operatorIds } = await networkHelpers.loadFixture(deploy4Ops);
+  describe("RMA-009: 4-op, 3 removed (1 active), EB increase — guard skips removed ops", () => {
+    it("3 ops removed with non-baseline EB: guard skips removed ops, auto-liq succeeds", async function () {
+      const { network, views, operatorIds } = await networkHelpers.loadFixture(deploy4Ops);
       const provider = connection.ethers.provider;
+      const networkAddr = (await network.getAddress()) as string;
 
       // Deposit: enough for EB=64 update to succeed, small enough to drain with 1 active op
       const vUnits64 = calcVUnits(64n);
@@ -500,13 +503,19 @@ describe("RMA — Removed-Operator x Auto-Liquidation Compound Path", () => {
       // Drain with 1 active op — need balance below threshold@128(1op)
       await mineBlocks(provider, 80000);
 
-      // EB increase to 128: deltaAbs = 20000, deviation = 30000 → underflow
+      // EB increase to 128: guard skips removed ops in all paths
       rootBlockNum = await commitNewEB(network, clusterId, 128);
-      await expect(
-        network
-          .connect(liquidator)
-          .updateClusterBalance(rootBlockNum, clusterOwner.address, operatorIds, cluster, 128, []),
-      ).to.be.revertedWithPanic(0x11); // arithmetic underflow
+      const updateTx = await network
+        .connect(liquidator)
+        .updateClusterBalance(rootBlockNum, clusterOwner.address, operatorIds, cluster, 128, []);
+      await expect(updateTx).to.emit(network, Events.CLUSTER_LIQUIDATED);
+
+      // All removed ops' vUnits stay 0
+      const removedOps = [operatorIds[1], operatorIds[2], operatorIds[3]];
+      for (const opId of removedOps) {
+        expect(await readOperatorEthVUnits(provider, networkAddr, opId)).to.equal(0n);
+      }
+      await assertINV11(provider, networkAddr, views, operatorIds, removedOps, "RMA-009");
     });
   });
 
@@ -610,12 +619,13 @@ describe("RMA — Removed-Operator x Auto-Liquidation Compound Path", () => {
   });
 
   // =========================================================================
-  // RMA-013: EB decrease 64→32 with removed op — underflow in _updateOperatorVUnits
+  // RMA-013: EB decrease 64→32 with removed op — guard skips removed op
   // =========================================================================
-  describe("RMA-013: EB decrease to baseline with removed op — underflow revert", () => {
-    it("EB decrease from 64→32: _updateOperatorVUnits subtracts from deleted slot — reverts", async function () {
-      const { network, operatorIds } = await networkHelpers.loadFixture(deploy4Ops);
+  describe("RMA-013: EB decrease to baseline with removed op — guard skips removed op", () => {
+    it("EB decrease from 64→32: guard skips removed op, update succeeds", async function () {
+      const { network, views, operatorIds } = await networkHelpers.loadFixture(deploy4Ops);
       const provider = connection.ethers.provider;
+      const networkAddr = (await network.getAddress()) as string;
 
       const deposit = ethers.parseEther("10");
       const regTx = await network
@@ -638,16 +648,17 @@ describe("RMA — Removed-Operator x Auto-Liquidation Compound Path", () => {
 
       await mineBlocks(provider, 100);
 
-      // EB decrease to 32: storedVUnits=20000, newVUnits=10000
-      // _updateOperatorVUnits: deltaPositive=false, deltaAbs=10000
-      // operatorEthVUnits[removedOp] -= 10000 → 0 - 10000 → underflow
+      // EB decrease to 32: guard skips removed op in _updateOperatorVUnits
       rootBlockNum = await commitNewEB(network, clusterId, 32);
 
-      await expect(
-        network
-          .connect(clusterOwner)
-          .updateClusterBalance(rootBlockNum, clusterOwner.address, operatorIds, cluster, 32, []),
-      ).to.be.revertedWithPanic(0x11); // arithmetic underflow
+      const updateTx = await network
+        .connect(clusterOwner)
+        .updateClusterBalance(rootBlockNum, clusterOwner.address, operatorIds, cluster, 32, []);
+      await expect(updateTx).to.emit(network, Events.CLUSTER_BALANCE_UPDATED);
+
+      // Removed op's vUnits stays 0
+      expect(await readOperatorEthVUnits(provider, networkAddr, operatorIds[2])).to.equal(0n);
+      await assertINV11(provider, networkAddr, views, operatorIds, [operatorIds[2]], "RMA-013");
     });
   });
 
@@ -655,7 +666,7 @@ describe("RMA — Removed-Operator x Auto-Liquidation Compound Path", () => {
   // RMA-014: Exact threshold boundary — auto-liq does NOT fire
   // =========================================================================
   describe("RMA-014: Exact threshold boundary with removed op — no auto-liquidation", () => {
-    it("Balance == threshold at new vUnits: NOT liquidated, ghost state persists", async function () {
+    it("Balance == threshold at new vUnits: NOT liquidated, removed op vUnits stays 0", async function () {
       const { network, views, operatorIds } = await networkHelpers.loadFixture(deploy4Ops);
       const provider = connection.ethers.provider;
       const networkAddr = (await network.getAddress()) as string;
@@ -738,9 +749,9 @@ describe("RMA — Removed-Operator x Auto-Liquidation Compound Path", () => {
       const updatedCluster = parseClusterFromEvent(network, receipt, Events.CLUSTER_BALANCE_UPDATED);
       expect(updatedCluster.active).to.equal(true);
 
-      // Ghost state persists: _updateOperatorVUnits wrote 10000 to removed op, no cleanup
-      const ghostVUnits = await readOperatorEthVUnits(provider, networkAddr, removedOpId);
-      expect(ghostVUnits).to.equal(10_000n, "RMA-014: ghost state persists when auto-liq does NOT fire");
+      // Guard skips removed op: vUnits stays 0
+      const removedVUnits = await readOperatorEthVUnits(provider, networkAddr, removedOpId);
+      expect(removedVUnits).to.equal(0n, "RMA-014: removed op vUnits stays 0 (guard skips)");
     });
   });
 
@@ -891,7 +902,7 @@ describe("RMA — Removed-Operator x Auto-Liquidation Compound Path", () => {
   // RMA-022 / RMA-023: Manual liquidate() vs auto-liquidation comparison
   // =========================================================================
   describe("RMA-022/023: Manual liquidate() vs auto-liquidation with removed op", () => {
-    it("RMA-022: Manual liquidate() on cluster with explicit EB and removed op", async function () {
+    it("RMA-022: Manual liquidate() on cluster with explicit EB and removed op — guard skips removed op", async function () {
       const { network, views, operatorIds } = await networkHelpers.loadFixture(deploy4Ops);
       const provider = connection.ethers.provider;
       const networkAddr = (await network.getAddress()) as string;
@@ -927,14 +938,13 @@ describe("RMA — Removed-Operator x Auto-Liquidation Compound Path", () => {
       // Drain until liquidatable at EB=64 with 3 active ops
       await mineBlocks(provider, 25000);
 
-      // Manual liquidate — _executeLiquidation subtracts deviation from all ops
-      // For removed op: operatorEthVUnits was 10000 (from EB update), then deleted by removeOperator (now 0)
-      // _executeLiquidation: deviation = 20000 - 10000 = 10000
-      // Subtracts 10000 from 0 → underflow revert!
-      // NOTE: Manual liquidate also hits this bug for explicit EB clusters with removed ops
-      await expect(
-        network.connect(liquidator).liquidate(clusterOwner.address, operatorIds, cluster),
-      ).to.be.revertedWithPanic(0x11); // arithmetic underflow
+      // Manual liquidate — guard skips removed op in _executeLiquidation
+      const liqTx = await network.connect(liquidator).liquidate(clusterOwner.address, operatorIds, cluster);
+      await expect(liqTx).to.emit(network, Events.CLUSTER_LIQUIDATED);
+
+      // Removed op's vUnits stays 0
+      expect(await readOperatorEthVUnits(provider, networkAddr, removedOpId)).to.equal(0n);
+      await assertINV11(provider, networkAddr, views, operatorIds, [removedOpId], "RMA-022");
     });
 
     it("RMA-023: Auto-liquidation hits _updateOperatorVUnits THEN _executeLiquidation — behavioral difference from manual", async function () {
@@ -987,8 +997,8 @@ describe("RMA — Removed-Operator x Auto-Liquidation Compound Path", () => {
   // =========================================================================
   // RMA-024: Solvent EB update with removed op — persistent ghost state
   // =========================================================================
-  describe("RMA-024: EB increase without auto-liquidation — ghost state persists", () => {
-    it("Cluster remains solvent after EB increase: _updateOperatorVUnits ghost write persists (no cleanup)", async function () {
+  describe("RMA-024: EB increase without auto-liquidation — guard skips removed op", () => {
+    it("Cluster remains solvent after EB increase: removed op vUnits stays 0", async function () {
       const { network, views, operatorIds } = await networkHelpers.loadFixture(deploy4Ops);
       const provider = connection.ethers.provider;
       const networkAddr = (await network.getAddress()) as string;
@@ -1013,10 +1023,9 @@ describe("RMA — Removed-Operator x Auto-Liquidation Compound Path", () => {
       await expect(updateTx).to.emit(network, Events.CLUSTER_BALANCE_UPDATED);
       await expect(updateTx).to.not.emit(network, Events.CLUSTER_LIQUIDATED);
 
-      // Ghost state persists: _updateOperatorVUnits wrote deltaAbs=10000 to removed op's slot
-      // _executeLiquidation was never called, so no cleanup
-      const ghostVUnits = await readOperatorEthVUnits(provider, networkAddr, removedOpId);
-      expect(ghostVUnits).to.equal(10_000n, "RMA-024: ghost state persists when auto-liq does NOT fire");
+      // Guard skips removed op: vUnits stays 0
+      const removedVUnits = await readOperatorEthVUnits(provider, networkAddr, removedOpId);
+      expect(removedVUnits).to.equal(0n, "RMA-024: removed op vUnits stays 0 (guard skips)");
 
       // Active operators have correct deviation
       for (const opId of operatorIds) {
@@ -1177,12 +1186,13 @@ describe("RMA — Removed-Operator x Auto-Liquidation Compound Path", () => {
   });
 
   // =========================================================================
-  // RMA-028: delta != deviation — residual ghost / underflow revert
+  // RMA-028: delta != deviation — guard skips removed op
   // =========================================================================
-  describe("RMA-028: delta != deviation — underflow when storedVUnits != baselineVUnits", () => {
-    it("Prior non-baseline EB causes deltaAbs != deviation, underflow in _executeLiquidation", async function () {
-      const { network, operatorIds } = await networkHelpers.loadFixture(deploy4Ops);
+  describe("RMA-028: delta != deviation — guard skips removed op", () => {
+    it("Prior non-baseline EB: guard skips removed op, auto-liq succeeds", async function () {
+      const { network, views, operatorIds } = await networkHelpers.loadFixture(deploy4Ops);
       const provider = connection.ethers.provider;
+      const networkAddr = (await network.getAddress()) as string;
 
       // Deposit: enough for EB=64 with 4 ops, small enough to drain with 3 ops
       const vUnits64 = calcVUnits(64n);
@@ -1216,17 +1226,17 @@ describe("RMA — Removed-Operator x Auto-Liquidation Compound Path", () => {
       await mineBlocks(provider, 20000);
 
       // Second EB update: 96 ETH/validator → vUnits = 30000
-      // storedVUnits = 20000, newVUnits = 30000, deltaAbs = 10000
-      // _updateOperatorVUnits: ghost writes 10000 to removed op
-      // _executeLiquidation: baselineVUnits = 10000, deviation = 30000 - 10000 = 20000
-      // Subtracts 20000 from ghost value 10000 → underflow!
+      // Guard skips removed op in _updateOperatorVUnits and _executeLiquidation
       rootBlockNum = await commitNewEB(network, clusterId, 96);
 
-      await expect(
-        network
-          .connect(liquidator)
-          .updateClusterBalance(rootBlockNum, clusterOwner.address, operatorIds, cluster, 96, []),
-      ).to.be.revertedWithPanic(0x11); // arithmetic underflow
+      const updateTx = await network
+        .connect(liquidator)
+        .updateClusterBalance(rootBlockNum, clusterOwner.address, operatorIds, cluster, 96, []);
+      await expect(updateTx).to.emit(network, Events.CLUSTER_LIQUIDATED);
+
+      // Removed op's vUnits stays 0
+      expect(await readOperatorEthVUnits(provider, networkAddr, operatorIds[2])).to.equal(0n);
+      await assertINV11(provider, networkAddr, views, operatorIds, [operatorIds[2]], "RMA-028");
     });
   });
 

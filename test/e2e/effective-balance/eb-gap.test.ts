@@ -583,7 +583,7 @@ describe("W7-F: EB Effective Balance Gap Tests", () => {
   describe("Removed operator + EB interactions", () => {
     const deployFixture = createFixture(4);
 
-    it("EB-055: THE BUG — removeOp + EB increase writes deviation to removed op's operatorEthVUnits", async function () {
+    it("EB-055: removeOp + EB increase — guard skips removed op's operatorEthVUnits", async function () {
       const { network, operatorIds } =
         await networkHelpers.loadFixture(deployFixture);
       const provider = connection.ethers.provider;
@@ -621,14 +621,14 @@ describe("W7-F: EB Effective Balance Gap Tests", () => {
         48,
       ));
 
-      // THE BUG: removed op4 gets +5000 deviation written
+      // Guard skips removed op — vUnits stays 0
       const removedVUnits = await readOperatorEthVUnits(provider, proxyAddr, operatorIds[3]);
       expect(removedVUnits).to.equal(
-        5000n,
-        "BUG: _updateOperatorVUnits writes deviation to removed operator",
+        0n,
+        "removed op vUnits stays 0 (guard skips)",
       );
 
-      // Live operators also get +5000 (correct behavior)
+      // Live operators get +5000 (correct behavior)
       for (let i = 0; i < 3; i++) {
         expect(await readOperatorEthVUnits(provider, proxyAddr, operatorIds[i])).to.equal(5000n);
       }
@@ -733,17 +733,18 @@ describe("W7-F: EB Effective Balance Gap Tests", () => {
         expect(await readOperatorEthVUnits(provider, proxyAddr, operatorIds[i])).to.equal(10000n);
       }
 
-      // BUG: Removed op4 was 0 after removal, gets +5000 written again
+      // Guard skips removed op — vUnits stays 0
       expect(await readOperatorEthVUnits(provider, proxyAddr, operatorIds[3])).to.equal(
-        5000n,
-        "BUG: second EB update resurrects removed op's vUnits",
+        0n,
+        "removed op vUnits stays 0 (guard skips)",
       );
     });
 
-    it("EB-103/EB-114: removed op + EB decrease — subtraction underflows removed op's zero vUnits", async function () {
+    it("EB-103/EB-114: removed op + EB decrease — guard prevents underflow on removed op", async function () {
       const { network, operatorIds } =
         await networkHelpers.loadFixture(deployFixture);
       const provider = connection.ethers.provider;
+      const proxyAddr = await network.getAddress();
 
       let { cluster } = await registerCluster(
         network,
@@ -765,19 +766,26 @@ describe("W7-F: EB Effective Balance Gap Tests", () => {
       await network.connect(operatorOwner).removeOperator(operatorIds[3]);
 
       // EB decrease: 48→32 (storedVUnits=15000, newVUnits=10000, delta=-5000)
-      // _updateOperatorVUnits subtracts 5000 from op4 whose vUnits is 0 → UNDERFLOW
-      const clusterId = computeClusterId(clusterOwner.address, operatorIds);
-      const root = computeEBRoot(clusterId, 32);
-      await mineBlocks(provider, 1);
-      const rootBlockNum = await getBlockNumber(provider);
-      await commitEBRoot(network, root, rootBlockNum, [oracle1, oracle2, oracle3]);
+      // Guard skips removed op — no underflow
+      ({ cluster } = await commitAndUpdateEB(
+        network,
+        provider,
+        clusterOwner,
+        operatorIds,
+        cluster,
+        32,
+      ));
 
-      // This should revert due to uint64 underflow (Solidity 0.8+ panic)
-      await expect(
-        network
-          .connect(clusterOwner)
-          .updateClusterBalance(rootBlockNum, clusterOwner.address, operatorIds, cluster, 32, []),
-      ).to.be.revertedWithPanic();
+      // Removed op stays at 0
+      expect(await readOperatorEthVUnits(provider, proxyAddr, operatorIds[3])).to.equal(
+        0n,
+        "removed op vUnits stays 0 (guard skips)",
+      );
+
+      // Active ops back to baseline (0 deviation: EB=32 for 1 validator = 10000 vUnits = baseline)
+      for (let i = 0; i < 3; i++) {
+        expect(await readOperatorEthVUnits(provider, proxyAddr, operatorIds[i])).to.equal(0n);
+      }
     });
 
     it("EB-104/EB-115: auto-liquidation skips ethValidatorCount decrement for removed ops", async function () {

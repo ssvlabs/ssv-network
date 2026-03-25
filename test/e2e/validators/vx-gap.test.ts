@@ -336,7 +336,7 @@ describe("VX Gap Tests — Validator Remove/Exit", function () {
   // ═══════════════════════════════════════════════════════════════════════════
   //  VX-028: bulkRemoveValidator — explicit EB + removed operator (THE BUG)
   // ═══════════════════════════════════════════════════════════════════════════
-  it("VX-028: bulkRemoveValidator all — explicit EB + removed operator — deviation cleanup bug", async function () {
+  it("VX-028: bulkRemoveValidator all — explicit EB + removed operator — guard skips removed op", async function () {
     const { network, provider, owner, oracles, operatorIds, clusterOwners, networkAddr } =
       await deployAndSetup(4);
     const [clusterOwner] = clusterOwners;
@@ -357,12 +357,17 @@ describe("VX Gap Tests — Validator Remove/Exit", function () {
     await network.connect(owner).removeOperator(operatorIds[0]);
     expect(await readOpEthVUnits(provider, networkAddr, operatorIds[0])).to.equal(0n);
 
-    // bulkRemoveValidator all — line 217 subtracts remainingVUnits from ALL ops including removed op1
-    // BUG: removed operator's operatorEthVUnits was deleted to 0 by removeOperator(),
-    // so 0 - deviation underflows → Panic(0x11)
-    await expect(
-      network.connect(clusterOwner).bulkRemoveValidator(pubkeys, operatorIds, cluster),
-    ).to.be.revertedWithPanic(0x11);
+    // bulkRemoveValidator all — guard skips removed op, no underflow
+    const tx = await network.connect(clusterOwner).bulkRemoveValidator(pubkeys, operatorIds, cluster);
+    await tx.wait();
+
+    // Removed op stays at 0
+    expect(await readOpEthVUnits(provider, networkAddr, operatorIds[0])).to.equal(0n, "removed op vUnits stays 0");
+
+    // Active ops cleaned up to 0 after removing all validators
+    for (let i = 1; i < 4; i++) {
+      expect(await readOpEthVUnits(provider, networkAddr, operatorIds[i])).to.equal(0n, `op[${i}] vUnits cleaned`);
+    }
   });
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -514,7 +519,7 @@ describe("VX Gap Tests — Validator Remove/Exit", function () {
   // ═══════════════════════════════════════════════════════════════════════════
   //  VX-037: bulkRemoveValidator — multiple removed operators, deviation cleanup
   // ═══════════════════════════════════════════════════════════════════════════
-  it("VX-037: bulkRemoveValidator all — 7-op, 2 removed ops, deviation cleanup", async function () {
+  it("VX-037: bulkRemoveValidator all — 7-op, 2 removed ops — guard skips removed ops", async function () {
     const { network, provider, owner, oracles, operatorIds, clusterOwners, networkAddr } =
       await deployAndSetup(7);
     const [clusterOwner] = clusterOwners;
@@ -527,7 +532,6 @@ describe("VX Gap Tests — Validator Remove/Exit", function () {
     const cluster = await performEBUpdate(
       network, oracles, provider, clusterOwner, operatorIds, clusterReg, clusterId, 100,
     );
-    // deviation = calcVUnits(100n) - defaultVUnits(3n) = 1250
 
     // Remove operators 3 and 5 (indices 2 and 4)
     await network.connect(owner).removeOperator(operatorIds[2]);
@@ -535,12 +539,18 @@ describe("VX Gap Tests — Validator Remove/Exit", function () {
     expect(await readOpEthVUnits(provider, networkAddr, operatorIds[2])).to.equal(0n);
     expect(await readOpEthVUnits(provider, networkAddr, operatorIds[4])).to.equal(0n);
 
-    // Bulk remove all — deviation loop iterates ALL 7 ops including removed ones
-    // BUG: removed operators' operatorEthVUnits was deleted to 0 by removeOperator(),
-    // so 0 - remainingVUnits underflows → Panic(0x11)
-    await expect(
-      network.connect(clusterOwner).bulkRemoveValidator(pubkeys, operatorIds, cluster),
-    ).to.be.revertedWithPanic(0x11);
+    // Bulk remove all — guard skips removed ops, no underflow
+    const tx = await network.connect(clusterOwner).bulkRemoveValidator(pubkeys, operatorIds, cluster);
+    await tx.wait();
+
+    // Removed ops stay at 0
+    expect(await readOpEthVUnits(provider, networkAddr, operatorIds[2])).to.equal(0n, "removed op[2] stays 0");
+    expect(await readOpEthVUnits(provider, networkAddr, operatorIds[4])).to.equal(0n, "removed op[4] stays 0");
+
+    // Active ops cleaned up to 0
+    for (const i of [0, 1, 3, 5, 6]) {
+      expect(await readOpEthVUnits(provider, networkAddr, operatorIds[i])).to.equal(0n, `op[${i}] vUnits cleaned`);
+    }
   });
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -864,7 +874,7 @@ describe("VX Gap Tests — Validator Remove/Exit", function () {
   // ═══════════════════════════════════════════════════════════════════════════
   //  VX-063: bulkRemoveValidator — EB deviation underflow with removed op (THE BUG variant)
   // ═══════════════════════════════════════════════════════════════════════════
-  it("VX-063: bulkRemoveValidator — EB underflow when removed op has 0 vUnits (critical bug)", async function () {
+  it("VX-063: bulkRemoveValidator — removed op with 0 vUnits — guard prevents underflow", async function () {
     const { network, provider, owner, oracles, operatorIds, clusterOwners, networkAddr } =
       await deployAndSetup(4);
     const [clusterOwner] = clusterOwners;
@@ -888,11 +898,17 @@ describe("VX Gap Tests — Validator Remove/Exit", function () {
       expect(await readOpEthVUnits(provider, networkAddr, operatorIds[i])).to.equal(deviation);
     }
 
-    // Bulk remove all — deviation cleanup subtracts remainingVUnits from all ops
-    // BUG: 0 - 5000 = underflow Panic(0x11) for removed operator
-    await expect(
-      network.connect(clusterOwner).bulkRemoveValidator(pubkeys, operatorIds, cluster),
-    ).to.be.revertedWithPanic(0x11);
+    // Bulk remove all — guard skips removed op, no underflow
+    const tx = await network.connect(clusterOwner).bulkRemoveValidator(pubkeys, operatorIds, cluster);
+    await tx.wait();
+
+    // Removed op stays at 0
+    expect(await readOpEthVUnits(provider, networkAddr, operatorIds[0])).to.equal(0n, "removed op stays 0");
+
+    // Active ops cleaned up to 0
+    for (let i = 1; i < 4; i++) {
+      expect(await readOpEthVUnits(provider, networkAddr, operatorIds[i])).to.equal(0n, `op[${i}] vUnits cleaned`);
+    }
   });
 
   // ═══════════════════════════════════════════════════════════════════════════

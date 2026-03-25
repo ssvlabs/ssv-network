@@ -2207,23 +2207,18 @@ describe("Removed-Operator Multi-Step Chains (RMC)", function () {
         ),
       ).to.be.revertedWithCustomError(network, Errors.OPERATOR_DOES_NOT_EXIST);
 
-      // EB 48→64 still works
+      // EB 48→64 — guard skips removed ops, update succeeds
       cluster = await performEBUpdate(connection, network, oracles, provider, owner, operatorIds, cluster, clusterId, 64);
       await assertDeadOperatorVUnitsZero(provider, networkAddress, deadOps, "after EB=64");
 
-      // removeValidator works
+      // removeValidator works — cluster goes to 0 validators
       tx = await network.connect(owner).removeValidator(makePublicKey(1), operatorIds, cluster);
       cluster = parseClusterFromEvent(network, await tx.wait(), Events.VALIDATOR_REMOVED);
       expect(cluster.validatorCount).to.equal(0n);
       await assertDeadOperatorVUnitsZero(provider, networkAddress, deadOps, "after removeValidator");
 
-      // EB 64→48 still works
-      cluster = await performEBUpdate(connection, network, oracles, provider, owner, operatorIds, cluster, clusterId, 48);
-      await assertDeadOperatorVUnitsZero(provider, networkAddress, deadOps, "after EB=48");
-
-      // removeValidator all remaining — empty cluster
-      // Already at 0 validators, verify state
-      expect(cluster.validatorCount).to.equal(0n);
+      // With 0 validators, any non-zero EB update correctly reverts (0 * 2048 = 0 < any EB)
+      // Verify dead ops still have 0 vUnits at end of chain
       await assertDeadOperatorVUnitsZero(provider, networkAddress, deadOps, "final check");
     });
   });

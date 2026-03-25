@@ -674,7 +674,7 @@ describe("RM4 — migrateClusterToETH with Removed Operators", function () {
       )();
     }
 
-    it("RM4-002: 4-op, 1 removed, explicit EB deviation > 0 — stranded vUnits on removed op", async function () {
+    it("RM4-002: 4-op, 1 removed, explicit EB deviation > 0 — guard skips removed op", async function () {
       const { network, views, operatorIds, cluster } =
         await networkHelpers.loadFixture(deploy4Op2Val);
       const provider = connection.ethers.provider;
@@ -715,24 +715,20 @@ describe("RM4 — migrateClusterToETH with Removed Operators", function () {
       expect(removedOp.fee).to.equal(0n);
       expect(removedOp.isActive).to.equal(false);
 
-      // BUT: deviation loop at SSVClusters.sol:319-322 writes ALL operatorIds unconditionally
-      // Removed op receives stranded deviation
+      // Guard skips removed op: vUnits stays 0
       const removedVUnits = await readOpVUnits(provider, networkAddr, operatorIds[3]);
-      expect(removedVUnits).to.equal(deviation, "removed op receives stranded deviation");
+      expect(removedVUnits).to.equal(0n, "removed op vUnits stays 0 (guard skips)");
 
-      // Live ops also get deviation
+      // Live ops get deviation
       for (let i = 0; i < 3; i++) {
         const liveVUnits = await readOpVUnits(provider, networkAddr, operatorIds[i]);
         expect(liveVUnits).to.equal(deviation);
       }
 
-      // INV-11 with deviation: baseline + 4 * deviation (all 4 ops including removed)
-      // But ethDaoValidatorCount only counts cluster.validatorCount (2)
-      // daoTotalEthVUnits = ethDaoValidatorCount * BPS + deviation (added once for the cluster)
       await assertINV11Explicit(provider, networkAddr, views, deviation);
     });
 
-    it("RM4-014: 4-op, 1 removed, explicit EB deviation = 30000 — deep-dive stranded data", async function () {
+    it("RM4-014: 4-op, 1 removed, explicit EB deviation = 30000 — guard skips removed op", async function () {
       const fixture = buildFixture(
         () => connection,
         () => operatorOwner,
@@ -769,11 +765,11 @@ describe("RM4 — migrateClusterToETH with Removed Operators", function () {
       const deviation = vUnitsExplicit - 5n * BPS_DENOMINATOR;
       expect(deviation).to.equal(30000n);
 
-      // Stranded deviation on removed op
+      // Guard skips removed op: vUnits stays 0
       const removedVUnits = await readOpVUnits(provider, networkAddr, operatorIds[3]);
-      expect(removedVUnits).to.equal(deviation, "stranded 30000 deviation on removed op");
+      expect(removedVUnits).to.equal(0n, "removed op vUnits stays 0 (guard skips)");
 
-      // Live ops get deviation too
+      // Live ops get deviation
       for (let i = 0; i < 3; i++) {
         expect(await readOpVUnits(provider, networkAddr, operatorIds[i])).to.equal(deviation);
       }
@@ -787,7 +783,7 @@ describe("RM4 — migrateClusterToETH with Removed Operators", function () {
       await assertINV11Explicit(provider, networkAddr, views, deviation);
     });
 
-    it("RM4-022: 4-op, 2 removed, explicit EB deviation — both get stranded vUnits", async function () {
+    it("RM4-022: 4-op, 2 removed, explicit EB deviation — guard skips removed ops", async function () {
       const { network, views, operatorIds, cluster } =
         await networkHelpers.loadFixture(deploy4Op2Val);
       const provider = connection.ethers.provider;
@@ -816,9 +812,9 @@ describe("RM4 — migrateClusterToETH with Removed Operators", function () {
 
       const deviation = vUnitsExplicit - 2n * BPS_DENOMINATOR;
 
-      // Both removed ops get stranded deviation
-      expect(await readOpVUnits(provider, networkAddr, operatorIds[2])).to.equal(deviation);
-      expect(await readOpVUnits(provider, networkAddr, operatorIds[3])).to.equal(deviation);
+      // Guard skips removed ops: vUnits stays 0
+      expect(await readOpVUnits(provider, networkAddr, operatorIds[2])).to.equal(0n);
+      expect(await readOpVUnits(provider, networkAddr, operatorIds[3])).to.equal(0n);
 
       // Both removed ops are fully dead
       for (const idx of [2, 3]) {
@@ -911,7 +907,7 @@ describe("RM4 — migrateClusterToETH with Removed Operators", function () {
       };
     };
 
-    it("RM4-019: migrate with removed op, then EB update — removed op still skipped", async function () {
+    it("RM4-019: migrate with removed op, then EB update — guard skips removed op", async function () {
       const { network, views, operatorIds, cluster, oracleSigners } =
         await networkHelpers.loadFixture(deploy4Op3ValWithOracles);
       const provider = connection.ethers.provider;
@@ -976,13 +972,9 @@ describe("RM4 — migrateClusterToETH with Removed Operators", function () {
       expect(removedOp.fee).to.equal(0n, "removed op ethFee stays 0");
       expect(removedOp.isActive).to.equal(false, "removed op stays inactive");
 
-      // vUnits may have stranded deviation on removed op (from _updateOperatorVUnits loop)
-      // This is a known surface — the loop iterates ALL operatorIds
+      // Guard skips removed op: vUnits stays 0
       const removedVUnits = await readOpVUnits(provider, networkAddr, operatorIds[3]);
-      // Removed op gets stranded deviation from the vUnit update loop
-      // (SSVClusters.sol:494-509 _updateOperatorVUnits iterates ALL operatorIds)
-      const deviation = 40000n - 3n * BPS_DENOMINATOR; // 10000
-      expect(removedVUnits).to.equal(deviation, "removed op gets stranded deviation from vUnit update loop");
+      expect(removedVUnits).to.equal(0n, "removed op vUnits stays 0 (guard skips)");
 
       // Fee accrual excludes op4: burn rate based on 3 ops only
       const burnRate = await views.getBurnRate(
@@ -996,7 +988,7 @@ describe("RM4 — migrateClusterToETH with Removed Operators", function () {
       expect(updatedCluster.balance).to.be.lessThan(migratedCluster.balance);
     });
 
-    it("RM4-020: migrate with removed op, then EB update — _updateOperatorVUnits behavior", async function () {
+    it("RM4-020: migrate with removed op, then EB update — guard skips removed op in vUnit update", async function () {
       const { network, views, operatorIds, cluster, oracleSigners } =
         await networkHelpers.loadFixture(deploy4Op3ValWithOracles);
       const provider = connection.ethers.provider;
@@ -1045,20 +1037,22 @@ describe("RM4 — migrateClusterToETH with Removed Operators", function () {
       );
       await updateTx.wait();
 
-      // _updateOperatorVUnits loops over ALL operatorIds
-      // Removed op may get vUnits delta written (stranded)
+      // Guard skips removed op: vUnits stays 0
       const deviation = 40000n - 3n * BPS_DENOMINATOR;
-      for (const opId of operatorIds) {
-        const vUnits = await readOpVUnits(provider, networkAddr, opId);
-        // All ops (including removed) should have the deviation
-        expect(vUnits).to.equal(deviation, `op ${opId} should have deviation vUnits`);
+      expect(await readOpVUnits(provider, networkAddr, operatorIds[3])).to.equal(
+        0n, "removed op vUnits stays 0 (guard skips)",
+      );
+
+      // Active ops get deviation
+      for (let i = 0; i < 3; i++) {
+        const vUnits = await readOpVUnits(provider, networkAddr, operatorIds[i]);
+        expect(vUnits).to.equal(deviation, `op ${operatorIds[i]} should have deviation vUnits`);
       }
 
       // Removed op still not resurrected
       const removedOp = await views.getOperatorById(operatorIds[3]);
       expect(removedOp.validatorCount).to.equal(0n);
       expect(removedOp.isActive).to.equal(false);
-      // View-level state is still clean despite stranded vUnits
       expect(removedOp.fee).to.equal(0n, "removed op fee must be 0");
     });
   });
@@ -1516,8 +1510,8 @@ describe("RM4 — migrateClusterToETH with Removed Operators", function () {
       await assertINV11Implicit(provider, networkAddr, views);
     });
 
-    // RM4-025: Full lifecycle regression
-    it("RM4-025: full lifecycle — register, create, remove, migrate, EB update, verify no ghost data", async function () {
+    // RM4-025: Full lifecycle regression — guard skips removed op
+    it("RM4-025: full lifecycle — register, create, remove, migrate, EB update, guard skips removed op", async function () {
       const conn = connection;
       const fixture = async function rm4025Fixture() {
         const {
@@ -1688,20 +1682,19 @@ describe("RM4 — migrateClusterToETH with Removed Operators", function () {
       // Fee accrual for 200 blocks uses 3 operator fees only
       expect(updatedCluster.balance).to.be.lessThan(migratedCluster.balance);
 
-      // vUnits updated: deviation distributed to ALL ops (including removed — stranded)
+      // vUnits updated: deviation distributed to active ops only (guard skips removed)
       const newVUnits = 40000n; // ceil(128 * 10000 / 32) = 40000
       const baseline = 3n * BPS_DENOMINATOR; // 30000
       const deviation = newVUnits - baseline; // 10000
 
-      // operatorEthVUnits[op4] may be non-zero (stranded deviation — known surface)
+      // Guard skips removed op: vUnits stays 0
       const op4VUnitsAfterEB = await readOpVUnits(provider, networkAddr, operatorIds[3]);
-      // This is the known stranded data from the vUnit update loop
       expect(op4VUnitsAfterEB).to.equal(
-        deviation,
-        "stranded deviation on removed op after EB update (known surface)",
+        0n,
+        "removed op vUnits stays 0 after EB update (guard skips)",
       );
 
-      // Live ops also have deviation
+      // Live ops have deviation
       for (let i = 0; i < 3; i++) {
         expect(await readOpVUnits(provider, networkAddr, operatorIds[i])).to.equal(deviation);
       }

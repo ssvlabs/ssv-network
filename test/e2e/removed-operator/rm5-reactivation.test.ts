@@ -387,11 +387,11 @@ describe("RM5 — Removed Operator Reactivation Guard", () => {
 
   // -----------------------------------------------------------------------
   // RM5-002 — Order invariance: remove BEFORE liquidation
-  // With explicit EB, liquidation reverts (underflow in deviation cleanup)
+  // Guard skips removed op in _executeLiquidation
   // -----------------------------------------------------------------------
   describe("Order invariance (RM5-002)", () => {
-    it("RM5-002: Remove op BEFORE liquidation with explicit EB — liquidation reverts (underflow)", async function () {
-      const { network } =
+    it("RM5-002: Remove op BEFORE liquidation with explicit EB — guard skips removed op, liquidation succeeds", async function () {
+      const { network, proxyAddr } =
         await networkHelpers.loadFixture(deployFixture);
       const provider = connection.ethers.provider;
 
@@ -411,11 +411,23 @@ describe("RM5 — Removed Operator Reactivation Guard", () => {
       // Drain balance
       await mineBlocks(provider, 1_000_000_000_000);
 
-      // Liquidation should revert: _executeLiquidation tries to subtract
-      // deviation from operatorEthVUnits[removedOp] which is 0 → underflow
-      await expect(
-        network.connect(liquidator).liquidate(clusterOwner.address, operatorIds, cluster),
-      ).to.be.revertedWithPanic();
+      // Guard skips removed op — liquidation succeeds
+      const liqTx = await network.connect(liquidator).liquidate(clusterOwner.address, operatorIds, cluster);
+      const liquidatedCluster = parseClusterFromEvent(
+        network,
+        await liqTx.wait(),
+        Events.CLUSTER_LIQUIDATED,
+      );
+      expect(liquidatedCluster.active).to.equal(false);
+
+      // Removed op's vUnits stays 0
+      expect(await readOperatorEthVUnits(provider, proxyAddr, BigInt(operatorIds[1]))).to.equal(0n);
+
+      // Reactivate — cluster can be reactivated after fix
+      const reactivatedCluster = await reactivate(
+        network, clusterOwner, operatorIds, liquidatedCluster,
+      );
+      expect(reactivatedCluster.active).to.equal(true);
     });
 
     it("RM5-002b: Remove op BEFORE liquidation with implicit EB — works, then reactivate", async function () {
