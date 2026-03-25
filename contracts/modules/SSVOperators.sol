@@ -161,7 +161,9 @@ contract SSVOperators is ISSVOperators, SSVReentrancyGuard {
             revert ApprovalNotWithinTimeframe();
         }
 
-        if (PackedETH.wrap(feeChangeRequest.fee).gt(SSVStorageProtocol.load().operatorMaxFee)) revert FeeTooHigh();
+        StorageProtocol storage sp = SSVStorageProtocol.load();
+        if (PackedETH.wrap(feeChangeRequest.fee).gt(sp.operatorMaxFee)) revert FeeTooHigh();
+        if (feeChangeRequest.fee != 0 && feeChangeRequest.fee < PackedETH.unwrap(sp.minimumOperatorEthFee)) revert FeeTooLow();
 
         Operator storage operator = s.operators[operatorId];
         OperatorLib.updateSnapshotSt(operator, operatorId);

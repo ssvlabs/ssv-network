@@ -2952,7 +2952,7 @@ When multiple clusters share operators, each EB update on any cluster modifies t
 - **Github Link:**
 
 **Requirement:**
-Close the accounting-correctness gaps across DAO vUnit tracking, operator fee lifecycle, explicit EB edge cases, precision, and staking revenue scaling. Most are ⚠️ partial gaps where the two halves of a scenario exist in separate tests but have never been combined. The four ❌ critical gaps are: D-06 (design-intent assertion: DAO unchanged on `removeOperator`), F-07/F-08 (execute-time minimum fee re-check), EC-01 (explicit 32 ETH + removed operator + liquidation), and EC-10 (max EB decrease after operator removal).
+Close the accounting-correctness gaps across DAO vUnit tracking, operator fee lifecycle, explicit EB edge cases, precision, and staking revenue scaling. Most are ⚠️ partial gaps where the two halves of a scenario exist in separate tests but have never been combined. The originally identified ❌ critical gaps included: D-06 (design-intent assertion: DAO unchanged on `removeOperator`), F-07/F-08 (execute-time minimum fee re-check), EC-01 (explicit 32 ETH + removed operator + liquidation), and EC-10 (max EB decrease after operator removal).
 
 **Gaps covered:**
 
@@ -2976,8 +2976,8 @@ Close the accounting-correctness gaps across DAO vUnit tracking, operator fee li
 | F-04 | ⚠️ | register validator (EB=64) → advance blocks → withdrawOperatorEarnings → assert exact ETH received |
 | F-05 | ⚠️ | register validator (EB=64) → removeOperator → withdrawOperatorEarnings (revert or frozen) |
 | F-06 | ⚠️ | register validator (EB=64) → updateClusterBalance (EB=128) → withdrawOperatorEarnings → assert EB-weighted ETH |
-| F-07 | ❌ | register validator (EB=64) → declareOperatorFee at current min → governance raises min above declared → executeOperatorFee (revert `FeeTooLow`) |
-| F-08 | ❌ | register validator (EB=64) → declareOperatorFee above old min → governance raises min to exact declared value → executeOperatorFee (success, boundary) |
+| F-07 | ✅ | register validator (EB=64) → declareOperatorFee at current min → governance raises min above declared → executeOperatorFee (revert `FeeTooLow`) |
+| F-08 | ✅ | register validator (EB=64) → declareOperatorFee above old min → governance raises min to exact declared value → executeOperatorFee (success, boundary) |
 
 *Explicit EB edges and boundaries* (reference: [VUNITS-SCENARIOS.md §10 Edge Cases](ssv-review/planning/VUNITS-SCENARIOS.md)):
 
@@ -3044,7 +3044,7 @@ Close the accounting-correctness gaps across DAO vUnit tracking, operator fee li
 **Acceptance Criteria:**
 - [ ] D-02 through D-07: All DAO vUnit tracking assertions pass, including D-06 design-intent assertion
 - [ ] F-02 through F-06: Fee lifecycle with explicit EB — settlement and withdrawal math correct
-- [ ] F-07/F-08: Execute-time minimum fee re-check — revert on stale-min (F-07), succeed at boundary (F-08)
+- [x] F-07/F-08: Execute-time minimum fee re-check — revert on stale-min (F-07), succeed at boundary (F-08)
 - [ ] EC-01: Explicit EB=32 + removed operator + liquidation does not revert
 - [ ] EC-10: Max EB=2048 + removed operator + EB decrease to 32 skips removed op correctly
 - [ ] EC-02/04/07/08/09: Combined scenario tests close the partial gaps
@@ -3061,7 +3061,7 @@ Close the accounting-correctness gaps across DAO vUnit tracking, operator fee li
 #### Sub-items:
 - [ ] Sub-task 1: DAO vUnit tracking (D-02 to D-07)
 - [ ] Sub-task 2: Fee lifecycle with explicit EB (F-02 to F-06)
-- [ ] Sub-task 3: Execute-time minimum fee boundary (F-07, F-08) — critical ❌
+- [x] Sub-task 3: Execute-time minimum fee boundary (F-07, F-08)
 - [ ] Sub-task 4: Explicit EB edges and boundaries (EC-01, EC-02, EC-04, EC-07, EC-08, EC-09, EC-10)
 - [ ] Sub-task 5: Precision and dust (P-02, P-03, P-05)
 - [ ] Sub-task 6: Staking revenue scaling (S-02, S-04)

@@ -165,7 +165,7 @@ describe("SSVOperators function `executeOperatorFee()`", async () => {
     );
   });
 
-  it("executeOperatorFee keeps declaration valid even if governance minimum rises before execute", async function () {
+  it("[F-07] executeOperatorFee reverts when governance minimum rises above declared fee", async function () {
     const { operators } = await networkHelpers.loadFixture(deployOperatorsFixture);
     const declaredFee = MINIMAL_OPERATOR_ETH_FEE + ETH_DEDUCTED_DIGITS;
     const raisedMinimum = declaredFee + ETH_DEDUCTED_DIGITS;
@@ -176,14 +176,13 @@ describe("SSVOperators function `executeOperatorFee()`", async () => {
 
     await networkHelpers.mine(DECLARE_OPERATOR_FEE_PERIOD + 1n);
 
-    await expect(operators.executeOperatorFee(1))
-      .to.emit(operators, Events.OPERATOR_FEE_EXECUTED);
-
-    const operator = await operators.getOperator(1);
-    expect(operator.ethFee).to.equal(declaredFee / ETH_DEDUCTED_DIGITS);
+    await expect(operators.executeOperatorFee(1)).to.be.revertedWithCustomError(
+      operators,
+      Errors.FEE_TOO_LOW
+    );
   });
 
-  it("executeOperatorFee succeeds when declared fee equals newly raised minimum", async function () {
+  it("[F-08] executeOperatorFee succeeds when declared fee equals newly raised minimum", async function () {
     const { operators } = await networkHelpers.loadFixture(deployOperatorsFixture);
     const declaredFee = MINIMAL_OPERATOR_ETH_FEE + ETH_DEDUCTED_DIGITS * 3n;
 
