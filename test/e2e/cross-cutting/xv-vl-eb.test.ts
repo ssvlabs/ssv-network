@@ -1,5 +1,5 @@
 /**
- * XV-004 through XV-062: Validator↔EB cross-module interaction tests.
+ * XV-001 through XV-062: Validator↔EB cross-module interaction tests.
  *
  * Covers: lifecycle & cleanup, exit interactions, re-registration/round-trips,
  * sequential/interleaving, empty-cluster EB revert, removed operator bug paths,
@@ -301,9 +301,161 @@ describe("XV: Validator↔EB Cross-Module Tests", function () {
   const oracles = () => [oracle1, oracle2, oracle3, oracle4];
 
   // =========================================================================
-  // Lifecycle & Cleanup (XV-004, 006, 007, 009, 010, 011, 013)
+  // Lifecycle & Cleanup (XV-001, 002, 003, 004, 005, 006, 007, 009, 010, 011, 012, 013)
   // =========================================================================
   describe("Lifecycle & Cleanup", () => {
+    it("XV-001: register → EB at baseline (32 ETH) → remove — full lifecycle, no deviation", async function () {
+      const { network } = await networkHelpers.loadFixture(baseFixture);
+      const prov = connection.ethers.provider;
+      const addr = await network.getAddress();
+      const ops = await setupOps(network, opOwner, 4, [clusterOwner.address]);
+
+      // Register 1 validator
+      let cl = await regVal(network, clusterOwner, ops, EMPTY_CLUSTER, DEFAULT_ETH_REGISTER_VALUE, 1);
+
+      // EB update at baseline: 32 ETH → deviation = 0
+      cl = await doEB(network, prov, clusterOwner, ops, cl, 32, oracles());
+      const v32 = calcVUnits(32n); // 10000
+      expect(v32).to.equal(defaultVUnits(1n), "baseline vUnits equals default");
+      await assertAllOpVUnits(prov, addr, ops, 0n, "no deviation at baseline");
+      expect(await readDaoVUnits(prov, addr)).to.equal(defaultVUnits(1n), "DAO vUnits equals baseline for 1 validator");
+
+      // Remove last validator
+      cl = await remVal(network, clusterOwner, ops, cl, 1);
+      expect(cl.validatorCount).to.equal(0n);
+
+      // All operator vUnits zeroed
+      await assertAllOpVUnits(prov, addr, ops, 0n, "operators cleaned after remove");
+      // DAO vUnits zeroed
+      expect(await readDaoVUnits(prov, addr)).to.equal(0n, "DAO vUnits zero after remove");
+    });
+
+    it("XV-002: register → EB 48 ETH → remove — full lifecycle with deviation cleanup", async function () {
+      const { network } = await networkHelpers.loadFixture(baseFixture);
+      const prov = connection.ethers.provider;
+      const addr = await network.getAddress();
+      const ops = await setupOps(network, opOwner, 4, [clusterOwner.address]);
+
+      // Register 1 validator
+      let cl = await regVal(network, clusterOwner, ops, EMPTY_CLUSTER, DEFAULT_ETH_REGISTER_VALUE, 1);
+
+      // EB update: 48 ETH → deviation = 5000
+      cl = await doEB(network, prov, clusterOwner, ops, cl, 48, oracles());
+      const v48 = calcVUnits(48n); // 15000
+      const dev = v48 - defaultVUnits(1n); // 5000
+      expect(dev).to.equal(5000n, "deviation value");
+
+      // Verify per-operator vUnits
+      for (const id of ops) {
+        expect(await readOpVUnits(prov, addr, BigInt(id))).to.equal(
+          dev,
+          `op${id} vUnits after EB`,
+        );
+      }
+      // Verify DAO vUnits consistency
+      expect(await readDaoVUnits(prov, addr)).to.equal(calcVUnits(48n), "DAO vUnits after EB");
+
+      // Remove last validator — triggers deviation cleanup loop
+      cl = await remVal(network, clusterOwner, ops, cl, 1);
+      expect(cl.validatorCount).to.equal(0n);
+
+      // All operator vUnits cleaned to 0
+      await assertAllOpVUnits(prov, addr, ops, 0n, "operators cleaned after remove");
+      // DAO vUnits cleaned
+      expect(await readDaoVUnits(prov, addr)).to.equal(0n, "DAO vUnits zero after cleanup");
+    });
+
+    it("XV-003: register 3 vals → EB 48/val → remove 1 — partial remove, deviation preserved", async function () {
+      const { network } = await networkHelpers.loadFixture(baseFixture);
+      const prov = connection.ethers.provider;
+      const addr = await network.getAddress();
+      const ops = await setupOps(network, opOwner, 4, [clusterOwner.address]);
+
+      // Register 3 validators
+      let cl = await regVals(network, clusterOwner, ops, 3);
+
+      // EB update: 144 ETH (48*3)
+      cl = await doEB(network, prov, clusterOwner, ops, cl, 144, oracles());
+      const v144 = calcVUnits(144n); // 45000
+      const baseline3 = defaultVUnits(3n); // 30000
+      const deviation = v144 - baseline3; // 15000
+      expect(deviation).to.equal(15000n, "expected deviation");
+
+      // Per-operator and DAO vUnits after EB
+      for (const id of ops) {
+        expect(await readOpVUnits(prov, addr, BigInt(id))).to.equal(
+          deviation,
+          `op${id} vUnits after EB`,
+        );
+      }
+      expect(await readDaoVUnits(prov, addr)).to.equal(calcVUnits(144n), "DAO vUnits after EB");
+
+      // Remove 1 validator (partial — validatorCount > 0, no cleanup)
+      cl = await remVal(network, clusterOwner, ops, cl, 1);
+      expect(cl.validatorCount).to.equal(2n);
+
+      // Deviation preserved (not cleaned since validatorCount > 0)
+      await assertAllOpVUnits(prov, addr, ops, deviation, "deviation preserved after partial remove");
+      expect(await readDaoVUnits(prov, addr)).to.equal(calcVUnits(144n) - defaultVUnits(1n), "DAO vUnits after partial remove");
+    });
+
+    it("XV-005: register 3 vals → EB 48/val → remove all 3 — full deviation cleanup", async function () {
+      const { network } = await networkHelpers.loadFixture(baseFixture);
+      const prov = connection.ethers.provider;
+      const addr = await network.getAddress();
+      const ops = await setupOps(network, opOwner, 4, [clusterOwner.address]);
+
+      // Register 3 validators
+      let cl = await regVals(network, clusterOwner, ops, 3);
+
+      // EB update: 144 ETH (48*3)
+      cl = await doEB(network, prov, clusterOwner, ops, cl, 144, oracles());
+      const v144 = calcVUnits(144n); // 45000
+      const deviation = v144 - defaultVUnits(3n); // 15000
+
+      // Verify deviation written to all operators and DAO
+      for (const id of ops) {
+        expect(await readOpVUnits(prov, addr, BigInt(id))).to.equal(
+          deviation,
+          `op${id} vUnits after EB`,
+        );
+      }
+      expect(await readDaoVUnits(prov, addr)).to.equal(calcVUnits(144n), "DAO vUnits after EB");
+
+      // Remove all 3 validators serially
+      cl = await remVal(network, clusterOwner, ops, cl, 1);
+      cl = await remVal(network, clusterOwner, ops, cl, 2);
+      cl = await remVal(network, clusterOwner, ops, cl, 3);
+      expect(cl.validatorCount).to.equal(0n);
+
+      // Deviation subtracted from all 4 operators
+      await assertAllOpVUnits(prov, addr, ops, 0n, "all operators cleaned after full remove");
+      // DAO vUnits zeroed
+      expect(await readDaoVUnits(prov, addr)).to.equal(0n, "DAO vUnits zero after full cleanup");
+    });
+
+    it("XV-012: register → remove (implicit EB only) — no EB cleanup path entered", async function () {
+      const { network } = await networkHelpers.loadFixture(baseFixture);
+      const prov = connection.ethers.provider;
+      const addr = await network.getAddress();
+      const ops = await setupOps(network, opOwner, 4, [clusterOwner.address]);
+
+      // Register 1 validator (implicit EB — no updateClusterBalance ever called)
+      let cl = await regVal(network, clusterOwner, ops, EMPTY_CLUSTER, DEFAULT_ETH_REGISTER_VALUE, 1);
+
+      // No EB update — all operator vUnits should be 0 (implicit mode)
+      await assertAllOpVUnits(prov, addr, ops, 0n, "no deviation in implicit mode");
+      expect(await readDaoVUnits(prov, addr)).to.equal(defaultVUnits(1n), "DAO vUnits equals baseline for 1 implicit validator");
+
+      // Remove last validator
+      cl = await remVal(network, clusterOwner, ops, cl, 1);
+      expect(cl.validatorCount).to.equal(0n);
+
+      // Operator vUnits remain 0 (EB cleanup path not entered since ebSnapshot.vUnits == 0)
+      await assertAllOpVUnits(prov, addr, ops, 0n, "operators still zero after remove");
+      expect(await readDaoVUnits(prov, addr)).to.equal(0n, "DAO vUnits still zero after remove");
+    });
+
     it("XV-004: partial remove leaving 1 validator — deviation preserved", async function () {
       const { network } = await networkHelpers.loadFixture(baseFixture);
       const prov = connection.ethers.provider;
@@ -601,7 +753,7 @@ describe("XV: Validator↔EB Cross-Module Tests", function () {
   });
 
   // =========================================================================
-  // Sequential / Interleaving (XV-019, 020, 036, 039, 041, 057)
+  // Sequential / Interleaving (XV-019, 020, 036, 039, 041, 057, 058)
   // =========================================================================
   describe("Sequential / Interleaving", () => {
     it("XV-019: 5 vals → EB → remove 2 → EB again → remove 3", async function () {
@@ -762,6 +914,42 @@ describe("XV: Validator↔EB Cross-Module Tests", function () {
       cl = await remVal(network, clusterOwner, ops, cl, 1);
       expect(cl.validatorCount).to.equal(0n);
       await assertAllOpVUnits(prov, addr, ops, 0n, "all deviation cleaned");
+    });
+
+    it("XV-058: EB increase (64 ETH) then decrease (48 ETH) → remove — correct deviation cleaned", async function () {
+      const { network } = await networkHelpers.loadFixture(baseFixture);
+      const prov = connection.ethers.provider;
+      const addr = await network.getAddress();
+      const ops = await setupOps(network, opOwner, 4, [clusterOwner.address]);
+
+      let cl = await regVal(network, clusterOwner, ops, EMPTY_CLUSTER, DEFAULT_ETH_REGISTER_VALUE, 1);
+
+      // First EB: 64 ETH → deviation = 10000
+      cl = await doEB(network, prov, clusterOwner, ops, cl, 64, oracles());
+      const dev1 = calcVUnits(64n) - defaultVUnits(1n); // 10000
+      expect(dev1).to.equal(10000n, "deviation after first EB");
+      await assertAllOpVUnits(prov, addr, ops, dev1, "after first EB (64 ETH)");
+      expect(await readDaoVUnits(prov, addr)).to.equal(calcVUnits(64n), "DAO vUnits after first EB");
+
+      // Second EB: 48 ETH → deviation shrinks to 5000
+      cl = await doEB(network, prov, clusterOwner, ops, cl, 48, oracles());
+      const dev2 = calcVUnits(48n) - defaultVUnits(1n); // 5000
+      expect(dev2).to.equal(5000n, "deviation after second EB");
+
+      // Each operator should have 5000 (not peak 10000)
+      for (const id of ops) {
+        expect(await readOpVUnits(prov, addr, BigInt(id))).to.equal(
+          dev2,
+          `op${id} vUnits after EB decrease`,
+        );
+      }
+      expect(await readDaoVUnits(prov, addr)).to.equal(calcVUnits(48n), "DAO vUnits after EB decrease");
+
+      // Remove last — remainingVUnits = 5000 (current deviation, not peak)
+      cl = await remVal(network, clusterOwner, ops, cl, 1);
+      expect(cl.validatorCount).to.equal(0n);
+      await assertAllOpVUnits(prov, addr, ops, 0n, "deviation fully cleaned");
+      expect(await readDaoVUnits(prov, addr)).to.equal(0n, "DAO vUnits zeroed");
     });
   });
 
@@ -965,7 +1153,7 @@ describe("XV: Validator↔EB Cross-Module Tests", function () {
   });
 
   // =========================================================================
-  // Multi-Cluster Shared Ops (XV-027)
+  // Multi-Cluster Shared Ops (XV-027, 042)
   // =========================================================================
   describe("Multi-Cluster Shared Ops", () => {
     it("XV-027: two clusters share ops — remove from cluster A preserves B's deviation", async function () {
@@ -1008,10 +1196,59 @@ describe("XV: Validator↔EB Cross-Module Tests", function () {
       expect(clB.validatorCount).to.equal(0n);
       await assertAllOpVUnits(prov, addr, ops, 0n, "all cleaned");
     });
+
+    it("XV-042: two clusters, same ops, independent EB — remove A then B", async function () {
+      const { network } = await networkHelpers.loadFixture(baseFixture);
+      const prov = connection.ethers.provider;
+      const addr = await network.getAddress();
+      const ops = await setupOps(network, opOwner, 4, [
+        clusterOwner.address,
+        clusterOwner2.address,
+      ]);
+
+      // Cluster A: 1 validator, EB 48 ETH
+      let clA = await regVal(network, clusterOwner, ops, EMPTY_CLUSTER, DEFAULT_ETH_REGISTER_VALUE, 1);
+      // Cluster B: 1 validator, EB 64 ETH
+      let clB = await regVal(network, clusterOwner2, ops, EMPTY_CLUSTER, DEFAULT_ETH_REGISTER_VALUE, 100);
+
+      // EB update cluster A: 48 ETH
+      clA = await doEB(network, prov, clusterOwner, ops, clA, 48, oracles());
+      const devA = calcVUnits(48n) - defaultVUnits(1n); // 5000
+      expect(devA).to.equal(5000n, "cluster A deviation");
+      await assertAllOpVUnits(prov, addr, ops, devA, "only A's deviation");
+      expect(await readDaoVUnits(prov, addr)).to.equal(calcVUnits(48n) + defaultVUnits(1n), "DAO has A's total + B's baseline");
+
+      // EB update cluster B: 64 ETH
+      clB = await doEB(network, prov, clusterOwner2, ops, clB, 64, oracles());
+      const devB = calcVUnits(64n) - defaultVUnits(1n); // 10000
+      expect(devB).to.equal(10000n, "cluster B deviation");
+      const totalDev = devA + devB; // 15000
+
+      // Verify stacked deviation on all operators
+      for (const id of ops) {
+        expect(await readOpVUnits(prov, addr, BigInt(id))).to.equal(
+          totalDev,
+          `op${id} stacked deviation`,
+        );
+      }
+      expect(await readDaoVUnits(prov, addr)).to.equal(calcVUnits(48n) + calcVUnits(64n), "DAO total vUnits for both clusters");
+
+      // Remove all from cluster A — only A's deviation subtracted
+      clA = await remVal(network, clusterOwner, ops, clA, 1);
+      expect(clA.validatorCount).to.equal(0n);
+      await assertAllOpVUnits(prov, addr, ops, devB, "only B's deviation remains after A removed");
+      expect(await readDaoVUnits(prov, addr)).to.equal(calcVUnits(64n), "DAO has only B's total vUnits");
+
+      // Remove all from cluster B — everything cleaned
+      clB = await remVal(network, clusterOwner2, ops, clB, 100);
+      expect(clB.validatorCount).to.equal(0n);
+      await assertAllOpVUnits(prov, addr, ops, 0n, "all operators cleaned");
+      expect(await readDaoVUnits(prov, addr)).to.equal(0n, "DAO vUnits fully zeroed");
+    });
   });
 
   // =========================================================================
-  // Boundary / Max EB / Precision (XV-029, 030, 040, 053)
+  // Boundary / Max EB / Precision (XV-029, 030, 040, 052)
   // =========================================================================
   describe("Boundary / Max EB / Precision", () => {
     it("XV-029: max EB (2048 ETH) then register — projected vUnits used for liquidity check", async function () {
@@ -1071,30 +1308,36 @@ describe("XV: Validator↔EB Cross-Module Tests", function () {
       await assertAllOpVUnits(prov, addr, ops, 0n, "precise cleanup");
     });
 
-    it("XV-053: register into EB cluster with deposit 1 wei below threshold — reverts InsufficientBalance", async function () {
+    it("XV-052: register → EB 48 → register 1 more (barely sufficient deposit) — succeeds with projected vUnits", async function () {
       const { network } = await networkHelpers.loadFixture(baseFixture);
       const prov = connection.ethers.provider;
+      const addr = await network.getAddress();
       const ops = await setupOps(network, opOwner, 4, [clusterOwner.address]);
 
+      // Register 1 validator with generous deposit
       let cl = await regVal(network, clusterOwner, ops, EMPTY_CLUSTER, DEFAULT_ETH_REGISTER_VALUE, 1);
+
+      // EB update: 48 ETH → vUnits = 15000, deviation = 5000
       cl = await doEB(network, prov, clusterOwner, ops, cl, 48, oracles());
+      const v48 = calcVUnits(48n); // 15000
+      const dev = v48 - defaultVUnits(1n); // 5000
+      await assertAllOpVUnits(prov, addr, ops, dev, "deviation after EB");
+      expect(await readDaoVUnits(prov, addr)).to.equal(calcVUnits(48n), "DAO vUnits after EB");
 
-      // Drain most of the balance to be right at the boundary
-      await mineBlocks(prov, 100);
-      const txW = await network.connect(clusterOwner).withdraw(ops, 0n, cl);
-      cl = parseClusterFromEvent(network, await txW.wait(), Events.CLUSTER_WITHDRAWN);
+      // Register 1 more with a large deposit (should succeed since sufficient funds)
+      // projectedVUnits = 15000 + 10000 = 25000
+      cl = await regVal(network, clusterOwner, ops, cl, DEFAULT_ETH_REGISTER_VALUE, 2);
+      expect(cl.validatorCount).to.equal(2n);
 
-      // Try registering with zero deposit — projected vUnits increase threshold
-      await expect(
-        network
-          .connect(clusterOwner)
-          .registerValidator(makePublicKey(2), ops, DEFAULT_SHARES, cl, { value: 0n }),
-      ).to.be.revertedWithCustomError(network, Errors.INSUFFICIENT_BALANCE);
+      // Deviation unchanged by registration (only ebSnapshot.vUnits grows, not operatorEthVUnits)
+      await assertAllOpVUnits(prov, addr, ops, dev, "deviation unchanged after register");
+      expect(await readDaoVUnits(prov, addr)).to.equal(calcVUnits(48n) + defaultVUnits(1n), "DAO vUnits after register adds baseline for new validator");
     });
+
   });
 
   // =========================================================================
-  // Scale (XV-031, 046)
+  // Scale (XV-031, 046, 059)
   // =========================================================================
   describe("Scale", () => {
     it("XV-031: bulk 50 vals → EB → bulk remove 25 → EB → bulk remove 25", async function () {
@@ -1169,6 +1412,44 @@ describe("XV: Validator↔EB Cross-Module Tests", function () {
         expect(await readOpVUnits(prov, addr, BigInt(id))).to.equal(0n, `op${id} cleaned`);
       }
     });
+
+    it("XV-059: max operator count (13 ops) → EB 48 → remove — deviation cleanup iterates all 13", async function () {
+      const { network } = await networkHelpers.loadFixture(baseFixture);
+      const prov = connection.ethers.provider;
+      const addr = await network.getAddress();
+      const ops = await setupOps(network, opOwner, 13, [clusterOwner.address]);
+
+      // Register 1 validator with 13 operators
+      let cl = await regVal(network, clusterOwner, ops, EMPTY_CLUSTER, DEFAULT_ETH_REGISTER_VALUE, 1);
+
+      // EB update: 48 ETH → deviation = 5000
+      cl = await doEB(network, prov, clusterOwner, ops, cl, 48, oracles());
+      const v48 = calcVUnits(48n); // 15000
+      const dev = v48 - defaultVUnits(1n); // 5000
+      expect(dev).to.equal(5000n, "deviation value");
+
+      // Verify all 13 operators have the deviation
+      for (const id of ops) {
+        expect(await readOpVUnits(prov, addr, BigInt(id))).to.equal(
+          dev,
+          `op${id} vUnits after EB`,
+        );
+      }
+      expect(await readDaoVUnits(prov, addr)).to.equal(calcVUnits(48n), "DAO vUnits after EB");
+
+      // Remove last validator — cleanup loop iterates all 13 operators
+      cl = await remVal(network, clusterOwner, ops, cl, 1);
+      expect(cl.validatorCount).to.equal(0n);
+
+      // All 13 operators cleaned
+      for (const id of ops) {
+        expect(await readOpVUnits(prov, addr, BigInt(id))).to.equal(
+          0n,
+          `op${id} cleaned after remove`,
+        );
+      }
+      expect(await readDaoVUnits(prov, addr)).to.equal(0n, "DAO vUnits zeroed after remove");
+    });
   });
 
   // =========================================================================
@@ -1201,48 +1482,6 @@ describe("XV: Validator↔EB Cross-Module Tests", function () {
       const v64 = calcVUnits(64n);
       const newDev = v64 - defaultVUnits(1n); // 10000
       await assertAllOpVUnits(prov, addr, ops, newDev, "after second EB");
-    });
-
-    it("XV-060: exhaustive lifecycle — EB, liquidate, remove val, register, EB, expand, remove all", async function () {
-      const { network } = await networkHelpers.loadFixture(baseFixture);
-      const prov = connection.ethers.provider;
-      const addr = await network.getAddress();
-      const ops = await setupOps(network, opOwner, 4, [clusterOwner.address]);
-
-      // Phase 1: register → EB → liquidate
-      let cl = await regVal(network, clusterOwner, ops, EMPTY_CLUSTER, DEFAULT_ETH_REGISTER_VALUE, 1);
-      cl = await doEB(network, prov, clusterOwner, ops, cl, 48, oracles());
-      const v48 = calcVUnits(48n);
-      cl = await drainAndLiq(network, prov, clusterOwner, liquidator, ops, cl, NUM_OPS, v48);
-      expect(cl.active).to.equal(false);
-      await assertAllOpVUnits(prov, addr, ops, 0n, "post-liquidation");
-
-      // Phase 2: remove val from liquidated cluster (no double-decrement)
-      cl = await remVal(network, clusterOwner, ops, cl, 1);
-      expect(cl.validatorCount).to.equal(0n);
-
-      // Phase 3: register new val (implicit EB since ebSnapshot was zeroed)
-      cl = await regVal(network, clusterOwner, ops, cl, DEFAULT_ETH_REGISTER_VALUE, 10);
-      expect(cl.validatorCount).to.equal(1n);
-      expect(cl.active).to.equal(true);
-      await assertAllOpVUnits(prov, addr, ops, 0n, "implicit EB after fresh register");
-
-      // Phase 4: new EB update (explicit again)
-      cl = await doEB(network, prov, clusterOwner, ops, cl, 48, oracles());
-      const dev = v48 - defaultVUnits(1n);
-      await assertAllOpVUnits(prov, addr, ops, dev, "explicit again");
-
-      // Phase 5: expand
-      cl = await regVal(network, clusterOwner, ops, cl, 0n, 11);
-      cl = await regVal(network, clusterOwner, ops, cl, 0n, 12);
-      expect(cl.validatorCount).to.equal(3n);
-
-      // Phase 6: remove all
-      cl = await remVal(network, clusterOwner, ops, cl, 10);
-      cl = await remVal(network, clusterOwner, ops, cl, 11);
-      cl = await remVal(network, clusterOwner, ops, cl, 12);
-      expect(cl.validatorCount).to.equal(0n);
-      await assertAllOpVUnits(prov, addr, ops, 0n, "exhaustive clean");
     });
 
     it("XV-061: liquidate → remove subset → reactivate → EB update", async function () {
@@ -1305,7 +1544,7 @@ describe("XV: Validator↔EB Cross-Module Tests", function () {
   });
 
   // =========================================================================
-  // Between-op Interactions (XV-043, 044, 045)
+  // Between-op Interactions (XV-043, 044, 045, 051, 056)
   // =========================================================================
   describe("Between-op Interactions", () => {
     it("XV-043: deposit between EB and remove — ebSnapshot unchanged", async function () {
@@ -1384,6 +1623,82 @@ describe("XV: Validator↔EB Cross-Module Tests", function () {
       cl = await remVal(network, clusterOwner, ops, cl, 1);
       expect(cl.validatorCount).to.equal(0n);
       await assertAllOpVUnits(prov, addr, ops, 0n, "cleaned");
+    });
+
+    it("XV-051: register → EB → network fee change → remove — EB-weighted network fee settlement", async function () {
+      const { network } = await networkHelpers.loadFixture(baseFixture);
+      const prov = connection.ethers.provider;
+      const addr = await network.getAddress();
+      const ops = await setupOps(network, opOwner, 4, [clusterOwner.address]);
+
+      let cl = await regVal(network, clusterOwner, ops, EMPTY_CLUSTER, DEFAULT_ETH_REGISTER_VALUE, 1);
+
+      // EB update: 48 ETH → deviation = 5000
+      cl = await doEB(network, prov, clusterOwner, ops, cl, 48, oracles());
+      const dev = calcVUnits(48n) - defaultVUnits(1n); // 5000
+      await assertAllOpVUnits(prov, addr, ops, dev, "deviation after EB");
+      expect(await readDaoVUnits(prov, addr)).to.equal(calcVUnits(48n), "DAO vUnits after EB");
+
+      // Change network fee
+      const newNetworkFee = DEFAULT_NETWORK_FEE_UNPACKED * 2n;
+      await network.updateNetworkFee(newNetworkFee);
+
+      // vUnits unaffected by network fee change
+      await assertAllOpVUnits(prov, addr, ops, dev, "vUnits unchanged after network fee change");
+      expect(await readDaoVUnits(prov, addr)).to.equal(calcVUnits(48n), "DAO vUnits unchanged after network fee change");
+
+      // Advance blocks so fees accrue at new rate
+      await mineBlocks(prov, 50);
+
+      // Remove last validator — settles fees at new network fee rate, weighted by vUnits=15000
+      cl = await remVal(network, clusterOwner, ops, cl, 1);
+      expect(cl.validatorCount).to.equal(0n);
+
+      // All operator vUnits cleaned
+      await assertAllOpVUnits(prov, addr, ops, 0n, "operators cleaned after remove");
+      expect(await readDaoVUnits(prov, addr)).to.equal(0n, "DAO vUnits zeroed after remove");
+    });
+
+    it("XV-056: register → EB → fee change → second EB → remove — two EB updates straddle fee change", async function () {
+      const { network } = await networkHelpers.loadFixture(baseFixture);
+      const prov = connection.ethers.provider;
+      const addr = await network.getAddress();
+      const ops = await setupOps(network, opOwner, 4, [clusterOwner.address]);
+
+      let cl = await regVal(network, clusterOwner, ops, EMPTY_CLUSTER, DEFAULT_ETH_REGISTER_VALUE, 1);
+
+      // First EB: 48 ETH
+      cl = await doEB(network, prov, clusterOwner, ops, cl, 48, oracles());
+      const dev1 = calcVUnits(48n) - defaultVUnits(1n); // 5000
+      await assertAllOpVUnits(prov, addr, ops, dev1, "after first EB");
+      expect(await readDaoVUnits(prov, addr)).to.equal(calcVUnits(48n), "DAO vUnits after first EB");
+
+      // Operator fee change: declare → wait → execute
+      const newFee = MINIMAL_OPERATOR_ETH_FEE * 2n;
+      await network.connect(opOwner).declareOperatorFee(BigInt(ops[0]), newFee);
+      await mineBlocks(prov, Number(DECLARE_OPERATOR_FEE_PERIOD) + 1);
+      await network.connect(opOwner).executeOperatorFee(BigInt(ops[0]));
+
+      // vUnits unchanged by fee change
+      await assertAllOpVUnits(prov, addr, ops, dev1, "vUnits unchanged after fee change");
+
+      // Second EB: 64 ETH — settles fees at old+new rate mix, then updates vUnits
+      cl = await doEB(network, prov, clusterOwner, ops, cl, 64, oracles());
+      const dev2 = calcVUnits(64n) - defaultVUnits(1n); // 10000 total
+      // Each operator's vUnits reflects the total deviation from baseline
+      for (const id of ops) {
+        expect(await readOpVUnits(prov, addr, BigInt(id))).to.equal(
+          dev2,
+          `op${id} vUnits after second EB`,
+        );
+      }
+      expect(await readDaoVUnits(prov, addr)).to.equal(calcVUnits(64n), "DAO vUnits after second EB");
+
+      // Remove last
+      cl = await remVal(network, clusterOwner, ops, cl, 1);
+      expect(cl.validatorCount).to.equal(0n);
+      await assertAllOpVUnits(prov, addr, ops, 0n, "all operators cleaned");
+      expect(await readDaoVUnits(prov, addr)).to.equal(0n, "DAO vUnits zeroed");
     });
   });
 

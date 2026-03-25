@@ -37,6 +37,7 @@ import {
   MINIMAL_OPERATOR_ETH_FEE,
   DECLARE_OPERATOR_FEE_PERIOD,
   TOKEN_REGISTER_AMOUNT,
+  ETH_DEDUCTED_DIGITS,
 } from "../../common/constants.ts";
 import { Events } from "../../common/events.ts";
 import { Errors } from "../../common/errors.ts";
@@ -290,6 +291,226 @@ describe("XO: Operator↔Cluster Cross-Module Tests", () => {
   // =========================================================================
 
   describe("Fee Changes + Cluster Ops", () => {
+    // XO-001: fee increase mid-cluster-life — burn rate reflects new fee on withdraw
+    it("XO-001: fee increase mid-cluster-life — burn rate reflects new fee on withdraw", async function () {
+      const { network, views } = await networkHelpers.loadFixture(baseFixture);
+      const provider = connection.ethers.provider;
+      const proxyAddr = await network.getAddress();
+
+      const operatorIds = await registerOperators(network, opOwner, 4);
+      await whitelistAddresses(network, opOwner, operatorIds, [clusterOwner.address]);
+
+      let { cluster } = await registerValidatorETH(
+        network, clusterOwner, operatorIds, EMPTY_CLUSTER,
+        DEFAULT_ETH_REGISTER_VALUE, 1,
+      );
+
+      const balAfterRegister = cluster.balance;
+
+      // Mine 100 blocks at old rate
+      await mineBlocks(provider, 100);
+
+      // Op1 declares + executes fee increase (2x)
+      const newFee = MINIMAL_OPERATOR_ETH_FEE * 2n;
+      await declareAndExecuteFee(network, provider, opOwner, operatorIds[0], newFee);
+
+      // Verify op1 fee changed
+      const opData = await views.getOperatorById(BigInt(operatorIds[0]));
+      expect(BigInt(opData.fee)).to.equal(newFee);
+
+      // Mine 100 more blocks at new rate
+      await mineBlocks(provider, 100);
+
+      // Withdraw (settle)
+      const txW = await network.connect(clusterOwner).withdraw(operatorIds, 0n, cluster);
+      cluster = parseClusterFromEvent(network, await txW.wait(), Events.CLUSTER_WITHDRAWN);
+
+      // Balance should be less than initial (fees drained)
+      expect(cluster.balance).to.be.lessThan(balAfterRegister);
+      expect(cluster.balance).to.be.greaterThan(0n);
+
+      // -- G4 vUnit consistency: implicit EB, all operators should have 0 deviation --
+      for (const opId of operatorIds) {
+        const v = await readOperatorEthVUnits(provider, proxyAddr, BigInt(opId));
+        expect(v).to.equal(0n, `op${opId} vUnits deviation should be 0 (implicit EB)`);
+      }
+
+      // daoTotalEthVUnits = baseline: validatorCount * BPS_DENOMINATOR
+      const daoV = await readDaoTotalEthVUnits(provider, proxyAddr);
+      expect(daoV).to.equal(defaultVUnits(1n), "daoTotalEthVUnits should equal baseline for 1 validator");
+    });
+
+    // XO-002: fee increase changes operator index growth rate — segmented indices
+    it("XO-002: fee increase changes operator index growth rate — segmented indices", async function () {
+      const { network, views } = await networkHelpers.loadFixture(baseFixture);
+      const provider = connection.ethers.provider;
+      const proxyAddr = await network.getAddress();
+
+      const operatorIds = await registerOperators(network, opOwner, 4);
+      await whitelistAddresses(network, opOwner, operatorIds, [clusterOwner.address]);
+
+      let { cluster } = await registerValidatorETH(
+        network, clusterOwner, operatorIds, EMPTY_CLUSTER,
+        DEFAULT_ETH_REGISTER_VALUE, 1,
+      );
+
+      const balAfterRegister = cluster.balance;
+
+      // Mine 100 blocks at old rate
+      await mineBlocks(provider, 100);
+
+      // Op1 declares + executes fee increase (2x)
+      const newFee = MINIMAL_OPERATOR_ETH_FEE * 2n;
+      await declareAndExecuteFee(network, provider, opOwner, operatorIds[0], newFee);
+
+      // Mine 100 more blocks at new rate
+      await mineBlocks(provider, 100);
+
+      // Verify cluster balance reflects segmented accrual
+      // Use getBalance view to check current balance
+      const balView = await views.getBalance(clusterOwner.address, operatorIds, cluster);
+      expect(BigInt(balView)).to.be.lessThan(balAfterRegister);
+      expect(BigInt(balView)).to.be.greaterThan(0n);
+
+      // -- G4 vUnit consistency: implicit EB, no deviation --
+      for (const opId of operatorIds) {
+        const v = await readOperatorEthVUnits(provider, proxyAddr, BigInt(opId));
+        expect(v).to.equal(0n, `op${opId} vUnits deviation should be 0 (implicit EB)`);
+      }
+      // daoTotalEthVUnits = baseline for 1 validator
+      const daoV = await readDaoTotalEthVUnits(provider, proxyAddr);
+      expect(daoV).to.equal(defaultVUnits(1n), "daoTotalEthVUnits should equal baseline for 1 validator");
+    });
+
+    // XO-003: fee reduction mid-cluster-life — burn rate drops, more balance withdrawable
+    it("XO-003: fee reduction mid-cluster-life — burn rate drops, more balance withdrawable", async function () {
+      const { network, views } = await networkHelpers.loadFixture(baseFixture);
+      const provider = connection.ethers.provider;
+      const proxyAddr = await network.getAddress();
+
+      const operatorIds = await registerOperators(network, opOwner, 4);
+      await whitelistAddresses(network, opOwner, operatorIds, [clusterOwner.address]);
+
+      // Register with a generous deposit to avoid liquidation during fee period wait
+      let { cluster } = await registerValidatorETH(
+        network, clusterOwner, operatorIds, EMPTY_CLUSTER,
+        DEFAULT_ETH_REGISTER_VALUE, 1,
+      );
+
+      // First increase all ops fees (2x, within 100% max increase limit)
+      const highFee = MINIMAL_OPERATOR_ETH_FEE * 2n;
+      for (const opId of operatorIds) {
+        await declareAndExecuteFee(network, provider, opOwner, opId, highFee);
+      }
+
+      // Mine 100 blocks at high rate
+      await mineBlocks(provider, 100);
+
+      // Settle to get a baseline
+      let txW = await network.connect(clusterOwner).withdraw(operatorIds, 0n, cluster);
+      cluster = parseClusterFromEvent(network, await txW.wait(), Events.CLUSTER_WITHDRAWN);
+      const balAfterHighRate = cluster.balance;
+
+      // Reduce op1 fee back to minimum
+      await network.connect(opOwner).reduceOperatorFee(BigInt(operatorIds[0]), MINIMAL_OPERATOR_ETH_FEE);
+
+      // Verify op1 fee changed
+      const opData = await views.getOperatorById(BigInt(operatorIds[0]));
+      expect(BigInt(opData.fee)).to.equal(MINIMAL_OPERATOR_ETH_FEE);
+
+      // Mine 100 more blocks at reduced rate
+      await mineBlocks(provider, 100);
+
+      // Settle again
+      txW = await network.connect(clusterOwner).withdraw(operatorIds, 0n, cluster);
+      cluster = parseClusterFromEvent(network, await txW.wait(), Events.CLUSTER_WITHDRAWN);
+
+      // Balance should still be positive (lower burn rate means slower drain)
+      expect(cluster.balance).to.be.greaterThan(0n);
+      expect(cluster.balance).to.be.lessThan(balAfterHighRate);
+
+      // -- G4 vUnit consistency: implicit EB --
+      for (const opId of operatorIds) {
+        const v = await readOperatorEthVUnits(provider, proxyAddr, BigInt(opId));
+        expect(v).to.equal(0n, `op${opId} vUnits deviation should be 0 (implicit EB)`);
+      }
+      // daoTotalEthVUnits = baseline for 1 validator
+      const daoV = await readDaoTotalEthVUnits(provider, proxyAddr);
+      expect(daoV).to.equal(defaultVUnits(1n), "daoTotalEthVUnits should equal baseline for 1 validator");
+    });
+
+    // XO-011: fee increase makes cluster liquidatable — third party liquidates
+    it("XO-011: fee increase makes cluster liquidatable — third party liquidates", async function () {
+      const { network, views } = await networkHelpers.loadFixture(baseFixture);
+      const provider = connection.ethers.provider;
+      const proxyAddr = await network.getAddress();
+
+      const operatorIds = await registerOperators(network, opOwner, 4);
+      await whitelistAddresses(network, opOwner, operatorIds, [clusterOwner.address]);
+
+      // Register with small deposit — vulnerable to fee increase
+      let { cluster } = await registerValidatorETH(
+        network, clusterOwner, operatorIds, EMPTY_CLUSTER,
+        SMALL_ETH_REGISTER_VALUE, 1,
+      );
+
+      // Increase all operator fees significantly (2x)
+      const newFee = MINIMAL_OPERATOR_ETH_FEE * 2n;
+      for (const opId of operatorIds) {
+        await declareAndExecuteFee(network, provider, opOwner, opId, newFee);
+      }
+
+      // Mine enough blocks to push below liquidation threshold at new rate
+      const vUnits = defaultVUnits(1n);
+      const newFeeRaw = (newFee / ETH_DEDUCTED_DIGITS);
+      const perBlock = calcClusterBurn({
+        blockDiff: 1n,
+        numOperators: 4n,
+        ethFee: newFeeRaw,
+        networkFee: DEFAULT_NETWORK_FEE_RAW,
+        effectiveVUnits: vUnits,
+      });
+      const threshold = calcLiquidationThreshold({
+        minimumBlocksBeforeLiquidation: MINIMAL_LIQUIDATION_THRESHOLD,
+        numOperators: 4n,
+        ethFee: newFeeRaw,
+        networkFee: DEFAULT_NETWORK_FEE_RAW,
+        effectiveVUnits: vUnits,
+      });
+
+      const balance = BigInt(cluster.balance);
+      if (perBlock > 0n && balance > threshold) {
+        const blocksNeeded = Number((balance - threshold) / perBlock) + 2;
+        await mineBlocks(provider, blocksNeeded);
+      }
+
+      // Liquidate by third party
+      const txLiq = await network
+        .connect(liquidator)
+        .liquidate(clusterOwner.address, operatorIds, cluster);
+      const receiptLiq = await txLiq.wait();
+      cluster = parseClusterFromEvent(network, receiptLiq, Events.CLUSTER_LIQUIDATED);
+
+      // Cluster should be inactive
+      expect(cluster.active).to.equal(false);
+
+      // Verify fees are still at the increased rate
+      for (const opId of operatorIds) {
+        const opData = await views.getOperatorById(BigInt(opId));
+        expect(BigInt(opData.fee)).to.equal(newFee, `op${opId} fee should persist after liquidation`);
+      }
+
+      // -- G4 vUnit consistency: implicit EB, no deviation --
+      for (const opId of operatorIds) {
+        const v = await readOperatorEthVUnits(provider, proxyAddr, BigInt(opId));
+        expect(v).to.equal(0n, `op${opId} vUnits deviation should be 0 (implicit EB)`);
+      }
+      // After liquidation, daoTotalEthVUnits should reflect removal of baseline
+      // 1 validator was liquidated: daoTotalEthVUnits -= 1 * BPS_DENOMINATOR = 0
+      const daoV = await readDaoTotalEthVUnits(provider, proxyAddr);
+      expect(daoV).to.equal(0n, "daoTotalEthVUnits should be 0 after liquidation of only cluster");
+    });
+
     // XO-009: reactivate after liquidation with removed operator
     it("XO-009: reactivate cluster after liquidation with removed operator", async function () {
       const { network, views } = await networkHelpers.loadFixture(baseFixture);
@@ -1633,6 +1854,7 @@ describe("XO: Operator↔Cluster Cross-Module Tests", () => {
     it("XO-033: EB increase raises liquidation threshold — higher drain rate", async function () {
       const { network } = await networkHelpers.loadFixture(baseFixture);
       const provider = connection.ethers.provider;
+      const proxyAddr = await network.getAddress();
 
       const operatorIds = await registerOperators(network, opOwner, 4);
       await whitelistAddresses(network, opOwner, operatorIds, [clusterOwner.address]);
@@ -1657,6 +1879,21 @@ describe("XO: Operator↔Cluster Cross-Module Tests", () => {
 
       // Balance should be lower than starting deposit (fees drained faster at EB=48)
       expect(cluster.balance).to.be.lessThan(balBefore);
+
+      // -- Per-operator vUnits deviation: EB=48 for 1 validator --
+      // explicit vUnits = ceil(48*10000/32) = 15000; implicit = 10000; deviation = 5000
+      const explicitVUnits = calcVUnits(48n); // 15000
+      const implicitVUnits = defaultVUnits(1n); // 10000
+      const expectedDeviation = explicitVUnits - implicitVUnits; // 5000
+      for (const opId of operatorIds) {
+        const v = await readOperatorEthVUnits(provider, proxyAddr, BigInt(opId));
+        expect(v).to.equal(expectedDeviation, `op${opId} vUnits deviation should be ${expectedDeviation}`);
+      }
+
+      // -- daoTotalEthVUnits consistency: baseline + deviation --
+      // daoTotalEthVUnits = validatorCount * BPS + deviation = 10000 + 5000 = 15000
+      const daoV = await readDaoTotalEthVUnits(provider, proxyAddr);
+      expect(daoV).to.equal(explicitVUnits, "daoTotalEthVUnits should equal baseline + deviation");
     });
 
     // XO-034: EB increase then deposit offsets threshold — withdraw succeeds
@@ -1766,6 +2003,18 @@ describe("XO: Operator↔Cluster Cross-Module Tests", () => {
       cluster = parseClusterFromEvent(network, await txW.wait(), Events.CLUSTER_WITHDRAWN);
       // Balance should be near 0 (whatever was left after liquidation)
       expect(cluster.balance).to.be.lessThanOrEqual(dep);
+
+      // Cluster should remain inactive after deposit+withdraw
+      expect(cluster.active).to.equal(false);
+
+      // -- G4 vUnit consistency: implicit EB, no deviation stored --
+      const proxyAddr = await network.getAddress();
+      for (const opId of operatorIds) {
+        const v = await readOperatorEthVUnits(provider, proxyAddr, BigInt(opId));
+        expect(v).to.equal(0n, `op${opId} vUnits should be 0 (implicit EB, liquidated)`);
+      }
+      const daoV = await readDaoTotalEthVUnits(provider, proxyAddr);
+      expect(daoV).to.equal(0n, "daoTotalEthVUnits should be 0 for implicit EB");
     });
 
     // XO-037: liquidate → remove op → deposit → reactivate
@@ -1838,11 +2087,19 @@ describe("XO: Operator↔Cluster Cross-Module Tests", () => {
         network, provider, clusterOwner, operatorIds, cluster, 96, oracles(),
       ));
 
-      // Verify deviation exists
+      // Verify deviation exists with exact values
+      // 2 validators, 96 ETH total => vUnits = ceil(96*10000/32) = 30000
+      // implicit = 2 * 10000 = 20000; deviation = 30000 - 20000 = 10000
+      const explicitVUnitsEB96 = calcVUnits(96n); // 30000
+      const implicitVUnits2Val = defaultVUnits(2n); // 20000
+      const expectedDeviationEB96 = explicitVUnitsEB96 - implicitVUnits2Val; // 10000
       for (const opId of operatorIds) {
         const v = await readOperatorEthVUnits(provider, proxyAddr, BigInt(opId));
-        expect(v).to.be.greaterThan(0n, "deviation should exist after EB update");
+        expect(v).to.equal(expectedDeviationEB96, `op${opId} deviation should be ${expectedDeviationEB96} after EB=96`);
       }
+      // daoTotalEthVUnits = baseline(20000) + deviation(10000) = 30000
+      const daoVAfterEB = await readDaoTotalEthVUnits(provider, proxyAddr);
+      expect(daoVAfterEB).to.equal(explicitVUnitsEB96, "daoTotalEthVUnits should equal total vUnits after EB=96");
 
       // Remove validator 1
       let txRem = await network
@@ -1896,6 +2153,24 @@ describe("XO: Operator↔Cluster Cross-Module Tests", () => {
       const earnings = await views.getOperatorEarnings(BigInt(operatorIds[0]));
       expect(earnings).to.be.greaterThan(0n);
       await network.connect(opOwner).withdrawAllOperatorEarnings(operatorIds[0]);
+
+      // -- Per-operator vUnits: EB=48, 1 validator --
+      const proxyAddr = await network.getAddress();
+      const explicitVUnits48 = calcVUnits(48n); // 15000
+      const implicitVUnits1 = defaultVUnits(1n); // 10000
+      const expectedDeviation48 = explicitVUnits48 - implicitVUnits1; // 5000
+      for (const opId of operatorIds) {
+        const v = await readOperatorEthVUnits(provider, proxyAddr, BigInt(opId));
+        expect(v).to.equal(expectedDeviation48, `op${opId} vUnits deviation should be ${expectedDeviation48}`);
+      }
+
+      // -- daoTotalEthVUnits consistency: baseline + deviation = 15000 --
+      const daoV = await readDaoTotalEthVUnits(provider, proxyAddr);
+      expect(daoV).to.equal(explicitVUnits48, "daoTotalEthVUnits should equal total vUnits for EB=48");
+
+      // -- Operator earnings after withdrawal should be 0 --
+      const earningsAfter = await views.getOperatorEarnings(BigInt(operatorIds[0]));
+      expect(earningsAfter).to.equal(0n, "op1 earnings should be 0 after full withdrawal");
     });
 
     // XO-050: EB persists through liquidation-reactivation
@@ -1940,6 +2215,30 @@ describe("XO: Operator↔Cluster Cross-Module Tests", () => {
       const txR = await network.connect(clusterOwner).reactivate(operatorIds, cluster, { value: 0n });
       cluster = parseClusterFromEvent(network, await txR.wait(), Events.CLUSTER_REACTIVATED);
       expect(cluster.active).to.equal(true);
+
+      // -- EB persists: per-operator vUnits restored after reactivation --
+      const proxyAddr = await network.getAddress();
+      const implicitVUnits = defaultVUnits(1n); // 10000
+      const expectedDeviation = ebVUnits - implicitVUnits; // 15000 - 10000 = 5000
+      for (const opId of operatorIds) {
+        const v = await readOperatorEthVUnits(provider, proxyAddr, BigInt(opId));
+        expect(v).to.equal(expectedDeviation, `op${opId} vUnits deviation should be restored to ${expectedDeviation} after reactivation`);
+      }
+
+      // -- daoTotalEthVUnits restored: baseline(10000) + deviation(5000) = 15000 --
+      const daoV = await readDaoTotalEthVUnits(provider, proxyAddr);
+      expect(daoV).to.equal(ebVUnits, "daoTotalEthVUnits should equal total vUnits after reactivation");
+
+      // -- Exact boundary: threshold computed with EB-weighted vUnits --
+      const expectedThreshold = calcLiquidationThreshold({
+        minimumBlocksBeforeLiquidation: MINIMAL_LIQUIDATION_THRESHOLD,
+        numOperators: 4n,
+        ethFee: OP_ETH_FEE_RAW,
+        networkFee: DEFAULT_NETWORK_FEE_RAW,
+        effectiveVUnits: ebVUnits,
+      });
+      // Cluster balance should exceed the EB-weighted threshold
+      expect(cluster.balance).to.be.greaterThan(expectedThreshold);
     });
 
     // XO-051: EB changed while liquidated then reactivation
@@ -2320,6 +2619,20 @@ describe("XO: Operator↔Cluster Cross-Module Tests", () => {
       await network.connect(opOwner).withdrawAllOperatorEarnings(operatorIds[0]);
       const after = await views.getOperatorEarnings(BigInt(operatorIds[0]));
       expect(after).to.equal(0n);
+
+      // -- Per-operator vUnits: EB=48, 1 validator --
+      const proxyAddr = await network.getAddress();
+      const explicitVUnits48 = calcVUnits(48n); // 15000
+      const implicitVUnits1 = defaultVUnits(1n); // 10000
+      const expectedDeviation = explicitVUnits48 - implicitVUnits1; // 5000
+      for (const opId of operatorIds) {
+        const v = await readOperatorEthVUnits(provider, proxyAddr, BigInt(opId));
+        expect(v).to.equal(expectedDeviation, `op${opId} vUnits deviation should be ${expectedDeviation} for EB=48`);
+      }
+
+      // -- daoTotalEthVUnits consistency: baseline + deviation = 15000 --
+      const daoV = await readDaoTotalEthVUnits(provider, proxyAddr);
+      expect(daoV).to.equal(explicitVUnits48, "daoTotalEthVUnits should equal total vUnits for EB=48");
     });
   });
 

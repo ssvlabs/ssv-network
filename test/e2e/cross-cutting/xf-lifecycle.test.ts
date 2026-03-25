@@ -209,6 +209,14 @@ describe("Cross-Cutting: XF Full Lifecycle Chains", () => {
       const daoValCount = BigInt(await views.getNetworkValidatorsCount());
       expect(daoValCount).to.equal(1n);
 
+      // vUnits after register: 1 validator → baseline 10000, no deviation
+      const daoVUnitsAfterReg = await readDaoTotalEthVUnits(provider, networkAddress);
+      expect(daoVUnitsAfterReg).to.equal(10000n, "daoTotalEthVUnits = 10000 after 1 validator registered");
+      for (const opId of operatorIds) {
+        const vUnits = await readOperatorEthVUnits(provider, networkAddress, opId);
+        expect(vUnits).to.equal(0n, `operator ${opId} should have 0 deviation (implicit EB)`);
+      }
+
       // Advance and deposit
       await mineBlocks(provider, 5000);
       const txDep = await network.connect(clusterOwner).deposit(
@@ -248,6 +256,10 @@ describe("Cross-Cutting: XF Full Lifecycle Chains", () => {
       const daoValAfter = BigInt(await views.getNetworkValidatorsCount());
       expect(daoValAfter).to.equal(0n);
 
+      // daoTotalEthVUnits should be 0 after all validators removed
+      const daoVUnitsAfterRemove = await readDaoTotalEthVUnits(provider, networkAddress);
+      expect(daoVUnitsAfterRemove).to.equal(0n, "daoTotalEthVUnits = 0 after all validators removed");
+
       // Withdraw remaining balance (validatorCount=0 → no liquidation check)
       const txWFinal = await network.connect(clusterOwner).withdraw(
         operatorIds, cluster.balance, cluster,
@@ -264,6 +276,12 @@ describe("Cross-Cutting: XF Full Lifecycle Chains", () => {
         const opAfter = await views.getOperatorById(BigInt(opId));
         expect(opAfter.isActive).to.be.false;
       }
+
+      // INV-11: all removed operators must have 0 vUnits
+      await assertINV11(provider, networkAddress, operatorIds);
+      // daoTotalEthVUnits should still be 0 (no validators left)
+      const daoVUnitsFinal = await readDaoTotalEthVUnits(provider, networkAddress);
+      expect(daoVUnitsFinal).to.equal(0n, "daoTotalEthVUnits = 0 after all operators removed");
     });
   }
 
@@ -322,6 +340,14 @@ describe("Cross-Cutting: XF Full Lifecycle Chains", () => {
     );
     cluster = parseClusterFromEvent(network, await txW.wait(), Events.CLUSTER_WITHDRAWN);
     expect(cluster.active).to.be.true;
+
+    // vUnit consistency persists after withdraw: deviation unchanged
+    for (const opId of operatorIds) {
+      const vUnitsPost = await readOperatorEthVUnits(provider, networkAddress, opId);
+      expect(vUnitsPost).to.equal(5000n, `operator ${opId} deviation unchanged after withdraw`);
+    }
+    const daoVUnitsPost = await readDaoTotalEthVUnits(provider, networkAddress);
+    expect(daoVUnitsPost).to.equal(15000n, "daoTotalEthVUnits unchanged after withdraw");
   });
 
   // ── Scale/stress tests ─────────────────────────────────────────────
@@ -385,6 +411,17 @@ describe("Cross-Cutting: XF Full Lifecycle Chains", () => {
     const op1Earnings = BigInt(await views.getOperatorEarnings(BigInt(operatorIds[0])));
     const op2Earnings = BigInt(await views.getOperatorEarnings(BigInt(operatorIds[1])));
     expect(op1Earnings).to.be.greaterThan(op2Earnings);
+
+    // vUnit consistency: 10 clusters × 10 validators = 100 validators, all implicit EB
+    // daoTotalEthVUnits = 100 × 10000 = 1_000_000
+    const networkAddress = await network.getAddress();
+    const daoVUnits = await readDaoTotalEthVUnits(provider, networkAddress);
+    expect(daoVUnits).to.equal(1_000_000n, "daoTotalEthVUnits = 100 validators × 10000");
+    // No deviation (implicit EB) → all operator vUnits = 0
+    for (const opId of operatorIds) {
+      const vUnits = await readOperatorEthVUnits(provider, networkAddress, opId);
+      expect(vUnits).to.equal(0n, `operator ${opId} should have 0 deviation (implicit EB)`);
+    }
   });
 
   it("XF-011: 100 validators across 10 clusters → cascade liquidation", async function () {
@@ -425,6 +462,16 @@ describe("Cross-Cutting: XF Full Lifecycle Chains", () => {
     // Verify operator ethValidatorCount: should be 7 (3 liquidated × 1 validator removed)
     const daoValCount = BigInt(await views.getNetworkValidatorsCount());
     expect(daoValCount).to.equal(7n);
+
+    // vUnit consistency: 7 remaining validators × 10000 = 70000 (all implicit EB)
+    const networkAddress = await network.getAddress();
+    const daoVUnits = await readDaoTotalEthVUnits(provider, networkAddress);
+    expect(daoVUnits).to.equal(70000n, "daoTotalEthVUnits = 7 validators × 10000 after 3 liquidated");
+    // No deviation (implicit EB) → all operator vUnits = 0
+    for (const opId of operatorIds) {
+      const vUnits = await readOperatorEthVUnits(provider, networkAddress, opId);
+      expect(vUnits).to.equal(0n, `operator ${opId} should have 0 deviation (implicit EB)`);
+    }
   });
 
   it("XF-012: Time-lapse 1M blocks — deposit + withdraw + verify accounting", async function () {
@@ -464,6 +511,15 @@ describe("Cross-Cutting: XF Full Lifecycle Chains", () => {
     for (const opId of operatorIds) {
       const earnings = BigInt(await views.getOperatorEarnings(BigInt(opId)));
       expect(earnings).to.be.greaterThan(0n);
+    }
+
+    // vUnit consistency: 1 validator, implicit EB → daoTotalEthVUnits = 10000
+    const networkAddress = await network.getAddress();
+    const daoVUnits = await readDaoTotalEthVUnits(provider, networkAddress);
+    expect(daoVUnits).to.equal(10000n, "daoTotalEthVUnits = 10000 after 1M blocks (no drift)");
+    for (const opId of operatorIds) {
+      const vUnits = await readOperatorEthVUnits(provider, networkAddress, opId);
+      expect(vUnits).to.equal(0n, `operator ${opId} should have 0 deviation (implicit EB)`);
     }
   });
 
@@ -505,6 +561,16 @@ describe("Cross-Cutting: XF Full Lifecycle Chains", () => {
 
     expect(cluster.active).to.be.true;
     expect(cluster.balance).to.be.greaterThan(0n);
+
+    // vUnit consistency: 1 validator at 64 ETH → vUnits = 20000, deviation = 10000
+    const networkAddress = await network.getAddress();
+    for (const opId of operatorIds) {
+      const vUnits = await readOperatorEthVUnits(provider, networkAddress, opId);
+      expect(vUnits).to.equal(10000n, `operator ${opId} should have 10000 deviation after EB 64`);
+    }
+    const daoVUnits = await readDaoTotalEthVUnits(provider, networkAddress);
+    // daoTotalEthVUnits = baseline (10000) + deviation (10000) = 20000
+    expect(daoVUnits).to.equal(20000n, "daoTotalEthVUnits = 20000 after 1M blocks (no drift)");
   });
 
   it("XF-014: All operations in single block — zero fees accrue", async function () {
@@ -557,6 +623,15 @@ describe("Cross-Cutting: XF Full Lifecycle Chains", () => {
       const earnings = BigInt(await views.getOperatorEarnings(BigInt(opId)));
       // At minimal fee with just a few blocks, earnings are tiny
       expect(earnings).to.be.lessThan(ethers.parseEther("0.001"));
+    }
+
+    // vUnit consistency: 1 validator, implicit EB → daoTotalEthVUnits = 10000
+    const networkAddress = await network.getAddress();
+    const daoVUnits = await readDaoTotalEthVUnits(provider, networkAddress);
+    expect(daoVUnits).to.equal(10000n, "daoTotalEthVUnits = 10000 for 1 validator");
+    for (const opId of operatorIds) {
+      const vUnits = await readOperatorEthVUnits(provider, networkAddress, opId);
+      expect(vUnits).to.equal(0n, `operator ${opId} should have 0 deviation (implicit EB)`);
     }
   });
 
@@ -612,6 +687,12 @@ describe("Cross-Cutting: XF Full Lifecycle Chains", () => {
     // (operators removed, so getOperatorEarnings might be zero after removal since earnings paid out)
     const daoVal = BigInt(await views.getNetworkValidatorsCount());
     expect(daoVal).to.equal(0n);
+
+    // INV-11: all removed operators must have 0 vUnits
+    await assertINV11(provider, networkAddress, operatorIds);
+    // daoTotalEthVUnits should be 0 (no validators, no operators)
+    const daoVUnits = await readDaoTotalEthVUnits(provider, networkAddress);
+    expect(daoVUnits).to.equal(0n, "daoTotalEthVUnits = 0 after all validators and operators removed");
   });
 
   it("XF-016: Two EB updates for different clusters in same block", async function () {
@@ -694,6 +775,11 @@ describe("Cross-Cutting: XF Full Lifecycle Chains", () => {
     await expect(
       network.connect(clusterOwner).withdraw(operatorIds, 1n, cluster),
     ).to.be.revertedWithCustomError(network, Errors.INSUFFICIENT_BALANCE);
+
+    // vUnit consistency: 1 validator, implicit EB → daoTotalEthVUnits = 10000
+    const networkAddress = await network.getAddress();
+    const daoVUnits = await readDaoTotalEthVUnits(provider, networkAddress);
+    expect(daoVUnits).to.equal(10000n, "daoTotalEthVUnits unchanged by governance parameter update");
   });
 
   it("XF-034: DAO updateMaximumOperatorFee → executeOperatorFee reverts FeeTooHigh", async function () {
@@ -726,6 +812,11 @@ describe("Cross-Cutting: XF Full Lifecycle Chains", () => {
     // Verify cluster burn rate unchanged
     const opData = await views.getOperatorById(BigInt(operatorIds[0]));
     expect(BigInt(opData.fee)).to.equal(BigInt(MINIMAL_OPERATOR_ETH_FEE));
+
+    // vUnit consistency: no validators registered → daoTotalEthVUnits = 0
+    const networkAddress = await network.getAddress();
+    const daoVUnits = await readDaoTotalEthVUnits(provider, networkAddress);
+    expect(daoVUnits).to.equal(0n, "daoTotalEthVUnits = 0 (no validators registered)");
   });
 
   it("XF-044: DAO updateMinimumOperatorEthFee → reduceOperatorFee to below-min reverts FeeTooLow", async function () {
@@ -750,6 +841,11 @@ describe("Cross-Cutting: XF Full Lifecycle Chains", () => {
     await expect(
       network.connect(operatorOwner).reduceOperatorFee(operatorIds[1], belowMin),
     ).to.be.revertedWithCustomError(network, Errors.FEE_TOO_LOW);
+
+    // vUnit consistency: no validators → daoTotalEthVUnits = 0
+    const networkAddress = await network.getAddress();
+    const daoVUnits = await readDaoTotalEthVUnits(provider, networkAddress);
+    expect(daoVUnits).to.equal(0n, "daoTotalEthVUnits = 0 (no validators registered)");
   });
 
   it("XF-049: DAO changes all parameters simultaneously — no cross-contamination", async function () {
@@ -777,6 +873,15 @@ describe("Cross-Cutting: XF Full Lifecycle Chains", () => {
       network, clusterOwner, operatorIds, ethers.parseEther("10"),
     );
     expect(cluster.active).to.be.true;
+
+    // vUnit consistency: 1 validator → daoTotalEthVUnits = 10000
+    const networkAddress = await network.getAddress();
+    const daoVUnits = await readDaoTotalEthVUnits(provider, networkAddress);
+    expect(daoVUnits).to.equal(10000n, "daoTotalEthVUnits = 10000 after param changes + register");
+    for (const opId of operatorIds) {
+      const vUnits = await readOperatorEthVUnits(provider, networkAddress, opId);
+      expect(vUnits).to.equal(0n, `operator ${opId} should have 0 deviation (implicit EB)`);
+    }
   });
 
   it("XF-054: DAO updateUnstakeCooldownDuration → existing request uses old, new request uses new", async function () {
@@ -828,6 +933,10 @@ describe("Cross-Cutting: XF Full Lifecycle Chains", () => {
         network.connect(stakerA).withdrawUnlocked(),
       ).to.be.revertedWithCustomError(network, Errors.NOTHING_TO_WITHDRAW);
     }
+
+    // vUnit consistency: no validators registered → daoTotalEthVUnits = 0
+    const daoVUnits = await readDaoTotalEthVUnits(provider, networkAddress);
+    expect(daoVUnits).to.equal(0n, "daoTotalEthVUnits = 0 (no validators, staking-only test)");
   });
 
   it("XF-055: DAO updateQuorumBps → previously-stuck root now commits", async function () {
@@ -857,6 +966,11 @@ describe("Cross-Cutting: XF Full Lifecycle Chains", () => {
     // Vote with 4th oracle to trigger quorum check
     const tx = await network.connect(oracle4).commitRoot(dummyRoot, rootBlock);
     await expect(tx).to.emit(network, Events.ROOT_COMMITTED);
+
+    // vUnit consistency: no validators → daoTotalEthVUnits = 0
+    const networkAddress = await network.getAddress();
+    const daoVUnits = await readDaoTotalEthVUnits(provider, networkAddress);
+    expect(daoVUnits).to.equal(0n, "daoTotalEthVUnits = 0 (no validators, oracle-only test)");
   });
 
   // ── Fee settlement ordering ────────────────────────────────────────
@@ -891,6 +1005,15 @@ describe("Cross-Cutting: XF Full Lifecycle Chains", () => {
     const receipt = await txW.wait();
     cluster = parseClusterFromEvent(network, receipt, Events.CLUSTER_WITHDRAWN);
     expect(cluster.active).to.be.true;
+
+    // vUnit consistency: 1 validator, implicit EB → daoTotalEthVUnits = 10000
+    const networkAddress = await network.getAddress();
+    const daoVUnits = await readDaoTotalEthVUnits(provider, networkAddress);
+    expect(daoVUnits).to.equal(10000n, "daoTotalEthVUnits unchanged after fee reduction + withdraw");
+    for (const opId of operatorIds) {
+      const vUnits = await readOperatorEthVUnits(provider, networkAddress, opId);
+      expect(vUnits).to.equal(0n, `operator ${opId} should have 0 deviation (implicit EB)`);
+    }
   });
 
   it("XF-041: Fee settlement uses OLD vUnits before applying new deviation", async function () {
@@ -956,6 +1079,10 @@ describe("Cross-Cutting: XF Full Lifecycle Chains", () => {
       feesCharged,
       "phase 2 fees (2x vUnits) should exceed phase 1 fees (1x vUnits) over same block span",
     );
+
+    // daoTotalEthVUnits = baseline (10000) + deviation (10000) = 20000
+    const daoVUnits = await readDaoTotalEthVUnits(provider, networkAddress);
+    expect(daoVUnits).to.equal(20000n, "daoTotalEthVUnits consistent after EB 64 update");
   });
 
   it("XF-042: Register validator into explicit-EB cluster → vUnits increase by baseline only", async function () {
@@ -1063,6 +1190,17 @@ describe("Cross-Cutting: XF Full Lifecycle Chains", () => {
     // but removed op contributes 0 fee
     const isLiq = await views.isLiquidatable(clusterOwner.address, operatorIds, cluster);
     expect(isLiq).to.be.false;
+
+    // INV-11: removed operator must have 0 vUnits
+    await assertINV11(provider, networkAddress, [operatorIds[0]]);
+    // daoTotalEthVUnits = 1 validator × 10000 = 10000 (implicit EB, no deviation)
+    const daoVUnits = await readDaoTotalEthVUnits(provider, networkAddress);
+    expect(daoVUnits).to.equal(10000n, "daoTotalEthVUnits = 10000 (1 validator, implicit EB)");
+    // Active operators should have 0 deviation (implicit EB)
+    for (let i = 1; i < operatorIds.length; i++) {
+      const vUnits = await readOperatorEthVUnits(provider, networkAddress, operatorIds[i]);
+      expect(vUnits).to.equal(0n, `active operator ${operatorIds[i]} should have 0 deviation (implicit EB)`);
+    }
   });
 
   it("XF-024: Operator removed → EB update → operatorEthVUnits[removedOp] == 0 (BUG verification)", async function () {
@@ -1103,6 +1241,10 @@ describe("Cross-Cutting: XF Full Lifecycle Chains", () => {
       const vUnits = await readOperatorEthVUnits(provider, networkAddress, operatorIds[i]);
       expect(vUnits).to.equal(5000n, `active op ${operatorIds[i]} should have 5000 deviation`);
     }
+
+    // daoTotalEthVUnits = baseline (10000) + deviation (5000) = 15000
+    const daoVUnits = await readDaoTotalEthVUnits(provider, networkAddress);
+    expect(daoVUnits).to.equal(15000n, "daoTotalEthVUnits consistent after EB update on cluster with removed op");
   });
 
   it("XF-036: 2 ops removed + EB update → deviation only applied to 2 remaining (BUG verification)", async function () {
@@ -1146,6 +1288,10 @@ describe("Cross-Cutting: XF Full Lifecycle Chains", () => {
       const vUnits = await readOperatorEthVUnits(provider, networkAddress, operatorIds[i]);
       expect(vUnits).to.equal(5000n, `active op ${operatorIds[i]} should have 5000 deviation`);
     }
+
+    // daoTotalEthVUnits = baseline (10000) + deviation (5000) = 15000
+    const daoVUnits = await readDaoTotalEthVUnits(provider, networkAddress);
+    expect(daoVUnits).to.equal(15000n, "daoTotalEthVUnits consistent after EB update with 2 removed ops");
   });
 
   it("XF-050: Operator removed → 1000 blocks → deposit → withdraw → zero burn from removed op", async function () {
@@ -1209,6 +1355,17 @@ describe("Cross-Cutting: XF Full Lifecycle Chains", () => {
     for (let i = 1; i < operatorIds.length; i++) {
       const earnings = BigInt(await views.getOperatorEarnings(BigInt(operatorIds[i])));
       expect(earnings).to.be.greaterThan(0n);
+    }
+
+    // INV-11: removed operator must still have 0 vUnits after deposit + withdraw
+    await assertINV11(provider, networkAddress, [operatorIds[0]]);
+    // daoTotalEthVUnits = 1 validator × 10000 = 10000 (implicit EB, no deviation)
+    const daoVUnits = await readDaoTotalEthVUnits(provider, networkAddress);
+    expect(daoVUnits).to.equal(10000n, "daoTotalEthVUnits = 10000 (1 validator, implicit EB, removed op)");
+    // Active operators should have 0 deviation
+    for (let i = 1; i < operatorIds.length; i++) {
+      const vUnits = await readOperatorEthVUnits(provider, networkAddress, operatorIds[i]);
+      expect(vUnits).to.equal(0n, `active op ${operatorIds[i]} should have 0 deviation (implicit EB)`);
     }
   });
 
@@ -1610,6 +1767,16 @@ describe("Cross-Cutting: XF Full Lifecycle Chains", () => {
     expect(clusterC.validatorCount).to.equal(0n);
 
     expect(BigInt(await views.getNetworkValidatorsCount())).to.equal(0n);
+
+    // vUnit consistency: all validators removed → daoTotalEthVUnits = 0
+    const networkAddress = await network.getAddress();
+    const daoVUnits = await readDaoTotalEthVUnits(provider, networkAddress);
+    expect(daoVUnits).to.equal(0n, "daoTotalEthVUnits = 0 after all 15 validators removed from 3 clusters");
+    // All EB deviations should be cleaned up (clusters emptied)
+    for (const opId of operatorIds) {
+      const vUnits = await readOperatorEthVUnits(provider, networkAddress, opId);
+      expect(vUnits).to.equal(0n, `operator ${opId} should have 0 deviation after all clusters emptied`);
+    }
   });
 
   // ── Staking lifecycle ──────────────────────────────────────────────
@@ -1648,6 +1815,10 @@ describe("Cross-Cutting: XF Full Lifecycle Chains", () => {
     await expect(
       network.connect(oracle1).commitRoot(dummyRoot, rootBlock),
     ).to.be.revertedWithCustomError(network, Errors.ZERO_CSSV_SUPPLY);
+
+    // vUnit consistency: no validators → daoTotalEthVUnits = 0
+    const daoVUnits = await readDaoTotalEthVUnits(provider, networkAddress);
+    expect(daoVUnits).to.equal(0n, "daoTotalEthVUnits = 0 (no validators, staker exit test)");
   });
 
   it("XF-060: Full protocol bootstrap — corrected ordering", async function () {
@@ -1727,6 +1898,15 @@ describe("Cross-Cutting: XF Full Lifecycle Chains", () => {
     await network.connect(staker).withdrawUnlocked();
     const ssvBalAfter = BigInt(await ssvToken.balanceOf(staker.address));
     expect(ssvBalAfter - ssvBalBefore).to.equal(unstakeAmount);
+
+    // vUnit consistency: 1 validator at EB 64 → deviation = 10000 per operator
+    for (const opId of operatorIds) {
+      const vUnits = await readOperatorEthVUnits(provider, networkAddress, opId);
+      expect(vUnits).to.equal(10000n, `operator ${opId} should have 10000 deviation after EB 64`);
+    }
+    // daoTotalEthVUnits = baseline (10000) + deviation (10000) = 20000
+    const daoVUnits = await readDaoTotalEthVUnits(provider, networkAddress);
+    expect(daoVUnits).to.equal(20000n, "daoTotalEthVUnits consistent in full bootstrap scenario");
   });
 
   // ── Oracle governance + EB ─────────────────────────────────────────
@@ -1772,6 +1952,15 @@ describe("Cross-Cutting: XF Full Lifecycle Chains", () => {
     );
     cluster = parseClusterFromEvent(network, await tx.wait(), Events.CLUSTER_BALANCE_UPDATED);
     expect(cluster.active).to.be.true;
+
+    // vUnit consistency after EB update: 1 validator at 48 ETH → deviation = 5000
+    const networkAddress = await network.getAddress();
+    for (const opId of operatorIds) {
+      const vUnits = await readOperatorEthVUnits(provider, networkAddress, opId);
+      expect(vUnits).to.equal(5000n, `operator ${opId} should have 5000 deviation after EB 48`);
+    }
+    const daoVUnits = await readDaoTotalEthVUnits(provider, networkAddress);
+    expect(daoVUnits).to.equal(15000n, "daoTotalEthVUnits = baseline (10000) + deviation (5000) = 15000");
   });
 
   it("XF-058: Mid-round oracle governance → updateClusterBalance fails", async function () {
@@ -1814,6 +2003,15 @@ describe("Cross-Cutting: XF Full Lifecycle Chains", () => {
         rootBlock, clusterOwner.address, operatorIds, cluster, 48, proofs[clusterId],
       ),
     ).to.be.revertedWithCustomError(network, Errors.ROOT_NOT_FOUND);
+
+    // vUnit consistency: 1 validator, implicit EB (EB update never applied)
+    const networkAddress = await network.getAddress();
+    const daoVUnits = await readDaoTotalEthVUnits(provider, networkAddress);
+    expect(daoVUnits).to.equal(10000n, "daoTotalEthVUnits = 10000 (EB update never applied)");
+    for (const opId of operatorIds) {
+      const vUnits = await readOperatorEthVUnits(provider, networkAddress, opId);
+      expect(vUnits).to.equal(0n, `operator ${opId} should have 0 deviation (EB update failed)`);
+    }
   });
 
   // ── Whitelist + privacy ────────────────────────────────────────────
@@ -1850,6 +2048,15 @@ describe("Cross-Cutting: XF Full Lifecycle Chains", () => {
     // A's existing cluster unaffected
     const isLiq = await views.isLiquidatable(ownerA.address, operatorIds, cluster);
     expect(isLiq).to.be.false;
+
+    // vUnit consistency: 1 validator, implicit EB → daoTotalEthVUnits = 10000
+    const networkAddress = await network.getAddress();
+    const daoVUnits = await readDaoTotalEthVUnits(provider, networkAddress);
+    expect(daoVUnits).to.equal(10000n, "daoTotalEthVUnits = 10000 for 1 validator (whitelist test)");
+    for (const opId of operatorIds) {
+      const vUnits = await readOperatorEthVUnits(provider, networkAddress, opId);
+      expect(vUnits).to.equal(0n, `operator ${opId} should have 0 deviation (implicit EB)`);
+    }
   });
 
   it("XF-057: Whitelist module end-to-end on live cluster", async function () {
@@ -1889,6 +2096,15 @@ describe("Cross-Cutting: XF Full Lifecycle Chains", () => {
     );
     const clusterB = parseClusterFromEvent(network, await txReg.wait(), Events.VALIDATOR_ADDED);
     expect(clusterB.active).to.be.true;
+
+    // vUnit consistency: A has 1 validator, B has 1 validator → daoTotalEthVUnits = 20000
+    const networkAddress = await network.getAddress();
+    const daoVUnits = await readDaoTotalEthVUnits(provider, networkAddress);
+    expect(daoVUnits).to.equal(20000n, "daoTotalEthVUnits = 20000 (2 validators, implicit EB)");
+    for (const opId of operatorIds) {
+      const vUnits = await readOperatorEthVUnits(provider, networkAddress, opId);
+      expect(vUnits).to.equal(0n, `operator ${opId} should have 0 deviation (implicit EB)`);
+    }
   });
 
   // ── Contract rejection ─────────────────────────────────────────────
@@ -1977,6 +2193,16 @@ describe("Cross-Cutting: XF Full Lifecycle Chains", () => {
     expect(balance).to.be.greaterThan(0n);
     isLiq = await views.isLiquidatable(clusterOwner.address, operatorIds, cluster);
     expect(isLiq).to.be.false;
+
+    // vUnit consistency after full mutation chain (register→EB→fee→liquidate→reactivate)
+    // EB 48 deviation restored after reactivation: 5000 per operator
+    for (const opId of operatorIds) {
+      const vUnits = await readOperatorEthVUnits(provider, networkAddress, opId);
+      expect(vUnits).to.equal(5000n, `operator ${opId} should have 5000 deviation after reactivation`);
+    }
+    // daoTotalEthVUnits = baseline (10000) + deviation (5000) = 15000
+    const daoVUnits = await readDaoTotalEthVUnits(provider, networkAddress);
+    expect(daoVUnits).to.equal(15000n, "daoTotalEthVUnits consistent after full mutation chain");
   });
 
   // ── Bulk stress (XF-052) ───────────────────────────────────────────
@@ -2030,5 +2256,9 @@ describe("Cross-Cutting: XF Full Lifecycle Chains", () => {
       const vUnits = await readOperatorEthVUnits(provider, networkAddress, opId);
       expect(vUnits).to.equal(expectedDeviation);
     }
+
+    // daoTotalEthVUnits = baseline + deviation = expectedVUnits
+    const daoVUnits = await readDaoTotalEthVUnits(provider, networkAddress);
+    expect(daoVUnits).to.equal(expectedVUnits, "daoTotalEthVUnits = expectedVUnits for 100 validators at EB 48");
   });
 });

@@ -11,6 +11,7 @@ import type { NetworkHelpersType, Cluster } from "../../common/types.ts";
 import {
   makePublicKey,
   parseClusterFromEvent,
+  extractEventArgs,
   registerOperators,
   whitelistAddresses,
   getCurrentClusterState,
@@ -520,6 +521,10 @@ describe("XG: Migration x Staking Cross-Module Tests", () => {
       const stakeAmount = ethers.parseEther("10");
       await stakeSSV(network, ssvToken, staker, stakeAmount);
 
+      // G2: Capture SSV balances before migration for conservation check
+      const ownerSSVBefore = await ssvToken.balanceOf(clusterOwner.address);
+      const contractSSVBefore = await ssvToken.balanceOf(networkAddress);
+
       // Migrate with small balance so cluster drains quickly
       // Legacy fixture: minimumBlocksBeforeLiquidation=214800, threshold for 2 validators ≈ 0.004345 ETH
       const smallDeposit = ethers.parseEther("0.005");
@@ -528,6 +533,23 @@ describe("XG: Migration x Staking Cross-Module Tests", () => {
       );
       const migrateReceipt = await migrateTx.wait();
       let migratedCluster = parseClusterFromEvent(network, migrateReceipt, Events.CLUSTER_MIGRATED_TO_ETH);
+
+      // G2: SSV conservation — refund from event matches actual token transfer
+      const migrateEventArgs = extractEventArgs(network, migrateReceipt, Events.CLUSTER_MIGRATED_TO_ETH);
+      const ssvRefunded = BigInt(migrateEventArgs.ssvRefunded);
+      const ownerSSVAfter = await ssvToken.balanceOf(clusterOwner.address);
+      const contractSSVAfter = await ssvToken.balanceOf(networkAddress);
+      expect(ownerSSVAfter - ownerSSVBefore).to.equal(ssvRefunded, "G2: owner SSV delta must match refund");
+      expect(contractSSVBefore - contractSSVAfter).to.equal(ssvRefunded, "G2: contract SSV delta must match refund");
+
+      // G4: Per-operator vUnits deviation after migration (2 validators, implicit EB = no deviation)
+      for (const opId of operatorIds) {
+        const opVUnits = await readOperatorEthVUnits(provider, networkAddress, opId);
+        expect(opVUnits).to.equal(0n, `G4: operator ${opId} deviation vUnits must be 0 for implicit EB`);
+      }
+      // G4: daoTotalEthVUnits == validatorCount * BPS (baseline only, no deviation)
+      const daoVUnitsMigrated = await readDaoTotalEthVUnits(provider, networkAddress);
+      expect(daoVUnitsMigrated).to.equal(defaultVUnits(2n), "G4: daoTotalEthVUnits post-migration");
 
       // Advance blocks to drain the cluster and sync right before liquidation
       await mineBlocks(provider, 500_000);
@@ -543,6 +565,12 @@ describe("XG: Migration x Staking Cross-Module Tests", () => {
       // daoTotalEthVUnits should drop to 0
       const daoVUnits = await readDaoTotalEthVUnits(provider, networkAddress);
       expect(daoVUnits).to.equal(0n);
+
+      // G4: Per-operator vUnits should all be 0 after liquidation
+      for (const opId of operatorIds) {
+        const opVUnitsPost = await readOperatorEthVUnits(provider, networkAddress, opId);
+        expect(opVUnitsPost).to.equal(0n, `G4: operator ${opId} vUnits must be 0 post-liquidation`);
+      }
 
       // Advance and sync post-liquidation
       await mineBlocks(provider, 100);
@@ -1045,13 +1073,34 @@ describe("XG: Migration x Staking Cross-Module Tests", () => {
       const stakeAmount = ethers.parseEther("10");
       await stakeSSV(network, ssvToken, staker, stakeAmount);
 
+      // G2: Capture SSV balances before migration for conservation check
+      const ownerSSVBefore = await ssvToken.balanceOf(clusterOwner.address);
+      const contractSSVBefore = await ssvToken.balanceOf(networkAddress);
+
       // Migrate liquidated cluster — this reactivates it
-      await network.connect(clusterOwner).migrateClusterToETH(
+      const migrateTx = await network.connect(clusterOwner).migrateClusterToETH(
         operatorIds, cluster, { value: DEFAULT_ETH_REGISTER_VALUE },
       );
+      const migrateReceipt = await migrateTx.wait();
+
+      // G2: SSV conservation — refund from event matches actual token transfer
+      const migrateEventArgs = extractEventArgs(network, migrateReceipt, Events.CLUSTER_MIGRATED_TO_ETH);
+      const ssvRefunded = BigInt(migrateEventArgs.ssvRefunded);
+      const ownerSSVAfter = await ssvToken.balanceOf(clusterOwner.address);
+      const contractSSVAfter = await ssvToken.balanceOf(networkAddress);
+      expect(ownerSSVAfter - ownerSSVBefore).to.equal(ssvRefunded, "G2: owner SSV delta must match refund");
+      expect(contractSSVBefore - contractSSVAfter).to.equal(ssvRefunded, "G2: contract SSV delta must match refund");
 
       const daoVUnits = await readDaoTotalEthVUnits(provider, networkAddress);
       expect(daoVUnits).to.equal(defaultVUnits(1n));
+
+      // G4: Per-operator vUnits deviation after migration (1 validator, implicit EB = no deviation)
+      for (const opId of operatorIds) {
+        const opVUnits = await readOperatorEthVUnits(provider, networkAddress, opId);
+        expect(opVUnits).to.equal(0n, `G4: operator ${opId} deviation vUnits must be 0 for implicit EB`);
+      }
+      // G4: daoTotalEthVUnits == validatorCount * BPS (baseline, no deviation)
+      expect(daoVUnits).to.equal(defaultVUnits(1n), "G4: daoTotalEthVUnits must equal validatorCount * BPS");
 
       await mineBlocks(provider, 100);
 
@@ -1144,15 +1193,40 @@ describe("XG: Migration x Staking Cross-Module Tests", () => {
       const stakeAmount = ethers.parseEther("10");
       await stakeSSV(network, ssvToken, staker, stakeAmount);
 
+      // G2: Capture SSV balances before migration for conservation check
+      const ownerSSVBefore = await ssvToken.balanceOf(clusterOwner.address);
+      const contractSSVBefore = await ssvToken.balanceOf(networkAddress);
+
       // Migrate
-      await network.connect(clusterOwner).migrateClusterToETH(
+      const migrateTx = await network.connect(clusterOwner).migrateClusterToETH(
         operatorIds, cluster, { value: DEFAULT_ETH_REGISTER_VALUE },
       );
+      const migrateReceipt = await migrateTx.wait();
+
+      // G2: SSV conservation — refund from event matches actual token transfer
+      const migrateEventArgs = extractEventArgs(network, migrateReceipt, Events.CLUSTER_MIGRATED_TO_ETH);
+      const ssvRefunded = BigInt(migrateEventArgs.ssvRefunded);
+      const ownerSSVAfter = await ssvToken.balanceOf(clusterOwner.address);
+      const contractSSVAfter = await ssvToken.balanceOf(networkAddress);
+      expect(ownerSSVAfter - ownerSSVBefore).to.equal(ssvRefunded, "G2: owner SSV delta must match refund");
+      expect(contractSSVBefore - contractSSVAfter).to.equal(ssvRefunded, "G2: contract SSV delta must match refund");
 
       const daoVUnitsPre = await readDaoTotalEthVUnits(provider, networkAddress);
+      // G4: daoTotalEthVUnits post-migration matches 2 validators baseline
+      expect(daoVUnitsPre).to.equal(defaultVUnits(2n), "G4: daoTotalEthVUnits post-migration");
+
+      // G4: Per-operator deviation vUnits are 0 for implicit EB
+      for (const opId of operatorIds) {
+        const opVUnits = await readOperatorEthVUnits(provider, networkAddress, opId);
+        expect(opVUnits).to.equal(0n, `G4: operator ${opId} deviation vUnits must be 0 for implicit EB`);
+      }
 
       // Remove operator after migration
       await network.connect(operatorOwner).removeOperator(operatorIds[3]);
+
+      // G4: Removed operator deviation vUnits should remain 0
+      const removedOpVUnits = await readOperatorEthVUnits(provider, networkAddress, operatorIds[3]);
+      expect(removedOpVUnits).to.equal(0n, "G4: removed operator deviation vUnits must be 0");
 
       await mineBlocks(provider, 100);
       await network.syncFees();
@@ -1235,6 +1309,7 @@ describe("XG: Migration x Staking Cross-Module Tests", () => {
       const { network, ssvToken, cssvToken, operatorIds, cluster } =
         await networkHelpers.loadFixture(deployFixture);
       const provider = connection.ethers.provider;
+      const networkAddress = await network.getAddress();
 
       // Both stake
       const stakeA = ethers.parseEther("10");
@@ -1242,10 +1317,33 @@ describe("XG: Migration x Staking Cross-Module Tests", () => {
       await stakeSSV(network, ssvToken, staker, stakeA);
       await stakeSSV(network, ssvToken, stakerB, stakeB);
 
+      // G2: Capture SSV balances before migration for conservation check
+      const ownerSSVBefore = await ssvToken.balanceOf(clusterOwner.address);
+      const contractSSVBefore = await ssvToken.balanceOf(networkAddress);
+
       // Migrate
-      await network.connect(clusterOwner).migrateClusterToETH(
+      const migrateTx = await network.connect(clusterOwner).migrateClusterToETH(
         operatorIds, cluster, { value: DEFAULT_ETH_REGISTER_VALUE },
       );
+      const migrateReceipt = await migrateTx.wait();
+
+      // G2: SSV conservation — refund from event matches actual token transfer
+      const migrateEventArgs = extractEventArgs(network, migrateReceipt, Events.CLUSTER_MIGRATED_TO_ETH);
+      const ssvRefunded = BigInt(migrateEventArgs.ssvRefunded);
+      const ownerSSVAfter = await ssvToken.balanceOf(clusterOwner.address);
+      const contractSSVAfter = await ssvToken.balanceOf(networkAddress);
+      expect(ownerSSVAfter - ownerSSVBefore).to.equal(ssvRefunded, "G2: owner SSV delta must match refund");
+      expect(contractSSVBefore - contractSSVAfter).to.equal(ssvRefunded, "G2: contract SSV delta must match refund");
+
+      // G4: daoTotalEthVUnits matches 1 validator baseline
+      const daoVUnits = await readDaoTotalEthVUnits(provider, networkAddress);
+      expect(daoVUnits).to.equal(defaultVUnits(1n), "G4: daoTotalEthVUnits post-migration");
+
+      // G4: Per-operator deviation vUnits are 0 for implicit EB
+      for (const opId of operatorIds) {
+        const opVUnits = await readOperatorEthVUnits(provider, networkAddress, opId);
+        expect(opVUnits).to.equal(0n, `G4: operator ${opId} deviation vUnits must be 0 for implicit EB`);
+      }
 
       await mineBlocks(provider, 50);
       await network.syncFees();
@@ -1255,6 +1353,10 @@ describe("XG: Migration x Staking Cross-Module Tests", () => {
       await cssvToken.connect(staker).transfer(stakerB.address, transferAmount);
 
       await mineBlocks(provider, 50);
+
+      // G4: daoTotalEthVUnits unchanged by cSSV transfer
+      const daoVUnitsPostTransfer = await readDaoTotalEthVUnits(provider, networkAddress);
+      expect(daoVUnitsPostTransfer).to.equal(defaultVUnits(1n), "G4: daoTotalEthVUnits unchanged after cSSV transfer");
 
       // Both claim
       const claimA = await claimAndGetAmount(network, provider, staker);
@@ -1950,11 +2052,35 @@ describe("XG: Migration x Staking Cross-Module Tests", () => {
       const { network, views, ssvToken, operatorIds, cluster } =
         await networkHelpers.loadFixture(deployFixture);
       const provider = connection.ethers.provider;
+      const networkAddress = await network.getAddress();
+
+      // G2: Capture SSV balances before migration for conservation check
+      const ownerSSVBefore = await ssvToken.balanceOf(clusterOwner.address);
+      const contractSSVBefore = await ssvToken.balanceOf(networkAddress);
 
       // Migrate without any stakers
-      await network.connect(clusterOwner).migrateClusterToETH(
+      const migrateTx = await network.connect(clusterOwner).migrateClusterToETH(
         operatorIds, cluster, { value: DEFAULT_ETH_REGISTER_VALUE },
       );
+      const migrateReceipt = await migrateTx.wait();
+
+      // G2: SSV conservation — refund from event matches actual token transfer
+      const migrateEventArgs = extractEventArgs(network, migrateReceipt, Events.CLUSTER_MIGRATED_TO_ETH);
+      const ssvRefunded = BigInt(migrateEventArgs.ssvRefunded);
+      const ownerSSVAfter = await ssvToken.balanceOf(clusterOwner.address);
+      const contractSSVAfter = await ssvToken.balanceOf(networkAddress);
+      expect(ownerSSVAfter - ownerSSVBefore).to.equal(ssvRefunded, "G2: owner SSV delta must match refund");
+      expect(contractSSVBefore - contractSSVAfter).to.equal(ssvRefunded, "G2: contract SSV delta must match refund");
+
+      // G4: daoTotalEthVUnits matches 1 validator baseline
+      const daoVUnits = await readDaoTotalEthVUnits(provider, networkAddress);
+      expect(daoVUnits).to.equal(defaultVUnits(1n), "G4: daoTotalEthVUnits post-migration");
+
+      // G4: Per-operator deviation vUnits are 0 for implicit EB
+      for (const opId of operatorIds) {
+        const opVUnits = await readOperatorEthVUnits(provider, networkAddress, opId);
+        expect(opVUnits).to.equal(0n, `G4: operator ${opId} deviation vUnits must be 0 for implicit EB`);
+      }
 
       await mineBlocks(provider, 100);
 
@@ -1968,6 +2094,10 @@ describe("XG: Migration x Staking Cross-Module Tests", () => {
       // stakingEthPoolBalance is still updated (inflated)
       const poolBalance = BigInt(await views.stakingEthPoolBalance());
       expect(poolBalance).to.be.greaterThan(0n);
+
+      // G4: daoTotalEthVUnits unchanged after syncFees (cluster still active)
+      const daoVUnitsPost = await readDaoTotalEthVUnits(provider, networkAddress);
+      expect(daoVUnitsPost).to.equal(defaultVUnits(1n), "G4: daoTotalEthVUnits unchanged after syncFees");
 
       // The fees in poolBalance are permanently orphaned — BUG-6
     });
