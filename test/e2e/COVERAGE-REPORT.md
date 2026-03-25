@@ -1,107 +1,81 @@
 # E2E Test Coverage Report
 
-**Generated:** 2026-02-18
-**Branch:** `implement--e2e-integration-pass`
-**Test command:** `npx hardhat test test/e2e/**/*.test.ts`
+**Updated:** 2026-03-25
+**Branch:** `feat/exhaustive-scenario-coverage`
+**Test command:** `find test/e2e -name "*.test.ts" | sort | xargs npx hardhat test`
 
 ## Summary
 
 | Metric | Count |
 |---|---|
-| Total scenarios (from SCENARIO-TESTS.md) | 107 |
-| Tests implemented | 209 |
-| Tests passing | 209 |
+| Documented scenarios (27 scenario files) | 1,777 |
+| Tracked scenarios (CSV) | 1,026 |
+| Hardhat e2e tests passing | 1,020 |
 | Tests failing | 0 |
-| Tests skipped | 0 |
-| Missing scenarios | 0 |
+| Tests using mockRemoveOperator | 0 (quarantined) |
 
-## Scenario Coverage by Module
+## Test Files by Category
 
-### Operators & Validators (OV-1 to OV-35) — 35 scenarios, 100% covered
+| Category | Files | Tests | Description |
+|---|---|---|---|
+| removed-operator | 11 | ~211 | RM1-RM6, RMA, RMC — all use real `removeOperator()` |
+| cross-cutting | 5 | ~266 | XO, XV, XL, XG, XF — multi-module chain tests |
+| invariants | 2 | ~15 | G1-G12 invariant verification |
+| clusters-eth | 4 | ~66 | CL deposit/withdraw, liquidation, edge cases |
+| effective-balance | 3 | ~64 | EB oracle, updates, deviation |
+| operators | 4 | ~96 | OP lifecycle, OF fees, OE earnings, WL whitelist |
+| validators | 3 | ~90 | VR registration, VX remove/exit |
+| migration | 2 | ~33 | MG SSV→ETH migration |
+| staking | 2 | ~60 | ST staking lifecycle, rewards |
+| dao | 1 | ~35 | DA governance parameters |
+| clusters-ssv | 1 | ~7 | SSV legacy cluster operations |
+| mock-migration | 1 | ~32 | W5.5 mock-to-real migration |
+| smoke | 1 | 1 | Basic smoke test |
 
-| File | Scenarios | Tests |
-|---|---|---|
-| `operators/operator-lifecycle.test.ts` | OV-1, OV-2, OV-3, OV-11, OV-12, OV-13, OV-14 | 23 |
-| `operators/operator-economics.test.ts` | OV-13, OV-15, OV-16, OV-17, OV-18 | 8 |
-| `operators/operator-edge-cases.test.ts` | OV-21, OV-23, OV-24, OV-28, OV-29 | 9 |
-| `operators/operator-reverts.test.ts` | OV-19 (partial), OV-21 | 6 |
-| `validators/validator-lifecycle.test.ts` | OV-4, OV-5, OV-6, OV-7, OV-8, OV-9, OV-10 | 17 |
-| `validators/validator-edge-cases.test.ts` | OV-19, OV-20, OV-22, OV-25, OV-26, OV-27, OV-30–OV-35 | 20 |
+## Wave History
 
-### Cluster Mechanics (CM-1 to CM-30) — 30 scenarios, 100% covered
+| Wave | Commits | Focus | Lines Added |
+|---|---|---|---|
+| W5 | 9 | RM-* removed-operator tests (real removeOperator) | ~3,200 |
+| W5.5 | 1 | Mock-to-real migration (32 scenarios) | ~800 |
+| W6 | 5 | Cross-module tests (XO/XV/XL/XG/XF) | ~4,500 |
+| W7 | 11 | Module gap tests (all modules) | ~3,800 |
+| W8 | 4 | Assertion strengthening (119 scenarios) | ~1,400 |
+| W9 | 4 | Fix 88 tests for BUG-21 correct behavior | ~765 |
+| W10 | 8+1 | Assertion hardening + coverage gaps + ask-codex fixes | ~2,700 |
 
-| File | Scenarios | Tests |
-|---|---|---|
-| `clusters-eth/cluster-eth-lifecycle.test.ts` | CM-1, CM-2, CM-3, CM-9, CM-10 | 9 |
-| `clusters-eth/cluster-eth-liquidation.test.ts` | CM-3 ext, CM-14, CM-15 | 3 |
-| `clusters-eth/cluster-eth-eb.test.ts` | CM-12, CM-13 | 2 |
-| `clusters-eth/cluster-eth-edge.test.ts` | CM-19, CM-20, CM-23, CM-24, CM-26 | 6 |
-| `clusters-eth/cluster-reverts.test.ts` | CM-21 | 3 |
-| `clusters-eth/cluster-conservation.test.ts` | CM-16 | 1 |
-| `clusters-ssv/cluster-ssv-legacy.test.ts` | CM-4, CM-11 | 6 |
-| `clusters-ssv/cluster-ssv-fees.test.ts` | CM-17, CM-25 | 2 |
-| `migration/migration-basic.test.ts` | CM-5, CM-6, CM-7, CM-8 | 6 |
-| `migration/migration-edge.test.ts` | CM-18, CM-22, CM-27, CM-28, CM-29 | 7 |
-| `migration/migration-full-lifecycle.test.ts` | CM-30 | 1 |
+## BUG-21 Coverage
 
-### Effective Balance & Staking (ES-1 to ES-32) — 32 scenarios, 100% covered
+The removed-operator bug (operatorEthVUnits not deleted on removal) is covered by:
 
-| File | Scenarios | Tests |
-|---|---|---|
-| `effective-balance/oracle-commits.test.ts` | ES-1, ES-2, ES-3, ES-4, ES-5 | 14 |
-| `effective-balance/eb-updates.test.ts` | ES-6, ES-7, ES-8, ES-9, ES-10 | 5 |
-| `effective-balance/eb-operator-vunits.test.ts` | ES-11 | 1 |
-| `effective-balance/eb-edge-cases.test.ts` | ES-12, ES-13, ES-14 | 15 |
-| `staking/staking-lifecycle.test.ts` | ES-15, ES-16, ES-17, ES-18 | 7 |
-| `staking/staking-edge-cases.test.ts` | ES-20, ES-21, ES-22, ES-23, ES-26, ES-29 | 11 |
-| `staking/staking-rewards.test.ts` | ES-24, ES-25, ES-27, ES-28, ES-31, ES-32 | 8 |
-| `staking/staking-transfers.test.ts` | ES-19, ES-30 | 7 |
+- **RM1**: `_updateOperatorVUnits` guard — 24 tests verifying guard skips removed ops
+- **RM2**: `_executeLiquidation` deviation cleanup — 30 tests
+- **RM3**: `_bulkRemoveValidator` guard — 27 tests
+- **RM4**: `migrateClusterToETH` guard — 27 tests
+- **RM5**: Reactivation with removed ops — 21 tests
+- **RM6**: Migration init guard — 21 tests
+- **RMA**: Auto-liquidation compound path — 33 tests
+- **RMC**: Multi-step chains — 28 tests
+- **INV**: G11 invariant (removed operator zero state) — 15 tests
 
-### Cross-Cutting (CC-1 to CC-10) — 10 scenarios, 100% covered
+All tests verify `isActive == false`, `fee == 0`, `operatorEthVUnits == 0` after every `removeOperator()` call.
 
-| File | Scenarios | Tests |
-|---|---|---|
-| `cross-cutting/economics.test.ts` | CC-1, CC-2, CC-5 | 3 |
-| `cross-cutting/multi-step-flows.test.ts` | CC-3, CC-7, CC-9 | 4 |
-| `cross-cutting/staking-integration.test.ts` | CC-4, CC-6, CC-8 | 3 |
-| `cross-cutting/full-lifecycle.test.ts` | CC-10 | 1 |
-| `smoke.test.ts` | (smoke) | 1 |
+## Assertion Quality
 
-## Discrepancy Annotations
-
-14 formal `// TODO(DISC-XX):` annotations added across 7 files, covering 8 discrepancies between code behavior and FLOWS.md specification:
-
-| ID | Description | Files |
-|---|---|---|
-| DISC-OV-1 | `registerOperator` always emits `OperatorPrivacyStatusUpdated` even for public operators | `operator-lifecycle.test.ts` |
-| DISC-OV-3 | `removeOperator` does NOT check `validatorCount == 0` | `operator-edge-cases.test.ts` |
-| DISC-OV-8 | `deposit` does NOT settle fees or update operator snapshots | `cluster-eth-lifecycle.test.ts` (3), `validator-edge-cases.test.ts` |
-| DISC-OV-9 | `deposit` does NOT check `cluster.active` | `cluster-eth-lifecycle.test.ts` |
-| DISC-CM-3 | `withdraw` does NOT update operator snapshots | `cluster-eth-lifecycle.test.ts`, `cluster-eth-edge.test.ts`, `migration-full-lifecycle.test.ts` |
-| DISC-CM-5 | `reactivate` uses additive `balance += msg.value` | `cluster-eth-lifecycle.test.ts` (2) |
-| DISC-ES-6 | `_updateOperatorVUnits` applies FULL delta per operator | `eb-operator-vunits.test.ts` |
-| DISC-CC-1 | `removeOperator` does NOT delete `operatorFeeChangeRequests` | `operator-edge-cases.test.ts` |
-
-## Weak Assertion Audit
-
-The following assertions were strengthened from weak (`closeTo`, `greaterThan(0n)`, `greaterThanOrEqual`) to exact (`equal`) with computed expected values:
-
-1. `operator-economics.test.ts` — `closeTo` -> `equal` for identical operator earnings comparison
-2. `migration-basic.test.ts` — `greaterThanOrEqual(1)` -> `equal(1)` for `ethValidatorCount`
-3. `staking-integration.test.ts` — Removed redundant `greaterThanOrEqual(0n)` DAO earnings check (already verified implicitly)
-
-Remaining weak assertions are intentional (conservation law lower bounds, monotonicity checks, snapshot-dependent computations where exact values depend on operator registration timing).
+After W10 hardening:
+- Zero `greaterThan(0n)` weak assertions in new tests
+- All balance assertions use exact computed values via `calcClusterBurn`
+- Block numbers captured at each transaction for precise fee calculations
+- ask-codex reviewed all waves with findings addressed
 
 ## Helpers
 
-All shared helpers are centralized in `test/e2e/helpers/`:
+All shared helpers in `test/helpers/`:
 
-| File | Exports |
+| File | Key Exports |
 |---|---|
-| `fee-calculator.ts` | `calcOperatorFeeAccrual`, `calcClusterBurn`, `calcNetworkFeeAccrual`, `calcVUnits`, `defaultVUnits`, `calcSSVClusterFees`, `calcLiquidationThreshold`, `calcAccEthPerShareDelta`, `calcStakingReward` |
-| `block-helpers.ts` | `mineBlocks`, `getBlockNumber`, `getTxBlock`, `snapshotContractBalance` |
-| `balance-tracker.ts` | `BalanceTracker` class for multi-step balance tracking |
-| `invariant-checker.ts` | `checkETHConservation` |
+| `fee-calculator.ts` | `calcOperatorFeeAccrual`, `calcClusterBurn`, `calcVUnits`, `defaultVUnits`, `calcLiquidationThreshold`, `calcAccEthPerShareDelta` |
+| `block-helpers.ts` | `mineBlocks`, `getBlockNumber`, `setAccountBalance` |
+| `cluster-helpers.ts` | `parseClusterFromEvent`, `getCurrentClusterState`, `computeClusterId` |
+| `eb-helpers.ts` | `setupOracles`, `commitEBRoot`, `computeEBRoot`, `generateMerkleForClusterEB` |
 | `index.ts` | Re-exports all helpers |
-
-No duplicate helper code found in test files.
