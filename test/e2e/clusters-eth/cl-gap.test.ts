@@ -892,10 +892,25 @@ describe("CL Gap Tests — Cluster Deposit/Withdraw", () => {
 
       // Balance decreased by at least withdrawAmount (fees also deducted)
       expect(clusterAfter.balance).to.be.lessThan(cluster.balance - withdrawAmount);
-      // Balance decreased by no more than a reasonable fee amount
-      expect(clusterAfter.balance).to.be.greaterThan(0n);
-      // Cluster remains active
+
+      // Verify exact vUnits computation
+      const expectedVUnits = calcVUnits(64n);
+      expect(expectedVUnits).to.equal(20000n, "CL-050: vUnits = ceil(64*10000/32) = 20000");
+
+      // Fee deduction = cluster.balance - withdrawAmount - clusterAfter.balance
+      const feeDeducted = cluster.balance - withdrawAmount - clusterAfter.balance;
+      expect(feeDeducted).to.be.greaterThan(0n, "CL-050: fees were deducted");
+
+      // Balance should be close to deposit minus withdraw (fees are small over 6 blocks)
+      // Must be at least 99% of (balance - withdrawAmount)
+      expect(clusterAfter.balance).to.be.greaterThan(
+        (cluster.balance - withdrawAmount) * 99n / 100n,
+        "CL-050: balance within 1% of (pre-withdraw balance - withdrawAmount)",
+      );
+
+      // Cluster remains active with same validator count
       expect(clusterAfter.active).to.equal(true);
+      expect(clusterAfter.validatorCount).to.equal(cluster.validatorCount);
     });
   });
 

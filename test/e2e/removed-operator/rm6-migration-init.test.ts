@@ -358,7 +358,17 @@ describe("RM6: Migration Init Guard — Removed Operator Scenarios", () => {
         const op = await views.getOperatorById(opId);
         // ethValidatorCount = 1 (from cluster A migration) + 1 (from cluster B migration) = 2
         expect(op.validatorCount).to.equal(2, `RM6-003 op${opId}: ethValidatorCount == 2`);
-        expect(op.isActive).to.equal(true);
+        expect(op.isActive).to.equal(true, `RM6-003 op${opId}: isActive`);
+        // Operators should have received the default ETH fee during migration
+        expect(op.fee).to.be.greaterThan(0n, `RM6-003 op${opId}: ethFee > 0`);
+      }
+
+      // Both operators' vUnits storage should reflect correct state
+      const proxyAddr = await network.getAddress();
+      for (const opId of operatorIds) {
+        const vUnits = await readOperatorEthVUnits(provider, proxyAddr, BigInt(opId));
+        // No EB update occurred, so vUnits deviation should be 0
+        expect(vUnits).to.equal(0n, `RM6-003 op${opId}: vUnits == 0 (no EB update)`);
       }
     });
   });

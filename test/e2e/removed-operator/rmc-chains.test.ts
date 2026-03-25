@@ -1295,6 +1295,25 @@ describe("Removed-Operator Multi-Step Chains (RMC)", function () {
 
       clusterB = await performEBUpdate(connection, network, oracles, provider, clusterOwnerB, opsB, clusterB, clusterIdB, 48);
       expect(clusterB.active).to.be.true;
+
+      // Cluster B should have valid validator count (1 validator)
+      expect(clusterB.validatorCount).to.equal(1n, "RMC-025: cluster B validatorCount == 1");
+
+      // Cluster B balance should still be positive (deposit + additional - withdraw - fees)
+      expect(BigInt(clusterB.balance)).to.be.greaterThan(0n, "RMC-025: cluster B has positive balance");
+
+      // Shared operators (0,1) should reflect validators from BOTH clusters
+      for (const opId of [operatorIds[0], operatorIds[1]]) {
+        const opData = await readOperatorEthVUnits(provider, networkAddress, BigInt(opId));
+        // Shared ops have deviation from both clusters' EB updates
+        expect(opData).to.be.greaterThan(0n, `RMC-025: shared op${opId} has vUnits deviation`);
+      }
+
+      // Cluster B-only operators (4,5) should have deviation from cluster B's EB update
+      for (const opId of [operatorIds[4], operatorIds[5]]) {
+        const opVUnits = await readOperatorEthVUnits(provider, networkAddress, BigInt(opId));
+        expect(opVUnits).to.be.greaterThan(0n, `RMC-025: cluster-B-only op${opId} has vUnits deviation`);
+      }
     });
 
     it("RMC-026: migrate cluster with dead op4 from SSV to ETH", async function () {

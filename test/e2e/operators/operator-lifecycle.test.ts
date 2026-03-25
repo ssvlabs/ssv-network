@@ -635,9 +635,18 @@ describe("Operator Lifecycle", function () {
       const earnings1 = await views.getOperatorEarnings(1n);
       expect(earnings1).to.equal(0n, "Operator with fee=0 should have no earnings");
 
-      // Operator 2 should have normal earnings
+      // Operators 2, 3, 4 all have same fee and same cluster — should have equal earnings
       const earnings2 = await views.getOperatorEarnings(2n);
+      const earnings3 = await views.getOperatorEarnings(3n);
+      const earnings4 = await views.getOperatorEarnings(4n);
       expect(earnings2).to.be.greaterThan(0n, "Operator with non-zero fee should have earnings");
+      expect(earnings3).to.equal(earnings2, "Operators with same fee earn same amount");
+      expect(earnings4).to.equal(earnings2, "Operators with same fee earn same amount");
+
+      // Operator 1 should remain active with validatorCount=1
+      const op1Data = await views.getOperatorById(1n);
+      expect(op1Data.isActive).to.equal(true, "Zero-fee operator still active");
+      expect(op1Data.validatorCount).to.equal(1, "Zero-fee operator has 1 validator");
     });
 
     it("Operator reduces fee immediately after registration (ethSnapshot already initialized)", async () => {

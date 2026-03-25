@@ -656,12 +656,25 @@ describe("RM2: _executeLiquidation Deviation Cleanup With Removed Operators", ()
         3n, implicitVUnits,
       );
 
-      expect(liqCluster.active).to.equal(false);
+      expect(liqCluster.active).to.equal(false, "RM2-015: cluster liquidated");
+      // Cluster balance should be 0 after liquidation
+      expect(BigInt(liqCluster.balance)).to.equal(0n, "RM2-015: cluster balance == 0 after liquidation");
+      // Validator count preserved in cluster struct (not reset on liquidation)
+      expect(liqCluster.validatorCount).to.equal(1n, "RM2-015: validatorCount preserved");
 
       // All operatorEthVUnits remain 0 — deviation block was skipped
       for (const opId of operatorIds) {
-        expect(await readOperatorEthVUnits(provider, proxyAddress, BigInt(opId))).to.equal(0n);
+        expect(await readOperatorEthVUnits(provider, proxyAddress, BigInt(opId))).to.equal(
+          0n,
+          `RM2-015: op${opId} vUnits remain 0 (implicit EB)`,
+        );
       }
+
+      // DAO total vUnits should also be 0 (no deviation was ever written)
+      expect(await readDaoTotalEthVUnits(provider, proxyAddress)).to.equal(
+        0n,
+        "RM2-015: daoTotalEthVUnits == 0 (no EB update occurred)",
+      );
     });
   });
 

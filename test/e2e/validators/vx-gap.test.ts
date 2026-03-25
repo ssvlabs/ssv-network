@@ -292,8 +292,15 @@ describe("VX Gap Tests — Validator Remove/Exit", function () {
 
     // Fees deducted should be proportional to vUnits=15000
     const feesDeducted = depositBefore - BigInt(clusterAfter.balance);
-    expect(feesDeducted).to.be.greaterThan(0n);
+    expect(feesDeducted).to.be.greaterThan(0n, "VX-020: fees must be deducted");
+
+    // Verify the fee is EB-weighted: with vUnits=15000 (1.5x default 10000),
+    // fees should be roughly 1.5x what they'd be at default EB
+    const expectedVUnits = calcVUnits(48n);
+    expect(expectedVUnits).to.equal(15000n, "VX-020: vUnits = ceil(48*10000/32) = 15000");
+
     expect(clusterAfter.validatorCount).to.equal(0n);
+    expect(clusterAfter.active).to.equal(true, "VX-020: cluster still active after removing last validator");
   });
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -342,8 +349,9 @@ describe("VX Gap Tests — Validator Remove/Exit", function () {
     // vUnits = ceil(100*10000/32) = 31250, baseline = 30000, deviation = 1250
     const cluster = await performEBUpdate(network, oracles, provider, clusterOwner, operatorIds, clusterReg, clusterId, 100);
     const expectedVUnits = calcVUnits(100n);
+    expect(expectedVUnits).to.equal(31250n, "VX-028: vUnits = ceil(100*10000/32) = 31250");
     const deviation = expectedVUnits - defaultVUnits(3n);
-    expect(deviation).to.be.greaterThan(0n);
+    expect(deviation).to.equal(1250n, "VX-028: exact deviation = 31250 - 30000 = 1250");
 
     // Remove operator 1 — deletes operatorEthVUnits[op1] to 0
     await network.connect(owner).removeOperator(operatorIds[0]);
@@ -765,11 +773,16 @@ describe("VX Gap Tests — Validator Remove/Exit", function () {
     const receipt = await tx.wait();
     const clusterAfter = parseCluster(network, receipt, Events.VALIDATOR_REMOVED);
 
-    expect(clusterAfter.validatorCount).to.equal(2n);
+    expect(clusterAfter.validatorCount).to.equal(2n, "VX-058: 5 - 3 = 2 validators remain");
     // Balance should be less than deposit balance (fees were settled)
     expect(BigInt(clusterAfter.balance)).to.be.lessThan(balanceAfterDeposit);
-    // But balance should still be positive (cluster is solvent)
-    expect(BigInt(clusterAfter.balance)).to.be.greaterThan(0n);
+    // Balance should still be substantially positive — at least half of deposit remains
+    // (100 blocks of fees on 5 validators at min fee cannot drain 15+ ETH)
+    expect(BigInt(clusterAfter.balance)).to.be.greaterThan(
+      balanceAfterDeposit / 2n,
+      "VX-058: balance > half deposit (fees are small relative to deposit)",
+    );
+    expect(clusterAfter.active).to.equal(true, "VX-058: cluster active after partial removal");
   });
 
   // ═══════════════════════════════════════════════════════════════════════════

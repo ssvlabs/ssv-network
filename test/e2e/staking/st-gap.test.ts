@@ -144,10 +144,14 @@ describe("E2E Staking Gap Tests (ST Coverage Gaps)", () => {
       const balAfter = await provider.getBalance(stakerA.address);
 
       const ethReceived = BigInt(balAfter) - BigInt(balBefore) + gasUsed;
-      expect(ethReceived).to.be.greaterThan(0n);
+      expect(ethReceived).to.be.greaterThan(0n, "ST-063: tiny staker receives rewards");
 
-      // Verify payout is multiple of ETH_DEDUCTED_DIGITS
-      expect(ethReceived % ETH_DEDUCTED_DIGITS).to.equal(0n);
+      // Verify payout is multiple of ETH_DEDUCTED_DIGITS (100_000)
+      expect(ethReceived % ETH_DEDUCTED_DIGITS).to.equal(0n, "ST-063: payout aligned to ETH precision");
+
+      // As sole staker, should receive all protocol fees (minus truncation)
+      // Verify the claim amount is at least 1 unit of packed ETH
+      expect(ethReceived).to.be.greaterThanOrEqual(ETH_DEDUCTED_DIGITS, "ST-063: at least 1 packed ETH unit");
     });
 
     it("ST-094: _settle truncation-toward-zero rounding — no rounding up", async function () {
@@ -173,8 +177,9 @@ describe("E2E Staking Gap Tests (ST Coverage Gaps)", () => {
       const ethReceived = BigInt(balAfter) - BigInt(balBefore) + gasUsed;
 
       // Verify payout is a valid multiple of ETH_DEDUCTED_DIGITS
-      expect(ethReceived).to.be.greaterThan(0n);
-      expect(ethReceived % ETH_DEDUCTED_DIGITS).to.equal(0n);
+      expect(ethReceived).to.be.greaterThan(0n, "ST-094: payout > 0");
+      expect(ethReceived).to.be.greaterThanOrEqual(ETH_DEDUCTED_DIGITS, "ST-094: at least 1 packed unit");
+      expect(ethReceived % ETH_DEDUCTED_DIGITS).to.equal(0n, "ST-094: payout aligned to precision");
 
       // The key invariant: received ≤ total fees generated (truncation never rounds up)
       // With 7 SSV as only staker, all fees go to this user (minus truncation loss)
@@ -480,9 +485,16 @@ describe("E2E Staking Gap Tests (ST Coverage Gaps)", () => {
       expect(parsed).to.not.be.undefined;
 
       // pending should be 0 (bal was 0 when settle ran, before the new mint)
-      expect(parsed!.args[1]).to.equal(0n);
-      // idx should be current accEthPerShare (advanced)
-      expect(BigInt(parsed!.args[3])).to.be.greaterThan(0n);
+      expect(parsed!.args[1]).to.equal(0n, "ST-097: pending == 0 when bal==0");
+      // idx should be current accEthPerShare (advanced by stakerB's activity)
+      const settledIdx = BigInt(parsed!.args[3]);
+      expect(settledIdx).to.be.greaterThan(0n, "ST-097: idx advanced");
+
+      // Verify stakerA's cSSV balance is now exactly MINIMAL_STAKING_AMOUNT (re-staked)
+      expect(await cssvToken.balanceOf(stakerA.address)).to.equal(
+        MINIMAL_STAKING_AMOUNT,
+        "ST-097: cSSV balance == re-staked amount",
+      );
     });
 
     it("ST-098: _settleWithBalance pending==0 due to rounding despite balance & index diff", async function () {
@@ -523,11 +535,21 @@ describe("E2E Staking Gap Tests (ST Coverage Gaps)", () => {
       expect(parsed).to.not.be.undefined;
 
       // pending == 0 (rounding loss)
-      expect(parsed!.args[1]).to.equal(0n);
+      expect(parsed!.args[1]).to.equal(0n, "ST-098: pending == 0 (truncation)");
       // accrued == 0 (nothing was added)
-      expect(parsed!.args[2]).to.equal(0n);
+      expect(parsed!.args[2]).to.equal(0n, "ST-098: accrued == 0");
       // idx > 0 (accEthPerShare has advanced)
-      expect(BigInt(parsed!.args[3])).to.be.greaterThan(0n);
+      const settledIdx = BigInt(parsed!.args[3]);
+      expect(settledIdx).to.be.greaterThan(0n, "ST-098: idx advanced");
+
+      // stakerA (big staker) should be able to claim rewards (they have large balance)
+      const balBefore = await provider.getBalance(stakerA.address);
+      const claimTx = await network.connect(stakerA).claimEthRewards();
+      const claimReceipt = await claimTx.wait();
+      const gasUsed = claimReceipt!.gasUsed * claimReceipt!.gasPrice;
+      const balAfter = await provider.getBalance(stakerA.address);
+      const claimed = BigInt(balAfter) - BigInt(balBefore) + gasUsed;
+      expect(claimed).to.be.greaterThan(0n, "ST-098: big staker can claim");
     });
   });
 

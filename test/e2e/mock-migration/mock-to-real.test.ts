@@ -728,6 +728,11 @@ describe("W5.5: Mock-to-Real Migration — 32 scenarios", function () {
       // Removed op: ethValidatorCount = 0
       const networkAddr = await network.getAddress();
       await assertRemovedOpClean(views, provider, networkAddr, operatorIds[0], "VX-055");
+
+      // Live operators should be properly migrated with correct validator count
+      for (let i = 1; i < operatorIds.length; i++) {
+        await assertLiveOpMigrated(views, operatorIds[i], 2n, `VX-055 live op${operatorIds[i]}`);
+      }
     });
   });
 

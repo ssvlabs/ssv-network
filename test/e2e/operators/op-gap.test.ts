@@ -50,6 +50,8 @@ import {
   commitEBRoot,
   computeClusterId,
   computeEBRoot,
+  calcVUnits,
+  defaultVUnits,
 } from "../../helpers/index.ts";
 import { Events } from "../../common/events.ts";
 import { Errors } from "../../common/errors.ts";
@@ -260,6 +262,16 @@ describe("W7-A: OP/OF/OE Operator Module Gap Tests", function () {
         BigInt(operatorIds[0]),
       );
       expect(earnings).to.be.greaterThan(0n);
+
+      // All 4 operators should have accrued earnings (not just op[0])
+      for (let i = 1; i < operatorIds.length; i++) {
+        const opEarnings = await views.getOperatorEarnings(BigInt(operatorIds[i]));
+        expect(opEarnings).to.be.greaterThan(0n, `OP-034: op${operatorIds[i]} earnings > 0`);
+      }
+      // Privacy change should not affect operator active state
+      const opAfterMine = await views.getOperatorById(BigInt(operatorIds[0]));
+      expect(opAfterMine.isActive).to.equal(true, "OP-034: operator still active after privacy change");
+      expect(opAfterMine.validatorCount).to.equal(1, "OP-034: validatorCount unchanged");
     });
 
     it("OP-035: Set public on removed operator → OperatorDoesNotExist", async () => {
@@ -555,14 +567,22 @@ describe("W7-A: OP/OF/OE Operator Module Gap Tests", function () {
           [],
         );
 
-      // Verify operator vUnits deviation stored
+      // Verify operator vUnits deviation stored — exact value
       const proxyAddr = await network.getAddress();
+      const expectedVUnits = calcVUnits(64n); // ceil(64*10000/32) = 20000
+      const expectedDeviation = expectedVUnits - defaultVUnits(1n); // 20000 - 10000 = 10000
       const vUnits = await readOperatorEthVUnits(
         provider,
         proxyAddr,
         operatorIds[0],
       );
-      expect(vUnits).to.be.greaterThan(0n);
+      expect(vUnits).to.equal(expectedDeviation, "OF-024: exact vUnits deviation for EB=64");
+
+      // All operators should have the same deviation
+      for (let i = 1; i < operatorIds.length; i++) {
+        const opVUnits = await readOperatorEthVUnits(provider, proxyAddr, operatorIds[i]);
+        expect(opVUnits).to.equal(expectedDeviation, `OF-024: op${operatorIds[i]} vUnits deviation`);
+      }
 
       // Mine blocks to accrue earnings with EB-weighted vUnits
       await mineBlocks(provider, 100);
@@ -570,7 +590,7 @@ describe("W7-A: OP/OF/OE Operator Module Gap Tests", function () {
       const earningsBefore = await views.getOperatorEarnings(
         BigInt(operatorIds[0]),
       );
-      expect(earningsBefore).to.be.greaterThan(0n);
+      expect(earningsBefore).to.be.greaterThan(0n, "OF-024: earnings accrued with EB-weighted vUnits");
 
       // Reduce fee — snapshot settles at old rate with EB-weighted vUnits
       const currentFee = await views.getOperatorFee(BigInt(operatorIds[0]));
@@ -583,11 +603,11 @@ describe("W7-A: OP/OF/OE Operator Module Gap Tests", function () {
         const feeAfter = await views.getOperatorFee(BigInt(operatorIds[0]));
         expect(feeAfter).to.equal(newFee);
 
-        // Earnings should still exist (settled at old rate)
+        // Earnings should still exist (settled at old rate) and be >= earningsBefore
         const earningsAfter = await views.getOperatorEarnings(
           BigInt(operatorIds[0]),
         );
-        expect(earningsAfter).to.be.greaterThan(0n);
+        expect(earningsAfter).to.be.greaterThanOrEqual(earningsBefore, "OF-024: earnings never decrease after fee reduction");
       }
     });
 
@@ -1024,11 +1044,15 @@ describe("W7-A: OP/OF/OE Operator Module Gap Tests", function () {
 
       await mineBlocks(provider, 100);
 
-      // ETH earnings should exist
-      const ethEarnings = await views.getOperatorEarnings(
-        BigInt(operatorIds[0]),
-      );
-      expect(ethEarnings).to.be.greaterThan(0n);
+      // ETH earnings should exist — all 4 operators should have accrued
+      for (const opId of operatorIds) {
+        const ethEarnings = await views.getOperatorEarnings(BigInt(opId));
+        expect(ethEarnings).to.be.greaterThan(0n, `OE-012: op${opId} has ETH earnings`);
+      }
+      // All operators should have equal earnings (same fee, same block range)
+      const earnings0 = await views.getOperatorEarnings(BigInt(operatorIds[0]));
+      const earnings1 = await views.getOperatorEarnings(BigInt(operatorIds[1]));
+      expect(earnings0).to.equal(earnings1, "OE-012: equal-fee operators earn same amount");
 
       // Try to withdraw SSV earnings — should revert (operator has no SSV snapshot)
       await expect(
@@ -1106,13 +1130,23 @@ describe("W7-A: OP/OF/OE Operator Module Gap Tests", function () {
 
       // This should not revert — earnings stay within uint64
       const earnings = await views.getOperatorEarnings(1n);
-      expect(earnings).to.be.greaterThan(0n);
+      expect(earnings).to.be.greaterThan(0n, "OE-028: earnings accrued after 100k blocks");
+
+      // All 4 operators should have earned the same amount (same fee, same cluster)
+      for (let i = 2; i <= 4; i++) {
+        const opEarnings = await views.getOperatorEarnings(BigInt(i));
+        expect(opEarnings).to.equal(earnings, `OE-028: op${i} earnings equal to op1`);
+      }
 
       // Withdraw all — confirm it works
       const tx = await network
         .connect(operatorOwner)
         .withdrawAllOperatorEarnings(1n);
       await expect(tx).to.emit(network, Events.OPERATOR_WITHDRAWN);
+
+      // After withdrawal, earnings should be 0
+      const earningsAfter = await views.getOperatorEarnings(1n);
+      expect(earningsAfter).to.equal(0n, "OE-028: earnings zeroed after withdrawAll");
     });
 
     it("OE-034: Accrual across SSV→ETH cluster migration — operator earns SSV before, ETH after", async () => {

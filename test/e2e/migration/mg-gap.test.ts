@@ -982,7 +982,11 @@ describe("MG Gap Tests — Migration Coverage Gaps", () => {
       expect(updatedCluster.validatorCount).to.equal(2n);
       // Balance should be slightly less than deposit due to a few blocks of fee accrual
       expect(BigInt(updatedCluster.balance)).to.be.lessThanOrEqual(ethDeposit);
-      expect(BigInt(updatedCluster.balance)).to.be.greaterThan(0n);
+      // Tighter bound: balance should be > 90% of deposit (only a few blocks of fees)
+      expect(BigInt(updatedCluster.balance)).to.be.greaterThan(
+        ethDeposit * 9n / 10n,
+        "MG-017: balance > 90% of deposit (minimal fee accrual)",
+      );
     });
   });
 
@@ -1069,17 +1073,24 @@ describe("MG Gap Tests — Migration Coverage Gaps", () => {
 
       // Cluster active, fees accrued from 3 live operators only
       const updatedCluster = parseClusterFromEvent(network, updateReceipt, Events.CLUSTER_BALANCE_UPDATED);
-      expect(updatedCluster.active).to.equal(true);
+      expect(updatedCluster.active).to.equal(true, "MG-018: cluster active after updateClusterBalance");
+      expect(updatedCluster.validatorCount).to.equal(1n, "MG-018: validatorCount unchanged");
       expect(BigInt(updatedCluster.balance)).to.be.lessThan(ethDeposit);
-      expect(BigInt(updatedCluster.balance)).to.be.greaterThan(0n);
+      // Tighter bound: balance > 50% of deposit (100 blocks of fees on 1 validator)
+      expect(BigInt(updatedCluster.balance)).to.be.greaterThan(
+        ethDeposit / 2n,
+        "MG-018: balance > 50% of deposit",
+      );
 
       // Live operators should have validatorCount=1, removed op should have 0
       for (let i = 0; i < 3; i++) {
         const op = await views.getOperatorById(operatorIds[i]);
-        expect(op.validatorCount).to.equal(1);
+        expect(op.validatorCount).to.equal(1, `MG-018: live op${operatorIds[i]} validatorCount == 1`);
+        expect(op.isActive).to.equal(true, `MG-018: live op${operatorIds[i]} isActive`);
       }
       const removedOp = await views.getOperatorById(operatorIds[3]);
-      expect(removedOp.validatorCount).to.equal(0);
+      expect(removedOp.validatorCount).to.equal(0, "MG-018: removed op validatorCount == 0");
+      expect(removedOp.isActive).to.equal(false, "MG-018: removed op inactive");
     });
   });
 });

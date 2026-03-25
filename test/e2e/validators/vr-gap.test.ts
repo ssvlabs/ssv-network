@@ -877,6 +877,11 @@ describe("VR Gap — Validator Registration Gaps", () => {
 
       // networkFeeIndex should be set to the current protocol fee index (non-zero after blocks)
       expect(BigInt(cluster.networkFeeIndex)).to.be.greaterThan(0n);
+
+      // Cluster state should be fully initialized
+      expect(cluster.validatorCount).to.equal(1n, "VR-065: validatorCount == 1");
+      expect(cluster.active).to.equal(true, "VR-065: cluster is active");
+      expect(BigInt(cluster.balance)).to.equal(DEFAULT_ETH_REGISTER_VALUE, "VR-065: balance == deposit");
     });
   });
 
