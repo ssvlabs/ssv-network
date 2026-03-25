@@ -633,7 +633,17 @@ describe("WL Whitelist Gap Tests", function () {
     );
 
     // Registration should succeed — verifies bitmap cache reload at blockIndex boundary
-    await registerValidator(network, clusterOwner, crossSlotIds);
+    const registrationTx = await registerValidator(network, clusterOwner, crossSlotIds);
+    await expect(registrationTx).to.emit(network, Events.VALIDATOR_ADDED);
+
+    const cluster = await getCurrentClusterState(
+      connection,
+      network,
+      clusterOwner.address,
+      crossSlotIds,
+    );
+    expect(BigInt(cluster.validatorCount)).to.equal(1n);
+    expect(cluster.active).to.equal(true);
   });
 
   // ─────────────────────────────────────────────────────────────

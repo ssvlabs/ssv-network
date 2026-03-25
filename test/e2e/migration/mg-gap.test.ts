@@ -32,6 +32,7 @@ import {
   generateMerkleForClusterEB,
   setupOracles,
   commitEBRoot,
+  calcClusterBurn,
 } from "../../helpers/index.ts";
 import { makeOperatorKey } from "../../helpers/index.ts";
 import { ethers } from "ethers";
@@ -980,13 +981,17 @@ describe("MG Gap Tests — Migration Coverage Gaps", () => {
       const updatedCluster = parseClusterFromEvent(network, updateReceipt, Events.CLUSTER_BALANCE_UPDATED);
       expect(updatedCluster.active).to.equal(true);
       expect(updatedCluster.validatorCount).to.equal(2n);
-      // Balance should be slightly less than deposit due to a few blocks of fee accrual
-      expect(BigInt(updatedCluster.balance)).to.be.lessThanOrEqual(ethDeposit);
-      // Tighter bound: balance should be > 90% of deposit (only a few blocks of fees)
-      expect(BigInt(updatedCluster.balance)).to.be.greaterThan(
-        ethDeposit * 9n / 10n,
-        "MG-017: balance > 90% of deposit (minimal fee accrual)",
-      );
+      // Compute exact fee burn from migration to updateClusterBalance
+      const migrateBlock = migrateReceipt!.blockNumber;
+      const updateBlock = updateReceipt!.blockNumber;
+      const blockDiff17 = BigInt(updateBlock - migrateBlock);
+      const opFeePacked17 = DEFAULT_OPERATOR_ETH_FEE / ETH_DEDUCTED_DIGITS;
+      const nfPacked17 = NETWORK_FEE_ETH / ETH_DEDUCTED_DIGITS;
+      const vUnits17 = defaultVUnits(2n); // 2 validators
+      const burn17 = calcClusterBurn({
+        blockDiff: blockDiff17, numOperators: 4n, ethFee: opFeePacked17, networkFee: nfPacked17, effectiveVUnits: vUnits17,
+      });
+      expect(BigInt(updatedCluster.balance)).to.equal(ethDeposit - burn17);
     });
   });
 
@@ -1050,7 +1055,8 @@ describe("MG Gap Tests — Migration Coverage Gaps", () => {
       await mineBlocks(provider, 50);
 
       // Step 2: Remove op4
-      await network.connect(clusterOwner).removeOperator(operatorIds[3]);
+      const removeTx = await network.connect(clusterOwner).removeOperator(operatorIds[3]);
+      const removeReceipt = await removeTx.wait();
 
       await mineBlocks(provider, 50);
 
@@ -1075,12 +1081,22 @@ describe("MG Gap Tests — Migration Coverage Gaps", () => {
       const updatedCluster = parseClusterFromEvent(network, updateReceipt, Events.CLUSTER_BALANCE_UPDATED);
       expect(updatedCluster.active).to.equal(true, "MG-018: cluster active after updateClusterBalance");
       expect(updatedCluster.validatorCount).to.equal(1n, "MG-018: validatorCount unchanged");
-      expect(BigInt(updatedCluster.balance)).to.be.lessThan(ethDeposit);
-      // Tighter bound: balance > 50% of deposit (100 blocks of fees on 1 validator)
-      expect(BigInt(updatedCluster.balance)).to.be.greaterThan(
-        ethDeposit / 2n,
-        "MG-018: balance > 50% of deposit",
-      );
+      // Compute exact two-phase burn: phase 1 (4 ops) + phase 2 (3 active + 1 removed)
+      const migrateBlock18 = migrateReceipt!.blockNumber;
+      const removeBlock18 = removeReceipt!.blockNumber;
+      const updateBlock18 = updateReceipt!.blockNumber;
+      const opFeePacked18 = DEFAULT_OPERATOR_ETH_FEE / ETH_DEDUCTED_DIGITS;
+      const nfPacked18 = NETWORK_FEE_ETH / ETH_DEDUCTED_DIGITS;
+      const vUnits18 = defaultVUnits(1n); // 1 validator
+      const phase1Burn = calcClusterBurn({
+        blockDiff: BigInt(removeBlock18 - migrateBlock18), numOperators: 4n,
+        ethFee: opFeePacked18, networkFee: nfPacked18, effectiveVUnits: vUnits18,
+      });
+      const phase2Burn = calcClusterBurn({
+        blockDiff: BigInt(updateBlock18 - removeBlock18), numOperators: 3n,
+        ethFee: opFeePacked18, networkFee: nfPacked18, effectiveVUnits: vUnits18,
+      });
+      expect(BigInt(updatedCluster.balance)).to.equal(ethDeposit - phase1Burn - phase2Burn);
 
       // Live operators should have validatorCount=1, removed op should have 0
       for (let i = 0; i < 3; i++) {

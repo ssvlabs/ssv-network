@@ -323,13 +323,15 @@ describe("ETH Cluster Edge Cases", () => {
       const operatorIds = await registerOperators(network, clusterOwner, 4);
       await whitelistAddresses(network, clusterOwner, operatorIds, [clusterOwner.address]);
 
-      await network.connect(clusterOwner).registerValidator(
+      const regTx = await network.connect(clusterOwner).registerValidator(
         makePublicKey(1),
         operatorIds,
         DEFAULT_SHARES,
         EMPTY_CLUSTER,
         { value: DEFAULT_ETH_REGISTER_VALUE },
       );
+      const regReceipt = await regTx.wait();
+      const regBlock = regReceipt!.blockNumber;
       let cluster = await getCurrentClusterState(
         connection,
         network,
@@ -338,12 +340,13 @@ describe("ETH Cluster Edge Cases", () => {
       );
 
       const oddAmount = 99_999n;
-      await network.connect(clusterOwner).deposit(
+      const depositTx = await network.connect(clusterOwner).deposit(
         clusterOwner.address,
         operatorIds,
         cluster,
         { value: oddAmount },
       );
+      await depositTx.wait();
       cluster = await getCurrentClusterState(
         connection,
         network,
@@ -351,7 +354,33 @@ describe("ETH Cluster Edge Cases", () => {
         operatorIds,
       );
 
-      await network.connect(clusterOwner).withdraw(operatorIds, oddAmount, cluster);
+      // Deposit does NOT settle fees — balance is simply previous + msg.value
+      expect(BigInt(cluster.balance)).to.equal(DEFAULT_ETH_REGISTER_VALUE + oddAmount);
+
+      const ethFeePacked = MINIMAL_OPERATOR_ETH_FEE / ETH_DEDUCTED_DIGITS;
+      const networkFeePacked = NETWORK_FEE / ETH_DEDUCTED_DIGITS;
+      const vUnits = defaultVUnits(1n);
+
+      const withdrawTx = await network.connect(clusterOwner).withdraw(operatorIds, oddAmount, cluster);
+      const withdrawReceipt = await withdrawTx.wait();
+      const withdrawBlock = withdrawReceipt!.blockNumber;
+      cluster = await getCurrentClusterState(
+        connection,
+        network,
+        clusterOwner.address,
+        operatorIds,
+      );
+
+      // Withdraw settles fees from registration to now, then subtracts amount
+      const burnSinceRegister = calcClusterBurn({
+        blockDiff: BigInt(withdrawBlock - regBlock),
+        numOperators: 4n,
+        ethFee: ethFeePacked,
+        networkFee: networkFeePacked,
+        effectiveVUnits: vUnits,
+      });
+      const expectedWithdrawBalance = DEFAULT_ETH_REGISTER_VALUE + oddAmount - burnSinceRegister - oddAmount;
+      expect(BigInt(cluster.balance)).to.equal(expectedWithdrawBalance);
     });
   });
 

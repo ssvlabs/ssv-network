@@ -37,6 +37,8 @@ import {
   commitEBRoot,
   computeClusterId,
   computeEBRoot,
+  calcClusterBurn,
+  defaultVUnits,
 } from "../../helpers/index.ts";
 
 const UINT64_MAX = 2n ** 64n - 1n;
@@ -380,13 +382,27 @@ describe("W7-J: DA DAO Governance Gap Tests", () => {
       // Phase 2 fee drain: balance dropped by D2 over ~100 blocks
       const drain2 = balAfterPhase1 - balAfterPhase2;
 
-      // The network fee tripled → per-block network fee contribution tripled.
-      // Operator fee stayed the same. So total burn rate increased but not 3x overall.
-      // Key assertion: drain2 > drain1 (higher fee in phase 2 ⇒ faster drain)
-      expect(drain2).to.be.greaterThan(drain1);
-      // And specifically the network fee component tripled, so drain2 should be
-      // significantly more than drain1 (at least 1.5x given operator fees are constant)
-      expect(drain2).to.be.greaterThan((drain1 * 3n) / 2n);
+      // Compute exact drain values using fee parameters
+      const opFeePacked = MINIMAL_OPERATOR_ETH_FEE / ETH_DEDUCTED_DIGITS;
+      const nf1Packed = F1 / ETH_DEDUCTED_DIGITS;
+      const nf2Packed = F2 / ETH_DEDUCTED_DIGITS;
+      const vUnits = defaultVUnits(1n);
+
+      // Phase 1: exactly 100 blocks at original fee
+      const expectedDrain1 = calcClusterBurn({
+        blockDiff: 100n, numOperators: 4n, ethFee: opFeePacked, networkFee: nf1Packed, effectiveVUnits: vUnits,
+      });
+      // Phase 2: 1 block at old NF (updateNetworkFee tx) + 100 blocks at new NF
+      const drain2a = calcClusterBurn({
+        blockDiff: 1n, numOperators: 4n, ethFee: opFeePacked, networkFee: nf1Packed, effectiveVUnits: vUnits,
+      });
+      const drain2b = calcClusterBurn({
+        blockDiff: 100n, numOperators: 4n, ethFee: opFeePacked, networkFee: nf2Packed, effectiveVUnits: vUnits,
+      });
+      const expectedDrain2 = drain2a + drain2b;
+
+      expect(drain1).to.equal(expectedDrain1);
+      expect(drain2).to.equal(expectedDrain2);
     });
 
     it("DA-064: threshold increase retroactively makes existing cluster liquidatable", async () => {

@@ -17,6 +17,7 @@ import {
   EMPTY_CLUSTER,
   ETH_DEDUCTED_DIGITS,
   DEFAULT_UNSTAKE_COOLDOWN,
+  NETWORK_FEE,
 } from "../../common/constants.ts";
 import {
   mineBlocks,
@@ -134,24 +135,22 @@ describe("E2E Staking Gap Tests (ST Coverage Gaps)", () => {
 
       // Register cluster and accrue many blocks of fees
       await setupCluster(network, operatorOwner, clusterOwner);
+      const clusterBlock = await provider.getBlockNumber();
       await mineBlocks(provider, 1000);
 
       // Claim should succeed without overflow
       const balBefore = await provider.getBalance(stakerA.address);
       const claimTx = await network.connect(stakerA).claimEthRewards();
       const claimReceipt = await claimTx.wait();
+      const claimBlock = claimReceipt!.blockNumber;
       const gasUsed = claimReceipt!.gasUsed * claimReceipt!.gasPrice;
       const balAfter = await provider.getBalance(stakerA.address);
 
       const ethReceived = BigInt(balAfter) - BigInt(balBefore) + gasUsed;
-      expect(ethReceived).to.be.greaterThan(0n, "ST-063: tiny staker receives rewards");
-
-      // Verify payout is multiple of ETH_DEDUCTED_DIGITS (100_000)
-      expect(ethReceived % ETH_DEDUCTED_DIGITS).to.equal(0n, "ST-063: payout aligned to ETH precision");
-
-      // As sole staker, should receive all protocol fees (minus truncation)
-      // Verify the claim amount is at least 1 unit of packed ETH
-      expect(ethReceived).to.be.greaterThanOrEqual(ETH_DEDUCTED_DIGITS, "ST-063: at least 1 packed ETH unit");
+      // Sole staker receives all DAO network fees from cluster registration to claim
+      const blockDiff63 = BigInt(claimBlock - clusterBlock);
+      const expectedReward63 = blockDiff63 * NETWORK_FEE;
+      expect(ethReceived).to.equal(expectedReward63, "ST-063: exact reward = blockDiff × networkFee");
     });
 
     it("ST-094: _settle truncation-toward-zero rounding — no rounding up", async function () {
@@ -165,21 +164,27 @@ describe("E2E Staking Gap Tests (ST Coverage Gaps)", () => {
 
       // Register cluster, mine blocks
       await setupCluster(network, operatorOwner, clusterOwner);
+      const clusterBlock94 = await provider.getBlockNumber();
       await mineBlocks(provider, 10);
 
       // Claim and verify exact truncation math
       const balBefore = await provider.getBalance(stakerA.address);
       const claimTx = await network.connect(stakerA).claimEthRewards();
       const claimReceipt = await claimTx.wait();
+      const claimBlock94 = claimReceipt!.blockNumber;
       const gasUsed = claimReceipt!.gasUsed * claimReceipt!.gasPrice;
       const balAfter = await provider.getBalance(stakerA.address);
 
       const ethReceived = BigInt(balAfter) - BigInt(balBefore) + gasUsed;
 
-      // Verify payout is a valid multiple of ETH_DEDUCTED_DIGITS
-      expect(ethReceived).to.be.greaterThan(0n, "ST-094: payout > 0");
-      expect(ethReceived).to.be.greaterThanOrEqual(ETH_DEDUCTED_DIGITS, "ST-094: at least 1 packed unit");
-      expect(ethReceived % ETH_DEDUCTED_DIGITS).to.equal(0n, "ST-094: payout aligned to precision");
+      // Compute exact reward with truncation: stakeAmount=7*1e18 as sole staker
+      const blockDiff94 = BigInt(claimBlock94 - clusterBlock94);
+      const totalFees94 = blockDiff94 * NETWORK_FEE; // total DAO earnings in wei
+      const PREC = 10n ** 18n;
+      const accDelta94 = (totalFees94 * PREC) / stakeAmount; // floor division
+      const pending94 = (stakeAmount * accDelta94) / PREC;
+      const expectedPayout94 = pending94 - (pending94 % ETH_DEDUCTED_DIGITS);
+      expect(ethReceived).to.equal(expectedPayout94, "ST-094: exact truncated payout");
 
       // The key invariant: received ≤ total fees generated (truncation never rounds up)
       // With 7 SSV as only staker, all fees go to this user (minus truncation loss)
@@ -416,9 +421,9 @@ describe("E2E Staking Gap Tests (ST Coverage Gaps)", () => {
         stakeBlocks.push(block);
       }
 
-      // Verify stakers staked at different blocks
+      // Verify stakers staked at different blocks (10 mined + 1 for stake tx = 11 block gap)
       for (let i = 1; i < stakeBlocks.length; i++) {
-        expect(stakeBlocks[i]).to.be.greaterThan(stakeBlocks[i - 1]);
+        expect(stakeBlocks[i]).to.equal(stakeBlocks[i - 1] + 11);
       }
 
       // Mine blocks then settle all stakers by re-staking

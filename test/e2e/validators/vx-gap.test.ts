@@ -280,6 +280,7 @@ describe("VX Gap Tests — Validator Remove/Exit", function () {
 
     // EB update: 48 ETH → vUnits = ceil(48*10000/32) = 15000 (1.5x baseline)
     const cluster = await performEBUpdate(network, oracles, provider, clusterOwner, operatorIds, clusterReg, clusterId, 48);
+    const ebUpdateBlock = await getBlockNumber(provider);
     const depositBefore = BigInt(cluster.balance);
 
     // Mine blocks to accumulate fees
@@ -290,14 +291,16 @@ describe("VX Gap Tests — Validator Remove/Exit", function () {
     const receipt = await tx.wait();
     const clusterAfter = parseCluster(network, receipt, Events.VALIDATOR_REMOVED);
 
-    // Fees deducted should be proportional to vUnits=15000
-    const feesDeducted = depositBefore - BigInt(clusterAfter.balance);
-    expect(feesDeducted).to.be.greaterThan(0n, "VX-020: fees must be deducted");
-
-    // Verify the fee is EB-weighted: with vUnits=15000 (1.5x default 10000),
-    // fees should be roughly 1.5x what they'd be at default EB
+    // Verify the fee is EB-weighted: with vUnits=15000 (1.5x default 10000)
     const expectedVUnits = calcVUnits(48n);
     expect(expectedVUnits).to.equal(15000n, "VX-020: vUnits = ceil(48*10000/32) = 15000");
+
+    const expectedBurn = calcClusterBurn({
+      blockDiff: BigInt(receipt!.blockNumber - ebUpdateBlock),
+      numOperators: 4n, ethFee: OP_ETH_FEE_RAW,
+      networkFee: DEFAULT_NETWORK_FEE_RAW, effectiveVUnits: expectedVUnits,
+    });
+    expect(depositBefore - BigInt(clusterAfter.balance)).to.equal(expectedBurn, "VX-020: exact EB-weighted fees deducted");
 
     expect(clusterAfter.validatorCount).to.equal(0n);
     expect(clusterAfter.active).to.equal(true, "VX-020: cluster still active after removing last validator");
@@ -763,9 +766,9 @@ describe("VX Gap Tests — Validator Remove/Exit", function () {
 
     // Register 5 validators
     const { cluster: clusterReg, pubkeys } = await registerValidators(network, clusterOwner, operatorIds, 5);
-    const balanceAfterReg = BigInt(clusterReg.balance);
+    const lastRegBlock = await getBlockNumber(provider);
 
-    // Deposit more ETH
+    // Deposit more ETH — deposit does NOT settle fees
     const extraDeposit = ethers.parseEther("5");
     const depTx = await network.connect(clusterOwner).deposit(
       clusterOwner.address, operatorIds, clusterReg, { value: extraDeposit },
@@ -773,7 +776,7 @@ describe("VX Gap Tests — Validator Remove/Exit", function () {
     const depReceipt = await depTx.wait();
     const clusterDep = parseCluster(network, depReceipt, Events.CLUSTER_DEPOSITED);
     const balanceAfterDeposit = BigInt(clusterDep.balance);
-    expect(balanceAfterDeposit).to.be.greaterThan(balanceAfterReg);
+    expect(balanceAfterDeposit).to.equal(BigInt(clusterReg.balance) + extraDeposit);
 
     await mineBlocks(provider, 100);
 
@@ -784,13 +787,16 @@ describe("VX Gap Tests — Validator Remove/Exit", function () {
     const clusterAfter = parseCluster(network, receipt, Events.VALIDATOR_REMOVED);
 
     expect(clusterAfter.validatorCount).to.equal(2n, "VX-058: 5 - 3 = 2 validators remain");
-    // Balance should be less than deposit balance (fees were settled)
-    expect(BigInt(clusterAfter.balance)).to.be.lessThan(balanceAfterDeposit);
-    // Balance should still be substantially positive — at least half of deposit remains
-    // (100 blocks of fees on 5 validators at min fee cannot drain 15+ ETH)
-    expect(BigInt(clusterAfter.balance)).to.be.greaterThan(
-      balanceAfterDeposit / 2n,
-      "VX-058: balance > half deposit (fees are small relative to deposit)",
+
+    // Compute exact fees from last registration to removal (deposit doesn't update indices)
+    const burnSinceReg = calcClusterBurn({
+      blockDiff: BigInt(receipt!.blockNumber - lastRegBlock),
+      numOperators: 4n, ethFee: OP_ETH_FEE_RAW,
+      networkFee: DEFAULT_NETWORK_FEE_RAW, effectiveVUnits: defaultVUnits(5n),
+    });
+    expect(BigInt(clusterAfter.balance)).to.equal(
+      balanceAfterDeposit - burnSinceReg,
+      "VX-058: exact balance after fee settlement",
     );
     expect(clusterAfter.active).to.equal(true, "VX-058: cluster active after partial removal");
   });

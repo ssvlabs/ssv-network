@@ -649,11 +649,12 @@ describe("W7-G: LQ Liquidation/Reactivation Gap Tests", () => {
         networkFee: DEFAULT_NETWORK_FEE_RAW,
         effectiveVUnits: vUnits64,
       });
-      expect(threshold64).to.be.greaterThan(threshold32);
+      // Explicit EB threshold is exactly 2x implicit (64 ETH vs 32 ETH → vUnits 20000 vs 10000)
+      expect(threshold64).to.equal(threshold32 * 2n);
 
       // Use a deposit between the two thresholds (enough for 32, not for 64)
       const reactivateDeposit = threshold32 + (threshold64 - threshold32) / 2n;
-      expect(reactivateDeposit).to.be.greaterThan(threshold32);
+      expect(reactivateDeposit).to.equal(threshold32 + threshold32 / 2n);
 
       const reactivateTx = await network.connect(clusterOwner).reactivate(
         operatorIds, cluster, { value: reactivateDeposit },

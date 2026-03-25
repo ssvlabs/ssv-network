@@ -31,6 +31,8 @@ import {
   DEFAULT_NETWORK_FEE_UNPACKED,
   MINIMAL_OPERATOR_FEE_SSV,
   SMALL_ETH_REGISTER_VALUE,
+  NETWORK_FEE_ETH,
+  ETH_DEDUCTED_DIGITS,
 } from "../../common/constants.ts";
 import { Events } from "../../common/events.ts";
 import { Errors } from "../../common/errors.ts";
@@ -536,7 +538,9 @@ describe("CL Gap Tests — Cluster Deposit/Withdraw", () => {
       const updateTx = await network.connect(clusterOwner).updateClusterBalance(
         rootBlockNum, clusterOwner.address, operatorIds, cluster, effectiveBalance, [],
       );
-      cluster = parseClusterFromEvent(network, await updateTx.wait(), Events.CLUSTER_BALANCE_UPDATED);
+      const updateReceipt = await updateTx.wait();
+      const updateBlock = updateReceipt!.blockNumber;
+      cluster = parseClusterFromEvent(network, updateReceipt, Events.CLUSTER_BALANCE_UPDATED);
 
       await mineBlocks(provider, 5);
 
@@ -558,8 +562,15 @@ describe("CL Gap Tests — Cluster Deposit/Withdraw", () => {
       // Withdraw a safe amount and verify it succeeds
       const safeAmount = connection.ethers.parseEther("1");
       const wTx = await network.connect(clusterOwner).withdraw(operatorIds, safeAmount, cluster);
-      const clusterAfter = parseClusterFromEvent(network, await wTx.wait(), Events.CLUSTER_WITHDRAWN);
-      expect(clusterAfter.balance).to.be.greaterThan(liqThresholdExplicit);
+      const wReceipt = await wTx.wait();
+      const clusterAfter = parseClusterFromEvent(network, wReceipt, Events.CLUSTER_WITHDRAWN);
+
+      const burnSinceUpdate = calcClusterBurn({
+        blockDiff: BigInt(wReceipt!.blockNumber - updateBlock),
+        numOperators: 4n, ethFee: OP_ETH_FEE_RAW,
+        networkFee: DEFAULT_NETWORK_FEE_RAW, effectiveVUnits: explicitVUnits,
+      });
+      expect(clusterAfter.balance).to.equal(cluster.balance - burnSinceUpdate - safeAmount);
     });
 
     // CL-041: Withdraw from active 10-op cluster with explicit EB
@@ -635,9 +646,9 @@ describe("CL Gap Tests — Cluster Deposit/Withdraw", () => {
       const postSettlementBalance = DEFAULT_ETH_REGISTER_VALUE - fees10001;
 
       // The cluster struct still shows the old (pre-settlement) balance
+      expect(cluster.balance).to.equal(DEFAULT_ETH_REGISTER_VALUE);
       // Try to withdraw an amount > post-settlement but <= old balance
       const withdrawAmount = postSettlementBalance + 1n;
-      expect(withdrawAmount).to.be.lessThanOrEqual(cluster.balance);
 
       await expect(
         network.connect(clusterOwner).withdraw(operatorIds, withdrawAmount, cluster),
@@ -754,7 +765,9 @@ describe("CL Gap Tests — Cluster Deposit/Withdraw", () => {
       const updateTx = await network.connect(clusterOwner).updateClusterBalance(
         rootBlockNum, clusterOwner.address, operatorIds, cluster, effectiveBalance, [],
       );
-      cluster = parseClusterFromEvent(network, await updateTx.wait(), Events.CLUSTER_BALANCE_UPDATED);
+      const updateReceipt48 = await updateTx.wait();
+      const updateBlock48 = updateReceipt48!.blockNumber;
+      cluster = parseClusterFromEvent(network, updateReceipt48, Events.CLUSTER_BALANCE_UPDATED);
 
       await mineBlocks(provider, 5);
 
@@ -772,17 +785,18 @@ describe("CL Gap Tests — Cluster Deposit/Withdraw", () => {
 
       // Try to withdraw an amount that would leave balance between implicit and explicit thresholds
       // This should revert because the real threshold uses explicit vUnits
+      const preAggressiveBlock = await getBlockNumber(provider);
       const feesAfterUpdate = calcClusterBurn({
-        blockDiff: 7n, // approximate blocks since EB update
+        blockDiff: BigInt(preAggressiveBlock + 1 - updateBlock48),
         numOperators: 4n, ethFee: OP_ETH_FEE_RAW,
         networkFee: DEFAULT_NETWORK_FEE_RAW, effectiveVUnits: explicitVUnits,
       });
-      const approxBalance = cluster.balance - feesAfterUpdate;
+      const exactBalance = cluster.balance - feesAfterUpdate;
 
       // Amount that would leave balance just above implicit threshold but below explicit
       const targetRemainder = liqThresholdImplicit + (liqThresholdExplicit - liqThresholdImplicit) / 2n;
-      if (approxBalance > targetRemainder) {
-        const aggressiveWithdraw = approxBalance - targetRemainder;
+      if (exactBalance > targetRemainder) {
+        const aggressiveWithdraw = exactBalance - targetRemainder;
         await expect(
           network.connect(clusterOwner).withdraw(operatorIds, aggressiveWithdraw, cluster),
         ).to.be.revertedWithCustomError(network, Errors.INSUFFICIENT_BALANCE);
@@ -791,8 +805,15 @@ describe("CL Gap Tests — Cluster Deposit/Withdraw", () => {
       // A smaller withdraw should succeed
       const safeAmount = connection.ethers.parseEther("0.5");
       const wTx = await network.connect(clusterOwner).withdraw(operatorIds, safeAmount, cluster);
-      const clusterAfter = parseClusterFromEvent(network, await wTx.wait(), Events.CLUSTER_WITHDRAWN);
-      expect(clusterAfter.balance).to.be.greaterThan(liqThresholdExplicit);
+      const wReceipt48 = await wTx.wait();
+      const clusterAfter = parseClusterFromEvent(network, wReceipt48, Events.CLUSTER_WITHDRAWN);
+
+      const burnSinceUpdate48 = calcClusterBurn({
+        blockDiff: BigInt(wReceipt48!.blockNumber - updateBlock48),
+        numOperators: 4n, ethFee: OP_ETH_FEE_RAW,
+        networkFee: DEFAULT_NETWORK_FEE_RAW, effectiveVUnits: explicitVUnits,
+      });
+      expect(clusterAfter.balance).to.equal(cluster.balance - burnSinceUpdate48 - safeAmount);
     });
 
     // CL-049: Deposit overflow edge — repeated large deposits accumulate correctly
@@ -880,7 +901,9 @@ describe("CL Gap Tests — Cluster Deposit/Withdraw", () => {
       const updateTx = await newNetwork.connect(clusterOwner).updateClusterBalance(
         rootBlockNum, clusterOwner.address, operatorIds, cluster, effectiveBalance, [],
       );
-      cluster = parseClusterFromEvent(newNetwork, await updateTx.wait(), Events.CLUSTER_BALANCE_UPDATED);
+      const updateReceipt50 = await updateTx.wait();
+      const updateBlock50 = updateReceipt50!.blockNumber;
+      cluster = parseClusterFromEvent(newNetwork, updateReceipt50, Events.CLUSTER_BALANCE_UPDATED);
 
       await mineBlocks(provider, 5);
 
@@ -890,22 +913,20 @@ describe("CL Gap Tests — Cluster Deposit/Withdraw", () => {
       const wReceipt = await wTx.wait();
       const clusterAfter = parseClusterFromEvent(newNetwork, wReceipt, Events.CLUSTER_WITHDRAWN);
 
-      // Balance decreased by at least withdrawAmount (fees also deducted)
-      expect(clusterAfter.balance).to.be.lessThan(cluster.balance - withdrawAmount);
-
       // Verify exact vUnits computation
       const expectedVUnits = calcVUnits(64n);
       expect(expectedVUnits).to.equal(20000n, "CL-050: vUnits = ceil(64*10000/32) = 20000");
 
-      // Fee deduction = cluster.balance - withdrawAmount - clusterAfter.balance
-      const feeDeducted = cluster.balance - withdrawAmount - clusterAfter.balance;
-      expect(feeDeducted).to.be.greaterThan(0n, "CL-050: fees were deducted");
-
-      // Balance should be close to deposit minus withdraw (fees are small over 6 blocks)
-      // Must be at least 99% of (balance - withdrawAmount)
-      expect(clusterAfter.balance).to.be.greaterThan(
-        (cluster.balance - withdrawAmount) * 99n / 100n,
-        "CL-050: balance within 1% of (pre-withdraw balance - withdrawAmount)",
+      // Compute exact fees from updateClusterBalance to withdraw
+      const networkFeePackedMigrated = NETWORK_FEE_ETH / ETH_DEDUCTED_DIGITS;
+      const burnSinceUpdate50 = calcClusterBurn({
+        blockDiff: BigInt(wReceipt!.blockNumber - updateBlock50),
+        numOperators: 4n, ethFee: OP_ETH_FEE_RAW,
+        networkFee: networkFeePackedMigrated, effectiveVUnits: expectedVUnits,
+      });
+      expect(clusterAfter.balance).to.equal(
+        cluster.balance - burnSinceUpdate50 - withdrawAmount,
+        "CL-050: exact balance after withdraw with EB-weighted fees",
       );
 
       // Cluster remains active with same validator count

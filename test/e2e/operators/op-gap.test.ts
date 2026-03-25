@@ -41,6 +41,7 @@ import {
   EXECUTE_OPERATOR_FEE_PERIOD,
   TOKEN_REGISTER_AMOUNT,
   DEFAULT_NETWORK_FEE_UNPACKED,
+  OP_ETH_FEE_RAW,
 } from "../../common/constants.ts";
 import {
   mineBlocks,
@@ -52,6 +53,7 @@ import {
   computeEBRoot,
   calcVUnits,
   defaultVUnits,
+  calcOperatorFeeAccrual,
 } from "../../helpers/index.ts";
 import { Events } from "../../common/events.ts";
 import { Errors } from "../../common/errors.ts";
@@ -234,7 +236,7 @@ describe("W7-A: OP/OF/OE Operator Module Gap Tests", function () {
       ]);
 
       // Register a validator → active ETH cluster
-      await registerValidatorETH(
+      const { block: regBlock } = await registerValidatorETH(
         network,
         clusterOwner,
         operatorIds,
@@ -258,15 +260,19 @@ describe("W7-A: OP/OF/OE Operator Module Gap Tests", function () {
 
       // Cluster still functions — operator earnings still accrue
       await mineBlocks(provider, 50);
+      const currentBlock = await getBlockNumber(provider);
+      const blockDiff = BigInt(currentBlock - regBlock);
+      const vUnits = defaultVUnits(1n);
+      const expectedEarnings = calcOperatorFeeAccrual(blockDiff, OP_ETH_FEE_RAW, vUnits) * ETH_DEDUCTED_DIGITS;
       const earnings = await views.getOperatorEarnings(
         BigInt(operatorIds[0]),
       );
-      expect(earnings).to.be.greaterThan(0n);
+      expect(earnings).to.equal(expectedEarnings);
 
-      // All 4 operators should have accrued earnings (not just op[0])
+      // All 4 operators should have accrued equal earnings
       for (let i = 1; i < operatorIds.length; i++) {
         const opEarnings = await views.getOperatorEarnings(BigInt(operatorIds[i]));
-        expect(opEarnings).to.be.greaterThan(0n, `OP-034: op${operatorIds[i]} earnings > 0`);
+        expect(opEarnings).to.equal(expectedEarnings, `OP-034: op${operatorIds[i]} earnings exact`);
       }
       // Privacy change should not affect operator active state
       const opAfterMine = await views.getOperatorById(BigInt(operatorIds[0]));
@@ -528,7 +534,7 @@ describe("W7-A: OP/OF/OE Operator Module Gap Tests", function () {
       ]);
 
       // Register cluster with 1 validator
-      await registerValidatorETH(
+      const { block: regBlock24 } = await registerValidatorETH(
         network,
         clusterOwner,
         operatorIds,
@@ -556,7 +562,7 @@ describe("W7-A: OP/OF/OE Operator Module Gap Tests", function () {
         clusterOwner.address,
         operatorIds,
       );
-      await network
+      const updateTx24 = await network
         .connect(clusterOwner)
         .updateClusterBalance(
           rootBlock,
@@ -566,6 +572,7 @@ describe("W7-A: OP/OF/OE Operator Module Gap Tests", function () {
           64,
           [],
         );
+      const updateBlock24 = (await updateTx24.wait())!.blockNumber;
 
       // Verify operator vUnits deviation stored — exact value
       const proxyAddr = await network.getAddress();
@@ -587,27 +594,40 @@ describe("W7-A: OP/OF/OE Operator Module Gap Tests", function () {
       // Mine blocks to accrue earnings with EB-weighted vUnits
       await mineBlocks(provider, 100);
 
+      // Exact earnings = settled(reg→update with old vUnits) + live(update→now with new vUnits)
+      const higherFeePacked = higherFee / ETH_DEDUCTED_DIGITS;
+      const oldVUnits = defaultVUnits(1n);
+      const newVUnits24 = calcVUnits(64n); // 20000
+      const settledDelta24 = calcOperatorFeeAccrual(BigInt(updateBlock24 - regBlock24), higherFeePacked, oldVUnits);
+      const currentBlock24 = await getBlockNumber(provider);
+      const liveDelta24 = calcOperatorFeeAccrual(BigInt(currentBlock24 - updateBlock24), higherFeePacked, newVUnits24);
+      const expectedEarningsBefore = (settledDelta24 + liveDelta24) * ETH_DEDUCTED_DIGITS;
+
       const earningsBefore = await views.getOperatorEarnings(
         BigInt(operatorIds[0]),
       );
-      expect(earningsBefore).to.be.greaterThan(0n, "OF-024: earnings accrued with EB-weighted vUnits");
+      expect(earningsBefore).to.equal(expectedEarningsBefore, "OF-024: exact EB-weighted earnings");
 
       // Reduce fee — snapshot settles at old rate with EB-weighted vUnits
       const currentFee = await views.getOperatorFee(BigInt(operatorIds[0]));
       const newFee =
         ((currentFee / ETH_DEDUCTED_DIGITS - 1n) * ETH_DEDUCTED_DIGITS);
       if (newFee > 0n) {
-        await network
+        const reduceTx = await network
           .connect(operatorOwner)
           .reduceOperatorFee(BigInt(operatorIds[0]), newFee);
+        const reduceBlock = (await reduceTx.wait())!.blockNumber;
         const feeAfter = await views.getOperatorFee(BigInt(operatorIds[0]));
         expect(feeAfter).to.equal(newFee);
 
-        // Earnings should still exist (settled at old rate) and be >= earningsBefore
+        // Earnings after reduce = settled(reg→update) + settled(update→reduce with old fee and new vUnits)
+        // reduceOperatorFee settles the operator snapshot, adding 1 more block at old fee
+        const settledAfterReduce = calcOperatorFeeAccrual(BigInt(reduceBlock - updateBlock24), higherFeePacked, newVUnits24);
+        const expectedEarningsAfter = (settledDelta24 + settledAfterReduce) * ETH_DEDUCTED_DIGITS;
         const earningsAfter = await views.getOperatorEarnings(
           BigInt(operatorIds[0]),
         );
-        expect(earningsAfter).to.be.greaterThanOrEqual(earningsBefore, "OF-024: earnings never decrease after fee reduction");
+        expect(earningsAfter).to.equal(expectedEarningsAfter, "OF-024: exact earnings after fee reduction");
       }
     });
 
@@ -1034,7 +1054,7 @@ describe("W7-A: OP/OF/OE Operator Module Gap Tests", function () {
       await whitelistAddresses(network, operatorOwner, operatorIds, [
         clusterOwner.address,
       ]);
-      await registerValidatorETH(
+      const { block: regBlock12 } = await registerValidatorETH(
         network,
         clusterOwner,
         operatorIds,
@@ -1044,10 +1064,14 @@ describe("W7-A: OP/OF/OE Operator Module Gap Tests", function () {
 
       await mineBlocks(provider, 100);
 
-      // ETH earnings should exist — all 4 operators should have accrued
+      // ETH earnings should be exact: blockDiff * packedFee * vUnits / BPS * ETH_DEDUCTED_DIGITS
+      const currentBlock12 = await getBlockNumber(provider);
+      const expectedEarnings12 = calcOperatorFeeAccrual(
+        BigInt(currentBlock12 - regBlock12), OP_ETH_FEE_RAW, defaultVUnits(1n),
+      ) * ETH_DEDUCTED_DIGITS;
       for (const opId of operatorIds) {
         const ethEarnings = await views.getOperatorEarnings(BigInt(opId));
-        expect(ethEarnings).to.be.greaterThan(0n, `OE-012: op${opId} has ETH earnings`);
+        expect(ethEarnings).to.equal(expectedEarnings12, `OE-012: op${opId} exact ETH earnings`);
       }
       // All operators should have equal earnings (same fee, same block range)
       const earnings0 = await views.getOperatorEarnings(BigInt(operatorIds[0]));
@@ -1117,7 +1141,7 @@ describe("W7-A: OP/OF/OE Operator Module Gap Tests", function () {
         clusterOwner.address,
       ]);
 
-      await registerValidatorETH(
+      const { block: regBlock28 } = await registerValidatorETH(
         network,
         clusterOwner,
         operatorIds,
@@ -1129,8 +1153,13 @@ describe("W7-A: OP/OF/OE Operator Module Gap Tests", function () {
       await mineBlocks(provider, 100_000);
 
       // This should not revert — earnings stay within uint64
+      const currentBlock28 = await getBlockNumber(provider);
+      const highFeePacked = highFee / ETH_DEDUCTED_DIGITS;
+      const expectedEarnings28 = calcOperatorFeeAccrual(
+        BigInt(currentBlock28 - regBlock28), highFeePacked, defaultVUnits(1n),
+      ) * ETH_DEDUCTED_DIGITS;
       const earnings = await views.getOperatorEarnings(1n);
-      expect(earnings).to.be.greaterThan(0n, "OE-028: earnings accrued after 100k blocks");
+      expect(earnings).to.equal(expectedEarnings28, "OE-028: exact earnings after 100k blocks");
 
       // All 4 operators should have earned the same amount (same fee, same cluster)
       for (let i = 2; i <= 4; i++) {
@@ -1258,20 +1287,20 @@ describe("W7-A: OP/OF/OE Operator Module Gap Tests", function () {
       // Test with 4-op cluster: register cluster, mine, check earnings
       const clusterSizes = [4, 7, 10, 13];
       const earningsPerSize: bigint[] = [];
+      const regBlocks: number[] = [];
+      const packedFee35 = fee / ETH_DEDUCTED_DIGITS;
 
       for (let ci = 0; ci < clusterSizes.length; ci++) {
         const size = clusterSizes[ci];
-        // Use a fresh fixture per cluster size would be ideal,
-        // but instead we'll use different cluster owners
         const signers = await connection.ethers.getSigners();
-        const owner = signers[10 + ci]; // Use different signers for each
+        const owner = signers[10 + ci];
 
         const opIds = allOps.slice(0, size);
         await whitelistAddresses(network, operatorOwner, opIds, [
           owner.address,
         ]);
 
-        await registerValidatorETH(
+        const { block: regBlock35 } = await registerValidatorETH(
           network,
           owner,
           opIds,
@@ -1279,19 +1308,28 @@ describe("W7-A: OP/OF/OE Operator Module Gap Tests", function () {
           DEFAULT_ETH_REGISTER_VALUE,
           100 + ci,
         );
+        regBlocks.push(regBlock35);
 
         await mineBlocks(provider, 100);
 
-        // Get earnings for the first operator (shared across clusters)
-        // Since each cluster adds 1 validator, operator 1 now has
-        // (ci+1) validators contributing
         const earnings = await views.getOperatorEarnings(BigInt(allOps[0]));
         earningsPerSize.push(earnings);
       }
 
-      // Earnings should increase monotonically as more validators are added
-      for (let i = 1; i < earningsPerSize.length; i++) {
-        expect(earningsPerSize[i]).to.be.greaterThan(earningsPerSize[i - 1]);
+      // Compute exact expected earnings for operator allOps[0]
+      let settledBalance35 = 0n;
+      let lastBlock35 = regBlocks[0];
+      for (let i = 0; i < clusterSizes.length; i++) {
+        // At registration i: settle from lastBlock to regBlocks[i] with i validators
+        const settleBlockDiff = BigInt(regBlocks[i] - lastBlock35);
+        settledBalance35 += settleBlockDiff * packedFee35 * BigInt(i);
+        lastBlock35 = regBlocks[i];
+
+        // Live accrual: 100 blocks with (i+1) validators
+        const snapBlock = regBlocks[i] + 100;
+        const liveAccrual = BigInt(snapBlock - regBlocks[i]) * packedFee35 * BigInt(i + 1);
+        const expectedTotal = (settledBalance35 + liveAccrual) * ETH_DEDUCTED_DIGITS;
+        expect(earningsPerSize[i]).to.equal(expectedTotal, `OE-035: exact earnings at size ${clusterSizes[i]}`);
       }
     });
 
