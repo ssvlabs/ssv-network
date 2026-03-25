@@ -843,6 +843,93 @@ describe("XV: Validator↔EB Cross-Module Tests", function () {
       await assertAllOpVUnits(prov, addr, ops, dev1 + delta2, "after second EB");
     });
 
+    it("XV-037: fee settlement on removal uses explicit EB-weighted vUnits (exact balance)", async function () {
+      const { network } = await networkHelpers.loadFixture(baseFixture);
+      const prov = connection.ethers.provider;
+      const addr = await network.getAddress();
+      const ops = await setupOps(network, opOwner, 4, [clusterOwner.address]);
+
+      let cl = await regVal(network, clusterOwner, ops, EMPTY_CLUSTER, DEFAULT_ETH_REGISTER_VALUE, 1);
+
+      // EB update: 48 ETH → vUnits = 15000 (explicit), deviation = 5000
+      cl = await doEB(network, prov, clusterOwner, ops, cl, 48, oracles());
+      const v48 = calcVUnits(48n); // 15000
+      const dev = v48 - defaultVUnits(1n); // 5000
+      const balAfterEB = BigInt(cl.balance);
+      const blockAfterEB = await getBlockNumber(prov);
+      await assertAllOpVUnits(prov, addr, ops, dev, "deviation after EB");
+
+      // Advance 100 blocks — fees accrue at EB-weighted rate
+      await mineBlocks(prov, 100);
+
+      // Remove last val — settles fees for all elapsed blocks using vUnits=15000
+      cl = await remVal(network, clusterOwner, ops, cl, 1);
+      const blockAfterRemove = await getBlockNumber(prov);
+      expect(cl.validatorCount).to.equal(0n);
+
+      // Exact balance verification: burn uses explicit vUnits (15000), not implicit (10000)
+      const blockDiff = BigInt(blockAfterRemove - blockAfterEB);
+      const expectedBurn = calcClusterBurn({
+        blockDiff,
+        numOperators: NUM_OPS,
+        ethFee: OP_ETH_FEE_RAW,
+        networkFee: DEFAULT_NETWORK_FEE_RAW,
+        effectiveVUnits: v48,
+      });
+      expect(BigInt(cl.balance)).to.equal(balAfterEB - expectedBurn, "exact balance using EB-weighted vUnits");
+
+      // Verify that using implicit vUnits would give a DIFFERENT (incorrect) result
+      const wrongBurn = calcClusterBurn({
+        blockDiff,
+        numOperators: NUM_OPS,
+        ethFee: OP_ETH_FEE_RAW,
+        networkFee: DEFAULT_NETWORK_FEE_RAW,
+        effectiveVUnits: defaultVUnits(1n), // 10000 (implicit, wrong)
+      });
+      expect(expectedBurn).to.not.equal(wrongBurn, "EB-weighted burn differs from implicit burn");
+
+      await assertAllOpVUnits(prov, addr, ops, 0n, "deviation cleaned");
+    });
+
+    it("XV-038: fee settlement on registration uses pre-registration vUnits (exact balance)", async function () {
+      const { network } = await networkHelpers.loadFixture(baseFixture);
+      const prov = connection.ethers.provider;
+      const addr = await network.getAddress();
+      const ops = await setupOps(network, opOwner, 4, [clusterOwner.address]);
+
+      let cl = await regVal(network, clusterOwner, ops, EMPTY_CLUSTER, DEFAULT_ETH_REGISTER_VALUE, 1);
+
+      // EB update: 48 ETH → vUnits = 15000 (explicit)
+      cl = await doEB(network, prov, clusterOwner, ops, cl, 48, oracles());
+      const v48 = calcVUnits(48n); // 15000
+      const dev = v48 - defaultVUnits(1n); // 5000
+      const balAfterEB = BigInt(cl.balance);
+      const blockAfterEB = await getBlockNumber(prov);
+
+      // Advance 100 blocks — fees accrue at storedVUnits=15000
+      await mineBlocks(prov, 100);
+
+      // Register 1 more val — fee settlement uses pre-registration storedVUnits (15000)
+      const deposit = DEFAULT_ETH_REGISTER_VALUE;
+      cl = await regVal(network, clusterOwner, ops, cl, deposit, 2);
+      const blockAfterReg = await getBlockNumber(prov);
+      expect(cl.validatorCount).to.equal(2n);
+
+      // Exact balance: balAfterEB + deposit - burn(blockDiff, vUnits=15000 pre-registration)
+      const blockDiff = BigInt(blockAfterReg - blockAfterEB);
+      const expectedBurn = calcClusterBurn({
+        blockDiff,
+        numOperators: NUM_OPS,
+        ethFee: OP_ETH_FEE_RAW,
+        networkFee: DEFAULT_NETWORK_FEE_RAW,
+        effectiveVUnits: v48, // pre-registration vUnits
+      });
+      expect(BigInt(cl.balance)).to.equal(balAfterEB + deposit - expectedBurn, "exact balance: fees settled at pre-registration vUnits");
+
+      // Deviation unchanged by registration
+      await assertAllOpVUnits(prov, addr, ops, dev, "deviation unchanged after registration");
+    });
+
     it("XV-039: serial single removals — deviation cleaned only on last", async function () {
       const { network } = await networkHelpers.loadFixture(baseFixture);
       const prov = connection.ethers.provider;
@@ -1499,6 +1586,54 @@ describe("XV: Validator↔EB Cross-Module Tests", function () {
       await assertAllOpVUnits(prov, addr, ops, newDev, "after second EB");
     });
 
+    it("XV-035: registration into liquidated cluster (IMPOSSIBLE PATH) — reverts ClusterIsLiquidated", async function () {
+      const { network } = await networkHelpers.loadFixture(baseFixture);
+      const prov = connection.ethers.provider;
+      const addr = await network.getAddress();
+      const ops = await setupOps(network, opOwner, 4, [clusterOwner.address]);
+
+      // Register 1 validator, EB update
+      let cl = await regVal(network, clusterOwner, ops, EMPTY_CLUSTER, DEFAULT_ETH_REGISTER_VALUE, 1);
+      cl = await doEB(network, prov, clusterOwner, ops, cl, 48, oracles());
+      const v48 = calcVUnits(48n);
+
+      // Liquidate — deviation cleaned
+      cl = await drainAndLiq(network, prov, clusterOwner, liquidator, ops, cl, NUM_OPS, v48);
+      expect(cl.active).to.equal(false);
+      await assertAllOpVUnits(prov, addr, ops, 0n, "deviation cleaned by liquidation");
+
+      // Remove last val from liquidated cluster
+      cl = await remVal(network, clusterOwner, ops, cl, 1);
+      expect(cl.validatorCount).to.equal(0n);
+      expect(cl.active).to.equal(false);
+
+      // ebSnapshot.vUnits zeroed (line 222 runs regardless of active flag)
+      // DAO vUnits zeroed
+      expect(await readDaoVUnits(prov, addr)).to.equal(0n, "DAO vUnits zeroed after remove");
+
+      // Try to register into the liquidated cluster — IMPOSSIBLE PATH
+      // validateClusterOnRegistration calls validateClusterIsNotLiquidated (ClusterLib.sol:221)
+      await expect(
+        network
+          .connect(clusterOwner)
+          .registerValidator(makePublicKey(10), ops, DEFAULT_SHARES, cl, { value: DEFAULT_ETH_REGISTER_VALUE }),
+      ).to.be.revertedWithCustomError(network, Errors.CLUSTER_IS_LIQUIDATED);
+
+      // Correct path: must reactivate first, then register
+      cl = await react(network, clusterOwner, ops, cl);
+      expect(cl.active).to.equal(true);
+
+      // Now registration succeeds (cluster returned to implicit EB since ebSnapshot=0)
+      cl = await regVal(network, clusterOwner, ops, cl, DEFAULT_ETH_REGISTER_VALUE, 10);
+      expect(cl.validatorCount).to.equal(1n);
+      await assertAllOpVUnits(prov, addr, ops, 0n, "implicit EB after reactivation + register");
+
+      // New EB update transitions to explicit
+      cl = await doEB(network, prov, clusterOwner, ops, cl, 48, oracles());
+      const dev = v48 - defaultVUnits(1n); // 5000
+      await assertAllOpVUnits(prov, addr, ops, dev, "explicit EB after update");
+    });
+
     it("XV-061: liquidate → remove subset → reactivate → EB update", async function () {
       const { network } = await networkHelpers.loadFixture(baseFixture);
       const prov = connection.ethers.provider;
@@ -1604,20 +1739,41 @@ describe("XV: Validator↔EB Cross-Module Tests", function () {
       let cl = await regVal(network, clusterOwner, ops, EMPTY_CLUSTER, DEFAULT_ETH_REGISTER_VALUE, 1);
       cl = await doEB(network, prov, clusterOwner, ops, cl, 48, oracles());
       const dev = calcVUnits(48n) - defaultVUnits(1n);
+      const v48 = calcVUnits(48n); // 15000
+      const balAfterEB = BigInt(cl.balance);
+      const blockAfterEB = await getBlockNumber(prov);
 
       await mineBlocks(prov, 50);
 
       // Withdraw partial — settles fees at EB-weighted vUnits
       const txW = await network.connect(clusterOwner).withdraw(ops, 0n, cl);
       cl = parseClusterFromEvent(network, await txW.wait(), Events.CLUSTER_WITHDRAWN);
-      const balAfterWithdraw = BigInt(cl.balance);
-      expect(balAfterWithdraw).to.be.greaterThan(0n);
+      const blockAfterWithdraw = await getBlockNumber(prov);
+      const burnToWithdraw = calcClusterBurn({
+        blockDiff: BigInt(blockAfterWithdraw - blockAfterEB),
+        numOperators: NUM_OPS,
+        ethFee: OP_ETH_FEE_RAW,
+        networkFee: DEFAULT_NETWORK_FEE_RAW,
+        effectiveVUnits: v48,
+      });
+      expect(BigInt(cl.balance)).to.equal(balAfterEB - burnToWithdraw, "exact balance after withdraw");
 
       // vUnits still same
       await assertAllOpVUnits(prov, addr, ops, dev, "vUnits unchanged after withdraw");
 
       // Remove — settles remaining fees, no double-settlement
+      const balBeforeRemove = BigInt(cl.balance);
+      const blockBeforeRemove = await getBlockNumber(prov);
       cl = await remVal(network, clusterOwner, ops, cl, 1);
+      const blockAfterRemove = await getBlockNumber(prov);
+      const burnToRemove = calcClusterBurn({
+        blockDiff: BigInt(blockAfterRemove - blockBeforeRemove),
+        numOperators: NUM_OPS,
+        ethFee: OP_ETH_FEE_RAW,
+        networkFee: DEFAULT_NETWORK_FEE_RAW,
+        effectiveVUnits: v48,
+      });
+      expect(BigInt(cl.balance)).to.equal(balBeforeRemove - burnToRemove, "exact balance after remove");
       expect(cl.validatorCount).to.equal(0n);
       await assertAllOpVUnits(prov, addr, ops, 0n, "cleaned");
     });
