@@ -2151,7 +2151,7 @@ describe("XG: Migration x Staking Cross-Module Tests", () => {
   // 17. Removed Operator + EB + Liquidation Chain (XG-042)
   // ═══════════════════════════════════════════════════════════════
   describe("Removed Operator + EB + Liquidation Chain", () => {
-    it("XG-042: Migrate -> EB update -> operator removed -> liquidate -> verify accounting", async function () {
+    it("XG-042: Migrate -> EB update -> operator removed -> liquidate succeeds (guard skips removed op)", async function () {
       const deployFixture = createETHFixture(4);
       const { network, views, ssvToken, cssvToken, operatorIds } =
         await networkHelpers.loadFixture(deployFixture);
@@ -2180,17 +2180,15 @@ describe("XG: Migration x Staking Cross-Module Tests", () => {
       const { amount } = await claimAndGetAmount(network, provider, stakerB);
       expect(amount).to.be.greaterThan(0n);
 
-      // Known contract bug (G11): liquidation after explicit EB + operator removal
-      // causes Panic(0x11) because _executeLiquidation tries to subtract deviation
-      // from operatorEthVUnits that was already cleaned during removeOperator
+      // Liquidation succeeds — guard skips removed op in _executeLiquidation
       await mineBlocks(provider, 900_000);
-      await expect(
-        network.connect(liquidator).liquidate(clusterOwner.address, operatorIds, cluster),
-      ).to.be.revertedWithPanic(0x11);
+      const liqTx = await network.connect(liquidator).liquidate(clusterOwner.address, operatorIds, cluster);
+      const liqReceipt = await liqTx.wait();
+      expect(liqReceipt).to.not.be.null;
 
-      // Despite the liquidation bug, operator removal correctly zeroed the vUnits
+      // Removed operator vUnits stay at 0
       const removedVUnits = await readOperatorEthVUnits(provider, networkAddress, operatorIds[3]);
-      expect(removedVUnits).to.equal(0n);
+      expect(removedVUnits).to.equal(0n, "removed op stays 0 after liquidation");
     });
   });
 

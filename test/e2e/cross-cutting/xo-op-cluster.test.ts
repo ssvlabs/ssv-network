@@ -977,8 +977,8 @@ describe("XO: Operator↔Cluster Cross-Module Tests", () => {
   // =========================================================================
 
   describe("Removed Operator + Cluster Ops", () => {
-    // XO-016: EB update writes deviation to removed op's vUnits (THE BUG)
-    it("XO-016: EB update on cluster with removed operator — vUnits written to removed op", async function () {
+    // XO-016: EB update guard skips removed operator's vUnits
+    it("XO-016: EB update on cluster with removed operator — guard skips removed op", async function () {
       const { network } = await networkHelpers.loadFixture(baseFixture);
       const provider = connection.ethers.provider;
       const proxyAddr = await network.getAddress();
@@ -996,16 +996,20 @@ describe("XO: Operator↔Cluster Cross-Module Tests", () => {
       const vUnitsBefore = await readOperatorEthVUnits(provider, proxyAddr, BigInt(operatorIds[0]));
       expect(vUnitsBefore).to.equal(0n);
 
-      // EB update to 48 — deviation = 5000 per operator
+      // EB update to 48 — guard skips removed op
       ({ cluster } = await doEBUpdate(
         network, provider, clusterOwner, operatorIds, cluster, 48, oracles(),
       ));
 
-      // Verify deviation written to removed op (THE KNOWN BUG: _updateOperatorVUnits
-      // at SSVClusters.sol:504-509 iterates ALL operators without checking ethSnapshot.block)
+      // Guard works: removed op stays at 0
       const vUnitsAfter = await readOperatorEthVUnits(provider, proxyAddr, BigInt(operatorIds[0]));
-      // BUG: deviation IS written to removed operator. 1 val * (48-32) ETH = 5000 vUnits
-      expect(vUnitsAfter).to.equal(5000n, "BUG: deviation written to removed operator");
+      expect(vUnitsAfter).to.equal(0n, "removed op stays 0 (guard works)");
+
+      // Active ops have deviation
+      for (let i = 1; i < 4; i++) {
+        const v = await readOperatorEthVUnits(provider, proxyAddr, BigInt(operatorIds[i]));
+        expect(v).to.equal(5000n, `active op ${operatorIds[i]} has 5000 deviation`);
+      }
     });
 
     // XO-017: EB increase then decrease on cluster with removed op
@@ -1045,8 +1049,8 @@ describe("XO: Operator↔Cluster Cross-Module Tests", () => {
       }
     });
 
-    // XO-018: EB increase triggers auto-liquidation with removed op
-    it("XO-018: EB increase triggers auto-liquidation with removed operator", async function () {
+    // XO-018: EB increase with removed op — guard skips removed op
+    it("XO-018: EB increase with removed operator — guard skips removed op", async function () {
       const { network } = await networkHelpers.loadFixture(baseFixture);
       const provider = connection.ethers.provider;
       const proxyAddr = await network.getAddress();
@@ -1066,24 +1070,14 @@ describe("XO: Operator↔Cluster Cross-Module Tests", () => {
       // Remove op1
       await network.connect(opOwner).removeOperator(operatorIds[0]);
 
-      // EB increase to 64 — may trigger auto-liquidation
+      // EB increase to 64 — may trigger auto-liquidation, guard skips removed op
       const { cluster: updatedCluster, receipt } = await doEBUpdate(
         network, provider, clusterOwner, operatorIds, cluster, 64, oracles(),
       );
 
-      // If auto-liquidation triggered, cluster is inactive
-      // Otherwise it's still active but with increased vUnits
-      if (!updatedCluster.active) {
-        // Auto-liquidation fired
-        expect(updatedCluster.active).to.equal(false);
-      } else {
-        // Cluster survived — verify it has higher vUnits
-        expect(updatedCluster.balance).to.be.greaterThan(0n);
-      }
-
-      // BUG: removed op gets deviation from _updateOperatorVUnits (no ethSnapshot.block check)
+      // Whether auto-liq fired or not, removed op must stay at 0
       const removedV = await readOperatorEthVUnits(provider, proxyAddr, BigInt(operatorIds[0]));
-      expect(removedV).to.be.greaterThan(0n, "BUG: deviation written to removed op during EB update");
+      expect(removedV).to.equal(0n, "removed op stays 0 (guard works)");
     });
 
     // XO-019: 2 clusters sharing removed op → withdraw from both
@@ -1208,7 +1202,7 @@ describe("XO: Operator↔Cluster Cross-Module Tests", () => {
       expect(vUnits).to.equal(0n, "operatorEthVUnits zeroed after removal");
     });
 
-    // XO-023: EB update → remove op → second EB update (deviation re-appears from zero)
+    // XO-023: EB update → remove op → second EB update — guard keeps removed op clean
     it("XO-023: second EB update after op removal — removed op stays clean", async function () {
       const { network } = await networkHelpers.loadFixture(baseFixture);
       const provider = connection.ethers.provider;
@@ -1230,16 +1224,21 @@ describe("XO: Operator↔Cluster Cross-Module Tests", () => {
       // Remove op1
       await network.connect(opOwner).removeOperator(operatorIds[0]);
 
-      // EB update 2
+      // EB update 2 — guard skips removed op
       ({ cluster } = await doEBUpdate(
         network, provider, clusterOwner, operatorIds, cluster, 64, oracles(),
       ));
 
-      // BUG: _updateOperatorVUnits writes to removed op on each EB update.
-      // After first EB update (48), op1 got deviation from 0. After removal, vUnits deleted.
-      // After second EB update (64), deviation re-written to removed op from 0.
+      // Guard works: removed op stays at 0
       const vUnits = await readOperatorEthVUnits(provider, proxyAddr, BigInt(operatorIds[0]));
-      expect(vUnits).to.be.greaterThan(0n, "BUG: deviation re-appears on removed op after second EB update");
+      expect(vUnits).to.equal(0n, "removed op stays 0 after second EB update (guard works)");
+
+      // Active ops have full deviation from baseline
+      const devLive = calcVUnits(64n) - defaultVUnits(1n); // 10000
+      for (let i = 1; i < 4; i++) {
+        const v = await readOperatorEthVUnits(provider, proxyAddr, BigInt(operatorIds[i]));
+        expect(v).to.equal(devLive, `active op ${operatorIds[i]} has full deviation`);
+      }
     });
 
     // XO-024: withdrawOperatorEarnings on removed op — reverts
@@ -1648,8 +1647,8 @@ describe("XO: Operator↔Cluster Cross-Module Tests", () => {
       expect(cluster.validatorCount).to.equal(0n);
     });
 
-    // XO-068: shared removed op + other cluster EB update (underflow bug path)
-    it("XO-068: shared removed op + other cluster EB update — no underflow", async function () {
+    // XO-068: shared removed op + other cluster EB update — guard skips removed op
+    it("XO-068: shared removed op + other cluster EB update — guard skips removed op", async function () {
       const { network } = await networkHelpers.loadFixture(baseFixture);
       const provider = connection.ethers.provider;
       const proxyAddr = await network.getAddress();
@@ -1672,14 +1671,21 @@ describe("XO: Operator↔Cluster Cross-Module Tests", () => {
       // Remove op1
       await network.connect(opOwner).removeOperator(operatorIds[0]);
 
-      // EB update on cluster B
+      // EB update on cluster B — guard skips removed op
       ({ cluster: cB } = await doEBUpdate(
         network, provider, clusterOwner2, operatorIds, cB, 48, oracles(),
       ));
 
-      // BUG: removed op gets deviation from other cluster's EB update
+      // Guard works: removed op stays at 0
       const v = await readOperatorEthVUnits(provider, proxyAddr, BigInt(operatorIds[0]));
-      expect(v).to.be.greaterThan(0n, "BUG: removed op gets deviation from other cluster EB update");
+      expect(v).to.equal(0n, "removed op stays 0 after other cluster's EB update (guard works)");
+
+      // Active ops have deviation from cluster B's EB update
+      const dev = calcVUnits(48n) - defaultVUnits(1n); // 5000
+      for (let i = 1; i < 4; i++) {
+        const opV = await readOperatorEthVUnits(provider, proxyAddr, BigInt(operatorIds[i]));
+        expect(opV).to.equal(dev, `active op ${operatorIds[i]} has deviation`);
+      }
     });
   });
 

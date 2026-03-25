@@ -1203,7 +1203,7 @@ describe("Cross-Cutting: XF Full Lifecycle Chains", () => {
     }
   });
 
-  it("XF-024: Operator removed → EB update → operatorEthVUnits[removedOp] == 0 (BUG verification)", async function () {
+  it("XF-024: Operator removed → EB update → guard skips removed op (vUnits stays 0)", async function () {
     const [operatorOwner, clusterOwner, staker, oracle1, oracle2, oracle3, oracle4] = signers;
     const { network, views, ssvToken } = await networkHelpers.loadFixture(deployFixture);
     const provider = connection.ethers.provider;
@@ -1230,11 +1230,10 @@ describe("Cross-Cutting: XF Full Lifecycle Chains", () => {
     );
     cluster = ebResult.cluster;
 
-    // BUG DOCUMENTED (G11 violation): EB update writes stale vUnits to removed operator.
-    // The removed operator should have 0 vUnits, but the contract writes deviation regardless.
+    // Guard works: removed operator stays at 0 vUnits
     const removedOpVUnits = await readOperatorEthVUnits(provider, networkAddress, operatorIds[0]);
-    expect(removedOpVUnits).to.not.equal(0n,
-      "G11 violated: removed op got non-zero vUnits from EB update (known bug)");
+    expect(removedOpVUnits).to.equal(0n,
+      "removed op stays 0 after EB update (guard works)");
 
     // Active operators should have deviation
     for (let i = 1; i < operatorIds.length; i++) {
@@ -1247,7 +1246,7 @@ describe("Cross-Cutting: XF Full Lifecycle Chains", () => {
     expect(daoVUnits).to.equal(15000n, "daoTotalEthVUnits consistent after EB update on cluster with removed op");
   });
 
-  it("XF-036: 2 ops removed + EB update → deviation only applied to 2 remaining (BUG verification)", async function () {
+  it("XF-036: 2 ops removed + EB update → guard skips removed ops, deviation only on 2 remaining", async function () {
     const [operatorOwner, clusterOwner, staker, oracle1, oracle2, oracle3, oracle4] = signers;
     const { network, views, ssvToken } = await networkHelpers.loadFixture(deployFixture);
     const provider = connection.ethers.provider;
@@ -1276,11 +1275,11 @@ describe("Cross-Cutting: XF Full Lifecycle Chains", () => {
     );
     cluster = ebResult.cluster;
 
-    // BUG DOCUMENTED (G11 violation): EB update writes stale vUnits to removed operators.
+    // Guard works: removed operators stay at 0 vUnits
     for (const removedId of [operatorIds[0], operatorIds[1]]) {
       const vUnits = await readOperatorEthVUnits(provider, networkAddress, removedId);
-      expect(vUnits).to.not.equal(0n,
-        `G11 violated: removed op ${removedId} got non-zero vUnits from EB update (known bug)`);
+      expect(vUnits).to.equal(0n,
+        `removed op ${removedId} stays 0 after EB update (guard works)`);
     }
 
     // Active operators should have deviation
@@ -1574,23 +1573,15 @@ describe("Cross-Cutting: XF Full Lifecycle Chains", () => {
     const operatorIds = await registerOperators(network, operatorOwner, 4);
     await whitelistAddresses(network, operatorOwner, operatorIds, [clusterOwner.address]);
 
-    // Register with thin balance — deliberately small to ensure auto-liquidation fires
-    const deposit = ethers.parseEther("0.5");
+    // Deposit sits between implicit and doubled liquidation thresholds so the EB
+    // update (32→64 ETH, doubling vUnits from 10000→20000) triggers auto-liquidation.
+    // Burn rate: ~389.76 gwei/block. Threshold period: 21480 blocks.
+    //   Threshold @ implicit vUnits (10000): ~0.00837 ETH
+    //   Threshold @ doubled  vUnits (20000): ~0.01674 ETH
+    // Deposit 0.01 ETH: NOT liquidatable at implicit, IS at doubled.
+    const deposit = ethers.parseEther("0.01");
     const { cluster: regCluster } = await registerCluster(network, clusterOwner, operatorIds, deposit);
     let cluster = regCluster;
-
-    // Record pre-EB state
-    const daoVUnitsBefore = await readDaoTotalEthVUnits(provider, networkAddress);
-    const opVUnitsBefore: bigint[] = [];
-    for (const opId of operatorIds) {
-      opVUnitsBefore.push(await readOperatorEthVUnits(provider, networkAddress, opId));
-    }
-
-    // Advance blocks to drain most of balance — use enough blocks so that at doubled
-    // vUnits (20000 instead of 10000), the remaining balance is below liquidation threshold.
-    // At default fees (4 ops * ~17788 packed + ~5000 net fee) * 10000 vUnits / 10000 BPS * 100000 per block,
-    // burning 0.5 ETH takes ~3000-4000 blocks. Drain aggressively to ensure EB doubling triggers auto-liq.
-    await mineBlocks(provider, 5000);
 
     // EB update to 64 ETH → doubles vUnits, MUST trigger auto-liquidation
     const clusterId = computeClusterId(clusterOwner.address, operatorIds);
@@ -1617,15 +1608,16 @@ describe("Cross-Cutting: XF Full Lifecycle Chains", () => {
     // Auto-liquidation MUST fire — if not, the test setup is broken
     expect(wasLiquidated).to.be.true;
 
-    // Net effect on operatorEthVUnits should be zero:
-    // _updateOperatorVUnits added +10000, _executeLiquidation subtracted -10000
+    // Operator deviation: EB added +10000, liquidation subtracted -10000 → net zero
     for (let i = 0; i < operatorIds.length; i++) {
       const vUnitsAfter = await readOperatorEthVUnits(provider, networkAddress, operatorIds[i]);
-      expect(vUnitsAfter).to.equal(opVUnitsBefore[i],
-        "net deviation change should be zero after add+subtract in auto-liquidation");
+      expect(vUnitsAfter).to.equal(0n,
+        "operator deviation net zero after EB add + liquidation subtract");
     }
+    // DAO total: started at baseline (10000), EB added +10000 deviation → 20000,
+    // liquidation removed baseline (-10000) and deviation (-10000) → 0
     const daoVUnitsAfter = await readDaoTotalEthVUnits(provider, networkAddress);
-    expect(daoVUnitsAfter).to.equal(daoVUnitsBefore);
+    expect(daoVUnitsAfter).to.equal(0n, "all vUnits removed after liquidation");
   });
 
   it("XF-048: Reactivate cluster with explicit EB → deviation restored to operators and DAO", async function () {

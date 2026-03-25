@@ -989,7 +989,7 @@ describe("XV: Validator↔EB Cross-Module Tests", function () {
   // ALL use real removeOperator()
   // =========================================================================
   describe("Removed Operator Bug Paths", () => {
-    it("XV-023: register → removeOperator → EB → remove last val — bug self-cancels", async function () {
+    it("XV-023: register → removeOperator → EB → remove last val — guard skips removed op", async function () {
       const { network } = await networkHelpers.loadFixture(baseFixture);
       const prov = connection.ethers.provider;
       const addr = await network.getAddress();
@@ -999,31 +999,34 @@ describe("XV: Validator↔EB Cross-Module Tests", function () {
 
       // Remove op3
       await network.connect(opOwner).removeOperator(ops[2]);
-      // Assert vUnits zeroed immediately after removal
       expect(await readOpVUnits(prov, addr, BigInt(ops[2]))).to.equal(
         0n,
         "operatorEthVUnits==0 immediately after removeOperator",
       );
 
-      // EB update (48 ETH) — writes deviation to removed op (no guard)
+      // EB update (48 ETH) — guard skips removed op
       cl = await doEB(network, prov, clusterOwner, ops, cl, 48, oracles());
       const dev = calcVUnits(48n) - defaultVUnits(1n); // 5000
 
-      // BUG: removed op got deviation written
+      // Guard works: removed op stays at 0
       expect(await readOpVUnits(prov, addr, BigInt(ops[2]))).to.equal(
-        dev,
-        "BUG: deviation written to removed op",
+        0n,
+        "removed op stays 0 after EB update (guard works)",
       );
 
-      // Remove last val — cleanup subtracts deviation from removed op
+      // Active ops have deviation
+      for (const id of [ops[0], ops[1], ops[3]]) {
+        expect(await readOpVUnits(prov, addr, BigInt(id))).to.equal(dev, `op${id} has deviation`);
+      }
+
+      // Remove last val — cleanup skips removed op too
       cl = await remVal(network, clusterOwner, ops, cl, 1);
       expect(cl.validatorCount).to.equal(0n);
 
-      // Self-canceling: +5000 then -5000 = 0
-      await assertAllOpVUnits(prov, addr, ops, 0n, "bug self-cancels");
+      await assertAllOpVUnits(prov, addr, ops, 0n, "all ops cleaned");
     });
 
-    it("XV-024: register → removeOperator → EB 48 → EB 32 — removed op returns to 0", async function () {
+    it("XV-024: register → removeOperator → EB 48 → EB 32 — guard skips removed op throughout", async function () {
       const { network } = await networkHelpers.loadFixture(baseFixture);
       const prov = connection.ethers.provider;
       const addr = await network.getAddress();
@@ -1035,22 +1038,22 @@ describe("XV: Validator↔EB Cross-Module Tests", function () {
       await network.connect(opOwner).removeOperator(ops[2]);
       expect(await readOpVUnits(prov, addr, BigInt(ops[2]))).to.equal(0n, "zeroed after removeOperator");
 
-      // EB update 48: delta = +5000 (written to removed op)
+      // EB update 48: guard skips removed op
       cl = await doEB(network, prov, clusterOwner, ops, cl, 48, oracles());
       expect(await readOpVUnits(prov, addr, BigInt(ops[2]))).to.equal(
-        calcVUnits(48n) - defaultVUnits(1n),
-        "deviation written to removed op",
+        0n,
+        "removed op stays 0 after EB 48 (guard works)",
       );
 
-      // EB update 32: delta = -5000 (subtracted from removed op)
+      // EB update 32: guard still skips removed op
       cl = await doEB(network, prov, clusterOwner, ops, cl, 32, oracles());
       expect(await readOpVUnits(prov, addr, BigInt(ops[2]))).to.equal(
         0n,
-        "removed op returns to 0 after EB 32",
+        "removed op stays 0 after EB 32",
       );
     });
 
-    it("XV-025: 3 vals → removeOperator → EB 48/val → bulk remove all — cleanup includes removed op", async function () {
+    it("XV-025: 3 vals → removeOperator → EB 48/val → bulk remove all — guard skips removed op", async function () {
       const { network } = await networkHelpers.loadFixture(baseFixture);
       const prov = connection.ethers.provider;
       const addr = await network.getAddress();
@@ -1062,22 +1065,26 @@ describe("XV: Validator↔EB Cross-Module Tests", function () {
       await network.connect(opOwner).removeOperator(ops[1]);
       expect(await readOpVUnits(prov, addr, BigInt(ops[1]))).to.equal(0n, "zeroed after removeOperator");
 
-      // EB update: 144 ETH (48*3)
+      // EB update: 144 ETH (48*3) — guard skips removed op
       cl = await doEB(network, prov, clusterOwner, ops, cl, 144, oracles());
       const dev = calcVUnits(144n) - defaultVUnits(3n);
 
-      // BUG: deviation written to removed op
-      expect(await readOpVUnits(prov, addr, BigInt(ops[1]))).to.equal(dev, "BUG: deviation on removed op");
+      // Guard works: removed op stays at 0
+      expect(await readOpVUnits(prov, addr, BigInt(ops[1]))).to.equal(0n, "removed op stays 0 (guard works)");
+
+      // Active ops have deviation
+      for (const id of [ops[0], ops[2], ops[3]]) {
+        expect(await readOpVUnits(prov, addr, BigInt(id))).to.equal(dev, `op${id} has deviation`);
+      }
 
       // Bulk remove all 3
       cl = await bulkRemVal(network, clusterOwner, ops, cl, [1, 2, 3]);
       expect(cl.validatorCount).to.equal(0n);
 
-      // Self-canceling: cleanup subtracts deviation from all ops including removed
       await assertAllOpVUnits(prov, addr, ops, 0n, "all ops cleaned");
     });
 
-    it("XV-026: EB 48 → removeOperator → remove last val — Panic 0x11 underflow", async function () {
+    it("XV-026: EB 48 → removeOperator → remove last val — guard skips removed op in cleanup", async function () {
       const { network } = await networkHelpers.loadFixture(baseFixture);
       const prov = connection.ethers.provider;
       const addr = await network.getAddress();
@@ -1094,13 +1101,18 @@ describe("XV: Validator↔EB Cross-Module Tests", function () {
       await network.connect(opOwner).removeOperator(ops[2]);
       expect(await readOpVUnits(prov, addr, BigInt(ops[2]))).to.equal(0n, "zeroed by removeOperator");
 
-      // Remove last val: cleanup tries to subtract 5000 from op3's 0 → UNDERFLOW
-      await expect(
-        network.connect(clusterOwner).removeValidator(makePublicKey(1), ops, cl),
-      ).to.be.revertedWithPanic(0x11);
+      // Remove last val — guard skips removed op in cleanup, tx succeeds
+      cl = await remVal(network, clusterOwner, ops, cl, 1);
+      expect(cl.validatorCount).to.equal(0n);
+
+      // All ops cleaned
+      expect(await readOpVUnits(prov, addr, BigInt(ops[2]))).to.equal(0n, "removed op stays 0");
+      for (const id of [ops[0], ops[1], ops[3]]) {
+        expect(await readOpVUnits(prov, addr, BigInt(id))).to.equal(0n, `op${id} cleaned after remove`);
+      }
     });
 
-    it("XV-049: 2 ops removed → EB → remove last val — both removed ops hit", async function () {
+    it("XV-049: 2 ops removed → EB → remove last val — guard skips both removed ops", async function () {
       const { network } = await networkHelpers.loadFixture(baseFixture);
       const prov = connection.ethers.provider;
       const addr = await network.getAddress();
@@ -1114,17 +1126,20 @@ describe("XV: Validator↔EB Cross-Module Tests", function () {
       expect(await readOpVUnits(prov, addr, BigInt(ops[2]))).to.equal(0n);
       expect(await readOpVUnits(prov, addr, BigInt(ops[3]))).to.equal(0n);
 
-      // EB update: deviation written to both removed ops
+      // EB update: guard skips both removed ops
       cl = await doEB(network, prov, clusterOwner, ops, cl, 48, oracles());
       const dev = calcVUnits(48n) - defaultVUnits(1n);
-      expect(await readOpVUnits(prov, addr, BigInt(ops[2]))).to.equal(dev, "BUG: deviation on removed op3");
-      expect(await readOpVUnits(prov, addr, BigInt(ops[3]))).to.equal(dev, "BUG: deviation on removed op4");
+      expect(await readOpVUnits(prov, addr, BigInt(ops[2]))).to.equal(0n, "removed op3 stays 0 (guard works)");
+      expect(await readOpVUnits(prov, addr, BigInt(ops[3]))).to.equal(0n, "removed op4 stays 0 (guard works)");
 
-      // Remove last val — cleanup subtracts from both removed ops
+      // Active ops have deviation
+      expect(await readOpVUnits(prov, addr, BigInt(ops[0]))).to.equal(dev, "op0 has deviation");
+      expect(await readOpVUnits(prov, addr, BigInt(ops[1]))).to.equal(dev, "op1 has deviation");
+
+      // Remove last val — cleanup works correctly
       cl = await remVal(network, clusterOwner, ops, cl, 1);
       expect(cl.validatorCount).to.equal(0n);
 
-      // Self-canceling: same delta added then subtracted
       await assertAllOpVUnits(prov, addr, ops, 0n, "all cleaned");
     });
 
@@ -1515,7 +1530,7 @@ describe("XV: Validator↔EB Cross-Module Tests", function () {
       await assertAllOpVUnits(prov, addr, ops, newDev, "fresh EB after reactivation");
     });
 
-    it("XV-062: liquidate → remove subset → reactivate → EB (with removed operator)", async function () {
+    it("XV-062: liquidate → remove subset → reactivate → EB (with removed operator — guard skips it)", async function () {
       const { network } = await networkHelpers.loadFixture(baseFixture);
       const prov = connection.ethers.provider;
       const addr = await network.getAddress();
@@ -1530,16 +1545,23 @@ describe("XV: Validator↔EB Cross-Module Tests", function () {
       await network.connect(opOwner).removeOperator(ops[3]);
       expect(await readOpVUnits(prov, addr, BigInt(ops[3]))).to.equal(0n, "zeroed after removeOperator");
 
-      // Liquidate (uses 3 active ops for burn rate, but deviation cleanup hits all 4)
-      // Since EB was done before op removal, deviation is on all ops.
-      // removeOperator zeroed ops[3]'s vUnits. Liquidation subtracts deviation from it → underflow.
-      // Expected: Panic 0x11 because liquidation cleanup subtracts from zeroed removed op
-      // dev = v144 - defaultVUnits(3n); (documented, unused since test reverts)
-      await expect(
-        (async () => {
-          return drainAndLiq(network, prov, clusterOwner, liquidator, ops, cl, 3n, v144);
-        })(),
-      ).to.be.revertedWithPanic(0x11);
+      // Liquidation succeeds — guard skips removed op
+      cl = await drainAndLiq(network, prov, clusterOwner, liquidator, ops, cl, 3n, v144);
+      expect(cl.active).to.equal(false, "cluster liquidated");
+      expect(await readOpVUnits(prov, addr, BigInt(ops[3]))).to.equal(0n, "removed op stays 0 after liq");
+
+      // Reactivate
+      cl = await react(network, clusterOwner, ops, cl);
+      expect(cl.active).to.equal(true);
+
+      // EB update — guard skips removed op
+      cl = await doEB(network, prov, clusterOwner, ops, cl, 96, oracles());
+      const v96 = calcVUnits(96n);
+      const newDev = v96 - defaultVUnits(3n);
+      expect(await readOpVUnits(prov, addr, BigInt(ops[3]))).to.equal(0n, "removed op stays 0 after EB");
+      for (let i = 0; i < 3; i++) {
+        expect(await readOpVUnits(prov, addr, BigInt(ops[i]))).to.equal(newDev, `op${i} has deviation`);
+      }
     });
   });
 

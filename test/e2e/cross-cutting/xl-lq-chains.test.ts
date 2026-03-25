@@ -468,7 +468,7 @@ describe("XL: Liquidation-Reactivation Chain Tests", function () {
   // Section 2: Operator Removal Before Liquidation (XL-011 to XL-020)
   // =========================================================================
   describe("Section 2: Operator Removal Before Liquidation (XL-011 to XL-020)", function () {
-    it("XL-011: EB update → remove op4 → liquidate (THE BUG PATH — Panic 0x11)", async function () {
+    it("XL-011: EB update → remove op4 → liquidate succeeds (guard skips removed op)", async function () {
       const { network } = await networkHelpers.loadFixture(baseFixture);
       const prov = connection.ethers.provider;
       const addr = await network.getAddress();
@@ -491,38 +491,19 @@ describe("XL: Liquidation-Reactivation Chain Tests", function () {
       for (const id of ops.slice(0, 3)) {
         expect(await readOpVUnits(prov, addr, BigInt(id))).to.equal(dev48, `XL-011: op${id} retains deviation after remove`);
       }
-      // Removed op4 vUnits == 0 (already checked) — demonstrates the inconsistency
-      // daoVUnits still reflects v48 (removeOperator does not adjust daoTotalEthVUnits for deviation)
-      const daoAfterRemove = await readDaoVUnits(prov, addr);
-      // Note: daoVUnits tracks total effective vUnits, not per-op deviation.
-      // After removing op4, daoVUnits is expected to remain at v48 (operator removal
-      // subtracts defaultVUnits from daoTotal, not the EB-adjusted amount, so it may
-      // differ from v48 depending on implementation). We record the actual value here.
-      expect(daoAfterRemove).to.be.gte(0n, "XL-011: daoVUnits non-negative after remove");
 
-      // Drain to liquidatable
-      const burn = calcClusterBurn({ blockDiff: 1n, numOperators: 3n, ethFee: OP_ETH_FEE_RAW, networkFee: DEFAULT_NETWORK_FEE_RAW, effectiveVUnits: v48 });
-      const thresh = calcLiquidationThreshold({ minimumBlocksBeforeLiquidation: MINIMAL_LIQUIDATION_THRESHOLD, numOperators: 3n, ethFee: OP_ETH_FEE_RAW, networkFee: DEFAULT_NETWORK_FEE_RAW, effectiveVUnits: v48 });
-      const bal = BigInt(cl.balance);
-      if (burn > 0n && bal > thresh) {
-        await mineBlocks(prov, Number((bal - thresh) / burn) + 2);
+      // Liquidation succeeds — guard skips removed op in _executeLiquidation
+      cl = await drainAndLiq(network, prov, clusterOwner, liquidator, ops, cl, 3n, v48);
+      expect(cl.active).to.equal(false, "XL-011: cluster liquidated");
+
+      // Removed op stays at 0, active ops cleaned
+      expect(await readOpVUnits(prov, addr, BigInt(ops[3]))).to.equal(0n, "XL-011: removed op stays 0");
+      for (const id of ops.slice(0, 3)) {
+        expect(await readOpVUnits(prov, addr, BigInt(id))).to.equal(0n, `XL-011: op${id} cleaned by liquidation`);
       }
-
-      // Exact boundary check: verify cluster is drained below liquidation threshold.
-      // After mining, the effective balance == bal - burn * blocksMined. The drainAndLiq
-      // helper mines (bal-thresh)/burn + 2 blocks when burn > 0 && bal > thresh.
-      if (burn > 0n && bal > thresh) {
-        const blocksMined = BigInt(Number((bal - thresh) / burn) + 2);
-        expect(bal - burn * blocksMined).to.be.lt(thresh, "XL-011: balance below threshold after drain");
-      }
-
-      // THE BUG: _executeLiquidation subtracts deviation from dead op's zeroed vUnits → underflow
-      await expect(
-        network.connect(liquidator).liquidate(clusterOwner.address, ops, cl),
-      ).to.be.revertedWithPanic(0x11);
     });
 
-    it("XL-012: EB 32→48 → remove op4 → EB 48→64 → liquidate (Panic — compounding mismatch)", async function () {
+    it("XL-012: EB 32→48 → remove op4 → EB 48→64 → liquidate succeeds (guard skips removed op)", async function () {
       const { network } = await networkHelpers.loadFixture(baseFixture);
       const prov = connection.ethers.provider;
       const addr = await network.getAddress();
@@ -534,27 +515,24 @@ describe("XL: Liquidation-Reactivation Chain Tests", function () {
       await network.connect(opOwner).removeOperator(ops[3]);
       expect(await readOpVUnits(prov, addr, BigInt(ops[3]))).to.equal(0n, "removeOperator zeroes vUnits");
 
-      // Second EB update — NO guard in _updateOperatorVUnits, writes delta to dead op
+      // Second EB update — guard skips removed op
       cl = await doEB(network, prov, clusterOwner, ops, cl, 64, oracles3());
-      const ebDelta = calcVUnits(64n) - calcVUnits(48n); // 5000 (only the second delta)
-      expect(await readOpVUnits(prov, addr, BigInt(ops[3]))).to.equal(ebDelta, "dead op gets delta written back");
+      expect(await readOpVUnits(prov, addr, BigInt(ops[3]))).to.equal(0n, "removed op stays 0 after second EB");
 
-      // Drain to liquidatable
-      const v64 = calcVUnits(64n);
-      const burn = calcClusterBurn({ blockDiff: 1n, numOperators: 3n, ethFee: OP_ETH_FEE_RAW, networkFee: DEFAULT_NETWORK_FEE_RAW, effectiveVUnits: v64 });
-      const thresh = calcLiquidationThreshold({ minimumBlocksBeforeLiquidation: MINIMAL_LIQUIDATION_THRESHOLD, numOperators: 3n, ethFee: OP_ETH_FEE_RAW, networkFee: DEFAULT_NETWORK_FEE_RAW, effectiveVUnits: v64 });
-      const bal = BigInt(cl.balance);
-      if (burn > 0n && bal > thresh) {
-        await mineBlocks(prov, Number((bal - thresh) / burn) + 2);
+      // Active ops get full deviation from baseline
+      const devLive = calcVUnits(64n) - defaultVUnits(1n); // 10000
+      for (const id of ops.slice(0, 3)) {
+        expect(await readOpVUnits(prov, addr, BigInt(id))).to.equal(devLive, `op${id} has full deviation`);
       }
 
-      // THE BUG: dead op has 5000 but full deviation is 10000 → underflow
-      await expect(
-        network.connect(liquidator).liquidate(clusterOwner.address, ops, cl),
-      ).to.be.revertedWithPanic(0x11);
+      // Liquidation succeeds
+      const v64 = calcVUnits(64n);
+      cl = await drainAndLiq(network, prov, clusterOwner, liquidator, ops, cl, 3n, v64);
+      expect(cl.active).to.equal(false, "cluster liquidated");
+      expect(await readOpVUnits(prov, addr, BigInt(ops[3]))).to.equal(0n, "removed op stays 0 after liq");
     });
 
-    it("XL-013: EB update → remove op4 → auto-liq from EB 128 — Panic 0x11", async function () {
+    it("XL-013: EB update → remove op4 → auto-liq from EB 128 succeeds (guard skips removed op)", async function () {
       const { network } = await networkHelpers.loadFixture(baseFixture);
       const prov = connection.ethers.provider;
       const addr = await network.getAddress();
@@ -579,19 +557,18 @@ describe("XL: Liquidation-Reactivation Chain Tests", function () {
         cl = parseClusterFromEvent(network, await wTx.wait(), Events.CLUSTER_WITHDRAWN);
       }
 
-      // EB 128: auto-liq fires because balance < v128 threshold,
-      // but _executeLiquidation hits dead op underflow → Panic(0x11)
-      const cid = computeClusterId(clusterOwner.address, ops);
-      const root = computeEBRoot(cid, 128);
-      await mineBlocks(prov, 1);
-      const bn = await getBlockNumber(prov);
-      await commitEBRoot(network, root, bn, oracles3());
-      await expect(
-        network.connect(clusterOwner).updateClusterBalance(bn, clusterOwner.address, ops, cl, 128, []),
-      ).to.be.revertedWithPanic(0x11);
+      // EB 128: auto-liq fires because balance < v128 threshold — guard skips removed op
+      cl = await doEB(network, prov, clusterOwner, ops, cl, 128, oracles3());
+      expect(cl.active).to.equal(false, "XL-013: auto-liquidation triggered");
+
+      // Removed op stays 0, active ops cleaned by liquidation
+      expect(await readOpVUnits(prov, addr, BigInt(ops[3]))).to.equal(0n, "XL-013: removed op stays 0");
+      for (const id of ops.slice(0, 3)) {
+        expect(await readOpVUnits(prov, addr, BigInt(id))).to.equal(0n, `XL-013: op${id} cleaned by auto-liq`);
+      }
     });
 
-    it("XL-014: EB update → remove op3 + op4 → liquidate (Panic 0x11 — two dead ops)", async function () {
+    it("XL-014: EB update → remove op3 + op4 → liquidate succeeds (guard skips two removed ops)", async function () {
       const { network } = await networkHelpers.loadFixture(baseFixture);
       const prov = connection.ethers.provider;
       const addr = await network.getAddress();
@@ -605,21 +582,17 @@ describe("XL: Liquidation-Reactivation Chain Tests", function () {
       await network.connect(opOwner).removeOperator(ops[3]);
       expect(await readOpVUnits(prov, addr, BigInt(ops[3]))).to.equal(0n, "removeOperator zeroes op4 vUnits");
 
+      // Liquidation succeeds — guard skips both removed ops
       const v48 = calcVUnits(48n);
-      const burn = calcClusterBurn({ blockDiff: 1n, numOperators: 2n, ethFee: OP_ETH_FEE_RAW, networkFee: DEFAULT_NETWORK_FEE_RAW, effectiveVUnits: v48 });
-      const thresh = calcLiquidationThreshold({ minimumBlocksBeforeLiquidation: MINIMAL_LIQUIDATION_THRESHOLD, numOperators: 2n, ethFee: OP_ETH_FEE_RAW, networkFee: DEFAULT_NETWORK_FEE_RAW, effectiveVUnits: v48 });
-      const bal = BigInt(cl.balance);
-      if (burn > 0n && bal > thresh) {
-        await mineBlocks(prov, Number((bal - thresh) / burn) + 2);
-      }
+      cl = await drainAndLiq(network, prov, clusterOwner, liquidator, ops, cl, 2n, v48);
+      expect(cl.active).to.equal(false, "cluster liquidated");
 
-      // THE BUG: subtraction from dead ops' zeroed vUnits causes underflow
-      await expect(
-        network.connect(liquidator).liquidate(clusterOwner.address, ops, cl),
-      ).to.be.revertedWithPanic(0x11);
+      // Both removed ops stay at 0
+      expect(await readOpVUnits(prov, addr, BigInt(ops[2]))).to.equal(0n, "removed op3 stays 0");
+      expect(await readOpVUnits(prov, addr, BigInt(ops[3]))).to.equal(0n, "removed op4 stays 0");
     });
 
-    it("XL-015: remove op4 BEFORE EB update → EB writes to dead op, liquidation subtracts cleanly", async function () {
+    it("XL-015: remove op4 BEFORE EB update → guard skips removed op, liquidation succeeds", async function () {
       const { network } = await networkHelpers.loadFixture(baseFixture);
       const prov = connection.ethers.provider;
       const addr = await network.getAddress();
@@ -630,20 +603,24 @@ describe("XL: Liquidation-Reactivation Chain Tests", function () {
       // Remove before EB update
       await network.connect(opOwner).removeOperator(ops[3]);
 
+      // EB update — guard skips removed op
       cl = await doEB(network, prov, clusterOwner, ops, cl, 48, oracles3());
-      // No guard in _updateOperatorVUnits — dead op gets full delta written
-      const dev = calcVUnits(48n) - defaultVUnits(1n); // 5000
-      expect(await readOpVUnits(prov, addr, BigInt(ops[3]))).to.equal(dev, "dead op gets delta from EB update");
+      expect(await readOpVUnits(prov, addr, BigInt(ops[3]))).to.equal(0n, "removed op stays 0 after EB update");
 
-      // Liquidation succeeds: dead op has 5000, deviation = 5000, 5000-5000=0 → no underflow
+      // Active ops get deviation
+      const dev = calcVUnits(48n) - defaultVUnits(1n); // 5000
+      for (const id of ops.slice(0, 3)) {
+        expect(await readOpVUnits(prov, addr, BigInt(id))).to.equal(dev, `op${id} has deviation`);
+      }
+
+      // Liquidation succeeds
       const v48 = calcVUnits(48n);
       cl = await drainAndLiq(network, prov, clusterOwner, liquidator, ops, cl, 3n, v48);
       expect(cl.active).to.equal(false);
-      // All ops zeroed after liquidation
-      expect(await readOpVUnits(prov, addr, BigInt(ops[3]))).to.equal(0n, "dead op zeroed by liq");
+      expect(await readOpVUnits(prov, addr, BigInt(ops[3]))).to.equal(0n, "removed op stays 0 after liq");
     });
 
-    it("XL-016: EB 32→48 → remove op4 → EB 48→32 (decrease) → Panic in _updateOperatorVUnits", async function () {
+    it("XL-016: EB 32→48 → remove op4 → EB 48→32 (decrease) → guard skips removed op", async function () {
       const { network } = await networkHelpers.loadFixture(baseFixture);
       const prov = connection.ethers.provider;
       const addr = await network.getAddress();
@@ -656,18 +633,15 @@ describe("XL: Liquidation-Reactivation Chain Tests", function () {
       await network.connect(opOwner).removeOperator(ops[3]);
       expect(await readOpVUnits(prov, addr, BigInt(ops[3]))).to.equal(0n);
 
-      // EB decrease 48→32: _updateOperatorVUnits subtracts delta from dead op's zeroed slot → underflow
-      const cid = computeClusterId(clusterOwner.address, ops);
-      const root = computeEBRoot(cid, 32);
-      await mineBlocks(prov, 1);
-      const bn = await getBlockNumber(prov);
-      await commitEBRoot(network, root, bn, oracles3());
-      await expect(
-        network.connect(clusterOwner).updateClusterBalance(bn, clusterOwner.address, ops, cl, 32, []),
-      ).to.be.revertedWithPanic(0x11);
+      // EB decrease 48→32: guard skips removed op, active ops return to 0 deviation
+      cl = await doEB(network, prov, clusterOwner, ops, cl, 32, oracles3());
+      expect(await readOpVUnits(prov, addr, BigInt(ops[3]))).to.equal(0n, "removed op stays 0 after EB decrease");
+      for (const id of ops.slice(0, 3)) {
+        expect(await readOpVUnits(prov, addr, BigInt(id))).to.equal(0n, `op${id} back to 0 deviation`);
+      }
     });
 
-    it("XL-017: EB update → remove op4 → liquidate → Panic 0x11 (blocks reactivation path)", async function () {
+    it("XL-017: EB update → remove op4 → liquidate → reactivate succeeds (guard enables full path)", async function () {
       const { network } = await networkHelpers.loadFixture(baseFixture);
       const prov = connection.ethers.provider;
       const addr = await network.getAddress();
@@ -680,21 +654,17 @@ describe("XL: Liquidation-Reactivation Chain Tests", function () {
       await network.connect(opOwner).removeOperator(ops[3]);
       expect(await readOpVUnits(prov, addr, BigInt(ops[3]))).to.equal(0n, "removeOperator zeroes vUnits");
 
-      // Drain to liquidatable
-      const burn = calcClusterBurn({ blockDiff: 1n, numOperators: 3n, ethFee: OP_ETH_FEE_RAW, networkFee: DEFAULT_NETWORK_FEE_RAW, effectiveVUnits: v48 });
-      const thresh = calcLiquidationThreshold({ minimumBlocksBeforeLiquidation: MINIMAL_LIQUIDATION_THRESHOLD, numOperators: 3n, ethFee: OP_ETH_FEE_RAW, networkFee: DEFAULT_NETWORK_FEE_RAW, effectiveVUnits: v48 });
-      const bal = BigInt(cl.balance);
-      if (burn > 0n && bal > thresh) {
-        await mineBlocks(prov, Number((bal - thresh) / burn) + 2);
-      }
+      // Liquidation succeeds — guard skips removed op
+      cl = await drainAndLiq(network, prov, clusterOwner, liquidator, ops, cl, 3n, v48);
+      expect(cl.active).to.equal(false, "cluster liquidated");
+      expect(await readOpVUnits(prov, addr, BigInt(ops[3]))).to.equal(0n, "removed op stays 0");
 
-      // THE BUG: liquidation reverts, blocking the entire reactivation path
-      await expect(
-        network.connect(liquidator).liquidate(clusterOwner.address, ops, cl),
-      ).to.be.revertedWithPanic(0x11);
+      // Reactivation path is no longer blocked
+      cl = await react(network, clusterOwner, ops, cl);
+      expect(cl.active).to.equal(true, "reactivation succeeds");
     });
 
-    it("XL-018: remove op4 → EB update → liquidate → reactivate (EB writes to dead op, liq cleans)", async function () {
+    it("XL-018: remove op4 → EB update → liquidate → reactivate (guard skips removed op throughout)", async function () {
       const { network } = await networkHelpers.loadFixture(baseFixture);
       const prov = connection.ethers.provider;
       const addr = await network.getAddress();
@@ -704,12 +674,17 @@ describe("XL: Liquidation-Reactivation Chain Tests", function () {
 
       await network.connect(opOwner).removeOperator(ops[3]);
 
+      // EB update — guard skips removed op
       cl = await doEB(network, prov, clusterOwner, ops, cl, 48, oracles3());
-      // No guard: dead op gets delta written (remove before EB → delta = full deviation)
-      const dev = calcVUnits(48n) - defaultVUnits(1n); // 5000
-      expect(await readOpVUnits(prov, addr, BigInt(ops[3]))).to.equal(dev, "EB writes to dead op");
+      expect(await readOpVUnits(prov, addr, BigInt(ops[3]))).to.equal(0n, "removed op stays 0 after EB");
 
-      // Liquidation succeeds: 5000 - 5000 = 0 (no underflow when remove is before EB)
+      // Active ops get deviation
+      const dev = calcVUnits(48n) - defaultVUnits(1n); // 5000
+      for (const id of ops.slice(0, 3)) {
+        expect(await readOpVUnits(prov, addr, BigInt(id))).to.equal(dev, `op${id} has deviation`);
+      }
+
+      // Liquidation succeeds
       const v48 = calcVUnits(48n);
       cl = await drainAndLiq(network, prov, clusterOwner, liquidator, ops, cl, 3n, v48);
 
@@ -721,9 +696,7 @@ describe("XL: Liquidation-Reactivation Chain Tests", function () {
       expect(daoV).to.equal(v48, "DAO vUnits includes baseline + deviation");
     });
 
-    it("XL-019: real removeOperator deletes operatorEthVUnits — but liquidation still panics", async function () {
-      // removeOperator properly deletes operatorEthVUnits[op4] = 0,
-      // but _executeLiquidation still tries to subtract deviation from the zeroed slot.
+    it("XL-019: removeOperator deletes operatorEthVUnits → liquidation succeeds (guard skips removed op)", async function () {
       const { network } = await networkHelpers.loadFixture(baseFixture);
       const prov = connection.ethers.provider;
       const addr = await network.getAddress();
@@ -739,22 +712,14 @@ describe("XL: Liquidation-Reactivation Chain Tests", function () {
       await network.connect(opOwner).removeOperator(ops[3]);
       expect(await readOpVUnits(prov, addr, BigInt(ops[3]))).to.equal(0n, "deleted by real removeOperator");
 
-      // Drain to liquidatable
+      // Liquidation succeeds — guard skips removed op
       const v48 = calcVUnits(48n);
-      const burn = calcClusterBurn({ blockDiff: 1n, numOperators: 3n, ethFee: OP_ETH_FEE_RAW, networkFee: DEFAULT_NETWORK_FEE_RAW, effectiveVUnits: v48 });
-      const thresh = calcLiquidationThreshold({ minimumBlocksBeforeLiquidation: MINIMAL_LIQUIDATION_THRESHOLD, numOperators: 3n, ethFee: OP_ETH_FEE_RAW, networkFee: DEFAULT_NETWORK_FEE_RAW, effectiveVUnits: v48 });
-      const bal = BigInt(cl.balance);
-      if (burn > 0n && bal > thresh) {
-        await mineBlocks(prov, Number((bal - thresh) / burn) + 2);
-      }
-
-      // THE BUG: Panic(0x11) — vUnits[deadOp] = 0, subtract deviation underflows
-      await expect(
-        network.connect(liquidator).liquidate(clusterOwner.address, ops, cl),
-      ).to.be.revertedWithPanic(0x11);
+      cl = await drainAndLiq(network, prov, clusterOwner, liquidator, ops, cl, 3n, v48);
+      expect(cl.active).to.equal(false, "cluster liquidated");
+      expect(await readOpVUnits(prov, addr, BigInt(ops[3]))).to.equal(0n, "removed op stays 0 after liq");
     });
 
-    it("XL-020: EB → remove op4 → EB → remove op3 → liquidate (Panic — chained removals)", async function () {
+    it("XL-020: EB → remove op4 → EB → remove op3 → liquidate succeeds (guard skips chained removals)", async function () {
       const { network } = await networkHelpers.loadFixture(baseFixture);
       const prov = connection.ethers.provider;
       const addr = await network.getAddress();
@@ -765,27 +730,19 @@ describe("XL: Liquidation-Reactivation Chain Tests", function () {
 
       await network.connect(opOwner).removeOperator(ops[3]);
 
+      // Second EB update — guard skips removed op4
       cl = await doEB(network, prov, clusterOwner, ops, cl, 64, oracles3());
-      // Dead op4 gets second delta only (5000), not full deviation (10000)
-      const ebDelta = calcVUnits(64n) - calcVUnits(48n); // 5000
-      expect(await readOpVUnits(prov, addr, BigInt(ops[3]))).to.equal(ebDelta);
+      expect(await readOpVUnits(prov, addr, BigInt(ops[3]))).to.equal(0n, "removed op4 stays 0 after second EB");
 
       await network.connect(opOwner).removeOperator(ops[2]);
       expect(await readOpVUnits(prov, addr, BigInt(ops[2]))).to.equal(0n, "removeOperator deletes");
 
-      // Drain to liquidatable
+      // Liquidation succeeds — guard skips both removed ops
       const v64 = calcVUnits(64n);
-      const burn = calcClusterBurn({ blockDiff: 1n, numOperators: 2n, ethFee: OP_ETH_FEE_RAW, networkFee: DEFAULT_NETWORK_FEE_RAW, effectiveVUnits: v64 });
-      const thresh = calcLiquidationThreshold({ minimumBlocksBeforeLiquidation: MINIMAL_LIQUIDATION_THRESHOLD, numOperators: 2n, ethFee: OP_ETH_FEE_RAW, networkFee: DEFAULT_NETWORK_FEE_RAW, effectiveVUnits: v64 });
-      const bal = BigInt(cl.balance);
-      if (burn > 0n && bal > thresh) {
-        await mineBlocks(prov, Number((bal - thresh) / burn) + 2);
-      }
-
-      // Both dead ops cause underflow: op3=0, op4=5000, both < deviation=10000
-      await expect(
-        network.connect(liquidator).liquidate(clusterOwner.address, ops, cl),
-      ).to.be.revertedWithPanic(0x11);
+      cl = await drainAndLiq(network, prov, clusterOwner, liquidator, ops, cl, 2n, v64);
+      expect(cl.active).to.equal(false, "cluster liquidated");
+      expect(await readOpVUnits(prov, addr, BigInt(ops[2]))).to.equal(0n, "removed op3 stays 0");
+      expect(await readOpVUnits(prov, addr, BigInt(ops[3]))).to.equal(0n, "removed op4 stays 0");
     });
   });
 
@@ -887,7 +844,7 @@ describe("XL: Liquidation-Reactivation Chain Tests", function () {
       ).to.be.revertedWithCustomError(network, Errors.INSUFFICIENT_BALANCE);
     });
 
-    it("XL-026: EB → liquidate → remove op → reactivate → EB update", async function () {
+    it("XL-026: EB → liquidate → remove op → reactivate → EB update (guard skips removed op)", async function () {
       const { network } = await networkHelpers.loadFixture(baseFixture);
       const prov = connection.ethers.provider;
       const addr = await network.getAddress();
@@ -901,10 +858,9 @@ describe("XL: Liquidation-Reactivation Chain Tests", function () {
 
       cl = await react(network, clusterOwner, ops, cl);
 
-      // Post-reactivation EB update — NO guard: dead op gets delta written
+      // Post-reactivation EB update — guard skips removed op
       cl = await doEB(network, prov, clusterOwner, ops, cl, 64, oracles3());
-      const ebDelta = calcVUnits(64n) - calcVUnits(48n); // 5000
-      expect(await readOpVUnits(prov, addr, BigInt(ops[3]))).to.equal(ebDelta, "dead op gets delta from EB update");
+      expect(await readOpVUnits(prov, addr, BigInt(ops[3]))).to.equal(0n, "removed op stays 0 after EB update");
       // Live ops have full deviation from baseline
       const devLive = calcVUnits(64n) - defaultVUnits(1n); // 10000
       for (let i = 0; i < 3; i++) {
@@ -1482,10 +1438,14 @@ describe("XL: Liquidation-Reactivation Chain Tests", function () {
       }
       expect(await readOpVUnits(prov, addr, BigInt(ops[3]))).to.equal(0n);
 
-      // Another EB update — NO guard: dead op gets delta written
+      // Another EB update — guard skips removed op
       cl = await doEB(network, prov, clusterOwner, ops, cl, 64, oracles3());
-      const ebDelta = calcVUnits(64n) - calcVUnits(48n); // 5000
-      expect(await readOpVUnits(prov, addr, BigInt(ops[3]))).to.equal(ebDelta, "dead op gets delta");
+      expect(await readOpVUnits(prov, addr, BigInt(ops[3]))).to.equal(0n, "removed op stays 0 after second EB");
+      // Live ops get updated deviation
+      const devLive = calcVUnits(64n) - defaultVUnits(1n); // 10000
+      for (let i = 0; i < 3; i++) {
+        expect(await readOpVUnits(prov, addr, BigInt(ops[i]))).to.equal(devLive);
+      }
     });
   });
 
@@ -1768,7 +1728,7 @@ describe("XL: Liquidation-Reactivation Chain Tests", function () {
       expect(await readOpVUnits(prov, addr, BigInt(allOps[1]))).to.equal(devA + devB, "restored");
     });
 
-    it("XL-058: shared op removed between two cluster liquidations — Panic 0x11 on second liq", async function () {
+    it("XL-058: shared op removed between two cluster liquidations — second liq succeeds (guard skips removed op)", async function () {
       const { network } = await networkHelpers.loadFixture(baseFixture);
       const prov = connection.ethers.provider;
       const addr = await network.getAddress();
@@ -1790,19 +1750,11 @@ describe("XL: Liquidation-Reactivation Chain Tests", function () {
       await network.connect(opOwner).removeOperator(allOps[0]);
       expect(await readOpVUnits(prov, addr, BigInt(allOps[0]))).to.equal(0n);
 
-      // Drain cluster B to liquidatable
+      // Liquidation of cluster B succeeds — guard skips removed op1
       const vB = calcVUnits(64n);
-      const burn = calcClusterBurn({ blockDiff: 1n, numOperators: 3n, ethFee: OP_ETH_FEE_RAW, networkFee: DEFAULT_NETWORK_FEE_RAW, effectiveVUnits: vB });
-      const thresh = calcLiquidationThreshold({ minimumBlocksBeforeLiquidation: MINIMAL_LIQUIDATION_THRESHOLD, numOperators: 3n, ethFee: OP_ETH_FEE_RAW, networkFee: DEFAULT_NETWORK_FEE_RAW, effectiveVUnits: vB });
-      const bal = BigInt(clB.balance);
-      if (burn > 0n && bal > thresh) {
-        await mineBlocks(prov, Number((bal - thresh) / burn) + 2);
-      }
-
-      // THE BUG: liquidation of cluster B tries to subtract B's deviation from dead op1's zeroed vUnits
-      await expect(
-        network.connect(liquidator).liquidate(clusterOwner2.address, opsB, clB),
-      ).to.be.revertedWithPanic(0x11);
+      clB = await drainAndLiq(network, prov, clusterOwner2, liquidator, opsB, clB, 3n, vB);
+      expect(clB.active).to.equal(false, "cluster B liquidated");
+      expect(await readOpVUnits(prov, addr, BigInt(allOps[0]))).to.equal(0n, "removed shared op stays 0");
     });
 
     it("XL-059: addValidator → EB increase → liquidate → reactivate", async function () {
@@ -1951,9 +1903,7 @@ describe("XL: Liquidation-Reactivation Chain Tests", function () {
       await assertAllOpVUnits(prov, addr, ops, dev64, "after 2nd EB");
     });
 
-    it("XL-065: EB → removeOperator → liquidate reverts with Panic 0x11", async function () {
-      // THE BUG: After EB update creates deviation and operator is removed,
-      // liquidation cannot proceed — the reactivation path is completely blocked.
+    it("XL-065: EB → removeOperator → liquidate succeeds (guard skips removed op)", async function () {
       const { network } = await networkHelpers.loadFixture(baseFixture);
       const prov = connection.ethers.provider;
       const addr = await network.getAddress();
@@ -1966,19 +1916,11 @@ describe("XL: Liquidation-Reactivation Chain Tests", function () {
       await network.connect(opOwner).removeOperator(ops[3]);
       expect(await readOpVUnits(prov, addr, BigInt(ops[3]))).to.equal(0n);
 
-      // Drain to liquidatable
+      // Liquidation succeeds — guard skips removed op
       const v48 = calcVUnits(48n);
-      const burn = calcClusterBurn({ blockDiff: 1n, numOperators: 3n, ethFee: OP_ETH_FEE_RAW, networkFee: DEFAULT_NETWORK_FEE_RAW, effectiveVUnits: v48 });
-      const thresh = calcLiquidationThreshold({ minimumBlocksBeforeLiquidation: MINIMAL_LIQUIDATION_THRESHOLD, numOperators: 3n, ethFee: OP_ETH_FEE_RAW, networkFee: DEFAULT_NETWORK_FEE_RAW, effectiveVUnits: v48 });
-      const bal = BigInt(cl.balance);
-      if (burn > 0n && bal > thresh) {
-        await mineBlocks(prov, Number((bal - thresh) / burn) + 2);
-      }
-
-      // Liquidation panics — blocks liq/react chain entirely
-      await expect(
-        network.connect(liquidator).liquidate(clusterOwner.address, ops, cl),
-      ).to.be.revertedWithPanic(0x11);
+      cl = await drainAndLiq(network, prov, clusterOwner, liquidator, ops, cl, 3n, v48);
+      expect(cl.active).to.equal(false, "cluster liquidated");
+      expect(await readOpVUnits(prov, addr, BigInt(ops[3]))).to.equal(0n, "removed op stays 0");
     });
   });
 });
