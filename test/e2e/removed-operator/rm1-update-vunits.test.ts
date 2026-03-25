@@ -220,27 +220,6 @@ describe("RM1: _updateOperatorVUnits + removeOperator", () => {
     };
   }
 
-  // ── Commit EB root only (without updateClusterBalance) ──
-  // Used when updateClusterBalance is expected to revert
-  async function commitEBOnly(
-    network: any,
-    provider: any,
-    owner: HardhatEthersSigner,
-    operatorIds: number[],
-    effectiveBalance: number,
-  ): Promise<{ rootBlockNum: number }> {
-    const clusterId = computeClusterId(owner.address, operatorIds);
-    const root = computeEBRoot(clusterId, effectiveBalance);
-    await mineBlocks(provider, 1);
-    const rootBlockNum = await getBlockNumber(provider);
-    await commitEBRoot(network, root, rootBlockNum, [
-      oracle1,
-      oracle2,
-      oracle3,
-    ]);
-    return { rootBlockNum };
-  }
-
   // ── Multi-cluster EB commit + update (with merkle proofs) ──
   async function commitAndUpdateEBMulti(
     network: any,
@@ -288,7 +267,7 @@ describe("RM1: _updateOperatorVUnits + removeOperator", () => {
   describe("4-operator: basic EB change after removeOperator", () => {
     const deployFixture = createFixture(4);
 
-    it("RM1-001: removeOp + EB increase → no guard, removed op resurrected (known bug)", async function () {
+    it("RM1-001: removeOp + EB increase → guard skips removed op", async function () {
       const { network, operatorIds } =
         await networkHelpers.loadFixture(deployFixture);
       const provider = connection.ethers.provider;
@@ -321,10 +300,10 @@ describe("RM1: _updateOperatorVUnits + removeOperator", () => {
         40,
       ));
 
-      // BUG: removed op resurrected — _updateOperatorVUnits has no guard
+      // Guard skips removed op — vUnits stays 0
       expect(
         await readOperatorEthVUnits(provider, proxyAddr, operatorIds[0]),
-      ).to.equal(2500n, "removed op resurrected to delta (no guard)");
+      ).to.equal(0n, "guard must skip removed op");
       for (let i = 1; i < 4; i++) {
         expect(
           await readOperatorEthVUnits(provider, proxyAddr, operatorIds[i]),
@@ -335,7 +314,7 @@ describe("RM1: _updateOperatorVUnits + removeOperator", () => {
       );
     });
 
-    it("RM1-002: removeOp + EB decrease → no guard, underflow Panic(0x11) (known bug)", async function () {
+    it("RM1-002: removeOp + EB decrease → guard skips removed op", async function () {
       const { network, operatorIds } =
         await networkHelpers.loadFixture(deployFixture);
       const provider = connection.ethers.provider;
@@ -365,15 +344,29 @@ describe("RM1: _updateOperatorVUnits + removeOperator", () => {
       await network.connect(operatorOwner).removeOperator(operatorIds[0]);
 
       // EB decrease → 32 (newVUnits=10000, delta=-2500)
-      // BUG: removed op has slot=0, so 0 - 2500 underflows
-      const { rootBlockNum } = await commitEBOnly(
-        network, provider, clusterOwner, operatorIds, 32,
+      // Guard skips removed op, active ops get -2500
+      ({ cluster } = await commitAndUpdateEB(
+        network,
+        provider,
+        clusterOwner,
+        operatorIds,
+        cluster,
+        32,
+      ));
+
+      // Removed op stays 0 (guard skipped it)
+      expect(
+        await readOperatorEthVUnits(provider, proxyAddr, operatorIds[0]),
+      ).to.equal(0n, "guard must skip removed op");
+      // Active ops: 2500 - 2500 = 0
+      for (let i = 1; i < 4; i++) {
+        expect(
+          await readOperatorEthVUnits(provider, proxyAddr, operatorIds[i]),
+        ).to.equal(0n);
+      }
+      expect(await readDaoTotalEthVUnits(provider, proxyAddr)).to.equal(
+        10000n,
       );
-      await expect(
-        network.connect(clusterOwner).updateClusterBalance(
-          rootBlockNum, clusterOwner.address, operatorIds, cluster, 32, [],
-        ),
-      ).to.be.revertedWithPanic(0x11);
     });
   });
 
@@ -383,7 +376,7 @@ describe("RM1: _updateOperatorVUnits + removeOperator", () => {
   describe("7-operator: EB change after removeOperator", () => {
     const deployFixture = createFixture(7);
 
-    it("RM1-003: 7 ops, removeOp + EB increase → removed op resurrected (known bug)", async function () {
+    it("RM1-003: 7 ops, removeOp + EB increase → guard skips removed op", async function () {
       const { network, operatorIds } =
         await networkHelpers.loadFixture(deployFixture);
       const provider = connection.ethers.provider;
@@ -414,10 +407,10 @@ describe("RM1: _updateOperatorVUnits + removeOperator", () => {
         40,
       ));
 
-      // BUG: removed op resurrected
+      // Guard skips removed op — vUnits stays 0
       expect(
         await readOperatorEthVUnits(provider, proxyAddr, operatorIds[0]),
-      ).to.equal(2500n, "removed op resurrected to delta (no guard)");
+      ).to.equal(0n, "guard must skip removed op");
       for (let i = 1; i < 7; i++) {
         expect(
           await readOperatorEthVUnits(provider, proxyAddr, operatorIds[i]),
@@ -428,10 +421,11 @@ describe("RM1: _updateOperatorVUnits + removeOperator", () => {
       );
     });
 
-    it("RM1-004: 7 ops, removeOp + EB decrease → underflow Panic(0x11) (known bug)", async function () {
+    it("RM1-004: 7 ops, removeOp + EB decrease → guard skips removed op", async function () {
       const { network, operatorIds } =
         await networkHelpers.loadFixture(deployFixture);
       const provider = connection.ethers.provider;
+      const proxyAddr = await network.getAddress();
 
       let { cluster } = await registerCluster(
         network,
@@ -449,15 +443,29 @@ describe("RM1: _updateOperatorVUnits + removeOperator", () => {
 
       await network.connect(operatorOwner).removeOperator(operatorIds[0]);
 
-      // BUG: removed op has slot=0, so 0 - 2500 underflows
-      const { rootBlockNum } = await commitEBOnly(
-        network, provider, clusterOwner, operatorIds, 32,
+      // EB decrease → 32 — guard skips removed op
+      ({ cluster } = await commitAndUpdateEB(
+        network,
+        provider,
+        clusterOwner,
+        operatorIds,
+        cluster,
+        32,
+      ));
+
+      // Removed op stays 0
+      expect(
+        await readOperatorEthVUnits(provider, proxyAddr, operatorIds[0]),
+      ).to.equal(0n, "guard must skip removed op");
+      // Active ops: 2500 - 2500 = 0
+      for (let i = 1; i < 7; i++) {
+        expect(
+          await readOperatorEthVUnits(provider, proxyAddr, operatorIds[i]),
+        ).to.equal(0n);
+      }
+      expect(await readDaoTotalEthVUnits(provider, proxyAddr)).to.equal(
+        10000n,
       );
-      await expect(
-        network.connect(clusterOwner).updateClusterBalance(
-          rootBlockNum, clusterOwner.address, operatorIds, cluster, 32, [],
-        ),
-      ).to.be.revertedWithPanic(0x11);
     });
   });
 
@@ -467,7 +475,7 @@ describe("RM1: _updateOperatorVUnits + removeOperator", () => {
   describe("10-operator: EB change after removeOperator", () => {
     const deployFixture = createFixture(10);
 
-    it("RM1-005: 10 ops, removeOp + EB increase → removed op resurrected (known bug)", async function () {
+    it("RM1-005: 10 ops, removeOp + EB increase → guard skips removed op", async function () {
       const { network, operatorIds } =
         await networkHelpers.loadFixture(deployFixture);
       const provider = connection.ethers.provider;
@@ -498,10 +506,10 @@ describe("RM1: _updateOperatorVUnits + removeOperator", () => {
         40,
       ));
 
-      // BUG: removed op resurrected
+      // Guard skips removed op — vUnits stays 0
       expect(
         await readOperatorEthVUnits(provider, proxyAddr, operatorIds[0]),
-      ).to.equal(2500n, "removed op resurrected to delta (no guard)");
+      ).to.equal(0n, "guard must skip removed op");
       for (let i = 1; i < 10; i++) {
         expect(
           await readOperatorEthVUnits(provider, proxyAddr, operatorIds[i]),
@@ -512,10 +520,11 @@ describe("RM1: _updateOperatorVUnits + removeOperator", () => {
       );
     });
 
-    it("RM1-006: 10 ops, removeOp + EB decrease → underflow Panic(0x11) (known bug)", async function () {
+    it("RM1-006: 10 ops, removeOp + EB decrease → guard skips removed op", async function () {
       const { network, operatorIds } =
         await networkHelpers.loadFixture(deployFixture);
       const provider = connection.ethers.provider;
+      const proxyAddr = await network.getAddress();
 
       let { cluster } = await registerCluster(
         network,
@@ -533,15 +542,29 @@ describe("RM1: _updateOperatorVUnits + removeOperator", () => {
 
       await network.connect(operatorOwner).removeOperator(operatorIds[0]);
 
-      // BUG: removed op has slot=0, so 0 - 2500 underflows
-      const { rootBlockNum } = await commitEBOnly(
-        network, provider, clusterOwner, operatorIds, 32,
+      // EB decrease → 32 — guard skips removed op
+      ({ cluster } = await commitAndUpdateEB(
+        network,
+        provider,
+        clusterOwner,
+        operatorIds,
+        cluster,
+        32,
+      ));
+
+      // Removed op stays 0
+      expect(
+        await readOperatorEthVUnits(provider, proxyAddr, operatorIds[0]),
+      ).to.equal(0n, "guard must skip removed op");
+      // Active ops: 2500 - 2500 = 0
+      for (let i = 1; i < 10; i++) {
+        expect(
+          await readOperatorEthVUnits(provider, proxyAddr, operatorIds[i]),
+        ).to.equal(0n);
+      }
+      expect(await readDaoTotalEthVUnits(provider, proxyAddr)).to.equal(
+        10000n,
       );
-      await expect(
-        network.connect(clusterOwner).updateClusterBalance(
-          rootBlockNum, clusterOwner.address, operatorIds, cluster, 32, [],
-        ),
-      ).to.be.revertedWithPanic(0x11);
     });
   });
 
@@ -551,7 +574,7 @@ describe("RM1: _updateOperatorVUnits + removeOperator", () => {
   describe("13-operator: EB change after removeOperator", () => {
     const deployFixture = createFixture(13);
 
-    it("RM1-007: 13 ops, removeOp + EB increase → removed op resurrected (known bug)", async function () {
+    it("RM1-007: 13 ops, removeOp + EB increase → guard skips removed op", async function () {
       const { network, operatorIds } =
         await networkHelpers.loadFixture(deployFixture);
       const provider = connection.ethers.provider;
@@ -582,10 +605,10 @@ describe("RM1: _updateOperatorVUnits + removeOperator", () => {
         40,
       ));
 
-      // BUG: removed op resurrected
+      // Guard skips removed op — vUnits stays 0
       expect(
         await readOperatorEthVUnits(provider, proxyAddr, operatorIds[0]),
-      ).to.equal(2500n, "removed op resurrected to delta (no guard)");
+      ).to.equal(0n, "guard must skip removed op");
       for (let i = 1; i < 13; i++) {
         expect(
           await readOperatorEthVUnits(provider, proxyAddr, operatorIds[i]),
@@ -596,10 +619,11 @@ describe("RM1: _updateOperatorVUnits + removeOperator", () => {
       );
     });
 
-    it("RM1-008: 13 ops, removeOp + EB decrease → underflow Panic(0x11) (known bug)", async function () {
+    it("RM1-008: 13 ops, removeOp + EB decrease → guard skips removed op", async function () {
       const { network, operatorIds } =
         await networkHelpers.loadFixture(deployFixture);
       const provider = connection.ethers.provider;
+      const proxyAddr = await network.getAddress();
 
       let { cluster } = await registerCluster(
         network,
@@ -617,15 +641,29 @@ describe("RM1: _updateOperatorVUnits + removeOperator", () => {
 
       await network.connect(operatorOwner).removeOperator(operatorIds[0]);
 
-      // BUG: removed op has slot=0, so 0 - 2500 underflows
-      const { rootBlockNum } = await commitEBOnly(
-        network, provider, clusterOwner, operatorIds, 32,
+      // EB decrease → 32 — guard skips removed op
+      ({ cluster } = await commitAndUpdateEB(
+        network,
+        provider,
+        clusterOwner,
+        operatorIds,
+        cluster,
+        32,
+      ));
+
+      // Removed op stays 0
+      expect(
+        await readOperatorEthVUnits(provider, proxyAddr, operatorIds[0]),
+      ).to.equal(0n, "guard must skip removed op");
+      // Active ops: 2500 - 2500 = 0
+      for (let i = 1; i < 13; i++) {
+        expect(
+          await readOperatorEthVUnits(provider, proxyAddr, operatorIds[i]),
+        ).to.equal(0n);
+      }
+      expect(await readDaoTotalEthVUnits(provider, proxyAddr)).to.equal(
+        10000n,
       );
-      await expect(
-        network.connect(clusterOwner).updateClusterBalance(
-          rootBlockNum, clusterOwner.address, operatorIds, cluster, 32, [],
-        ),
-      ).to.be.revertedWithPanic(0x11);
     });
   });
 
@@ -635,7 +673,7 @@ describe("RM1: _updateOperatorVUnits + removeOperator", () => {
   describe("4-operator: per-operator deviation verification", () => {
     const deployFixture = createFixture(4);
 
-    it("RM1-009: removeOp + EB increase → removed op resurrected, all ops get deviation (known bug)", async function () {
+    it("RM1-009: removeOp + EB increase → guard skips removed op, active ops get deviation", async function () {
       const { network, operatorIds } =
         await networkHelpers.loadFixture(deployFixture);
       const provider = connection.ethers.provider;
@@ -674,10 +712,10 @@ describe("RM1: _updateOperatorVUnits + removeOperator", () => {
         40,
       ));
 
-      // BUG: removed op resurrected to 2500 (no guard)
+      // Guard skips removed op — stays 0
       expect(
         await readOperatorEthVUnits(provider, proxyAddr, operatorIds[0]),
-      ).to.equal(2500n, "removed op resurrected to delta (no guard)");
+      ).to.equal(0n, "guard must skip removed op");
       // Live ops get exactly +2500
       for (let i = 1; i < 4; i++) {
         expect(
@@ -686,7 +724,7 @@ describe("RM1: _updateOperatorVUnits + removeOperator", () => {
       }
     });
 
-    it("RM1-010: removeOp + EB decrease → underflow Panic(0x11) (known bug)", async function () {
+    it("RM1-010: removeOp + EB decrease → guard skips removed op", async function () {
       const { network, operatorIds } =
         await networkHelpers.loadFixture(deployFixture);
       const provider = connection.ethers.provider;
@@ -716,16 +754,26 @@ describe("RM1: _updateOperatorVUnits + removeOperator", () => {
 
       await network.connect(operatorOwner).removeOperator(operatorIds[0]);
 
-      // EB decrease → 32 (delta -2500)
-      // BUG: removed op has slot=0, so 0 - 2500 underflows
-      const { rootBlockNum } = await commitEBOnly(
-        network, provider, clusterOwner, operatorIds, 32,
-      );
-      await expect(
-        network.connect(clusterOwner).updateClusterBalance(
-          rootBlockNum, clusterOwner.address, operatorIds, cluster, 32, [],
-        ),
-      ).to.be.revertedWithPanic(0x11);
+      // EB decrease → 32 (delta -2500) — guard skips removed op
+      ({ cluster } = await commitAndUpdateEB(
+        network,
+        provider,
+        clusterOwner,
+        operatorIds,
+        cluster,
+        32,
+      ));
+
+      // Removed op stays 0 (guard skipped it)
+      expect(
+        await readOperatorEthVUnits(provider, proxyAddr, operatorIds[0]),
+      ).to.equal(0n, "guard must skip removed op");
+      // Active ops: 2500 - 2500 = 0
+      for (let i = 1; i < 4; i++) {
+        expect(
+          await readOperatorEthVUnits(provider, proxyAddr, operatorIds[i]),
+        ).to.equal(0n, `operatorEthVUnits[op${i + 1}] should be 0`);
+      }
     });
   });
 
@@ -735,7 +783,7 @@ describe("RM1: _updateOperatorVUnits + removeOperator", () => {
   describe("4-operator: daoTotalEthVUnits consistency", () => {
     const deployFixture = createFixture(4);
 
-    it("RM1-011: removeOp + EB increase → daoTotalEthVUnits correct, removed op resurrected (known bug)", async function () {
+    it("RM1-011: removeOp + EB increase → daoTotalEthVUnits correct, removed op correctly skipped", async function () {
       const { network, operatorIds } =
         await networkHelpers.loadFixture(deployFixture);
       const provider = connection.ethers.provider;
@@ -785,13 +833,13 @@ describe("RM1: _updateOperatorVUnits + removeOperator", () => {
         12500n,
       );
 
-      // BUG: removed op resurrected (no guard)
+      // Guard skips removed op — vUnits stays 0
       expect(
         await readOperatorEthVUnits(provider, proxyAddr, operatorIds[0]),
-      ).to.equal(2500n, "removed op resurrected to delta (no guard)");
+      ).to.equal(0n, "guard must skip removed op");
     });
 
-    it("RM1-012: removeOp + EB decrease → underflow Panic(0x11) (known bug)", async function () {
+    it("RM1-012: removeOp + EB decrease → guard skips removed op, daoTotalEthVUnits correct", async function () {
       const { network, operatorIds } =
         await networkHelpers.loadFixture(deployFixture);
       const provider = connection.ethers.provider;
@@ -817,16 +865,30 @@ describe("RM1: _updateOperatorVUnits + removeOperator", () => {
 
       await network.connect(operatorOwner).removeOperator(operatorIds[0]);
 
-      // EB decrease → 32 (delta -2500)
-      // BUG: removed op has slot=0, so 0 - 2500 underflows
-      const { rootBlockNum } = await commitEBOnly(
-        network, provider, clusterOwner, operatorIds, 32,
+      // EB decrease → 32 (delta -2500) — guard skips removed op
+      ({ cluster } = await commitAndUpdateEB(
+        network,
+        provider,
+        clusterOwner,
+        operatorIds,
+        cluster,
+        32,
+      ));
+
+      // Removed op stays 0
+      expect(
+        await readOperatorEthVUnits(provider, proxyAddr, operatorIds[0]),
+      ).to.equal(0n, "guard must skip removed op");
+      // Active ops: 2500 - 2500 = 0
+      for (let i = 1; i < 4; i++) {
+        expect(
+          await readOperatorEthVUnits(provider, proxyAddr, operatorIds[i]),
+        ).to.equal(0n);
+      }
+      // daoTotalEthVUnits: 12500 - 2500 = 10000
+      expect(await readDaoTotalEthVUnits(provider, proxyAddr)).to.equal(
+        10000n,
       );
-      await expect(
-        network.connect(clusterOwner).updateClusterBalance(
-          rootBlockNum, clusterOwner.address, operatorIds, cluster, 32, [],
-        ),
-      ).to.be.revertedWithPanic(0x11);
     });
   });
 
@@ -836,7 +898,7 @@ describe("RM1: _updateOperatorVUnits + removeOperator", () => {
   describe("4-operator: cluster operations after EB update with removed op", () => {
     const deployFixture = createFixture(4);
 
-    it("RM1-013: after EB increase with removed op, deposit succeeds (op resurrected, known bug)", async function () {
+    it("RM1-013: after EB increase with removed op, deposit succeeds (op correctly skipped)", async function () {
       const { network, operatorIds } =
         await networkHelpers.loadFixture(deployFixture);
       const provider = connection.ethers.provider;
@@ -858,7 +920,7 @@ describe("RM1: _updateOperatorVUnits + removeOperator", () => {
 
       await network.connect(operatorOwner).removeOperator(operatorIds[0]);
 
-      // EB increase — BUG: removed op resurrected to 2500
+      // EB increase — guard skips removed op
       ({ cluster } = await commitAndUpdateEB(
         network,
         provider,
@@ -888,15 +950,16 @@ describe("RM1: _updateOperatorVUnits + removeOperator", () => {
         "cluster balance must increase after deposit",
       );
 
-      // BUG: removed op has resurrected vUnits from EB increase (deposit doesn't change it)
+      // Guard kept removed op at 0 (deposit doesn't change it)
       const vUnitsAfterDep = await readOperatorEthVUnits(provider, proxyAddr, operatorIds[0]);
-      expect(vUnitsAfterDep).to.equal(2500n, "removed op resurrected to delta (no guard)");
+      expect(vUnitsAfterDep).to.equal(0n, "guard must skip removed op");
     });
 
-    it("RM1-014: EB decrease with removed op reverts — underflow Panic(0x11) (known bug)", async function () {
+    it("RM1-014: EB decrease with removed op succeeds — guard skips removed op", async function () {
       const { network, operatorIds } =
         await networkHelpers.loadFixture(deployFixture);
       const provider = connection.ethers.provider;
+      const proxyAddr = await network.getAddress();
 
       let { cluster } = await registerCluster(
         network,
@@ -915,16 +978,26 @@ describe("RM1: _updateOperatorVUnits + removeOperator", () => {
 
       await network.connect(operatorOwner).removeOperator(operatorIds[0]);
 
-      // EB decrease → 32 (delta -2500)
-      // BUG: removed op has slot=0, so 0 - 2500 underflows — can't reach withdraw
-      const { rootBlockNum } = await commitEBOnly(
-        network, provider, clusterOwner, operatorIds, 32,
-      );
-      await expect(
-        network.connect(clusterOwner).updateClusterBalance(
-          rootBlockNum, clusterOwner.address, operatorIds, cluster, 32, [],
-        ),
-      ).to.be.revertedWithPanic(0x11);
+      // EB decrease → 32 (delta -2500) — guard skips removed op
+      ({ cluster } = await commitAndUpdateEB(
+        network,
+        provider,
+        clusterOwner,
+        operatorIds,
+        cluster,
+        32,
+      ));
+
+      // Removed op stays 0
+      expect(
+        await readOperatorEthVUnits(provider, proxyAddr, operatorIds[0]),
+      ).to.equal(0n, "guard must skip removed op");
+      // Active ops: 2500 - 2500 = 0
+      for (let i = 1; i < 4; i++) {
+        expect(
+          await readOperatorEthVUnits(provider, proxyAddr, operatorIds[i]),
+        ).to.equal(0n);
+      }
     });
   });
 
@@ -934,7 +1007,7 @@ describe("RM1: _updateOperatorVUnits + removeOperator", () => {
   describe("4-operator: remove before any explicit EB", () => {
     const deployFixture = createFixture(4);
 
-    it("RM1-015: remove op before any EB update → first explicit EB resurrects removed op (known bug)", async function () {
+    it("RM1-015: remove op before any EB update → first explicit EB correctly skips removed op", async function () {
       const { network, operatorIds } =
         await networkHelpers.loadFixture(deployFixture);
       const provider = connection.ethers.provider;
@@ -963,10 +1036,10 @@ describe("RM1: _updateOperatorVUnits + removeOperator", () => {
         40,
       ));
 
-      // BUG: removed op resurrected — _updateOperatorVUnits has no guard
+      // Guard skips removed op — stays 0
       expect(
         await readOperatorEthVUnits(provider, proxyAddr, operatorIds[0]),
-      ).to.equal(2500n, "removed op resurrected to delta (no guard)");
+      ).to.equal(0n, "guard must skip removed op");
       for (let i = 1; i < 4; i++) {
         expect(
           await readOperatorEthVUnits(provider, proxyAddr, operatorIds[i]),
@@ -984,7 +1057,7 @@ describe("RM1: _updateOperatorVUnits + removeOperator", () => {
   describe("4-operator: chained removal", () => {
     const deployFixture = createFixture(4);
 
-    it("RM1-016: remove op1 → EB increase → remove op2 → EB decrease reverts (known bug)", async function () {
+    it("RM1-016: remove op1 → EB increase → remove op2 → EB decrease succeeds, guard skips both", async function () {
       const { network, operatorIds } =
         await networkHelpers.loadFixture(deployFixture);
       const provider = connection.ethers.provider;
@@ -1007,7 +1080,7 @@ describe("RM1: _updateOperatorVUnits + removeOperator", () => {
       // Step 1: Remove op1
       await network.connect(operatorOwner).removeOperator(operatorIds[0]);
 
-      // Step 2: EB increase → 40 (delta +2500). BUG: op1 resurrected.
+      // Step 2: EB increase → 40 (delta +2500). Guard skips op1.
       ({ cluster } = await commitAndUpdateEB(
         network,
         provider,
@@ -1016,10 +1089,10 @@ describe("RM1: _updateOperatorVUnits + removeOperator", () => {
         cluster,
         40,
       ));
-      // BUG: op1 resurrected to 2500
+      // op1 skipped → stays 0
       expect(
         await readOperatorEthVUnits(provider, proxyAddr, operatorIds[0]),
-      ).to.equal(2500n, "op1 resurrected (no guard)");
+      ).to.equal(0n, "guard must skip removed op1");
       expect(
         await readOperatorEthVUnits(provider, proxyAddr, operatorIds[1]),
       ).to.equal(2500n);
@@ -1033,16 +1106,35 @@ describe("RM1: _updateOperatorVUnits + removeOperator", () => {
       // Step 3: Remove op2 — deletes op2's slot to 0
       await network.connect(operatorOwner).removeOperator(operatorIds[1]);
 
-      // Step 4: EB decrease → 36 (delta -1250)
-      // BUG: op2 has slot=0, so 0 - 1250 underflows
-      const { rootBlockNum } = await commitEBOnly(
-        network, provider, clusterOwner, operatorIds, 36,
+      // Step 4: EB decrease → 36 (newVUnits=11250, storedVUnits=12500, delta=-1250)
+      // Guard skips both op1 and op2
+      ({ cluster } = await commitAndUpdateEB(
+        network,
+        provider,
+        clusterOwner,
+        operatorIds,
+        cluster,
+        36,
+      ));
+
+      // Both removed ops stay 0
+      expect(
+        await readOperatorEthVUnits(provider, proxyAddr, operatorIds[0]),
+      ).to.equal(0n, "guard must skip removed op1");
+      expect(
+        await readOperatorEthVUnits(provider, proxyAddr, operatorIds[1]),
+      ).to.equal(0n, "guard must skip removed op2");
+      // Active ops: 2500 - 1250 = 1250
+      expect(
+        await readOperatorEthVUnits(provider, proxyAddr, operatorIds[2]),
+      ).to.equal(1250n);
+      expect(
+        await readOperatorEthVUnits(provider, proxyAddr, operatorIds[3]),
+      ).to.equal(1250n);
+      // daoTotalEthVUnits: 12500 - 1250 = 11250
+      expect(await readDaoTotalEthVUnits(provider, proxyAddr)).to.equal(
+        11250n,
       );
-      await expect(
-        network.connect(clusterOwner).updateClusterBalance(
-          rootBlockNum, clusterOwner.address, operatorIds, cluster, 36, [],
-        ),
-      ).to.be.revertedWithPanic(0x11);
     });
   });
 
@@ -1052,7 +1144,7 @@ describe("RM1: _updateOperatorVUnits + removeOperator", () => {
   describe("4-operator: ghost deviation check", () => {
     const deployFixture = createFixture(4);
 
-    it("RM1-017: remove op → EB increase → EB decrease → resurrected then zeroed (known bug)", async function () {
+    it("RM1-017: remove op → EB increase → EB decrease → guard skips removed op throughout", async function () {
       const { network, operatorIds } =
         await networkHelpers.loadFixture(deployFixture);
       const provider = connection.ethers.provider;
@@ -1083,13 +1175,12 @@ describe("RM1: _updateOperatorVUnits + removeOperator", () => {
         cluster,
         40,
       ));
-      // BUG: op1 resurrected to 2500 (no guard)
+      // Guard skips removed op — stays 0
       expect(
         await readOperatorEthVUnits(provider, proxyAddr, operatorIds[0]),
-      ).to.equal(2500n, "op1 resurrected after EB increase (no guard)");
+      ).to.equal(0n, "guard must skip removed op after EB increase");
 
       // EB decrease back → 32 (delta -2500)
-      // op1: 2500 - 2500 = 0 (no underflow since increase resurrected it)
       ({ cluster } = await commitAndUpdateEB(
         network,
         provider,
@@ -1098,10 +1189,10 @@ describe("RM1: _updateOperatorVUnits + removeOperator", () => {
         cluster,
         32,
       ));
-      // op1 back to 0 (resurrected then subtracted — happens to work)
+      // Removed op still 0 (guard skipped both increase and decrease)
       expect(
         await readOperatorEthVUnits(provider, proxyAddr, operatorIds[0]),
-      ).to.equal(0n);
+      ).to.equal(0n, "guard must skip removed op after EB decrease");
 
       // Live ops back to 0
       for (let i = 1; i < 4; i++) {
@@ -1116,14 +1207,13 @@ describe("RM1: _updateOperatorVUnits + removeOperator", () => {
   });
 
   // ═══════════════════════════════════════════════════════════
-  // RM1-018 / RM1-019 / RM1-020: Bug reproduction (no guard exists)
+  // RM1-018 / RM1-019 / RM1-020: Guard correctness verification
   // ═══════════════════════════════════════════════════════════
-  describe("4-operator: no-guard bug verification", () => {
+  describe("4-operator: guard correctness verification", () => {
     const deployFixture = createFixture(4);
 
-    it("RM1-018: no guard — EB increase after removeOperator DOES write to deleted slot (known bug)", async function () {
-      // _updateOperatorVUnits writes +deltaAbs to operatorEthVUnits[removedOp],
-      // resurrecting the deleted slot. No guard exists.
+    it("RM1-018: guard — EB increase after removeOperator correctly skips deleted slot", async function () {
+      // _updateOperatorVUnits guard checks ethSnapshot.block == 0 and skips removed ops.
       const { network, operatorIds } =
         await networkHelpers.loadFixture(deployFixture);
       const provider = connection.ethers.provider;
@@ -1160,18 +1250,19 @@ describe("RM1: _updateOperatorVUnits + removeOperator", () => {
         40,
       ));
 
-      // BUG: resurrected — no guard to prevent it
+      // Guard correctly skips removed op — stays 0
       expect(
         await readOperatorEthVUnits(provider, proxyAddr, operatorIds[0]),
-      ).to.equal(2500n, "removed op resurrected to delta (no guard)");
+      ).to.equal(0n, "guard must skip removed op");
     });
 
-    it("RM1-019: no guard — EB decrease after removeOperator causes underflow Panic(0x11) (known bug)", async function () {
-      // No guard: subtracting deltaAbs from a deleted (0) slot
-      // causes uint64 underflow → Panic(0x11).
+    it("RM1-019: guard — EB decrease after removeOperator succeeds", async function () {
+      // Guard checks ethSnapshot.block == 0 and skips removed ops,
+      // preventing the uint64 underflow that would otherwise occur.
       const { network, operatorIds } =
         await networkHelpers.loadFixture(deployFixture);
       const provider = connection.ethers.provider;
+      const proxyAddr = await network.getAddress();
 
       let { cluster } = await registerCluster(
         network,
@@ -1190,20 +1281,31 @@ describe("RM1: _updateOperatorVUnits + removeOperator", () => {
 
       await network.connect(operatorOwner).removeOperator(operatorIds[0]);
 
-      // EB decrease → 32. BUG: removed op has slot=0, so 0 - 2500 underflows
-      const { rootBlockNum } = await commitEBOnly(
-        network, provider, clusterOwner, operatorIds, 32,
-      );
-      await expect(
-        network.connect(clusterOwner).updateClusterBalance(
-          rootBlockNum, clusterOwner.address, operatorIds, cluster, 32, [],
-        ),
-      ).to.be.revertedWithPanic(0x11);
+      // EB decrease → 32 — guard skips removed op, no underflow
+      ({ cluster } = await commitAndUpdateEB(
+        network,
+        provider,
+        clusterOwner,
+        operatorIds,
+        cluster,
+        32,
+      ));
+
+      // Removed op stays 0 (guard prevented underflow)
+      expect(
+        await readOperatorEthVUnits(provider, proxyAddr, operatorIds[0]),
+      ).to.equal(0n, "guard must skip removed op");
+      // Active ops: 2500 - 2500 = 0
+      for (let i = 1; i < 4; i++) {
+        expect(
+          await readOperatorEthVUnits(provider, proxyAddr, operatorIds[i]),
+        ).to.equal(0n);
+      }
     });
 
-    it("RM1-020: no guard — chained EB increase + partial decrease leaves residual on removed op (known bug)", async function () {
-      // No guard: increase resurrects slot to deltaAbs, then
-      // partial decrease subtracts — result is non-zero residual.
+    it("RM1-020: guard — chained EB increase + partial decrease, removed op stays zero", async function () {
+      // Guard skips removed op on both increase and decrease,
+      // so no residual accumulates on the deleted slot.
       const { network, operatorIds } =
         await networkHelpers.loadFixture(deployFixture);
       const provider = connection.ethers.provider;
@@ -1225,7 +1327,7 @@ describe("RM1: _updateOperatorVUnits + removeOperator", () => {
 
       await network.connect(operatorOwner).removeOperator(operatorIds[0]);
 
-      // EB increase → 40 (delta +2500) — BUG: op1 resurrected to 2500
+      // EB increase → 40 (delta +2500) — guard skips removed op
       ({ cluster } = await commitAndUpdateEB(
         network,
         provider,
@@ -1236,9 +1338,9 @@ describe("RM1: _updateOperatorVUnits + removeOperator", () => {
       ));
       expect(
         await readOperatorEthVUnits(provider, proxyAddr, operatorIds[0]),
-      ).to.equal(2500n, "op1 resurrected after EB increase (no guard)");
+      ).to.equal(0n, "guard must skip removed op after EB increase");
 
-      // EB decrease → 36 (delta -1250) — op1: 2500 - 1250 = 1250
+      // EB decrease → 36 (delta -1250) — guard skips removed op
       ({ cluster } = await commitAndUpdateEB(
         network,
         provider,
@@ -1248,10 +1350,10 @@ describe("RM1: _updateOperatorVUnits + removeOperator", () => {
         36,
       ));
 
-      // BUG: op1 has residual 1250 (resurrected then partially decreased)
+      // Removed op stays 0 (guard skipped both increase and decrease)
       expect(
         await readOperatorEthVUnits(provider, proxyAddr, operatorIds[0]),
-      ).to.equal(1250n, "removed op has residual from resurrection (no guard)");
+      ).to.equal(0n, "guard must skip removed op after partial decrease");
 
       // Live ops: 2500 - 1250 = 1250
       for (let i = 1; i < 4; i++) {
@@ -1263,14 +1365,14 @@ describe("RM1: _updateOperatorVUnits + removeOperator", () => {
   });
 
   // ═══════════════════════════════════════════════════════════
-  // RM1-021 / RM1-022: Real removeOperator vs mock comparison
+  // RM1-021 / RM1-022: Real removeOperator cleanup verification
   // ═══════════════════════════════════════════════════════════
   describe("4-operator: real removeOperator cleanup verification", () => {
     const deployFixture = createFixture(4);
 
-    it("RM1-021: real removeOperator deletes vUnits → EB increase resurrects (known bug)", async function () {
+    it("RM1-021: real removeOperator deletes vUnits → EB increase correctly skips removed op", async function () {
       // Real removeOperator() deletes seb.operatorEthVUnits[operatorId],
-      // but _updateOperatorVUnits has no guard, so EB increase resurrects it.
+      // and the guard in _updateOperatorVUnits skips it on EB updates.
       const { network, operatorIds } =
         await networkHelpers.loadFixture(deployFixture);
       const provider = connection.ethers.provider;
@@ -1310,10 +1412,10 @@ describe("RM1: _updateOperatorVUnits + removeOperator", () => {
         48,
       ));
 
-      // BUG: removed op resurrected to 2500 (no guard)
+      // Guard correctly skips removed op — stays 0
       expect(
         await readOperatorEthVUnits(provider, proxyAddr, operatorIds[0]),
-      ).to.equal(2500n, "removed op resurrected to delta (no guard)");
+      ).to.equal(0n, "guard must skip removed op");
       // Live ops: 2500 + 2500 = 5000
       for (let i = 1; i < 4; i++) {
         expect(
@@ -1322,8 +1424,9 @@ describe("RM1: _updateOperatorVUnits + removeOperator", () => {
       }
     });
 
-    it("RM1-022: real removeOperator deletes vUnits → EB decrease causes underflow Panic(0x11) (known bug)", async function () {
-      // With real removeOperator (slot=0), EB decrease tries 0 - delta → underflow.
+    it("RM1-022: real removeOperator deletes vUnits → EB decrease succeeds, guard skips removed op", async function () {
+      // With real removeOperator (slot=0), guard skips the removed op
+      // on EB decrease, preventing the underflow.
       const { network, operatorIds } =
         await networkHelpers.loadFixture(deployFixture);
       const provider = connection.ethers.provider;
@@ -1350,16 +1453,26 @@ describe("RM1: _updateOperatorVUnits + removeOperator", () => {
       // Real removeOperator: slot deleted → 0
       await network.connect(operatorOwner).removeOperator(operatorIds[0]);
 
-      // EB decrease → 40 (delta -2500)
-      // BUG: removed op has slot=0, so 0 - 2500 underflows
-      const { rootBlockNum } = await commitEBOnly(
-        network, provider, clusterOwner, operatorIds, 40,
-      );
-      await expect(
-        network.connect(clusterOwner).updateClusterBalance(
-          rootBlockNum, clusterOwner.address, operatorIds, cluster, 40, [],
-        ),
-      ).to.be.revertedWithPanic(0x11);
+      // EB decrease → 40 (delta -2500) — guard skips removed op
+      ({ cluster } = await commitAndUpdateEB(
+        network,
+        provider,
+        clusterOwner,
+        operatorIds,
+        cluster,
+        40,
+      ));
+
+      // Removed op stays 0 (guard prevented underflow)
+      expect(
+        await readOperatorEthVUnits(provider, proxyAddr, operatorIds[0]),
+      ).to.equal(0n, "guard must skip removed op");
+      // Active ops: 5000 - 2500 = 2500
+      for (let i = 1; i < 4; i++) {
+        expect(
+          await readOperatorEthVUnits(provider, proxyAddr, operatorIds[i]),
+        ).to.equal(2500n);
+      }
     });
   });
 
@@ -1367,7 +1480,7 @@ describe("RM1: _updateOperatorVUnits + removeOperator", () => {
   // RM1-023: Shared operator across two clusters
   // ═══════════════════════════════════════════════════════════
   describe("4-operator: cross-cluster shared operator", () => {
-    it("RM1-023: shared op removed → EB updates on both clusters resurrect it (cross-cluster contamination, known bug)", async function () {
+    it("RM1-023: shared op removed → EB updates on both clusters correctly skip it", async function () {
       // Op1 belongs to Cluster A (ops 1,2,3,4) and Cluster B (ops 1,5,6,7)
       const { network, ssvToken } = await ssvNetworkFullFixture(connection);
       await network.updateNetworkFee(DEFAULT_NETWORK_FEE_UNPACKED);
@@ -1454,10 +1567,10 @@ describe("RM1: _updateOperatorVUnits + removeOperator", () => {
         entriesA40,
       ));
 
-      // BUG: op1 resurrected to 2500 after Cluster A's update (no guard)
+      // Guard skips removed op1 — stays 0 after Cluster A's update
       expect(
         await readOperatorEthVUnits(provider, proxyAddr, allOpIds[0]),
-      ).to.equal(2500n, "shared op1 resurrected after Cluster A EB update (no guard)");
+      ).to.equal(0n, "guard must skip shared removed op1 during Cluster A EB update");
 
       // EB increase on Cluster B → 48 (delta +5000)
       const entriesB48 = [
@@ -1474,10 +1587,10 @@ describe("RM1: _updateOperatorVUnits + removeOperator", () => {
         entriesB48,
       ));
 
-      // BUG: op1 now has 2500 + 5000 = 7500 (resurrected from both clusters)
+      // Guard skips removed op1 — still 0 after Cluster B's update too
       expect(
         await readOperatorEthVUnits(provider, proxyAddr, allOpIds[0]),
-      ).to.equal(7500n, "shared op1 accumulated from both cluster EB updates (no guard)");
+      ).to.equal(0n, "guard must skip shared removed op1 during Cluster B EB update");
 
       // Cluster A live ops (ops 2,3,4): +2500
       for (let i = 1; i <= 3; i++) {
@@ -1500,7 +1613,7 @@ describe("RM1: _updateOperatorVUnits + removeOperator", () => {
   describe("4-operator: remove all operators", () => {
     const deployFixture = createFixture(4);
 
-    it("RM1-024: remove all 4 ops → EB increase → all ops resurrected (known bug)", async function () {
+    it("RM1-024: remove all 4 ops → EB increase → guard skips all removed ops", async function () {
       const { network, operatorIds } =
         await networkHelpers.loadFixture(deployFixture);
       const provider = connection.ethers.provider;
@@ -1532,7 +1645,7 @@ describe("RM1: _updateOperatorVUnits + removeOperator", () => {
         ).to.equal(0n);
       }
 
-      // EB increase → 40 (delta +2500). BUG: all removed ops resurrected.
+      // EB increase → 40 (delta +2500). Guard skips all removed ops.
       ({ cluster } = await commitAndUpdateEB(
         network,
         provider,
@@ -1542,11 +1655,11 @@ describe("RM1: _updateOperatorVUnits + removeOperator", () => {
         40,
       ));
 
-      // BUG: all operatorEthVUnits resurrected to 2500 (no guard)
+      // All operatorEthVUnits stay 0 (guard skipped all)
       for (const opId of operatorIds) {
         expect(
           await readOperatorEthVUnits(provider, proxyAddr, opId),
-        ).to.equal(2500n, "removed op resurrected to delta (no guard)");
+        ).to.equal(0n, "guard must skip removed op");
       }
 
       // daoTotalEthVUnits: 10000 + 2500 = 12500 (cluster-level, not per-op)
