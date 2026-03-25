@@ -88,7 +88,7 @@
 | TEST-32 | ~~Add access control tests for DAO governance functions~~ | Unit Test Completeness | P1 | ✅ Closed (covered by unit tests) |
 | TEST-33 | Mainnet governance config validation & edge-case tests | Unit Test Completeness | P1 | M |
 | TEST-34 | ~~Staking solvency invariant: cSSV supply must not exceed SSV held by staking contract~~ | Unit Test Completeness | P1 | ✅ Done |
-| TEST-35 | Cluster-size variant coverage: fee accrual and EB lifecycle across 4/7/10/13 operators (CS-01–CS-34) | Unit Test Completeness | P2 | Open |
+| TEST-35 | ~~Cluster-size variant coverage: fee accrual and EB lifecycle across 4/7/10/13 operators (CS-01–CS-34)~~ | Unit Test Completeness | P2 | ✅ Done |
 | TEST-36 | Multi-cluster shared-operator vUnit propagation (MC-01–MC-10, CS-30–CS-32) | Unit Test Completeness | P1 | Open |
 | TEST-37 | Accounting invariants: DAO vUnits, operator fees, explicit EB edges (D-*, F-*, EC-*, P-*, S-*) | Unit Test Completeness | P2 | Open |
 | TEST-38 | State-transition coverage: migration, stale snapshots, and remaining lifecycle (M-*, ST-*, R-09, L-05–L-07) | Unit Test Completeness | P2 | Open |
@@ -2786,7 +2786,7 @@ Added explicit Echidna invariant `echidna_cssv_supply_lte_ssv_backing()` in `tes
 ### [TEST-35] Cluster-size variant coverage: fee accrual and EB lifecycle across 4/7/10/13 operators
 - **Type:** Unit Test Completeness
 - **Priority:** P2
-- **Status:** Open
+- **Status:** ✅ Done
 - **Owner:** (unassigned)
 - **Timeline:**
 - **Github Link:**
@@ -2801,22 +2801,22 @@ The vUnit model applies deviations per-operator across every operator in a clust
 
 | Gap | Status | Flow |
 |-----|--------|------|
-| CS-01 | ❌ | register validator [7 ops] → advance blocks → assert exact cluster balance decrease |
-| CS-02 | ❌ | register validator [10 ops] → advance blocks → assert exact cluster balance decrease |
-| CS-03 | ❌ | register validator [13 ops] → advance blocks → assert exact cluster balance decrease |
-| CS-04 | ⚠️ | register validator [13 ops] → assert per-operator `ethValidatorCount == 1` for all 13 |
-| CS-05 | ❌ | register validator [7 ops] (EB=64) → assert `operatorEthVUnits[i].deviation` for all 7 |
-| CS-06 | ⚠️ | register validator [13 ops] (EB=64) → assert `operatorEthVUnits[i].deviation` for all 13 |
-| CS-07 | ❌ | register validator [7 ops] (EB=64) → updateClusterBalance (EB=32) → assert all 7 deviations cleared |
-| CS-08 | ⚠️ | register validator [13 ops] (EB=64) → updateClusterBalance (EB=128) → assert all 13 deviations increased |
-| CS-20 | ⚠️ | register validator [7 ops] (EB=64) → liquidate → reactivate → assert deviation restored |
-| CS-21 | ⚠️ | register validator [13 ops] (EB=64) → liquidate → reactivate → assert deviation restored |
-| CS-22 | ❌ | register validator [7 ops] (EB=64) → liquidate → remove 2 ops → reactivate → assert 5 survivors get deviation |
-| CS-23 | ❌ | register validator [13 ops] (EB=64) → liquidate → remove 6 ops → reactivate → assert 7 survivors get deviation |
-| CS-26 | ❌ | legacy SSV cluster [7 ops] → updateClusterBalance (EB=64) → migrateClusterToETH |
-| CS-27 | ❌ | legacy SSV cluster [13 ops] → updateClusterBalance (EB=64) → migrateClusterToETH |
-| CS-33 | ❌ | clusters of sizes 4/7/10/13 all at EB=64 → liquidate all → assert `daoTotalEthVUnits == 0` |
-| CS-34 | ❌ | clusters of sizes 4/7/10/13 all at EB=64 → remove 1 op each → liquidate all → assert `daoTotalEthVUnits == 0` |
+| CS-01 | ✅ | register validator [7 ops] → advance blocks → assert exact cluster balance decrease |
+| CS-02 | ✅ | register validator [10 ops] → advance blocks → assert exact cluster balance decrease |
+| CS-03 | ✅ | register validator [13 ops] → advance blocks → assert exact cluster balance decrease |
+| CS-04 | ✅ | register validator [13 ops] → assert per-operator `ethValidatorCount == 1` for all 13 |
+| CS-05 | ✅ | register validator [7 ops] (EB=64) → assert `operatorEthVUnits[i].deviation` for all 7 |
+| CS-06 | ✅ | register validator [13 ops] (EB=64) → assert `operatorEthVUnits[i].deviation` for all 13 |
+| CS-07 | ✅ | register validator [7 ops] (EB=64) → updateClusterBalance (EB=32) → assert all 7 deviations cleared |
+| CS-08 | ✅ | register validator [13 ops] (EB=64) → updateClusterBalance (EB=128) → assert all 13 deviations increased |
+| CS-20 | ✅ | register validator [7 ops] (EB=64) → liquidate → reactivate → assert deviation restored |
+| CS-21 | ✅ | register validator [13 ops] (EB=64) → liquidate → reactivate → assert deviation restored |
+| CS-22 | ✅ | register validator [7 ops] (EB=64) → liquidate → remove 2 ops → reactivate → assert 5 survivors get deviation |
+| CS-23 | ✅ | register validator [13 ops] (EB=64) → liquidate → remove 6 ops → reactivate → assert 7 survivors get deviation |
+| CS-26 | ✅ | legacy SSV cluster [7 ops] → updateClusterBalance (EB=64) → migrateClusterToETH |
+| CS-27 | ✅ | legacy SSV cluster [13 ops] → updateClusterBalance (EB=64) → migrateClusterToETH |
+| CS-33 | ✅ | clusters of sizes 4/7/10/13 all at EB=64 → liquidate all → assert `daoTotalEthVUnits == 0` |
+| CS-34 | ✅ | clusters of sizes 4/7/10/13 all at EB=64 → remove 1 op each → liquidate all → assert `daoTotalEthVUnits == 0` |
 
 **Expected outcomes per group:**
 
@@ -2836,15 +2836,18 @@ SSV balance refunded, ETH deposit credited; migrated cluster retains stored EB s
 *Global DAO invariant (CS-33–CS-34):*
 `daoTotalEthVUnits == 0` after all four clusters (4/7/10/13 ops, all EB=64) are liquidated. CS-34 adds one removed operator per cluster before liquidation — invariant must still hold.
 
+**Resolution:**
+Added deterministic matrix coverage in `test/sanity/vunits-cluster-size-matrix.test.ts` for CS-01/02/03, CS-04/05/06/07/08, CS-20/21/22/23, CS-26/27, and CS-33/34. Validation run: `npx hardhat test test/sanity/vunits-cluster-size-matrix.test.ts` (8 passing).
+
 **Acceptance Criteria:**
-- [ ] CS-01/02/03: For each of 7, 10, 13 operators — advance blocks and assert `cluster.balance` decreased by the exact fee formula
-- [ ] CS-04: 13-operator registration — all 13 `operator.ethValidatorCount == 1`
-- [ ] CS-05/06: EB=64 update on 7- and 13-operator clusters — every operator's `operatorEthVUnits.deviation` matches expected value
-- [ ] CS-07/08: EB decrease (7 ops) and increase (13 ops) — all operator deviations updated correctly; fees settled at pre-update rate
-- [ ] CS-20/21: Full liquidation + reactivation at EB=64 for 7- and 13-operator clusters
-- [ ] CS-22/23: Post-liquidation operator removal + reactivation — removed operators skipped, survivors correctly restored
-- [ ] CS-26/27: Migration with EB=64 deviation on 7- and 13-operator clusters
-- [ ] CS-33/34: Global `daoTotalEthVUnits == 0` after all clusters liquidated
+- [x] CS-01/02/03: For each of 7, 10, 13 operators — advance blocks and assert `cluster.balance` decreased by the exact fee formula
+- [x] CS-04: 13-operator registration — all 13 `operator.ethValidatorCount == 1`
+- [x] CS-05/06: EB=64 update on 7- and 13-operator clusters — every operator's `operatorEthVUnits.deviation` matches expected value
+- [x] CS-07/08: EB decrease (7 ops) and increase (13 ops) — all operator deviations updated correctly; fees settled at pre-update rate
+- [x] CS-20/21: Full liquidation + reactivation at EB=64 for 7- and 13-operator clusters
+- [x] CS-22/23: Post-liquidation operator removal + reactivation — removed operators skipped, survivors correctly restored
+- [x] CS-26/27: Migration with EB=64 deviation on 7- and 13-operator clusters
+- [x] CS-33/34: Global `daoTotalEthVUnits == 0` after all clusters liquidated
 
 **Agent Instructions:**
 1. Reuse `ssvClustersHarnessFixture(connection, N)` — accepts N ∈ {4, 7, 10, 13} already.
@@ -2855,11 +2858,11 @@ SSV balance refunded, ETH deposit credited; migrated cluster retains stored EB s
 6. Suggested file: `test/e2e/effective-balance/vunits-cluster-sizes.test.ts` (new) or extend `test/sanity/removed-operator-with-deviated-cluster.test.ts`.
 
 #### Sub-items:
-- [ ] Sub-task 1: Fee accrual across sizes (CS-01, CS-02, CS-03)
-- [ ] Sub-task 2: EB distribution across sizes (CS-04, CS-05, CS-06, CS-07, CS-08)
-- [ ] Sub-task 3: Liquidation + reactivation with/without operator removal (CS-20, CS-21, CS-22, CS-23)
-- [ ] Sub-task 4: Migration with deviation across sizes (CS-26, CS-27)
-- [ ] Sub-task 5: Global DAO invariant across all sizes (CS-33, CS-34)
+- [x] Sub-task 1: Fee accrual across sizes (CS-01, CS-02, CS-03)
+- [x] Sub-task 2: EB distribution across sizes (CS-04, CS-05, CS-06, CS-07, CS-08)
+- [x] Sub-task 3: Liquidation + reactivation with/without operator removal (CS-20, CS-21, CS-22, CS-23)
+- [x] Sub-task 4: Migration with deviation across sizes (CS-26, CS-27)
+- [x] Sub-task 5: Global DAO invariant across all sizes (CS-33, CS-34)
 
 ---
 
