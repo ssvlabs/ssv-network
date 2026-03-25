@@ -166,6 +166,42 @@ async function readETHClusterHash(
   return BigInt(raw);
 }
 
+/**
+ * Read operator ethSnapshot.block from SSVStorage.operators mapping.
+ * operators is field index 6 in StorageData.
+ * Operator struct packing:
+ *   Slot 0: validatorCount(4) + fee(8) + owner(20) = 32 bytes
+ *   Slot 1: whitelisted(1) + snapshot.block(4) + snapshot.index(8) + snapshot.balance(8) + ethValidatorCount(4) = 25 bytes
+ *   Slot 2: ethFee(8) + ethSnapshot.block(4) + ethSnapshot.index(8) + ethSnapshot.balance(8) = 28 bytes
+ * ethSnapshot.block is at slot offset 2, bits [64..95].
+ */
+async function readOperatorEthSnapshotBlock(
+  provider: any,
+  contractAddress: string,
+  operatorId: number | bigint,
+): Promise<bigint> {
+  const operatorsMapSlot = mainStorageBaseSlot() + 6n;
+  const coder = ethers.AbiCoder.defaultAbiCoder();
+  const operatorBaseSlot = BigInt(ethers.keccak256(
+    coder.encode(["uint256", "uint256"], [BigInt(operatorId), operatorsMapSlot]),
+  ));
+  const slot = operatorBaseSlot + 2n;
+  const raw = BigInt(await provider.getStorage(contractAddress, "0x" + slot.toString(16)));
+  return (raw >> 64n) & 0xFFFFFFFFn;
+}
+
+/**
+ * Compute the cluster data hash matching ClusterLib.hashClusterData:
+ * keccak256(abi.encodePacked(validatorCount, networkFeeIndex, index, balance, active))
+ */
+function computeClusterHash(cluster: Cluster): bigint {
+  return BigInt(ethers.solidityPackedKeccak256(
+    ["uint32", "uint64", "uint64", "uint256", "bool"],
+    [BigInt(cluster.validatorCount), BigInt(cluster.networkFeeIndex),
+     BigInt(cluster.index), BigInt(cluster.balance), cluster.active],
+  ));
+}
+
 // ---------------------------------------------------------------------------
 //  G11 assertion helpers
 // ---------------------------------------------------------------------------
@@ -181,6 +217,8 @@ async function assertG11Holds(
   expect(opData.isActive).to.equal(false, `${label}: isActive should be false`);
   const vUnits = await readOperatorEthVUnits(provider, contractAddress, operatorId);
   expect(vUnits).to.equal(0n, `${label}: operatorEthVUnits should be 0`);
+  const ethSnapBlock = await readOperatorEthSnapshotBlock(provider, contractAddress, operatorId);
+  expect(ethSnapBlock).to.equal(0n, `${label}: ethSnapshot.block should be 0`);
 }
 
 
@@ -342,6 +380,10 @@ describe("Invariant Gap Tests (INV-017..050)", function () {
         expectedVUnits, // use explicit EB vUnits for burn calc
       );
 
+      // Verify liquidated cluster state (validatorCount preserved in struct, DAO count decremented)
+      expect(cluster.active).to.equal(false, "INV-017: liquidated cluster active == false");
+      expect(BigInt(cluster.validatorCount)).to.equal(2n, "INV-017: liquidated cluster validatorCount preserved");
+
       // G3: validator count → 0
       expect(await views.getNetworkValidatorsCount()).to.equal(0n, "INV-017: G3 after liquidation");
 
@@ -392,9 +434,10 @@ describe("Invariant Gap Tests (INV-017..050)", function () {
       const removedOpVUnits = await readOperatorEthVUnits(provider, contractAddr, operatorIds[0]);
       expect(removedOpVUnits).to.equal(0n, "INV-018: removed op vUnits stays 0");
 
-      // Live ops should have the deviation from the EB update
+      // Live ops should have the exact deviation from the EB update
       const liveOpVUnits = await readOperatorEthVUnits(provider, contractAddr, operatorIds[1]);
-      expect(liveOpVUnits).to.be.greaterThan(0n, "INV-018: live op has vUnits from EB update");
+      const expectedDeviation = calcVUnits(48n) - defaultVUnits(1n); // 15000 - 10000 = 5000
+      expect(liveOpVUnits).to.equal(expectedDeviation, "INV-018: live op has exact deviation from EB update");
     });
   });
 
@@ -555,26 +598,31 @@ describe("Invariant Gap Tests (INV-017..050)", function () {
 
       const clusterKey = computeClusterId(clusterOwner.address, operatorIds);
 
-      // Before liquidation: ethClusters[key] != 0, clusters[key] == 0
+      // Get cluster state and compute expected hash before liquidation
+      let cluster = await getCurrentClusterState(connection, network, clusterOwner.address, operatorIds);
+      const expectedHashPre = computeClusterHash(cluster);
+
+      // Before liquidation: ethClusters[key] == exact cluster hash, clusters[key] == 0
       const ethHashPre = await readETHClusterHash(provider, contractAddr, clusterKey);
       const ssvHashPre = await readSSVClusterHash(provider, contractAddr, clusterKey);
-      expect(ethHashPre).to.not.equal(0n, "INV-033 pre: ethClusters[key] != 0");
+      expect(ethHashPre).to.equal(expectedHashPre, "INV-033 pre: ethClusters[key] == exact cluster hash");
       expect(ssvHashPre).to.equal(0n, "INV-033 pre: clusters[key] == 0");
 
       // Drain and liquidate
-      let cluster = await getCurrentClusterState(connection, network, clusterOwner.address, operatorIds);
       cluster = await drainAndLiquidate(
         network, views, provider, clusterOwner, liquidator, operatorIds, cluster,
       );
 
-      // After liquidation: ethClusters[key] still != 0 (liquidated state hash), clusters[key] still == 0
+      // Compute expected liquidated cluster hash and verify cluster state
+      expect(cluster.active).to.equal(false, "INV-033: liquidated cluster active == false");
+      expect(BigInt(cluster.validatorCount)).to.equal(1n, "INV-033: liquidated cluster validatorCount preserved");
+      const expectedHashPost = computeClusterHash(cluster);
+
+      // After liquidation: ethClusters[key] == exact liquidated hash, clusters[key] still == 0
       const ethHashPost = await readETHClusterHash(provider, contractAddr, clusterKey);
       const ssvHashPost = await readSSVClusterHash(provider, contractAddr, clusterKey);
-      expect(ethHashPost).to.not.equal(0n, "INV-033: ethClusters[key] != 0 after liquidation");
+      expect(ethHashPost).to.equal(expectedHashPost, "INV-033: ethClusters[key] == exact liquidated hash");
       expect(ssvHashPost).to.equal(0n, "INV-033: clusters[key] == 0 after liquidation");
-
-      // The hash should have changed (liquidated state)
-      expect(ethHashPost).to.not.equal(ethHashPre, "INV-033: ethClusters hash updated to liquidated state");
     });
   });
 
@@ -713,6 +761,10 @@ describe("Invariant Gap Tests (INV-017..050)", function () {
       const liqReceipt = await liqTx.wait();
       cluster = parseClusterFromEvent(network, liqReceipt, Events.CLUSTER_LIQUIDATED);
 
+      // Verify liquidated cluster state (validatorCount preserved in struct)
+      expect(cluster.active).to.equal(false, "INV-041: liquidated cluster active == false");
+      expect(BigInt(cluster.validatorCount)).to.equal(1n, "INV-041: liquidated cluster validatorCount preserved");
+
       // G11 holds after successful liquidation
       await assertG11Holds(views, provider, contractAddr, operatorIds[0], "INV-041 G11 holds after liquidation");
     });
@@ -739,6 +791,7 @@ describe("Invariant Gap Tests (INV-017..050)", function () {
 
       // Remove operator 1
       await network.connect(owner).removeOperator(BigInt(operatorIds[0]));
+      await assertG11Holds(views, provider, contractAddr, operatorIds[0], "INV-042 after removal");
 
       // Drain and liquidate (3 active ops)
       let cluster = await getCurrentClusterState(connection, network, clusterOwner.address, operatorIds);
@@ -899,7 +952,8 @@ describe("Invariant Gap Tests (INV-017..050)", function () {
         connection, network, oracles, provider, clusterOwner, operatorIds, cluster, 48,
       );
       const vUnitsAfterEB = await readOperatorEthVUnits(provider, contractAddr, operatorIds[0]);
-      expect(vUnitsAfterEB).to.be.greaterThan(0n, "INV-045: deviation set for op1");
+      const expectedDeviation = calcVUnits(48n) - defaultVUnits(1n); // 15000 - 10000 = 5000
+      expect(vUnitsAfterEB).to.equal(expectedDeviation, "INV-045: exact deviation for op1 after EB update");
 
       // Step 2: Remove operator 1
       await network.connect(owner).removeOperator(BigInt(operatorIds[0]));
@@ -933,6 +987,10 @@ describe("Invariant Gap Tests (INV-017..050)", function () {
       );
       const liqReceipt = await liqTx.wait();
       cluster = parseClusterFromEvent(network, liqReceipt, Events.CLUSTER_LIQUIDATED);
+
+      // Verify liquidated cluster state (validatorCount preserved in struct)
+      expect(cluster.active).to.equal(false, "INV-045: liquidated cluster active == false");
+      expect(BigInt(cluster.validatorCount)).to.equal(1n, "INV-045: liquidated cluster validatorCount preserved");
 
       // G11 holds after successful liquidation
       await assertG11Holds(views, provider, contractAddr, operatorIds[0], "INV-045 G11 holds after liquidation");
@@ -1058,9 +1116,9 @@ describe("Invariant Gap Tests (INV-017..050)", function () {
       let daoVUnits = await readDaoTotalEthVUnits(provider, contractAddr);
       expect(daoVUnits).to.equal(valCount * BPS_DENOMINATOR, "Step 1: G4 baseline");
 
-      // G1: contract ETH balance >= cluster balances + operator earnings + DAO
+      // G1: contract ETH balance == exactly the deposit from registration
       const ethBalance1 = BigInt(await provider.getBalance(contractAddr));
-      expect(ethBalance1).to.be.greaterThan(0n, "Step 1: G1 contract has ETH");
+      expect(ethBalance1).to.equal(DEFAULT_ETH_REGISTER_VALUE, "Step 1: G1 exact contract ETH balance");
 
       // Step 2: Migrate SSV cluster to ETH
       await newNetwork.connect(clusterOwnerSSV).migrateClusterToETH(
@@ -1074,9 +1132,9 @@ describe("Invariant Gap Tests (INV-017..050)", function () {
       daoVUnits = await readDaoTotalEthVUnits(provider, contractAddr);
       expect(daoVUnits).to.equal(valCount * BPS_DENOMINATOR, "Step 2: G4 baseline (no EB set)");
 
-      // G1: contract ETH balance increased
+      // G1: contract ETH balance increased by exactly the migration deposit
       const ethBalance2 = BigInt(await provider.getBalance(contractAddr));
-      expect(ethBalance2).to.be.greaterThan(ethBalance1, "Step 2: G1 contract balance increased");
+      expect(ethBalance2).to.equal(ethBalance1 + DEFAULT_ETH_REGISTER_VALUE, "Step 2: G1 exact balance after migration");
 
       // Step 3: EB update on ETH cluster (EB=48)
       let ethCluster = await getCurrentClusterState(
@@ -1187,6 +1245,10 @@ describe("Invariant Gap Tests (INV-017..050)", function () {
       // Step 4: Liquidate cluster B
       clusterB = await getCurrentClusterState(connection, network, ownerB.address, ops2);
       clusterB = await drainAndLiquidate(network, views, provider, ownerB, liquidator, ops2, clusterB);
+
+      // Verify liquidated cluster B state (validatorCount preserved in struct)
+      expect(clusterB.active).to.equal(false, "Step 4: liquidated clusterB active == false");
+      expect(BigInt(clusterB.validatorCount)).to.equal(1n, "Step 4: liquidated clusterB validatorCount preserved");
 
       // G3: decremented by 1
       expect(await views.getNetworkValidatorsCount()).to.equal(2n, "Step 4: G3 = 2 after liquidation");
