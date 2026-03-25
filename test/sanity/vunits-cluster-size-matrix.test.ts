@@ -272,13 +272,25 @@ describe("vUnits cluster-size matrix coverage", () => {
     const cluster7After128 = await updateEB(clusters, ownerC, operatorSet7, cluster7, 128, 3);
     const cluster7ForLiquidationAfter64 = await updateEB(clusters, ownerD, operatorSet7, cluster7ForLiquidation, 64, 4);
 
+    const eb64Deviation = 10_000n;
+    const eb128Deviation = 30_000n;
+    const expectedSharedOperatorVUnitsBeforeLiquidation =
+      eb64Deviation + eb64Deviation + eb128Deviation + eb64Deviation;
+    const expectedSharedOperatorVUnitsAfterCluster4Liquidation =
+      expectedSharedOperatorVUnitsBeforeLiquidation - eb64Deviation;
+    const expectedNonCluster4OperatorVUnitsAfterCluster4Liquidation =
+      eb64Deviation + eb128Deviation + eb64Deviation;
+
     await clusters.mockRemoveOperator(operatorSet4[0]);
-    expect(await clusters.getOperatorEthVUnits(operatorSet4[1])).to.be.greaterThan(10000n);
-    expect(await clusters.getOperatorEthVUnits(operatorSet13[12])).to.equal(10000n);
+    expect(await clusters.getOperatorEthVUnits(operatorSet4[1])).to.equal(expectedSharedOperatorVUnitsBeforeLiquidation);
+    expect(await clusters.getOperatorEthVUnits(operatorSet13[12])).to.equal(eb64Deviation);
 
     await clusters.connect(ownerA).liquidate(ownerA.address, operatorSet4, cluster4After64);
-    for (const operatorId of operatorSet7.slice(1)) {
-      expect(await clusters.getOperatorEthVUnits(operatorId)).to.be.greaterThanOrEqual(30000n);
+    for (const operatorId of operatorSet7.slice(1, 4)) {
+      expect(await clusters.getOperatorEthVUnits(operatorId)).to.equal(expectedSharedOperatorVUnitsAfterCluster4Liquidation);
+    }
+    for (const operatorId of operatorSet7.slice(4)) {
+      expect(await clusters.getOperatorEthVUnits(operatorId)).to.equal(expectedNonCluster4OperatorVUnitsAfterCluster4Liquidation);
     }
 
     await clusters.connect(ownerD).liquidate(ownerD.address, operatorSet7, cluster7ForLiquidationAfter64);

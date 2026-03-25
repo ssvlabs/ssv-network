@@ -778,10 +778,12 @@ describe("SSVNetwork Integration - Staking (Enhanced)", () => {
       );
 
       const earningsBefore = await views.getNetworkEarnings();
-      await connection.networkHelpers.mine(100n);
+      const blocksPerPhase = 100n;
+      await connection.networkHelpers.mine(blocksPerPhase);
       const earningsBeforeLiquidation = await views.getNetworkEarnings();
       const preLiquidationDelta = earningsBeforeLiquidation - earningsBefore;
-      expect(preLiquidationDelta).to.be.greaterThan(0n);
+      const expectedPreLiquidationDelta = blocksPerPhase * NETWORK_FEE * 2n;
+      expect(preLiquidationDelta).to.equal(expectedPreLiquidationDelta);
 
       const clusterBeforeLiquidation = await getCurrentClusterState(connection, network, clusterOwner.address, operatorIds);
       await network.connect(clusterOwner).liquidate(
@@ -849,9 +851,12 @@ describe("SSVNetwork Integration - Staking (Enhanced)", () => {
       );
 
       const earningsBefore64 = await views.getNetworkEarnings();
-      await connection.networkHelpers.mine(100n);
+      const blocksPerPhase = 100n;
+      await connection.networkHelpers.mine(blocksPerPhase);
       const earningsAfter64 = await views.getNetworkEarnings();
       const delta64 = earningsAfter64 - earningsBefore64;
+      const expectedDelta64 = blocksPerPhase * NETWORK_FEE * 2n;
+      expect(delta64).to.equal(expectedDelta64);
 
       await connection.networkHelpers.mine(1n);
       const eb128Block = Number(await connection.ethers.provider.getBlockNumber());
@@ -874,11 +879,12 @@ describe("SSVNetwork Integration - Staking (Enhanced)", () => {
       );
 
       const earningsBefore128 = await views.getNetworkEarnings();
-      await connection.networkHelpers.mine(100n);
+      await connection.networkHelpers.mine(blocksPerPhase);
       const earningsAfter128 = await views.getNetworkEarnings();
       const delta128 = earningsAfter128 - earningsBefore128;
 
-      expect(delta64).to.be.greaterThan(0n);
+      const expectedDelta128 = blocksPerPhase * NETWORK_FEE * 4n;
+      expect(delta128).to.equal(expectedDelta128);
       expect(delta128).to.equal(delta64 * 2n);
     });
   });
