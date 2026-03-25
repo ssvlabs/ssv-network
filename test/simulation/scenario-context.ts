@@ -15,7 +15,7 @@ import type { StateSnapshot } from "./state-snapshot.ts";
 import type { StepResult } from "./scenario-types.ts";
 import type { JsonlLogger } from "./jsonl-logger.ts";
 
-import { StepReverted, AssertionFailed } from "./scenario-types.ts";
+import { StepReverted, AssertionFailed, ScenarioSkipped } from "./scenario-types.ts";
 import { captureSnapshot, compactSnapshot } from "./state-snapshot.ts";
 import { compactStateDiff } from "./jsonl-logger.ts";
 import { SeededRNG } from "./rng.ts";
@@ -167,6 +167,8 @@ export class ScenarioContext {
     try {
       await assert(pre, post);
     } catch (err: any) {
+      // Let ScenarioSkipped propagate — not a bug, just precondition mismatch
+      if (err instanceof ScenarioSkipped) throw err;
       // 7. Assertion failure → BUG CANDIDATE — log and throw
       const assertionDetail = err instanceof Error ? err.message : String(err);
       const elapsed_ms = Date.now() - startMs;
