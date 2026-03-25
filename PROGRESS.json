@@ -1,0 +1,18 @@
+{
+  "task": "W7-J: DA DAO Governance Gap Tests",
+  "branch": "tests/w7j-da-gaps",
+  "status": "complete",
+  "tests_written": 35,
+  "scenarios_covered": 38,
+  "file": "test/e2e/dao/da-gap.test.ts",
+  "sections": {
+    "Precision & Packing Reverts": ["DA-079/DA-096", "DA-080", "DA-081", "DA-082", "DA-085/DA-097", "DA-083", "DA-084", "DA-095"],
+    "Fee Isolation": ["DA-086", "DA-087"],
+    "Access Control": ["DA-057/DA-092"],
+    "Boundary & Edge Cases": ["DA-037", "DA-040", "DA-070", "DA-093", "DA-013", "DA-059"],
+    "Module Updates": ["DA-060", "DA-061", "DA-090"],
+    "Oracle Management": ["DA-088", "DA-107"],
+    "SSV Fee Settlement": ["DA-007", "DA-108"],
+    "Downstream Governance Interactions": ["DA-063", "DA-064", "DA-065", "DA-066", "DA-067", "DA-104", "DA-105", "DA-106", "DA-109", "DA-110", "DA-111"]
+  }
+}
