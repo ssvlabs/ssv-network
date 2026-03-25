@@ -5,6 +5,7 @@ import type { NetworkHelpersType } from "../../common/types.ts";
 import { makeOperatorKey, setupTestContext } from "../../common/helpers.ts";
 import { defaultOperatorsFixture } from "../../helpers/fixture-presets.ts";
 import {
+  BPS_DENOMINATOR,
   DECLARE_OPERATOR_FEE_PERIOD, ETH_DEDUCTED_DIGITS, EXECUTE_OPERATOR_FEE_PERIOD,
   MAXIMUM_OPERATORS_FEE,
   MINIMAL_OPERATOR_ETH_FEE, OPERATOR_MAX_FEE_INCREASE,
@@ -44,6 +45,38 @@ describe("SSVOperators function `executeOperatorFee()`", async () => {
         [GasGroup.EXECUTE_OPERATOR_FEE]
       )
     ).to.emit(operators, Events.OPERATOR_FEE_EXECUTED);
+  });
+
+  it("Executes fee at exact approvalBeginTime boundary", async function () {
+    const { operators } = await networkHelpers.loadFixture(deployOperatorsFixture);
+
+    const initialFee = Number(MINIMAL_OPERATOR_ETH_FEE);
+    const newFee = MINIMAL_OPERATOR_ETH_FEE * 2n;
+
+    await operators.registerOperator(makeOperatorKey(1), initialFee, false);
+
+    const declareTx = await operators.declareOperatorFee(1, newFee);
+    const declareReceipt = await declareTx.wait();
+
+    // Read the approvalBeginTime from the fee change request
+    const request = await operators.getOperatorFeeChangeRequest(1);
+    const approvalBeginTime = request.approvalBeginTime;
+    expect(approvalBeginTime).to.be.greaterThan(0n);
+
+    // Advance to exactly approvalBeginTime (not past it)
+    await networkHelpers.time.increaseTo(approvalBeginTime);
+
+    // Execute should succeed at the exact boundary
+    const executeTx = await operators.executeOperatorFee(1);
+    await expect(executeTx).to.emit(operators, Events.OPERATOR_FEE_EXECUTED);
+
+    // Verify the fee was updated
+    const op = await operators.getOperator(1);
+    expect(op.ethFee).to.equal(BigInt(newFee) / ETH_DEDUCTED_DIGITS);
+
+    // Verify the fee change request was cleared
+    const clearedRequest = await operators.getOperatorFeeChangeRequest(1);
+    expect(clearedRequest.approvalBeginTime).to.equal(0);
   });
 
   it("Is reverted with 'NoFeeDeclared' when executing without a declaration", async function () {

@@ -108,6 +108,23 @@ describe("SSVStaking solvency invariant (cSSV supply <= SSV backing)", async () 
 
     await staking.connect(staker3).requestUnstake(stake3 / 2n);
     await expectStakingSolvent(staking, ssvToken, cssvToken);
+
+    // INV-009: Full G2 formula — token balance == cSSV supply + pending unstakes
+    const stakingAddress = await staking.getAddress();
+    const ssvBacking = await ssvToken.balanceOf(stakingAddress);
+    const cssvSupply = await cssvToken.totalSupply();
+    let totalPendingUnstakes = 0n;
+    for (const user of [staker1, staker2, staker3]) {
+      const count = await staking.getWithdrawalRequestsCount(user.address);
+      for (let i = 0n; i < count; i++) {
+        const [amount] = await staking.getWithdrawalRequest(user.address, i);
+        totalPendingUnstakes += amount;
+      }
+    }
+    expect(ssvBacking).to.equal(
+      cssvSupply + totalPendingUnstakes,
+      "INV-009: SSV backing == cSSV supply + pending unstakes",
+    );
   });
 
   it("holds through full unstake plus withdraw cycle with mixed unlocked requests", async function () {

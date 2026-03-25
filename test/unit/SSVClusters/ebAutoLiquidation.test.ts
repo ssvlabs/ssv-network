@@ -87,6 +87,17 @@ describe("EB auto-liquidation on updateClusterBalance", async () => {
     expect(clusterAfterEB2048.active).to.equal(false,
       "Auto-liquidation should fire when EB increase makes cluster insolvent at new rate");
     expect(clusterAfterEB2048.balance).to.equal(0n);
+
+    // EB-067: Verify deviation removed from operatorEthVUnits for ALL operators after auto-liquidation
+    for (const operatorId of operatorIds) {
+      expect(await clusters.getOperatorEthVUnits(operatorId)).to.equal(0n,
+        `Operator ${operatorId} should have operatorEthVUnits == 0 after auto-liquidation`);
+      expect(await clusters.getEffectiveOperatorVUnits(operatorId)).to.equal(0n,
+        `Operator ${operatorId} should have effectiveVUnits == 0 (no active validators) after auto-liquidation`);
+    }
+    // EB-067: Verify daoTotalEthVUnits cleaned up after auto-liquidation
+    expect(await clusters.getDaoTotalEthVUnits()).to.equal(0n,
+      "daoTotalEthVUnits should be 0 after auto-liquidation of the only cluster");
   });
 
   it("Does NOT auto-liquidate when cluster is solvent at new EB rate", async function () {
@@ -141,6 +152,14 @@ describe("EB auto-liquidation on updateClusterBalance", async () => {
     const clusterAfterEB2048 = parseClusterFromEvent(clusters, ebReceipt2, Events.CLUSTER_LIQUIDATED);
     expect(clusterAfterEB2048.active).to.equal(false,
       "Auto-liquidation correctly fires when cluster is insolvent");
+
+    // EB-067: Verify deviation removed from operatorEthVUnits and daoTotalEthVUnits after auto-liquidation
+    for (const operatorId of operatorIds) {
+      expect(await clusters.getOperatorEthVUnits(operatorId)).to.equal(0n,
+        `Operator ${operatorId} should have operatorEthVUnits == 0 after auto-liquidation`);
+    }
+    expect(await clusters.getDaoTotalEthVUnits()).to.equal(0n,
+      "daoTotalEthVUnits should be 0 after auto-liquidation of the only cluster");
   });
 
   it("Blocks reentrant guarded calls during updateClusterBalance auto-liquidation callback", async function () {

@@ -12,6 +12,7 @@ import {
   setupTestContext,
 } from "../../common/helpers.ts";
 import { Events } from "../../common/events.ts";
+import { ethers } from "ethers";
 import {
   DEFAULT_ETH_REGISTER_VALUE,
   DEFAULT_SHARES,
@@ -21,6 +22,7 @@ import {
   MINIMAL_LIQUIDATION_THRESHOLD,
   ETH_DEDUCTED_DIGITS,
   OP_ETH_FEE_RAW,
+  BPS_DENOMINATOR,
 } from "../../common/constants.ts";
 import {
   mineBlocks,
@@ -200,6 +202,31 @@ async function performEBUpdate(
   return { cluster: updatedCluster, rootBlockNum, tx };
 }
 
+// ---------------------------------------------------------------------------
+//  Diamond storage readers for G4 invariant
+// ---------------------------------------------------------------------------
+function protocolStorageBaseSlot(): bigint {
+  return BigInt(ethers.keccak256(ethers.toUtf8Bytes("ssv.network.storage.protocol"))) - 1n;
+}
+
+async function readDaoTotalEthVUnits(
+  provider: any,
+  contractAddress: string,
+): Promise<bigint> {
+  const slot = protocolStorageBaseSlot() + 4n;
+  const raw = BigInt(await provider.getStorage(contractAddress, "0x" + slot.toString(16)));
+  return (raw >> 192n) & 0xFFFFFFFFFFFFFFFFn;
+}
+
+async function readEthDaoValidatorCount(
+  provider: any,
+  contractAddress: string,
+): Promise<bigint> {
+  const slot = protocolStorageBaseSlot() + 2n;
+  const raw = BigInt(await provider.getStorage(contractAddress, "0x" + slot.toString(16)));
+  return (raw >> 224n) & 0xFFFFFFFFn;
+}
+
 describe("EB Updates", () => {
   let connection: NetworkConnection<"generic">;
   let networkHelpers: NetworkHelpersType;
@@ -272,6 +299,23 @@ describe("EB Updates", () => {
         networkFee: PACKED_NETWORK_FEE, effectiveVUnits: 30000n,
       });
       expect(newBurn * 20000n).to.equal(oldBurn * 30000n);
+
+      // INV-016: G4 invariant with deviation — after EB 64->96, daoTotalEthVUnits includes deviation
+      const contractAddr = await network.getAddress();
+      const daoVUnitsAfterIncrease = await readDaoTotalEthVUnits(provider, contractAddr);
+      const ethDaoValCount = await readEthDaoValidatorCount(provider, contractAddr);
+      expect(ethDaoValCount).to.equal(2n, "INV-016: 2 validators in cluster");
+      // baseline = validatorCount * BPS_DENOMINATOR = 20000
+      // newVUnits = calcVUnits(96) = 30000
+      // deviation = 30000 - 20000 = 10000
+      // daoTotalEthVUnits = baseline + deviation = 20000 + 10000 = 30000
+      const baseline = ethDaoValCount * BPS_DENOMINATOR;
+      const expectedVUnits = calcVUnits(96n);
+      const deviation = expectedVUnits - baseline;
+      expect(daoVUnitsAfterIncrease).to.equal(
+        baseline + deviation,
+        "INV-016: G4 — daoTotalEthVUnits == baseline + deviation after EB increase",
+      );
     });
   });
 

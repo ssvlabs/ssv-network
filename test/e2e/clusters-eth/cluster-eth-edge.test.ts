@@ -407,6 +407,7 @@ describe("ETH Cluster Edge Cases", () => {
       await mineBlocks(provider, 20);
 
       const liquidatorBalanceBefore = await provider.getBalance(anotherOwner.address);
+      const clusterOwnerBalanceBefore = await provider.getBalance(clusterOwner.address);
 
       const liqTx = await network.connect(anotherOwner).liquidate(
         clusterOwner.address,
@@ -439,6 +440,13 @@ describe("ETH Cluster Edge Cases", () => {
       });
       const expectedBounty = burn >= threshold ? 0n : threshold - burn;
       expect(bounty).to.equal(expectedBounty);
+
+      // EB-052: Verify bounty goes to msg.sender (liquidator), NOT to cluster owner
+      const clusterOwnerBalanceAfter = await provider.getBalance(clusterOwner.address);
+      expect(clusterOwnerBalanceAfter).to.equal(clusterOwnerBalanceBefore,
+        "Cluster owner should not receive any ETH bounty — bounty goes to msg.sender (liquidator)");
+      expect(bounty).to.be.greaterThan(0n,
+        "Bounty should be non-zero to confirm msg.sender received it");
     });
   });
 });

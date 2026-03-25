@@ -260,6 +260,75 @@ describe("Operator Lifecycle", function () {
       expect(updatedFee).to.equal(newFee);
     });
 
+    it("Two full declare-execute cycles in sequence", async () => {
+      const { network, views } =
+        await networkHelpers.loadFixture(deployFixture);
+      const provider = connection.ethers.provider;
+
+      const initialFee = MINIMAL_OPERATOR_ETH_FEE;
+      await network
+        .connect(operatorOwner)
+        .registerOperator(makeOperatorKey(1), initialFee, false);
+
+      // --- Cycle 1: declare and execute ---
+      const currentFee1 = await views.getOperatorFee(1n);
+      const currentPacked1 = currentFee1 / ETH_DEDUCTED_DIGITS;
+      const maxIncreaseBps1 = await views.getOperatorFeeIncreaseLimit();
+      const maxAllowedPacked1 =
+        (currentPacked1 * (10_000n + maxIncreaseBps1) + 9_999n) / 10_000n;
+      const newFee1 = maxAllowedPacked1 * ETH_DEDUCTED_DIGITS;
+
+      await network
+        .connect(operatorOwner)
+        .declareOperatorFee(1n, newFee1);
+
+      const declareFeePeriod = Number(DECLARE_OPERATOR_FEE_PERIOD);
+      await provider.send("evm_increaseTime", [declareFeePeriod + 1]);
+      await provider.send("evm_mine", []);
+
+      const executeTx1 = await network
+        .connect(operatorOwner)
+        .executeOperatorFee(1n);
+      await executeTx1.wait();
+      await expect(executeTx1).to.emit(network, Events.OPERATOR_FEE_EXECUTED);
+
+      // Verify fee after first cycle
+      const feeAfterCycle1 = await views.getOperatorFee(1n);
+      expect(feeAfterCycle1).to.equal(newFee1);
+
+      // --- Cycle 2: declare and execute again ---
+      const currentFee2 = await views.getOperatorFee(1n);
+      const currentPacked2 = currentFee2 / ETH_DEDUCTED_DIGITS;
+      const maxIncreaseBps2 = await views.getOperatorFeeIncreaseLimit();
+      const maxAllowedPacked2 =
+        (currentPacked2 * (10_000n + maxIncreaseBps2) + 9_999n) / 10_000n;
+      const newFee2 = maxAllowedPacked2 * ETH_DEDUCTED_DIGITS;
+
+      await network
+        .connect(operatorOwner)
+        .declareOperatorFee(1n, newFee2);
+
+      await provider.send("evm_increaseTime", [declareFeePeriod + 1]);
+      await provider.send("evm_mine", []);
+
+      const executeTx2 = await network
+        .connect(operatorOwner)
+        .executeOperatorFee(1n);
+      await executeTx2.wait();
+      await expect(executeTx2).to.emit(network, Events.OPERATOR_FEE_EXECUTED);
+
+      // Verify fee after second cycle
+      const feeAfterCycle2 = await views.getOperatorFee(1n);
+      expect(feeAfterCycle2).to.equal(newFee2);
+
+      // Verify second fee is strictly greater than first
+      expect(feeAfterCycle2).to.be.greaterThan(feeAfterCycle1);
+
+      // Verify fee change request is cleared after second execution
+      const request = await views.getOperatorDeclaredFee(1n);
+      expect(request.isFeeDeclared).to.equal(false);
+    });
+
     it("Execute after approval window expires reverts", async () => {
       const { network, views } =
         await networkHelpers.loadFixture(deployFixture);

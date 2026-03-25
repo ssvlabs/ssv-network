@@ -22,6 +22,27 @@ import {
 import { Events } from "../../common/events.ts";
 import { ethers } from "ethers";
 
+// ---------------------------------------------------------------------------
+//  Diamond storage reader for latestCommittedBlock
+// ---------------------------------------------------------------------------
+function ebStorageBaseSlot(): bigint {
+  return BigInt(ethers.keccak256(ethers.toUtf8Bytes("ssv.network.storage.eb"))) - 1n;
+}
+
+/**
+ * Read seb.latestCommittedBlock from contract storage.
+ * latestCommittedBlock is field index 3 in StorageEB.
+ * It's a uint64 at the low bits of its slot.
+ */
+async function readLatestCommittedBlock(
+  provider: any,
+  contractAddress: string,
+): Promise<bigint> {
+  const slot = ebStorageBaseSlot() + 3n;
+  const raw = BigInt(await provider.getStorage(contractAddress, "0x" + slot.toString(16)));
+  return raw & 0xFFFFFFFFFFFFFFFFn;
+}
+
 describe("ITEST-1 Integration: commitRoot -> updateClusterBalance E2E", () => {
   let connection: NetworkConnection<"generic">;
   let networkHelpers: NetworkHelpersType;
@@ -126,6 +147,11 @@ describe("ITEST-1 Integration: commitRoot -> updateClusterBalance E2E", () => {
     await commitRootWithThreeOracles(network, oracles, root, blockNum);
     expect(await views.getCommittedRoot(blockNum)).to.equal(root);
 
+    // INV-030: Record latestCommittedBlock before updateClusterBalance
+    const contractAddress = await network.getAddress();
+    const latestCommittedBlockBefore = await readLatestCommittedBlock(connection.ethers.provider, contractAddress);
+    expect(latestCommittedBlockBefore).to.equal(BigInt(blockNum), "INV-030: latestCommittedBlock == committed root blockNum");
+
     const updateTx = await network.updateClusterBalance(
       blockNum,
       clusterOwnerA.address,
@@ -137,6 +163,10 @@ describe("ITEST-1 Integration: commitRoot -> updateClusterBalance E2E", () => {
     const updateReceipt = await updateTx.wait();
     const clusterAfterUpdate = parseClusterFromEvent(network, updateReceipt, Events.CLUSTER_BALANCE_UPDATED);
     expect(clusterAfterUpdate.active).to.equal(true);
+
+    // INV-030: latestCommittedBlock unchanged after updateClusterBalance
+    const latestCommittedBlockAfter = await readLatestCommittedBlock(connection.ethers.provider, contractAddress);
+    expect(latestCommittedBlockAfter).to.equal(latestCommittedBlockBefore, "INV-030: updateClusterBalance does not modify latestCommittedBlock");
 
     const blocksToMine = 40;
     const earningsBefore = await views.getOperatorEarnings(operatorIds[0]);

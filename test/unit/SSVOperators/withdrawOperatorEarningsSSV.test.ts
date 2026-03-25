@@ -111,6 +111,21 @@ describe("SSVOperators SSV earnings withdrawals", async () => {
     );
   });
 
+  it("Is reverted with 'InsufficientBalance' when withdrawAllOperatorEarningsSSV is called with zero SSV balance", async function () {
+    const { operators } = await networkHelpers.loadFixture(deployOperatorsFixture);
+
+    await trackGas(
+      operators.registerOperator(makeOperatorKey(1), Number(MINIMAL_OPERATOR_ETH_FEE), false),
+      [GasGroup.REGISTER_OPERATOR]
+    );
+
+    // Operator has no SSV earnings (snapshot.balance == 0), withdrawAll should revert
+    await expect(operators.withdrawAllOperatorEarningsSSV(1)).to.be.revertedWithCustomError(
+      operators,
+      Errors.INSUFFICIENT_BALANCE
+    );
+  });
+
   it("Is reverted with 'MaxPrecisionExceeded' when SSV withdrawal amount is not aligned to DEDUCTED_DIGITS", async function () {
     const { operators } = await networkHelpers.loadFixture(deployOperatorsFixture);
 

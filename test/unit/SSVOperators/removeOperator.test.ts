@@ -212,9 +212,46 @@ describe("SSVOperators function `removeOperator()`", async () => {
       `0x${ethers.parseEther("1").toString(16)}`,
     ]);
 
-    await operators.removeOperator(1);
+    // OE-031: Capture pre-removal state for settlement verification
+    const opBefore = await operators.getOperator(1);
+    const snapshotBlockBefore = opBefore.ethSnapshot.block;
+    const balanceBefore = opBefore.ethSnapshot.balance;
+    const packedFee = MINIMAL_OPERATOR_ETH_FEE / ETH_DEDUCTED_DIGITS;
+
+    // Mine some blocks so there is a block delta for earnings accrual
+    await networkHelpers.mine(10);
+
+    const ownerBalanceBefore = await connection.ethers.provider.getBalance(owner.address);
+    const tx = await operators.removeOperator(1);
+    const receipt = await tx.wait();
+    const removeBlock = BigInt(receipt!.blockNumber);
 
     expect(await operators.getOperatorEthVUnits(1)).to.equal(0n);
+
+    // OE-031: Verify final settlement includes deviation-weighted earnings
+    // effectiveVUnits = storedDeviation + (ethValidatorCount * BPS_DENOMINATOR)
+    // ethValidatorCount = 0, storedDeviation = 5000
+    // delta = blockDiffEthFee * 5000 / BPS_DENOMINATOR = (blockDiff * packedFee) * 5000 / 10000
+    const blockDiff = removeBlock - BigInt(snapshotBlockBefore);
+    const blockDiffEthFee = blockDiff * packedFee;
+    const expectedDelta = (blockDiffEthFee * 5000n) / 10000n;
+    const expectedSettledBalance = BigInt(balanceBefore) + expectedDelta;
+
+    // The operator ETH was transferred to owner on removal, verify ETH was received
+    const ownerBalanceAfter = await connection.ethers.provider.getBalance(owner.address);
+    const gasCost = receipt!.gasUsed * receipt!.gasPrice;
+    const ethReceived = ownerBalanceAfter - ownerBalanceBefore + gasCost;
+
+    // If there were settled earnings, they should have been transferred
+    if (expectedSettledBalance > 0n) {
+      expect(ethReceived).to.equal(expectedSettledBalance * ETH_DEDUCTED_DIGITS);
+    }
+
+    // After removal, operator state should be fully cleared
+    const opAfter = await operators.getOperator(1);
+    expect(opAfter.ethSnapshot.balance).to.equal(0n);
+    expect(opAfter.ethSnapshot.block).to.equal(0n);
+    expect(opAfter.ethFee).to.equal(0n);
   });
 
   it("Is reverted with 'CallerNotOwnerWithData' when non-owner tries to remove operator", async function () {

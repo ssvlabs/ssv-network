@@ -16,6 +16,7 @@ import {
   DEFAULT_SHARES,
   EMPTY_CLUSTER,
   STAKE_AMOUNT,
+  BPS_DENOMINATOR,
 } from "../../common/constants.ts";
 import {
   mineBlocks,
@@ -23,6 +24,7 @@ import {
   calcVUnits,
 } from "../../helpers/index.ts";
 import { Events } from "../../common/events.ts";
+import { ethers } from "ethers";
 
 async function getClusterFromEBUpdateTx(network: any, tx: any): Promise<Cluster> {
   const receipt = await tx.wait();
@@ -38,6 +40,32 @@ async function getClusterFromEBUpdateTx(network: any, tx: any): Promise<Cluster>
     }
   }
   throw new Error("ClusterBalanceUpdated event not found");
+}
+
+// ---------------------------------------------------------------------------
+//  Diamond storage reader for daoTotalEthVUnits
+// ---------------------------------------------------------------------------
+function protocolStorageBaseSlot(): bigint {
+  return BigInt(ethers.keccak256(ethers.toUtf8Bytes("ssv.network.storage.protocol"))) - 1n;
+}
+
+async function readDaoTotalEthVUnits(
+  provider: any,
+  contractAddress: string,
+): Promise<bigint> {
+  const slot = protocolStorageBaseSlot() + 4n;
+  const raw = BigInt(await provider.getStorage(contractAddress, "0x" + slot.toString(16)));
+  return (raw >> 192n) & 0xFFFFFFFFFFFFFFFFn;
+}
+
+async function readEthDaoValidatorCount(
+  provider: any,
+  contractAddress: string,
+): Promise<bigint> {
+  // ethDaoValidatorCount is a uint32 in slot 2 of StorageProtocol, at bits [224..255]
+  const slot = protocolStorageBaseSlot() + 2n;
+  const raw = BigInt(await provider.getStorage(contractAddress, "0x" + slot.toString(16)));
+  return (raw >> 224n) & 0xFFFFFFFFn;
 }
 
 describe("Operator vUnit Tracking", () => {
@@ -138,6 +166,16 @@ describe("Operator vUnit Tracking", () => {
 
       expect(BigInt(clusterA.validatorCount)).to.equal(2n);
       expect(BigInt(clusterB.validatorCount)).to.equal(3n);
+
+      // INV-015: G4 — before any explicit EB, daoTotalEthVUnits == ethDaoValidatorCount * BPS_DENOMINATOR
+      const contractAddr = await network.getAddress();
+      const ethDaoValCount = await readEthDaoValidatorCount(provider, contractAddr);
+      expect(ethDaoValCount).to.equal(5n, "INV-015: ethDaoValidatorCount == 5 (2 + 3 validators)");
+      const daoVUnitsBeforeEB = await readDaoTotalEthVUnits(provider, contractAddr);
+      expect(daoVUnitsBeforeEB).to.equal(
+        ethDaoValCount * BPS_DENOMINATOR,
+        "INV-015: G4 — daoTotalEthVUnits == ethDaoValidatorCount * BPS_DENOMINATOR when no explicit EB",
+      );
 
       await mineBlocks(provider, 5);
       clusterA = await performEBUpdate(

@@ -22,6 +22,50 @@ import { mineBlocks } from "../../helpers/index.ts";
 import { makeOperatorKey } from "../../helpers/index.ts";
 import { ethers } from "ethers";
 
+// ---------------------------------------------------------------------------
+//  Diamond storage readers for cluster hash verification
+// ---------------------------------------------------------------------------
+function mainStorageBaseSlot(): bigint {
+  return BigInt(ethers.keccak256(ethers.toUtf8Bytes("ssv.network.storage.main"))) - 1n;
+}
+
+async function readETHClusterHash(
+  provider: any,
+  contractAddress: string,
+  clusterKey: string,
+): Promise<bigint> {
+  const baseSlot = mainStorageBaseSlot() + 10n;
+  const coder = ethers.AbiCoder.defaultAbiCoder();
+  const storageSlot = ethers.keccak256(
+    coder.encode(["bytes32", "uint256"], [clusterKey, baseSlot]),
+  );
+  const raw = await provider.getStorage(contractAddress, storageSlot);
+  return BigInt(raw);
+}
+
+async function readSSVClusterHash(
+  provider: any,
+  contractAddress: string,
+  clusterKey: string,
+): Promise<bigint> {
+  const baseSlot = mainStorageBaseSlot() + 1n;
+  const coder = ethers.AbiCoder.defaultAbiCoder();
+  const storageSlot = ethers.keccak256(
+    coder.encode(["bytes32", "uint256"], [clusterKey, baseSlot]),
+  );
+  const raw = await provider.getStorage(contractAddress, storageSlot);
+  return BigInt(raw);
+}
+
+function computeClusterKey(ownerAddress: string, operatorIds: number[]): string {
+  return ethers.keccak256(
+    ethers.solidityPacked(
+      ["address", "uint64[]"],
+      [ownerAddress, operatorIds.map(BigInt)],
+    ),
+  );
+}
+
 const OP_SSV_FEE_UNPACKED = 10_000_000_000n;
 
 describe("SSV Cluster Legacy Operations", () => {
@@ -209,6 +253,15 @@ describe("SSV Cluster Legacy Operations", () => {
           operatorIds, cluster, { value: DEFAULT_ETH_REGISTER_VALUE },
         ),
       ).to.emit(network, Events.CLUSTER_MIGRATED_TO_ETH);
+
+      // INV-031: After migration, s.ethClusters[key] != 0 and s.clusters[key] == 0
+      const provider = connection.ethers.provider;
+      const contractAddress = await network.getAddress();
+      const clusterKey = computeClusterKey(clusterOwner.address, operatorIds);
+      const ethClusterHash = await readETHClusterHash(provider, contractAddress, clusterKey);
+      const ssvClusterHash = await readSSVClusterHash(provider, contractAddress, clusterKey);
+      expect(ethClusterHash).to.not.equal(0n, "INV-031: ethClusters[key] != 0 after migration");
+      expect(ssvClusterHash).to.equal(0n, "INV-031: clusters[key] == 0 after migration (SSV cluster cleared)");
     });
   });
 });

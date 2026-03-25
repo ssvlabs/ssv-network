@@ -1076,4 +1076,205 @@ describe("W7-G: LQ Liquidation/Reactivation Gap Tests", () => {
       }
     });
   });
+
+  // =========================================================================
+  // LQ-010: Liquidation with validatorCount=5, per-operator ethValidatorCount
+  // =========================================================================
+  describe("LQ-010: Liquidation with validatorCount=5 — per-operator ethValidatorCount zeroed", () => {
+    it("Each operator's ethValidatorCount is 0 after liquidating a 5-validator cluster", async function () {
+      const { network, views } = await networkHelpers.loadFixture(baseFixture);
+      const provider = connection.ethers.provider;
+
+      const operatorIds = await setupOperators(network, opOwner, 4, [clusterOwner.address]);
+
+      // Register 5 validators
+      let cluster = EMPTY_CLUSTER;
+      for (let i = 1; i <= 5; i++) {
+        ({ cluster } = await regValidator(network, clusterOwner, operatorIds, cluster, DEFAULT_ETH_REGISTER_VALUE, i));
+      }
+      expect(cluster.validatorCount).to.equal(5n);
+
+      // Verify each operator has ethValidatorCount = 5 before liquidation
+      for (const opId of operatorIds) {
+        const opData = await views.getOperatorById(opId);
+        expect(opData.validatorCount).to.equal(5n, `operator ${opId} ethValidatorCount before liquidation`);
+      }
+
+      // Self-liquidate
+      const liqTx = await network.connect(clusterOwner).liquidate(
+        clusterOwner.address, operatorIds, cluster,
+      );
+      const liqReceipt = await liqTx.wait();
+      const liqCluster = parseClusterFromEvent(network, liqReceipt, Events.CLUSTER_LIQUIDATED);
+      expect(liqCluster.active).to.equal(false);
+
+      // LQ-010: Verify per-operator ethValidatorCount is decremented to 0
+      for (const opId of operatorIds) {
+        const opData = await views.getOperatorById(opId);
+        expect(opData.validatorCount).to.equal(0n, `operator ${opId} ethValidatorCount must be 0 after liquidation`);
+      }
+    });
+  });
+
+  // =========================================================================
+  // LQ-024: Liquidation attempt on cluster with validatorCount=0 — third-party revert
+  // =========================================================================
+  describe("LQ-024: Third-party liquidation reverts when validatorCount = 0", () => {
+    it("Reverts ClusterNotLiquidatable when third party tries to liquidate cluster with validatorCount=0", async function () {
+      const { network, views } = await networkHelpers.loadFixture(baseFixture);
+
+      const operatorIds = await setupOperators(network, opOwner, 4, [clusterOwner.address]);
+
+      // Register a validator then remove it
+      let { cluster } = await regValidator(network, clusterOwner, operatorIds, EMPTY_CLUSTER, DEFAULT_ETH_REGISTER_VALUE, 1);
+
+      const removeTx = await network.connect(clusterOwner).removeValidator(
+        makePublicKey(1), operatorIds, cluster,
+      );
+      cluster = parseClusterFromEvent(network, await removeTx.wait(), Events.VALIDATOR_REMOVED);
+      expect(cluster.validatorCount).to.equal(0n);
+
+      // Third-party liquidation should revert since validatorCount=0 means no burn, cluster is healthy
+      await expect(
+        network.connect(liquidator).liquidate(clusterOwner.address, operatorIds, cluster),
+      ).to.be.revertedWithCustomError(network, Errors.CLUSTER_NOT_LIQUIDATABLE);
+    });
+  });
+
+  // =========================================================================
+  // LQ-025: Self-liquidation on cluster with validatorCount=0 — succeeds
+  // =========================================================================
+  describe("LQ-025: Self-liquidation succeeds when validatorCount = 0", () => {
+    it("Owner can self-liquidate a cluster with validatorCount=0", async function () {
+      const { network, views } = await networkHelpers.loadFixture(baseFixture);
+
+      const operatorIds = await setupOperators(network, opOwner, 4, [clusterOwner.address]);
+
+      // Register a validator then remove it
+      let { cluster } = await regValidator(network, clusterOwner, operatorIds, EMPTY_CLUSTER, DEFAULT_ETH_REGISTER_VALUE, 1);
+
+      const removeTx = await network.connect(clusterOwner).removeValidator(
+        makePublicKey(1), operatorIds, cluster,
+      );
+      cluster = parseClusterFromEvent(network, await removeTx.wait(), Events.VALIDATOR_REMOVED);
+      expect(cluster.validatorCount).to.equal(0n);
+
+      // Self-liquidation bypasses the liquidation check and should succeed
+      const liqTx = await network.connect(clusterOwner).liquidate(
+        clusterOwner.address, operatorIds, cluster,
+      );
+      await expect(liqTx).to.emit(network, Events.CLUSTER_LIQUIDATED);
+
+      const liqCluster = parseClusterFromEvent(network, await liqTx.wait(), Events.CLUSTER_LIQUIDATED);
+      expect(liqCluster.active).to.equal(false);
+      expect(liqCluster.validatorCount).to.equal(0n);
+    });
+  });
+
+  // =========================================================================
+  // LQ-027: Liquidation with validatorCount=10 — DAO counters decremented
+  // =========================================================================
+  describe("LQ-027: Liquidation with validatorCount=10 — DAO counters decremented", () => {
+    it("daoTotalEthVUnits and ethDaoValidatorCount decremented by 10 after liquidation", async function () {
+      const { network, views } = await networkHelpers.loadFixture(baseFixture);
+      const provider = connection.ethers.provider;
+      const proxyAddress = await network.getAddress();
+
+      const operatorIds = await setupOperators(network, opOwner, 4, [clusterOwner.address]);
+
+      // Register 10 validators
+      let cluster = EMPTY_CLUSTER;
+      for (let i = 1; i <= 10; i++) {
+        ({ cluster } = await regValidator(network, clusterOwner, operatorIds, cluster, DEFAULT_ETH_REGISTER_VALUE, i));
+      }
+      expect(cluster.validatorCount).to.equal(10n);
+
+      // Read DAO counters before liquidation
+      const daoValidatorCountBefore = await views.getNetworkValidatorsCount();
+      const daoVUnitsBefore = await readDaoTotalEthVUnits(provider, proxyAddress);
+
+      expect(BigInt(daoValidatorCountBefore)).to.equal(10n);
+      expect(daoVUnitsBefore).to.equal(defaultVUnits(10n));
+
+      // Self-liquidate
+      const liqTx = await network.connect(clusterOwner).liquidate(
+        clusterOwner.address, operatorIds, cluster,
+      );
+      const liqReceipt = await liqTx.wait();
+      const liqCluster = parseClusterFromEvent(network, liqReceipt, Events.CLUSTER_LIQUIDATED);
+      expect(liqCluster.active).to.equal(false);
+
+      // Verify DAO counters decremented by 10
+      const daoValidatorCountAfter = await views.getNetworkValidatorsCount();
+      const daoVUnitsAfter = await readDaoTotalEthVUnits(provider, proxyAddress);
+
+      expect(BigInt(daoValidatorCountAfter)).to.equal(0n,
+        "ethDaoValidatorCount should be decremented by 10");
+      expect(daoVUnitsAfter).to.equal(0n,
+        "daoTotalEthVUnits should be decremented by 10 * BPS_DENOMINATOR");
+    });
+  });
+
+  // =========================================================================
+  // LQ-077: Reactivation reentrancy guard
+  // =========================================================================
+  describe("LQ-077: Reactivation reentrancy guard", () => {
+    it("Reentrant call to reactivate() during withdraw() is blocked by nonReentrant", async function () {
+      const { network, views } = await networkHelpers.loadFixture(baseFixture);
+      const provider = connection.ethers.provider;
+
+      // Deploy malicious contract first so we can whitelist its address
+      const MaliciousReactivate = await connection.ethers.getContractFactory("MaliciousReactivate");
+      const malicious = await MaliciousReactivate.deploy(await network.getAddress());
+      await malicious.waitForDeployment();
+      const maliciousAddress = await malicious.getAddress();
+
+      // Need 8 operators: 4 for the withdraw cluster, 4 for the reactivate cluster
+      const allOps = await setupOperators(network, opOwner, 8, [maliciousAddress]);
+      const withdrawOps = allOps.slice(0, 4);
+      const reactivateOps = allOps.slice(4, 8);
+
+      // Register a validator on the withdraw operators (active cluster for withdraw)
+      const regTx1 = await malicious.registerValidator(
+        makePublicKey(80), withdrawOps, DEFAULT_SHARES, EMPTY_CLUSTER,
+        { value: DEFAULT_ETH_REGISTER_VALUE },
+      );
+      const regReceipt1 = await regTx1.wait();
+      const withdrawCluster = parseClusterFromEvent(network, regReceipt1, Events.VALIDATOR_ADDED);
+
+      // Register a validator on the reactivate operators, then self-liquidate it
+      const regTx2 = await malicious.registerValidator(
+        makePublicKey(81), reactivateOps, DEFAULT_SHARES, EMPTY_CLUSTER,
+        { value: DEFAULT_ETH_REGISTER_VALUE },
+      );
+      const regReceipt2 = await regTx2.wait();
+      const reactivateCluster = parseClusterFromEvent(network, regReceipt2, Events.VALIDATOR_ADDED);
+
+      // Make the reactivate cluster liquidatable by setting high minimum collateral
+      await network.updateMinimumLiquidationCollateral(DEFAULT_ETH_REGISTER_VALUE * 2n);
+
+      // Third-party liquidation of the reactivate cluster
+      const liqTx = await network.connect(liquidator).liquidate(
+        maliciousAddress, reactivateOps, reactivateCluster,
+      );
+      const liqCluster = parseClusterFromEvent(network, await liqTx.wait(), Events.CLUSTER_LIQUIDATED);
+      expect(liqCluster.active).to.equal(false);
+
+      // Reset minimum collateral
+      await network.updateMinimumLiquidationCollateral(0n);
+
+      // Set params on malicious contract:
+      // - ops/cl for withdraw (active cluster)
+      // - reactivateOps/reactivateCl for reactivate (liquidated cluster)
+      await malicious.setParams(withdrawOps, withdrawCluster);
+      await malicious.setReactivateParams(reactivateOps, liqCluster);
+
+      // The attack: malicious.attack() calls withdraw(ops, 1, cl)
+      // withdraw sends ETH to malicious contract → receive() is called
+      // receive() tries reactivate{value: msg.value}(reactivateOps, reactivateCl)
+      // reactivate hits nonReentrant → ReentrancyGuardReentrantCall
+      // ETH transfer fails → withdraw reverts with ETHTransferFailed
+      await expect(malicious.attack()).to.be.revertedWithCustomError(network, Errors.ETH_TRANSFER_FAILED);
+    });
+  });
 });

@@ -112,6 +112,11 @@ describe("SSV-3: bulkRegisterValidator uses post-registration vUnits for liquida
     const regReceipt = await regTx.wait();
     const existingCluster = parseClusterFromEvent(validators, regReceipt, Events.VALIDATOR_ADDED);
 
+    // INV-046: After registration without EB update, clusterEB[clusterId].vUnits == 0
+    const clusterId = getClusterId(clusterOwner.address, operatorIds);
+    const storedVUnits = await validators.getClusterVUnits(clusterId);
+    expect(storedVUnits).to.equal(0n, "INV-046: clusterEB[clusterId].vUnits == 0 for implicit EB cluster (no EB update performed)");
+
     await expect(
       validators.bulkRegisterValidator(
         [makePublicKey(2)],

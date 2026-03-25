@@ -15,7 +15,39 @@ import {
   DEFAULT_ETH_REGISTER_VALUE,
   DEFAULT_SHARES,
   EMPTY_CLUSTER,
+  BPS_DENOMINATOR,
 } from "../../common/constants.ts";
+import { ethers } from "ethers";
+
+// ---------------------------------------------------------------------------
+//  Diamond storage readers
+// ---------------------------------------------------------------------------
+function mainStorageBaseSlot(): bigint {
+  return BigInt(ethers.keccak256(ethers.toUtf8Bytes("ssv.network.storage.main"))) - 1n;
+}
+
+async function readETHClusterHash(
+  provider: any,
+  contractAddress: string,
+  clusterKey: string,
+): Promise<bigint> {
+  const baseSlot = mainStorageBaseSlot() + 10n;
+  const coder = ethers.AbiCoder.defaultAbiCoder();
+  const storageSlot = ethers.keccak256(
+    coder.encode(["bytes32", "uint256"], [clusterKey, baseSlot]),
+  );
+  const raw = await provider.getStorage(contractAddress, storageSlot);
+  return BigInt(raw);
+}
+
+function computeClusterKey(ownerAddress: string, operatorIds: number[]): string {
+  return ethers.keccak256(
+    ethers.solidityPacked(
+      ["address", "uint64[]"],
+      [ownerAddress, operatorIds.map(BigInt)],
+    ),
+  );
+}
 import {
   checkValidatorCountConsistency,
   type TrackedCluster,
@@ -114,6 +146,14 @@ describe("Cross-Cutting: Validator Count Invariant", () => {
       });
       await checkValidatorCountConsistency(views, clusters);
       expect(await views.getNetworkValidatorsCount()).to.equal(4);
+
+      // INV-034: After registering 3 clusters (owner1:1, owner2:2, owner3:1) on same 4 operators,
+      // each operator's ethValidatorCount == 4 (sum of all cluster validator counts)
+      for (const opId of operatorIds) {
+        const opData = await views.getOperatorById(BigInt(opId));
+        expect(BigInt(opData.validatorCount)).to.equal(4n, `INV-034: operator ${opId} ethValidatorCount == 4 after all registrations`);
+      }
+
       const cluster1ForLiq = await getCurrentClusterState(
         connection,
         network,
@@ -130,6 +170,13 @@ describe("Cross-Cutting: Validator Count Invariant", () => {
       clusters[0].active = false;
       await checkValidatorCountConsistency(views, clusters);
       expect(await views.getNetworkValidatorsCount()).to.equal(3);
+
+      // INV-035: After liquidating owner1 (1 validator), each operator's ethValidatorCount decremented
+      for (const opId of operatorIds) {
+        const opData = await views.getOperatorById(BigInt(opId));
+        expect(BigInt(opData.validatorCount)).to.equal(3n, `INV-035: operator ${opId} ethValidatorCount == 3 after liquidating 1-validator cluster`);
+      }
+
       const cluster2Current = await getCurrentClusterState(
         connection,
         network,
@@ -153,6 +200,13 @@ describe("Cross-Cutting: Validator Count Invariant", () => {
       clusters[1].active = false;
       await checkValidatorCountConsistency(views, clusters);
       expect(await views.getNetworkValidatorsCount()).to.equal(1);
+
+      // INV-035: After liquidating owner2 (2 validators), each operator's ethValidatorCount == 1
+      for (const opId of operatorIds) {
+        const opData = await views.getOperatorById(BigInt(opId));
+        expect(BigInt(opData.validatorCount)).to.equal(1n, `INV-035: operator ${opId} ethValidatorCount == 1 after liquidating 2-validator cluster`);
+      }
+
       const cluster1Liq = await getCurrentClusterState(
         connection,
         network,
@@ -171,6 +225,21 @@ describe("Cross-Cutting: Validator Count Invariant", () => {
       clusters[0].active = true;
       await checkValidatorCountConsistency(views, clusters);
       expect(await views.getNetworkValidatorsCount()).to.equal(2);
+
+      // INV-024: After reactivation, ethClusters[key] stores updated hash
+      const contractAddress = await network.getAddress();
+      const provider = connection.ethers.provider;
+      const clusterKey1 = computeClusterKey(owner1.address, operatorIds);
+      const hashAfterReactivation = await readETHClusterHash(provider, contractAddress, clusterKey1);
+      expect(hashAfterReactivation).to.not.equal(0n, "INV-024: ethClusters[key] != 0 after reactivation");
+
+      // INV-036: After reactivation, per-operator ethValidatorCount incremented back
+      for (const opId of operatorIds) {
+        const opData = await views.getOperatorById(BigInt(opId));
+        // owner1 reactivated with 1 validator + owner3 still active with 1 validator = 2 per operator
+        expect(BigInt(opData.validatorCount)).to.equal(2n, `INV-036: operator ${opId} ethValidatorCount == 2 after reactivation`);
+      }
+
       const cluster2Liq = await getCurrentClusterState(
         connection,
         network,
@@ -239,6 +308,12 @@ describe("Cross-Cutting: Validator Count Invariant", () => {
       }
       expect(totalFromOperators).to.equal(8n);
       expect(await views.getNetworkValidatorsCount()).to.equal(2n);
+
+      // INV-034: Per-operator ethValidatorCount — each operator has 2 validators (1 from each cluster)
+      for (const opId of operatorIds) {
+        const op = await views.getOperatorById(BigInt(opId));
+        expect(BigInt(op.validatorCount)).to.equal(2n, `INV-034: operator ${opId} ethValidatorCount == 2 (shared across 2 clusters)`);
+      }
     });
   });
 });

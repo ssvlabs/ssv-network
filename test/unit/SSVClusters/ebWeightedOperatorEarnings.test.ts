@@ -66,6 +66,19 @@ describe("EB-weighted operator earnings (Consolidated)", async () => {
       );
 
       expect(await clusters.getEffectiveOperatorVUnits(operatorIds[0])).to.equal(30000n);
+
+      // EB-097: Verify per-operator operatorEthVUnits (deviation) for all operators after both EB updates
+      // Cluster 1: EB=32 → deviation=0, Cluster 2: EB=64 → deviation=+10000, net=10000 per operator
+      const expectedDeviation = 10000n;
+      for (const operatorId of operatorIds) {
+        expect(await clusters.getOperatorEthVUnits(operatorId)).to.equal(expectedDeviation,
+          `Operator ${operatorId} should have operatorEthVUnits == ${expectedDeviation} (net deviation from two clusters)`);
+      }
+      // EB-097: Verify daoTotalEthVUnits equals sum of effective vUnits from both clusters
+      // Cluster 1: vUnits=10000, Cluster 2: vUnits=20000, total=30000
+      expect(await clusters.getDaoTotalEthVUnits()).to.equal(30000n,
+        "daoTotalEthVUnits should equal sum of all cluster vUnits (10000 + 20000)");
+
       const [, , balanceBefore] = await clusters.getOperatorEthSnapshot(operatorIds[0]);
 
       const blockBeforeMine = await connection.ethers.provider.getBlockNumber();
@@ -141,6 +154,16 @@ describe("EB-weighted operator earnings (Consolidated)", async () => {
       const phase2Blocks = BigInt(settledBlock3) - BigInt(snapshotBlock2);
       const expectedPhase2Delta = newPackedFee * phase2Blocks * 20000n / BPS_DENOMINATOR;
       expect(balancePhase2End - balancePhase1End).to.equal(expectedPhase2Delta);
+
+      // OE-023: Verify total earnings = sum of both segments (fee1 segment + fee2 segment)
+      const totalEarnings = balancePhase2End - balancePhase1Start;
+      const expectedTotal = expectedPhase1Delta + expectedPhase2Delta;
+      expect(totalEarnings).to.equal(expectedTotal);
+      // Ensure the two phases used different fee rates
+      expect(packedFee).to.not.equal(newPackedFee);
+      // Verify neither segment is zero (both contributed to earnings)
+      expect(expectedPhase1Delta).to.be.greaterThan(0n);
+      expect(expectedPhase2Delta).to.be.greaterThan(0n);
     });
 
     it("operator snapshot balance equals expected EB-weighted ETH after settlement", async function () {
@@ -417,6 +440,23 @@ describe("EB-weighted operator earnings (Consolidated)", async () => {
 
       expect(balanceAfter - balanceBefore).to.equal(expectedEarnings);
       expect(balanceAfter - balanceBefore).to.equal(packedFee * blocksDelta * 4n);
+
+      // OE-026: Verify weighted accumulation per cluster
+      // Cluster 1: implicit EB (32 ETH, 1 validator) => vUnits = 10_000
+      // Cluster 2: explicit EB = 64 ETH (1 validator) => vUnits = 20_000
+      // Cluster 3: explicit EB = 32 ETH (1 validator) => vUnits = 10_000
+      // Total effective vUnits for operator = 40_000
+      const cluster1VUnits = 10_000n; // implicit 32 ETH
+      const cluster2VUnits = 20_000n; // explicit 64 ETH
+      const cluster3VUnits = 10_000n; // explicit 32 ETH
+      const perClusterEarnings1 = packedFee * blocksDelta * cluster1VUnits / BPS_DENOMINATOR;
+      const perClusterEarnings2 = packedFee * blocksDelta * cluster2VUnits / BPS_DENOMINATOR;
+      const perClusterEarnings3 = packedFee * blocksDelta * cluster3VUnits / BPS_DENOMINATOR;
+      const sumOfPerCluster = perClusterEarnings1 + perClusterEarnings2 + perClusterEarnings3;
+      expect(balanceAfter - balanceBefore).to.equal(sumOfPerCluster);
+      // The 64 ETH cluster contributes exactly 2x what a 32 ETH cluster contributes
+      expect(perClusterEarnings2).to.equal(perClusterEarnings1 * 2n);
+      expect(perClusterEarnings2).to.equal(perClusterEarnings3 * 2n);
     });
   });
 });

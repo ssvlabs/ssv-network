@@ -5,11 +5,11 @@ import { getClustersHarnessFixture } from "../../setup/fixtures.ts";
 import { defaultClustersFixture } from "../../helpers/fixture-presets.ts";
 import type { NetworkHelpersType } from "../../common/types.ts";
 import { setupTestContext, computeClusterId, createCluster, makePublicKey } from "../../common/helpers.ts";
+import { parseClusterFromEvent } from "../../helpers/cluster.ts";
 import { DEFAULT_ETH_REGISTER_VALUE, DEFAULT_SHARES, EMPTY_CLUSTER, BPS_DENOMINATOR } from "../../common/constants.ts";
 import { Events } from "../../common/events.ts";
 import { Errors } from "../../common/errors.ts";
 import { trackGasFromReceipt, GasGroup } from "../../helpers/gas-usage.ts";
-import { ethers } from "ethers";
 
 type ClusterType = typeof EMPTY_CLUSTER;
 
@@ -97,11 +97,25 @@ describe("SSVClusters function `liquidateSSV()`", async () => {
     await clusters.mockCurrentNetworkFeeIndex(100n);
     await clusters.mockCurrentNetworkFeeIndexSSV(2000n);
 
+    // LQ-042: Read daoValidatorCount before liquidation
+    const daoValidatorCountBefore = await clusters.getDaoValidatorCount();
+
     const liquidateTx = await clusters.liquidateSSV(clusterOwner.address, operatorIds, cluster);
     const receipt = await liquidateTx.wait();
     await trackGasFromReceipt(receipt, [GasGroup.LIQUIDATE_CLUSTER_SSV_4]);
 
     await expect(liquidateTx).to.emit(clusters, Events.CLUSTER_LIQUIDATED);
+
+    // LQ-041: Assert full SSV cluster state reset after liquidation
+    const clusterAfterLiquidation = parseClusterFromEvent(clusters, receipt, Events.CLUSTER_LIQUIDATED);
+    expect(clusterAfterLiquidation.active).to.equal(false);
+    expect(clusterAfterLiquidation.balance).to.equal(0n);
+    expect(clusterAfterLiquidation.index).to.equal(0n);
+    expect(clusterAfterLiquidation.networkFeeIndex).to.equal(0n);
+
+    // LQ-042: Assert daoValidatorCount decremented by validatorCount
+    const daoValidatorCountAfter = await clusters.getDaoValidatorCount();
+    expect(daoValidatorCountAfter).to.equal(daoValidatorCountBefore - cluster.validatorCount);
   });
 
   it("Transfers remaining SSV token balance in the cluster to the liquidator", async function () {

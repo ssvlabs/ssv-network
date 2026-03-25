@@ -10,7 +10,6 @@ import { Events } from "../../common/events.ts";
 import { Errors } from "../../common/errors.ts";
 import { trackGasFromReceipt, GasGroup } from "../../helpers/gas-usage.ts";
 import { expectETHDelta, expectETHDeltas, expectContractETHDelta } from "../../helpers/balance.ts";
-import { ethers } from "ethers";
 
 describe("SSVClusters function `liquidate()`", async () => {
   let connection: NetworkConnection<"generic">;
@@ -53,6 +52,9 @@ describe("SSVClusters function `liquidate()`", async () => {
     await expect(liquidateTx).to.emit(clusters, Events.CLUSTER_LIQUIDATED);
     expect(clusterAfterLiquidation.active).to.equal(false);
     expect(clusterAfterLiquidation.balance).to.equal(0n);
+    // LQ-014: Assert index and networkFeeIndex are reset to 0
+    expect(clusterAfterLiquidation.index).to.equal(0n);
+    expect(clusterAfterLiquidation.networkFeeIndex).to.equal(0n);
   });
 
   it("Transfers remaining cluster ETH balance to the liquidator", async function () {
@@ -87,6 +89,22 @@ describe("SSVClusters function `liquidate()`", async () => {
     await expectContractETHDelta(connection.ethers.provider, await clusters.getAddress(),
       () => clusters.liquidate(clusterOwner.address, operatorIds, clusterAfterRegister),
       0n);
+  });
+
+  it("Self-liquidation with zero remaining balance transfers no ETH bounty", async function () {
+    const { clusters, operatorIds } =
+      await networkHelpers.loadFixture(deploySSVClustersAndPrepareOperatorsFixture);
+
+    const clusterAfterRegister = await registerAndParseCluster(clusters, operatorIds);
+
+    // Drain balance to exactly zero via fee accrual
+    const drainFeeIndex = DEFAULT_ETH_REGISTER_VALUE / ETH_DEDUCTED_DIGITS;
+    await clusters.mockCurrentNetworkFeeIndex(drainFeeIndex);
+
+    // LQ-006: Self-liquidation when balance = 0 should transfer 0 bounty
+    await expectETHDelta(connection.ethers.provider, clusterOwner.address,
+      () => clusters.liquidate(clusterOwner.address, operatorIds, clusterAfterRegister),
+      0n, { accountForGas: true });
   });
 
   it("Self-liquidation returns remaining ETH balance to the cluster owner", async function () {

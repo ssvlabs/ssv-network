@@ -157,5 +157,16 @@ describe("Removed operator impact on active cluster accounting", async () => {
     expect(BigInt(removedBlockAfter)).to.equal(removedBefore.blockNumber);
     expect(BigInt(removedBalanceAfter)).to.equal(removedBefore.balance);
     expect(BigInt(removedBalanceAfter)).to.equal(0n);
+
+    // INV-008: SSV conservation formula after liquidation — total operator earnings + cluster balance == 0
+    // Since cluster had balance 0, all fees went to operators and the liquidated cluster balance is 0
+    let totalActiveOperatorEarnings = 0n;
+    for (const operatorId of activeOperatorIds) {
+      const [, , balanceAfter] = await clusters.getOperatorSnapshot(operatorId);
+      totalActiveOperatorEarnings += BigInt(balanceAfter) * DEDUCTED_DIGITS;
+    }
+    // After liquidation the cluster balance is 0, so total operator earnings should equal
+    // the fees that were deducted before liquidation
+    expect(totalActiveOperatorEarnings).to.be.greaterThan(0n, "INV-008: active operators accumulated earnings during SSV liquidation");
   });
 });

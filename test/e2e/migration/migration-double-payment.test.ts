@@ -137,6 +137,14 @@ describe("Migration Regression: removed operator SSV settlement", () => {
     const ownerAfter = await mockToken.balanceOf(clusterOwner.address);
     expect(eventArgs.ssvRefunded).to.equal(expectedRefund);
     expect(ownerAfter - ownerBefore).to.equal(expectedRefund);
+
+    // INV-010: SSV conservation formula — harness SSV balance decreased by exactly the refund amount
+    const harnessAddress = await clusters.getAddress();
+    const harnessSSVAfter = await mockToken.balanceOf(harnessAddress);
+    const harnessSSVBefore = connection.ethers.parseEther("2000");
+    expect(harnessSSVBefore - harnessSSVAfter).to.equal(expectedRefund, "INV-010: SSV conservation — contract SSV decreased by refund");
+    // The total usage + refund must equal original deposit
+    expect(totalUsageWei + expectedRefund).to.equal(ssvBalance, "INV-010: SSV conservation — usage + refund == original deposit");
   });
 
   it("Includes removed operator frozen snapshot.index in migration SSV settlement", async function () {

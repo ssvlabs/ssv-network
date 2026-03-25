@@ -6,9 +6,11 @@ import type { NetworkHelpersType } from "../../common/types.ts";
 import { makeOperatorKey, setupTestContext } from "../../common/helpers.ts";
 import { defaultOperatorsFixture } from "../../helpers/fixture-presets.ts";
 import {
+  BPS_DENOMINATOR,
   DEFAULT_OPERATOR_ETH_FEE,
   ETH_DEDUCTED_DIGITS,
   MINIMAL_OPERATOR_ETH_FEE,
+  OPERATOR_MAX_FEE_INCREASE,
 } from '../../common/constants.ts';
 import { Events } from "../../common/events.ts";
 import { Errors } from "../../common/errors.ts";
@@ -114,6 +116,44 @@ describe("SSVOperators function `declareOperatorFee()`", async () => {
     const newFee = initialFee * 3;
     
     await expect(operators.declareOperatorFee(1, newFee)).to.be.revertedWithCustomError(
+      operators,
+      Errors.FEE_EXCEEDS_INCREASE_LIMIT
+    );
+  });
+
+  it("Declares fee at exact operatorMaxFeeIncrease boundary and succeeds", async function () {
+    const { operators } = await networkHelpers.loadFixture(deployOperatorsFixture);
+
+    const initialFee = MINIMAL_OPERATOR_ETH_FEE;
+    await operators.registerOperator(makeOperatorKey(1), Number(initialFee), false);
+
+    // Calculate exact max allowed fee: currentFee * (BPS_DENOMINATOR + operatorMaxFeeIncrease) / BPS_DENOMINATOR
+    // The contract works in packed values (divided by ETH_DEDUCTED_DIGITS), so mirror that math
+    const currentPacked = initialFee / ETH_DEDUCTED_DIGITS;
+    const maxAllowedPacked = currentPacked * (BPS_DENOMINATOR + OPERATOR_MAX_FEE_INCREASE) / BPS_DENOMINATOR;
+    const exactMaxFee = maxAllowedPacked * ETH_DEDUCTED_DIGITS;
+
+    // Declaring at the exact boundary should succeed
+    await expect(
+      operators.declareOperatorFee(1, exactMaxFee)
+    ).to.emit(operators, Events.OPERATOR_FEE_DECLARED);
+
+    const request = await operators.getOperatorFeeChangeRequest(1);
+    expect(request.fee).to.equal(exactMaxFee / ETH_DEDUCTED_DIGITS);
+  });
+
+  it("Is reverted with 'FeeExceedsIncreaseLimit' when declaring exactly 1 packed unit above max limit", async function () {
+    const { operators } = await networkHelpers.loadFixture(deployOperatorsFixture);
+
+    const initialFee = MINIMAL_OPERATOR_ETH_FEE;
+    await operators.registerOperator(makeOperatorKey(1), Number(initialFee), false);
+
+    // Calculate exact max allowed fee in packed form, then add 1 packed unit
+    const currentPacked = initialFee / ETH_DEDUCTED_DIGITS;
+    const maxAllowedPacked = currentPacked * (BPS_DENOMINATOR + OPERATOR_MAX_FEE_INCREASE) / BPS_DENOMINATOR;
+    const oneAboveMaxFee = (maxAllowedPacked + 1n) * ETH_DEDUCTED_DIGITS;
+
+    await expect(operators.declareOperatorFee(1, oneAboveMaxFee)).to.be.revertedWithCustomError(
       operators,
       Errors.FEE_EXCEEDS_INCREASE_LIMIT
     );

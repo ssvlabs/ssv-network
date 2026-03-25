@@ -52,6 +52,13 @@ describe("SSVClusters function `reactivate()`", async () => {
     await expect(reactivateTx).to.emit(clusters, Events.CLUSTER_REACTIVATED);
     expect(clusterAfterReactivate.active).to.equal(true);
     expect(clusterAfterReactivate.validatorCount).to.equal(clusterAfterLiquidation.validatorCount);
+
+    // LQ-057: Assert per-operator ethValidatorCount is incremented on reactivation
+    for (const opId of operatorIds) {
+      const ethValCount = await clusters.getOperatorEthValidatorCount(opId);
+      expect(ethValCount).to.equal(clusterAfterReactivate.validatorCount,
+        `operator ${opId} ethValidatorCount should match cluster validatorCount after reactivation`);
+    }
   });
 
   it("Keeps operator deviation at zero when reactivating without EB snapshot", async function () {

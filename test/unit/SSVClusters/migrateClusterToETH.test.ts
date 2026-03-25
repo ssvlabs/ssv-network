@@ -63,6 +63,9 @@ describe("SSVClusters function `migrateClusterToETH()`", async () => {
     const clusterId = computeClusterId(clusterOwner.address, operatorIds);
     expect(await clusters.getClusterHash(clusterId)).to.not.equal(ethers.ZeroHash);
 
+    // INV-032: After migration, s.ethClusters[key] != 0 and s.clusters[key] == 0
+    expect(await clusters.getSSVClusterHash(clusterId)).to.equal(ethers.ZeroHash, "INV-032: SSV cluster hash cleared after migration");
+
     for (const operatorId of operatorIds) {
       expect(await clusters.getOperatorEthValidatorCount(operatorId)).to.equal(1n);
       expect(await clusters.getOperatorEthVUnits(operatorId)).to.equal(0n);
@@ -387,6 +390,8 @@ describe("SSVClusters function `migrateClusterToETH()`", async () => {
     expect(ethCluster.validatorCount).to.equal(validatorCount);
     const clusterId = computeClusterId(clusterOwner.address, operatorIds);
     expect(await clusters.getClusterHash(clusterId)).to.not.equal(ethers.ZeroHash);
+    // INV-032: SSV cluster hash cleared after migration
+    expect(await clusters.getSSVClusterHash(clusterId)).to.equal(ethers.ZeroHash, "INV-032: SSV cluster hash == 0 after full migration");
     for (const operatorId of operatorIds) {
       expect(await clusters.getOperatorEthValidatorCount(operatorId)).to.equal(validatorCount);
     }
@@ -555,7 +560,7 @@ describe("SSVClusters function `migrateClusterToETH()`", async () => {
         
         mixedStatesBefore.push({
           operatorId,
-          wasEthOperator: ethSnapshot.block > 0,
+          wasEthOperator: ethSnapshot.blockNumber > 0,
           ethValidatorCount: ethValidatorCount || 0n,
           ssvValidatorCount: ssvValidatorCount || 0n,
           ssvIndex: ssvSnapshot.index,
@@ -580,7 +585,7 @@ describe("SSVClusters function `migrateClusterToETH()`", async () => {
           const ethValidatorCountAfter = await clusters.getOperatorEthValidatorCount(stateBefore.operatorId);
           expect(ethValidatorCountAfter).to.equal(stateBefore.ethValidatorCount + validatorCount);
         } else {
-          const ethSnapshotAfterBlock = ethSnapshotAfter.block || 0;
+          const ethSnapshotAfterBlock = ethSnapshotAfter.blockNumber || 0;
           expect(ethSnapshotAfterBlock).to.be.greaterThanOrEqual(0);
           const ethValidatorCountAfter = await clusters.getOperatorEthValidatorCount(stateBefore.operatorId);
           if (stateBefore.ethValidatorCount === 0n) {
@@ -1308,7 +1313,7 @@ describe("SSVClusters function `migrateClusterToETH()`", async () => {
           expect(ethValidatorCount).to.equal(0n);
         }
       } catch (error) {
-        expect(error.message).to.include("revert");
+        expect((error as Error).message).to.include("revert");
       }
     });
 

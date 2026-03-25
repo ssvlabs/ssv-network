@@ -156,10 +156,22 @@ describe("SSVClusters function `updateClusterBalance()`", async () => {
     expect(eventArgs.effectiveBalance).to.equal(effectiveBalance);
 
     expect(await clusters.getClusterVUnits(clusterId)).to.equal(newVUnits);
+    const deviation = newVUnits - BPS_DENOMINATOR;
     for (const operatorId of operatorIds) {
-      const deviation = newVUnits - BPS_DENOMINATOR;
       expect(await clusters.getOperatorEthVUnits(operatorId)).to.equal(deviation);
       expect(await clusters.getEffectiveOperatorVUnits(operatorId)).to.equal(newVUnits);
+    }
+
+    // EB-098: DAO invariant: daoTotalEthVUnits == ethDaoValidatorCount * BPS_DENOMINATOR + sum(cluster deviations)
+    const ethDaoVC = await clusters.getDaoEthValidatorCount();
+    const daoBaseline = BigInt(ethDaoVC) * BPS_DENOMINATOR;
+    expect(await clusters.getDaoTotalEthVUnits()).to.equal(daoBaseline + deviation,
+      "DAO invariant: daoTotalEthVUnits == ethDaoValidatorCount * BPS + cluster deviation (EB=33)");
+
+    // EB-099: Operator vUnits invariant: each operator's deviation sums correctly
+    for (const operatorId of operatorIds) {
+      expect(await clusters.getOperatorEthVUnits(operatorId)).to.equal(deviation,
+        `Operator ${operatorId} vUnits invariant: deviation should match cluster EB=33 deviation`);
     }
   });
 
@@ -243,6 +255,22 @@ describe("SSVClusters function `updateClusterBalance()`", async () => {
       expect(await clusters.getEffectiveOperatorVUnits(operatorId)).to.equal(expectedVUnits);
     }
     expect(await clusters.getDaoTotalEthVUnits()).to.equal(expectedVUnits);
+
+    // EB-098: DAO invariant: daoTotalEthVUnits == ethDaoValidatorCount * BPS_DENOMINATOR + sum(deviations)
+    const ethDaoValidatorCount = await clusters.getDaoEthValidatorCount();
+    const baseline = BigInt(ethDaoValidatorCount) * BPS_DENOMINATOR;
+    const totalDeviation = expectedDeviation * BigInt(operatorIds.length); // same deviation per operator, but it's per-cluster
+    // For a single cluster: deviation per operator = clusterVUnits - validatorCount*BPS
+    // DAO invariant: daoTotalEthVUnits == baseline + (clusterVUnits - validatorCount*BPS)
+    expect(await clusters.getDaoTotalEthVUnits()).to.equal(baseline + expectedDeviation,
+      "DAO invariant: daoTotalEthVUnits == ethDaoValidatorCount * BPS + sum(cluster deviations)");
+
+    // EB-099: Operator vUnits invariant: per-operator deviation matches expected from single cluster
+    for (const operatorId of operatorIds) {
+      const opDeviation = await clusters.getOperatorEthVUnits(operatorId);
+      expect(opDeviation).to.equal(expectedDeviation,
+        `Operator ${operatorId} vUnits invariant: deviation should match cluster EB deviation`);
+    }
   });
 
   it("Accepts EB at exactly maximum for 2-validator cluster (4096 ETH) and produces 1,280,000 vUnits", async function () {
@@ -289,6 +317,21 @@ describe("SSVClusters function `updateClusterBalance()`", async () => {
       expect(await clusters.getEffectiveOperatorVUnits(operatorId)).to.equal(expectedVUnits);
     }
     expect(await clusters.getDaoTotalEthVUnits()).to.equal(expectedVUnits);
+
+    // EB-098: DAO invariant: daoTotalEthVUnits == ethDaoValidatorCount * BPS_DENOMINATOR + sum(cluster deviations)
+    const ethDaoValidatorCount2 = await clusters.getDaoEthValidatorCount();
+    expect(BigInt(ethDaoValidatorCount2)).to.equal(2n, "2 validators registered");
+    const baseline2 = BigInt(ethDaoValidatorCount2) * BPS_DENOMINATOR;
+    // Single cluster deviation = clusterVUnits - validatorCount * BPS = 1280000 - 20000 = 1260000
+    expect(await clusters.getDaoTotalEthVUnits()).to.equal(baseline2 + expectedDeviation,
+      "DAO invariant: daoTotalEthVUnits == ethDaoValidatorCount * BPS + sum(cluster deviations)");
+
+    // EB-099: Operator vUnits invariant: each operator's deviation equals the single cluster's deviation
+    for (const operatorId of operatorIds) {
+      const opDeviation = await clusters.getOperatorEthVUnits(operatorId);
+      expect(opDeviation).to.equal(expectedDeviation,
+        `Operator ${operatorId} vUnits invariant: deviation should match 2-validator cluster EB deviation`);
+    }
   });
 
   it("Is reverted with 'EBExceedsMaximum' when EB exceeds 2048 ETH per validator for a 2-validator cluster", async function () {
@@ -881,6 +924,22 @@ describe("SSVClusters function `updateClusterBalance()`", async () => {
       expect(await clusters.getOperatorEthVUnits(operatorId)).to.equal(expectedDeviation);
       expect(await clusters.getEffectiveOperatorVUnits(operatorId)).to.equal(expectedVUnits);
     }
+
+    // EB-098: DAO invariant with 13 operators: daoTotalEthVUnits == ethDaoValidatorCount * BPS + sum(cluster deviations)
+    const ethDaoValidatorCount13 = await clusters.getDaoEthValidatorCount();
+    expect(BigInt(ethDaoValidatorCount13)).to.equal(1n, "1 validator registered");
+    const baseline13 = BigInt(ethDaoValidatorCount13) * BPS_DENOMINATOR;
+    expect(await clusters.getDaoTotalEthVUnits()).to.equal(baseline13 + expectedDeviation,
+      "DAO invariant (13 ops): daoTotalEthVUnits == ethDaoValidatorCount * BPS + cluster deviation");
+
+    // EB-099: Operator vUnits invariant: sum of operatorEthVUnits across all 13 operators
+    let totalOperatorDeviation = 0n;
+    for (const operatorId of operatorIds) {
+      totalOperatorDeviation += await clusters.getOperatorEthVUnits(operatorId);
+    }
+    // Each of the 13 operators has the same deviation from this single cluster
+    expect(totalOperatorDeviation).to.equal(expectedDeviation * BigInt(operatorIds.length),
+      "Sum of operatorEthVUnits across all 13 operators should equal deviation * numOperators");
   });
   it("Auto-liquidates cluster with 13 operators when EB increase to maximum makes it insolvent", async function () {
     const { clusters, operatorIds } =
@@ -925,6 +984,9 @@ describe("SSVClusters function `updateClusterBalance()`", async () => {
 
     for (const operatorId of operatorIds) {
       expect(await clusters.getOperatorEthVUnits(operatorId)).to.equal(0n);
+      // EB-067: Verify effective vUnits also zeroed for all 13 operators after auto-liquidation
+      expect(await clusters.getEffectiveOperatorVUnits(operatorId)).to.equal(0n,
+        `Operator ${operatorId} should have effectiveVUnits == 0 after auto-liquidation cleanup`);
     }
     expect(await clusters.getDaoTotalEthVUnits()).to.equal(0n);
   });

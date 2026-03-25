@@ -36,6 +36,37 @@ import {
   computeClusterId,
   computeEBRoot,
 } from "../../helpers/index.ts";
+import { ethers } from "ethers";
+
+// ---------------------------------------------------------------------------
+//  Diamond storage reader for cluster hash verification
+// ---------------------------------------------------------------------------
+function mainStorageBaseSlot(): bigint {
+  return BigInt(ethers.keccak256(ethers.toUtf8Bytes("ssv.network.storage.main"))) - 1n;
+}
+
+async function readETHClusterHash(
+  provider: any,
+  contractAddress: string,
+  clusterKey: string,
+): Promise<bigint> {
+  const baseSlot = mainStorageBaseSlot() + 10n;
+  const coder = ethers.AbiCoder.defaultAbiCoder();
+  const storageSlot = ethers.keccak256(
+    coder.encode(["bytes32", "uint256"], [clusterKey, baseSlot]),
+  );
+  const raw = await provider.getStorage(contractAddress, storageSlot);
+  return BigInt(raw);
+}
+
+function computeClusterKey(ownerAddress: string, operatorIds: number[]): string {
+  return ethers.keccak256(
+    ethers.solidityPacked(
+      ["address", "uint64[]"],
+      [ownerAddress, operatorIds.map(BigInt)],
+    ),
+  );
+}
 
 const MIN_BLOCKS_LIQ = MINIMAL_LIQUIDATION_THRESHOLD;
 const NUM_OPERATORS = 4n;
@@ -201,6 +232,21 @@ describe("ETH Cluster Liquidation", () => {
         const opData = await views.getOperatorById(opId);
         expect(opData.validatorCount).to.equal(0);
       }
+
+      // INV-023: After liquidation, ethClusters[key] still stores the hash of the zeroed cluster state
+      const contractAddress = await network.getAddress();
+      const clusterKey = computeClusterKey(clusterOwner.address, operatorIds);
+      const hashAfterLiq = await readETHClusterHash(provider, contractAddress, clusterKey);
+      expect(hashAfterLiq).to.not.equal(0n, "INV-023: ethClusters[key] != 0 after liquidation (stores hash of zeroed state)");
+      // Verify the stored hash matches keccak256(abi.encodePacked(validatorCount, networkFeeIndex, index, balance, active))
+      // Note: ClusterLib.hashClusterData uses encodePacked with balance before active
+      const expectedHash = BigInt(ethers.keccak256(
+        ethers.solidityPacked(
+          ["uint32", "uint64", "uint64", "uint256", "bool"],
+          [liqCluster.validatorCount, liqCluster.networkFeeIndex, liqCluster.index, liqCluster.balance, liqCluster.active],
+        ),
+      ));
+      expect(hashAfterLiq).to.equal(expectedHash, "INV-023: stored hash == keccak256 of liquidated cluster struct");
     });
   });
 

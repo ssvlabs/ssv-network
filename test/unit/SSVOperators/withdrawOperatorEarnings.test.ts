@@ -97,6 +97,21 @@ describe("SSVOperators ETH earnings withdrawals", async () => {
     );
   });
 
+  it("Is reverted with 'InsufficientBalance' when withdrawAllOperatorEarnings is called with zero ETH balance", async function () {
+    const { operators } = await networkHelpers.loadFixture(deployOperatorsFixture);
+
+    await trackGas(
+      operators.registerOperator(makeOperatorKey(1), Number(MINIMAL_OPERATOR_ETH_FEE), false),
+      [GasGroup.REGISTER_OPERATOR]
+    );
+
+    // Operator has no ETH earnings (ethSnapshot.balance == 0), withdrawAll should revert
+    await expect(operators.withdrawAllOperatorEarnings(1)).to.be.revertedWithCustomError(
+      operators,
+      Errors.INSUFFICIENT_BALANCE
+    );
+  });
+
   it("Is reverted with 'CallerNotOwnerWithData' when non-owner tries to withdraw ETH earnings", async function () {
     const { operators } = await networkHelpers.loadFixture(deployOperatorsFixture);
     const [, other] = await connection.ethers.getSigners();

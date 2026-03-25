@@ -24,6 +24,36 @@ import type { HardhatEthersSigner } from '@nomicfoundation/hardhat-ethers/types'
 import { Errors } from '../../common/errors.js';
 import { ethers } from 'ethers';
 
+// ---------------------------------------------------------------------------
+//  Diamond storage readers for cluster hash verification
+// ---------------------------------------------------------------------------
+function mainStorageBaseSlot(): bigint {
+  return BigInt(ethers.keccak256(ethers.toUtf8Bytes("ssv.network.storage.main"))) - 1n;
+}
+
+async function readETHClusterHash(
+  provider: any,
+  contractAddress: string,
+  clusterKey: string,
+): Promise<bigint> {
+  const baseSlot = mainStorageBaseSlot() + 10n; // ethClusters mapping slot
+  const coder = ethers.AbiCoder.defaultAbiCoder();
+  const storageSlot = ethers.keccak256(
+    coder.encode(["bytes32", "uint256"], [clusterKey, baseSlot]),
+  );
+  const raw = await provider.getStorage(contractAddress, storageSlot);
+  return BigInt(raw);
+}
+
+function computeClusterKey(ownerAddress: string, operatorIds: number[]): string {
+  return ethers.keccak256(
+    ethers.solidityPacked(
+      ["address", "uint64[]"],
+      [ownerAddress, operatorIds.map(BigInt)],
+    ),
+  );
+}
+
 /**
  * Enhanced Integration Tests for SSVNetwork Clusters
  * 
@@ -93,6 +123,12 @@ describe("SSVNetwork Integration - Clusters (Enhanced)", () => {
       expect(balanceAfter).to.equal(expectedBalance);
       expect(contractBalanceAfter - contractBalanceBefore).to.equal(depositAmount);
       expect(depositorBalanceBefore - depositorBalanceAfter).to.equal(depositAmount + gasUsed);
+
+      // INV-021 / INV-022: Direct storage read — s.ethClusters[key] != 0 after registration + deposit
+      const contractAddress = await network.getAddress();
+      const clusterKey = computeClusterKey(clusterOwner.address, operatorIds);
+      const ethClusterHash = await readETHClusterHash(connection.ethers.provider, contractAddress, clusterKey);
+      expect(ethClusterHash).to.not.equal(0n, "INV-021/022: ethClusters[key] != 0 after registration and deposit");
     });
 
     it("withdraw: verifies exact ETH transfer from contract to owner", async function() {
@@ -327,6 +363,12 @@ describe("SSVNetwork Integration - Clusters (Enhanced)", () => {
       const networkEarningsDelta = networkEarningsAfter - networkEarningsBefore;
       const totalAccounted = clusterBalance + totalOperatorEarnings + networkEarningsDelta;
       expect(totalAccounted).to.equal(depositAmount, "Balance invariant violated: total accounted must equal deposited");
+
+      // INV-007: Full G2 conservation — SSV token balance of contract equals sum of all components
+      const contractAddress = await network.getAddress();
+      const contractETHBalance = await connection.ethers.provider.getBalance(contractAddress);
+      expect(contractETHBalance).to.equal(depositAmount, "INV-007: contract ETH balance == deposited amount (single cluster)");
+      expect(contractETHBalance).to.equal(totalAccounted, "INV-007: contract ETH balance == cluster + operators + DAO");
     });
 
     it("Invariant: Withdrawal reduces cluster balance exactly", async function() {
@@ -441,7 +483,7 @@ describe("SSVNetwork Integration - Clusters (Enhanced)", () => {
       );
       await expect(tx).to.emit(network, Events.CLUSTER_LIQUIDATED);
       const receipt = await tx.wait();
-      const gasCost = receipt!.gasUsed * (receipt!.effectiveGasPrice ?? receipt!.gasPrice);
+      const gasCost = receipt!.gasUsed * receipt!.gasPrice;
 
       const ownerBalanceAfter = await connection.ethers.provider.getBalance(clusterOwner.address);
       const contractBalanceAfter = await connection.ethers.provider.getBalance(networkAddress);

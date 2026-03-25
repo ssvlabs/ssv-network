@@ -124,6 +124,16 @@ describe("Migration Edge Cases", () => {
 
       const totalFees = ssvDeposit - actualRefund;
       expect(totalFees % DEDUCTED_DIGITS).to.equal(0n);
+
+      // INV-006: ETH conservation — contract ETH balance increased by exactly msg.value
+      const contractAddr = await network.getAddress();
+      const contractETHAfter = await provider.getBalance(contractAddr);
+      expect(contractETHAfter).to.equal(ethDeposit, "INV-006: contract ETH balance == msg.value sent during migration");
+
+      // INV-006: SSV token balance decreased by the SSV cluster balance returned to owner
+      const contractSSVAfter = await ssvToken.balanceOf(contractAddr);
+      const contractSSVBefore = ssvDeposit; // all SSV was in the contract before migration
+      expect(contractSSVBefore - contractSSVAfter).to.equal(actualRefund, "INV-006: SSV token balance decreased by refund amount");
     });
   });
 
