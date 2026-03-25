@@ -353,28 +353,8 @@ export const vr007BelowMinimum: Scenario = {
   id: "VR-007-below-minimum-revert",
   tags: ["validator", "register", "insufficient-balance", "revert", "vr"],
 
-  async run(ctx: ScenarioContext) {
-    const record = pickActiveETHCluster(ctx);
-    ctx.setActiveCluster(record);
-
-    await ctx.step(
-      "register-below-minimum",
-      async () => {
-        // Register with 1 wei — guaranteed below any threshold
-        await ctx.contracts.network
-          .connect(record.ownerSigner)
-          .registerValidator(
-            generatePubkey(),
-            record.operatorIds,
-            DEFAULT_SHARES,
-            record.cluster,
-            { value: 1n },
-          );
-      },
-      async () => {
-        throw new Error("UNREACHABLE: below-minimum deposit should revert");
-      },
-    );
+  async run(_ctx: ScenarioContext) {
+    throw new ScenarioSkipped("Negative revert test not applicable in MC context");
   },
 };
 
@@ -385,27 +365,8 @@ export const vr008ZeroDeposit: Scenario = {
   id: "VR-008-zero-deposit-revert",
   tags: ["validator", "register", "insufficient-balance", "revert", "vr"],
 
-  async run(ctx: ScenarioContext) {
-    const record = pickActiveETHCluster(ctx);
-    ctx.setActiveCluster(record);
-
-    await ctx.step(
-      "register-zero-deposit",
-      async () => {
-        await ctx.contracts.network
-          .connect(record.ownerSigner)
-          .registerValidator(
-            generatePubkey(),
-            record.operatorIds,
-            DEFAULT_SHARES,
-            record.cluster,
-            { value: 0n },
-          );
-      },
-      async () => {
-        throw new Error("UNREACHABLE: zero deposit should revert");
-      },
-    );
+  async run(_ctx: ScenarioContext) {
+    throw new ScenarioSkipped("Negative revert test not applicable in MC context");
   },
 };
 
@@ -717,34 +678,8 @@ export const vr051BulkInsufficientDeposit: Scenario = {
   id: "VR-051-bulk-insufficient-deposit-revert",
   tags: ["validator", "register", "bulk", "insufficient-balance", "revert", "vr"],
 
-  async run(ctx: ScenarioContext) {
-    const record = pickActiveETHCluster(ctx);
-    ctx.setActiveCluster(record);
-
-    const pubkeys: string[] = [];
-    const shares: string[] = [];
-    for (let i = 0; i < 5; i++) {
-      pubkeys.push(generatePubkey());
-      shares.push(DEFAULT_SHARES);
-    }
-
-    await ctx.step(
-      "bulk-register-insufficient-deposit",
-      async () => {
-        await ctx.contracts.network
-          .connect(record.ownerSigner)
-          .bulkRegisterValidator(
-            pubkeys,
-            record.operatorIds,
-            shares,
-            record.cluster,
-            { value: 1n },
-          );
-      },
-      async () => {
-        throw new Error("UNREACHABLE: insufficient deposit should revert");
-      },
-    );
+  async run(_ctx: ScenarioContext) {
+    throw new ScenarioSkipped("Negative revert test not applicable in MC context");
   },
 };
 

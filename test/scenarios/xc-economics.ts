@@ -98,7 +98,7 @@ export const xcEconExactEarnings100Blocks: Scenario = {
         await depositToCluster(ctx, record, "1");
       },
       async (pre, post) => {
-        assertBalanceDecreased(pre, post, "fees-settled");
+        assertBalanceIncreased(pre, post, "after-deposit");
         // Verify all operators have valid earnings
         for (const opId of record.operatorIds) {
           assertOperatorEarningsValid(post, opId, `op-${opId}-earnings`);

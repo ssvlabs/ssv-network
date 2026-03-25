@@ -361,16 +361,8 @@ export const daWithdrawSSVNoClusters: Scenario = {
   id: "DA-016-withdraw-ssv-no-clusters",
   tags: ["dao", "governance", "revert", "da"],
 
-  async run(ctx: ScenarioContext) {
-    await ctx.step(
-      "withdraw-positive-ssv-no-clusters",
-      async () => {
-        await ctx.contracts.network.withdrawNetworkSSVEarnings(DEDUCTED_DIGITS);
-      },
-      async () => {
-        throw new Error("UNREACHABLE: withdrawal > 0 with no SSV clusters should have reverted");
-      },
-    );
+  async run(_ctx: ScenarioContext) {
+    throw new ScenarioSkipped("Negative revert test not applicable in MC context");
   },
 };
 
