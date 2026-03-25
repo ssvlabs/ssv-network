@@ -701,25 +701,47 @@ contract SSVDAOEchidna is SSVDAO {
         return sp.ethDaoIndexBlockNumber <= block.number && sp.daoIndexBlockNumber <= block.number;
     }
     
+    function echidna_dao_earnings_formula_exact_in_range() external view returns (bool) {
+        (, bool expectRevert, uint64 expectedRaw) = _daoEarningsFormulaExpectation();
+        if (expectRevert) return true;
+
+        try this.exposedNetworkTotalEarningsRaw() returns (uint64 libRaw) {
+            return libRaw == expectedRaw;
+        } catch {
+            return false;
+        }
+    }
+
+    function echidna_dao_earnings_formula_overflow_path_safe() external view returns (bool) {
+        (, bool expectRevert, ) = _daoEarningsFormulaExpectation();
+        if (!expectRevert) return true;
+
+        try this.exposedNetworkTotalEarningsRaw() returns (uint64) {
+            return false;
+        } catch {
+            return true;
+        }
+    }
+
     function echidna_dao_earnings_matches_formula() external view returns (bool) {
-        StorageProtocol storage sp = SSVStorageProtocol.load();
+        (, bool expectRevert, uint64 expectedRaw) = _daoEarningsFormulaExpectation();
+        if (expectRevert) {
+            try this.exposedNetworkTotalEarningsRaw() returns (uint64) {
+                return false;
+            } catch {
+                return true;
+            }
+        }
 
-        if (sp.ethDaoIndexBlockNumber > block.number) return false;
+        try this.exposedNetworkTotalEarningsRaw() returns (uint64 libRaw) {
+            return libRaw == expectedRaw;
+        } catch {
+            return false;
+        }
+    }
 
-        uint128 blockDelta = uint64(block.number) - sp.ethDaoIndexBlockNumber;
-        uint128 rawFee = PackedETH.unwrap(sp.ethNetworkFee);
-        uint128 vUnits = sp.daoTotalEthVUnits;
-        uint128 rawBalance = PackedETH.unwrap(sp.ethDaoBalance);
-
-        uint128 earningsUnits = (blockDelta * rawFee * vUnits) / BPS_DENOMINATOR;
-
-        if (earningsUnits > type(uint64).max) return false;
-        if (rawBalance + earningsUnits > type(uint64).max) return false;
-
-        uint64 expectedRaw = uint64(rawBalance + earningsUnits);
-        PackedETH libResult = ProtocolLib.networkTotalEarnings(sp);
-
-        return PackedETH.unwrap(libResult) == expectedRaw;
+    function exposedNetworkTotalEarningsRaw() external view returns (uint64) {
+        return PackedETH.unwrap(ProtocolLib.networkTotalEarnings(SSVStorageProtocol.load()));
     }
 
     function _attemptCommit(OracleUser oracle, bytes32 root, uint64 blockNum) internal {
@@ -924,6 +946,32 @@ contract SSVDAOEchidna is SSVDAO {
 
         prevEthDaoEarningsUnits = ethEarningsUnits;
         prevSsvDaoEarningsUnits = ssvEarningsUnits;
+    }
+
+    function _daoEarningsFormulaExpectation() internal view returns (bool valid, bool expectRevert, uint64 expectedRaw) {
+        StorageProtocol storage sp = SSVStorageProtocol.load();
+        uint64 truncatedBlock = uint64(block.number);
+
+        // ProtocolLib uses uint64(block.number) - ethDaoIndexBlockNumber.
+        // If this underflows, the library call must revert.
+        if (sp.ethDaoIndexBlockNumber > truncatedBlock) {
+            return (true, true, 0);
+        }
+
+        uint256 blockDelta = uint256(truncatedBlock - sp.ethDaoIndexBlockNumber);
+        uint256 rawFee = uint256(PackedETH.unwrap(sp.ethNetworkFee));
+        uint256 vUnits = uint256(sp.daoTotalEthVUnits);
+        uint256 rawBalance = uint256(PackedETH.unwrap(sp.ethDaoBalance));
+        uint256 earningsUnits = (blockDelta * rawFee * vUnits) / BPS_DENOMINATOR;
+
+        if (earningsUnits > type(uint64).max) {
+            return (true, true, 0);
+        }
+        if (rawBalance > type(uint64).max - earningsUnits) {
+            return (true, true, 0);
+        }
+
+        return (true, false, uint64(rawBalance + earningsUnits));
     }
 
     function _mockSetToken(address tokenAddress) internal {

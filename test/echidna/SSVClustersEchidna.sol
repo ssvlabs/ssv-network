@@ -105,7 +105,7 @@ contract SSVClustersEchidna is SSVClusters, SSVOperators(0), SSVStaking(address(
     uint64 private constant MIN_BLOCKS_BEFORE_LIQUIDATION = 2;
     uint32 private constant MAX_ADVANCE_BLOCKS = 8;
     uint32 private constant MIN_BLOCKS_BETWEEN_UPDATES = 2;
-    uint32 private constant SOLVENCY_BLOCK_WINDOW = 1_000_000;
+    uint32 private constant SOLVENCY_BLOCK_WINDOW = 5_000_000;
 
     MockToken private token;
     CSSVTokenMock private cssv;

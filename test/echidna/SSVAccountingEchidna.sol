@@ -190,6 +190,7 @@ contract SSVAccountingEchidna is SSVClusters, SSVOperators(0), SSVDAO, SSVValida
     bool private ssvAccrualCorrupted;
     bytes32 private lifecycleClusterId;
     bool private lifecycleClusterInitialized;
+    bool private lifecycleClusterPathTouched;
     bool private lifecycleStateViolation;
     bool private lifecycleUnauthorizedSucceeded;
 
@@ -360,6 +361,7 @@ contract SSVAccountingEchidna is SSVClusters, SSVOperators(0), SSVDAO, SSVValida
             record.exists = true;
 
             lifecycleClusterInitialized = true;
+            lifecycleClusterPathTouched = true;
             lifecycleClusterId = clusterId;
 
             if (amount != 0) {
@@ -911,6 +913,13 @@ contract SSVAccountingEchidna is SSVClusters, SSVOperators(0), SSVDAO, SSVValida
 
     function echidna_cluster_version_exclusive() external view returns (bool) {
         StorageData storage s = SSVStorage.load();
+
+        // Explicit lifecycle key coverage: this cluster may not be present in ethClusterIds.
+        if (lifecycleClusterInitialized) {
+            if (!lifecycleClusterPathTouched) return false;
+            if (s.ethClusters[lifecycleClusterId] == 0) return false;
+            if (s.clusters[lifecycleClusterId] != 0) return false;
+        }
 
         for (uint256 i; i < ethClusterIds.length; ++i) {
             bytes32 clusterId = ethClusterIds[i];
