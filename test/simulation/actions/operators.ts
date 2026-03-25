@@ -75,34 +75,62 @@ export async function actionRegisterOperator(state: SimulationState): Promise<Ac
 }
 
 /**
- * Remove an operator that has no validators across any tracked cluster.
- * Per DISC-OV-3: skip operators with active validators.
+ * Remove a random active operator — preferring those with active validators
+ * to exercise the BUG-21 class (removing operators while clusters still reference them).
+ *
+ * On-chain, removeOperator resets all state (fee=0, snapshots=0, vUnits=0)
+ * regardless of validator count, so this is always valid for the owner to call.
+ *
+ * After removal we verify on-chain state: isActive==false, fee==0.
  */
 export async function actionRemoveOperator(state: SimulationState): Promise<ActionResult> {
   const NAME = "removeOperator";
+
+  // Identify operators that have validators in active clusters (the interesting case)
   const opsWithValidators = new Set<bigint>();
   for (const cr of state.clusterBook.values()) {
-    if (cr.cluster.validatorCount > 0n) {
+    if (cr.cluster.validatorCount > 0n && cr.cluster.active) {
       for (const opId of cr.operatorIds) {
         opsWithValidators.add(opId);
       }
     }
   }
 
-  const removable = [...state.operatorPool.values()].filter(
-    (op) => op.isActive && !opsWithValidators.has(op.id),
-  );
-  if (removable.length === 0) {
-    return { name: NAME, success: false, revertReason: "SKIP: no operators with 0 validators" };
+  const activeOps = [...state.operatorPool.values()].filter((op) => op.isActive);
+  if (activeOps.length === 0) {
+    return { name: NAME, success: false, revertReason: "SKIP: no active operators" };
   }
 
-  const op = state.rng.pick(removable);
+  // 80% chance to pick an operator WITH validators (BUG-21 surface), 20% without
+  const withValidators = activeOps.filter((op) => opsWithValidators.has(op.id));
+  const withoutValidators = activeOps.filter((op) => !opsWithValidators.has(op.id));
+
+  let op;
+  if (withValidators.length > 0 && (withoutValidators.length === 0 || state.rng.nextFloat() < 0.8)) {
+    op = state.rng.pick(withValidators);
+  } else if (withoutValidators.length > 0) {
+    op = state.rng.pick(withoutValidators);
+  } else {
+    return { name: NAME, success: false, revertReason: "SKIP: no removable operators" };
+  }
 
   try {
     const tx = await state.network.connect(op.ownerSigner).removeOperator(op.id);
     const receipt = await tx.wait();
 
+    // Post-removal on-chain verification
+    const onChain = await state.views.getOperatorById(op.id);
+    if (onChain.isActive) {
+      return { name: NAME, success: false, revertReason: `ASSERT: operator ${op.id} still active after removal` };
+    }
+    if (onChain.fee !== 0n) {
+      return { name: NAME, success: false, revertReason: `ASSERT: operator ${op.id} fee != 0 after removal` };
+    }
+
+    // Update sim state
     op.isActive = false;
+    op.fee = 0n;
+
     if (receipt) state.currentBlock = receipt.blockNumber;
 
     return { name: NAME, success: true };

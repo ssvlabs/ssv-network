@@ -53,10 +53,17 @@ export function getActionWeights(
   const migrateWeight = lerp(dayIndex, 5, 95);
   const ssvOpsWeight = lerp(dayIndex, 50, 0);
 
-  // Constant weights
-  const ethOpsWeight = 15;
-  const stakingWeight = 10;
-  const oracleWeight = 10;
+  // ---- Target allocation (at steady-state, when ssvOps=0) ----
+  // Bug-class actions ~35%: removeOperator 14%, migrate 11%, oracle 10%
+  // Cluster ops 25%, fees/earnings 10%, staking 10%, oracle/time 10%, other 10%
+
+  // Constant weights (sum ≈ 100 at steady-state for easy reasoning)
+  const ethOpsWeight = 25;     // cluster ops: 25%
+  const operatorWeight = 14;   // removeOperator (BUG-21 surface)
+  const feeWeight = 10;        // fee declarations + operator earnings
+  const stakingWeight = 10;    // staking actions
+  const oracleWeight = 10;     // commitRoot + updateClusterBalance
+  const timeWeight = 5;        // mineBlocks
 
   return {
     // SSV cluster operations (deposit, withdraw SSV clusters)
@@ -65,29 +72,36 @@ export function getActionWeights(
     ssvLiquidate: ssvOpsWeight * 0.15,
     ssvRegisterValidator: ssvOpsWeight * 0.15,
 
-    // Migration
+    // Migration (~11% at steady-state via lerp)
     migrateClusterToETH: migrateWeight,
 
-    // ETH cluster operations
-    ethDeposit: ethOpsWeight * 0.3,
+    // ETH cluster operations (25% total)
+    ethDeposit: ethOpsWeight * 0.25,
     ethWithdraw: ethOpsWeight * 0.2,
     ethRegisterValidator: ethOpsWeight * 0.2,
     ethRemoveValidator: ethOpsWeight * 0.1,
-    ethLiquidate: ethOpsWeight * 0.1,
+    ethLiquidate: ethOpsWeight * 0.15,
     ethReactivate: ethOpsWeight * 0.1,
 
-    // Oracle (EB updates)
+    // Operator management — BUG-21 surface (14% + 10% fees)
+    removeOperator: operatorWeight,
+    registerOperator: operatorWeight * 0.3,  // replenish removed operators
+    declareOperatorFee: feeWeight * 0.35,
+    executeOperatorFee: feeWeight * 0.3,
+    withdrawOperatorEarnings: feeWeight * 0.35,
+
+    // Oracle (EB updates, 10% total)
     commitRoot: oracleWeight * 0.5,
     updateClusterBalance: oracleWeight * 0.5,
 
-    // Staking
+    // Staking (10% total)
     stake: stakingWeight * 0.35,
     requestUnstake: stakingWeight * 0.25,
     claimEthRewards: stakingWeight * 0.25,
     syncFees: stakingWeight * 0.15,
 
-    // Time advancement (no-op blocks)
-    mineBlocks: 5,
+    // Time advancement
+    mineBlocks: timeWeight,
   };
 }
 

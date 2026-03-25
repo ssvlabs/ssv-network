@@ -30,7 +30,6 @@ import type {
   ClusterRecord,
   OperatorRecord,
   StakerRecord,
-  ActionResult,
 } from "./types.ts";
 import { VERSION_SSV, VERSION_ETH } from "./types.ts";
 import { SeededRNG } from "./rng.ts";
@@ -38,7 +37,6 @@ import { SimLogger } from "./sim-logger.ts";
 import {
   clusterKey,
   parseClusterFromReceipt,
-  updateClusterFromReceipt,
   trackEthFlow,
   emptyTotals,
 } from "./bookkeeping.ts";
@@ -50,11 +48,11 @@ import {
   getActionWeights,
   selectAction,
 } from "./weight-schedule.ts";
+import { ACTION_REGISTRY } from "./actions/index.ts";
 import {
   runPeriodicInvariants,
   runFinalInvariants,
   createInvariantContext,
-  type InvariantResult,
   type InvariantContext,
 } from "./invariants.ts";
 
@@ -136,295 +134,8 @@ async function registerSimOperators(
   return records;
 }
 
-async function actionEthDeposit(state: SimulationState): Promise<ActionResult> {
-  const ethClusters = [...state.clusterBook.entries()].filter(
-    ([, c]) => c.version === VERSION_ETH && c.cluster.active,
-  );
-  if (ethClusters.length === 0) return { name: "ethDeposit", success: true };
-
-  const [, record] = state.rng.pick(ethClusters);
-  const amount = state.rng.nextInRange(
-    ethers.parseEther("0.1"),
-    ethers.parseEther("1"),
-  );
-
-  try {
-    await state.provider.send("hardhat_impersonateAccount", [record.owner]);
-    await state.provider.send("hardhat_setBalance", [
-      record.owner,
-      "0x" + (amount + BigInt(1e18)).toString(16),
-    ]);
-    const ownerSigner = record.ownerSigner;
-
-    const tx = await state.network.connect(ownerSigner).deposit(
-      record.owner,
-      record.operatorIds,
-      record.cluster,
-      { value: amount },
-    );
-    const receipt = await tx.wait();
-    const updated = parseClusterFromReceipt(state.network, receipt, "ClusterDeposited");
-    if (updated) {
-      record.cluster = updated;
-      trackEthFlow(state, "in", amount);
-    }
-
-    return { name: "ethDeposit", success: true };
-  } catch (err) {
-    return { name: "ethDeposit", success: false, revertReason: String(err).slice(0, 120) };
-  }
-}
-
-async function actionEthWithdraw(state: SimulationState): Promise<ActionResult> {
-  const ethClusters = [...state.clusterBook.entries()].filter(
-    ([, c]) => c.version === VERSION_ETH && c.cluster.active && c.cluster.balance > 0n,
-  );
-  if (ethClusters.length === 0) return { name: "ethWithdraw", success: true };
-
-  const [, record] = state.rng.pick(ethClusters);
-
-  try {
-    const currentBalance = BigInt(
-      await state.views.getBalance(record.owner, record.operatorIds, record.cluster),
-    );
-    if (currentBalance <= 0n) return { name: "ethWithdraw", success: true };
-
-    const pct = Number(state.rng.nextInRange(10n, 50n));
-    const amount = (currentBalance * BigInt(pct)) / 100n;
-    if (amount === 0n) return { name: "ethWithdraw", success: true };
-
-    await state.provider.send("hardhat_impersonateAccount", [record.owner]);
-    await state.provider.send("hardhat_setBalance", [
-      record.owner,
-      "0x" + BigInt(1e18).toString(16),
-    ]);
-
-    const tx = await state.network.connect(record.ownerSigner).withdraw(
-      record.operatorIds,
-      amount,
-      record.cluster,
-    );
-    const receipt = await tx.wait();
-    const updated = parseClusterFromReceipt(state.network, receipt, "ClusterWithdrawn");
-    if (updated) {
-      record.cluster = updated;
-      trackEthFlow(state, "out", amount);
-    }
-
-    return { name: "ethWithdraw", success: true };
-  } catch (err) {
-    return { name: "ethWithdraw", success: false, revertReason: String(err).slice(0, 120) };
-  }
-}
-
-async function actionEthRegisterValidator(state: SimulationState): Promise<ActionResult> {
-  const ethClusters = [...state.clusterBook.entries()].filter(
-    ([, c]) => c.version === VERSION_ETH && c.cluster.active,
-  );
-  if (ethClusters.length === 0) return { name: "ethRegisterValidator", success: true };
-
-  const [, record] = state.rng.pick(ethClusters);
-  const keySeed = state.currentBlock + Number(state.rng.next() % 1000000n);
-  const pubkey = makePublicKey(keySeed);
-
-  try {
-    await state.provider.send("hardhat_impersonateAccount", [record.owner]);
-    await state.provider.send("hardhat_setBalance", [
-      record.owner,
-      "0x" + (DEFAULT_ETH_REGISTER_VALUE + BigInt(1e18)).toString(16),
-    ]);
-
-    const tx = await state.network.connect(record.ownerSigner).registerValidator(
-      pubkey,
-      record.operatorIds,
-      DEFAULT_SHARES,
-      record.cluster,
-      { value: DEFAULT_ETH_REGISTER_VALUE },
-    );
-    const receipt = await tx.wait();
-    const updated = parseClusterFromReceipt(state.network, receipt, "ValidatorAdded");
-    if (updated) {
-      record.cluster = updated;
-      record.validatorKeys.push(pubkey);
-      trackEthFlow(state, "in", DEFAULT_ETH_REGISTER_VALUE);
-    }
-
-    return { name: "ethRegisterValidator", success: true };
-  } catch (err) {
-    return { name: "ethRegisterValidator", success: false, revertReason: String(err).slice(0, 120) };
-  }
-}
-
-async function actionMigrateClusterToETH(state: SimulationState): Promise<ActionResult> {
-  const ssvClusters = [...state.clusterBook.entries()].filter(
-    ([, c]) => c.version === VERSION_SSV && c.cluster.active,
-  );
-  if (ssvClusters.length === 0) return { name: "migrateClusterToETH", success: true };
-
-  const [key, record] = state.rng.pick(ssvClusters);
-
-  try {
-    const validatorCount = Number(record.cluster.validatorCount);
-    const minEth = ethers.parseEther("0.01") * BigInt(Math.max(validatorCount, 1));
-
-    await state.provider.send("hardhat_impersonateAccount", [record.owner]);
-    await state.provider.send("hardhat_setBalance", [
-      record.owner,
-      "0x" + (minEth + BigInt(10e18)).toString(16),
-    ]);
-
-    const tx = await state.network.connect(record.ownerSigner).migrateClusterToETH(
-      record.operatorIds,
-      record.cluster,
-      { value: minEth },
-    );
-    const receipt = await tx.wait();
-    const updated = parseClusterFromReceipt(state.network, receipt, "ClusterMigratedToETH");
-    if (updated) {
-      record.cluster = updated;
-      record.version = VERSION_ETH;
-      trackEthFlow(state, "in", minEth);
-    }
-
-    return { name: "migrateClusterToETH", success: true, clusterKeyUpdated: key };
-  } catch (err) {
-    return { name: "migrateClusterToETH", success: false, revertReason: String(err).slice(0, 120) };
-  }
-}
-
-async function actionStake(state: SimulationState): Promise<ActionResult> {
-  if (state.stakerPool.length === 0) return { name: "stake", success: true };
-
-  const staker = state.rng.pick(state.stakerPool);
-
-  try {
-    const ssvBalance = BigInt(await state.ssvToken.balanceOf(staker.signer.address));
-    if (ssvBalance < STAKE_AMOUNT) return { name: "stake", success: true };
-
-    const tx = await state.network.connect(staker.signer).stake(STAKE_AMOUNT);
-    await tx.wait();
-
-    staker.cssvBalance = BigInt(await state.cssvToken.balanceOf(staker.signer.address));
-
-    return { name: "stake", success: true };
-  } catch (err) {
-    return { name: "stake", success: false, revertReason: String(err).slice(0, 120) };
-  }
-}
-
-async function actionRequestUnstake(state: SimulationState): Promise<ActionResult> {
-  if (state.stakerPool.length === 0) return { name: "requestUnstake", success: true };
-
-  const staker = state.rng.pick(state.stakerPool);
-
-  try {
-    const cssvBalance = BigInt(await state.cssvToken.balanceOf(staker.signer.address));
-    if (cssvBalance === 0n) return { name: "requestUnstake", success: true };
-
-    const pct = Number(state.rng.nextInRange(10n, 50n));
-    const amount = (cssvBalance * BigInt(pct)) / 100n;
-    if (amount === 0n) return { name: "requestUnstake", success: true };
-
-    const tx = await state.network.connect(staker.signer).requestUnstake(amount);
-    await tx.wait();
-
-    staker.cssvBalance = BigInt(await state.cssvToken.balanceOf(staker.signer.address));
-
-    return { name: "requestUnstake", success: true };
-  } catch (err) {
-    return { name: "requestUnstake", success: false, revertReason: String(err).slice(0, 120) };
-  }
-}
-
-async function actionClaimEthRewards(state: SimulationState): Promise<ActionResult> {
-  if (state.stakerPool.length === 0) return { name: "claimEthRewards", success: true };
-
-  const staker = state.rng.pick(state.stakerPool);
-
-  try {
-    const claimable = BigInt(await state.views.previewClaimableEth(staker.signer.address));
-    if (claimable === 0n) return { name: "claimEthRewards", success: true };
-
-    const tx = await state.network.connect(staker.signer).claimEthRewards();
-    await tx.wait();
-
-    return { name: "claimEthRewards", success: true };
-  } catch (err) {
-    return { name: "claimEthRewards", success: false, revertReason: String(err).slice(0, 120) };
-  }
-}
-
-async function actionEthLiquidate(state: SimulationState): Promise<ActionResult> {
-  const ethClusters = [...state.clusterBook.entries()].filter(
-    ([, c]) => c.version === VERSION_ETH && c.cluster.active,
-  );
-  if (ethClusters.length === 0) return { name: "ethLiquidate", success: true };
-
-  const [, record] = state.rng.pick(ethClusters);
-
-  try {
-    const isLiquidatable = await state.views.isLiquidatable(
-      record.owner,
-      record.operatorIds,
-      record.cluster,
-    );
-    if (!isLiquidatable) return { name: "ethLiquidate", success: true };
-
-    const liquidator = state.rng.pick(state.stakerPool);
-    const tx = await state.network.connect(liquidator.signer).liquidate(
-      record.owner,
-      record.operatorIds,
-      record.cluster,
-    );
-    const receipt = await tx.wait();
-    const updated = parseClusterFromReceipt(state.network, receipt, "ClusterLiquidated");
-    if (updated) record.cluster = updated;
-
-    return { name: "ethLiquidate", success: true };
-  } catch (err) {
-    return { name: "ethLiquidate", success: false, revertReason: String(err).slice(0, 120) };
-  }
-}
-
-async function actionSyncFees(state: SimulationState): Promise<ActionResult> {
-  if (state.stakerPool.length === 0) return { name: "syncFees", success: true };
-
-  try {
-    const signer = state.rng.pick(state.stakerPool);
-    const tx = await state.network.connect(signer.signer).syncFees();
-    await tx.wait();
-    return { name: "syncFees", success: true };
-  } catch (err) {
-    return { name: "syncFees", success: false, revertReason: String(err).slice(0, 120) };
-  }
-}
-
-async function actionMineBlocks(state: SimulationState): Promise<ActionResult> {
-  const blocks = Number(state.rng.nextInRange(10n, 100n));
-  await mineBlocks(state.provider, blocks);
-  return { name: "mineBlocks", success: true };
-}
-
-const ACTION_DISPATCH: Record<string, (state: SimulationState) => Promise<ActionResult>> = {
-  ethDeposit: actionEthDeposit,
-  ethWithdraw: actionEthWithdraw,
-  ethRegisterValidator: actionEthRegisterValidator,
-  ethRemoveValidator: async (s) => ({ name: "ethRemoveValidator", success: true }),
-  ethLiquidate: actionEthLiquidate,
-  ethReactivate: async (s) => ({ name: "ethReactivate", success: true }),
-  ssvDeposit: async (s) => ({ name: "ssvDeposit", success: true }),
-  ssvWithdraw: async (s) => ({ name: "ssvWithdraw", success: true }),
-  ssvLiquidate: async (s) => ({ name: "ssvLiquidate", success: true }),
-  ssvRegisterValidator: async (s) => ({ name: "ssvRegisterValidator", success: true }),
-  migrateClusterToETH: actionMigrateClusterToETH,
-  commitRoot: async (s) => ({ name: "commitRoot", success: true }),
-  updateClusterBalance: async (s) => ({ name: "updateClusterBalance", success: true }),
-  stake: actionStake,
-  requestUnstake: actionRequestUnstake,
-  claimEthRewards: actionClaimEthRewards,
-  syncFees: actionSyncFees,
-  mineBlocks: actionMineBlocks,
-};
+// ACTION_REGISTRY from actions/index.ts is used as the unified action dispatch.
+// All action implementations live in test/simulation/actions/*.ts.
 
 async function forceMigrateRemaining(state: SimulationState): Promise<void> {
   const ssvClusters = [...state.clusterBook.entries()].filter(
@@ -646,7 +357,7 @@ const RUN_FORK = process.env.RUN_FORK === "true";
       const weights = getActionWeights(state.currentBlock, state.startBlock, BLOCKS_PER_DAY);
       for (let i = 0; i < ACTIONS_PER_EPOCH; i++) {
         const actionName = selectAction(weights, state.rng.nextFloat());
-        const actionFn = ACTION_DISPATCH[actionName] ?? actionMineBlocks;
+        const actionFn = ACTION_REGISTRY[actionName] ?? ACTION_REGISTRY["mineBlocks"];
         const result = await actionFn(state);
         state.logger.record(state.currentBlock, result);
       }
