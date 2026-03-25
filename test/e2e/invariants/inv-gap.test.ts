@@ -183,18 +183,6 @@ async function assertG11Holds(
   expect(vUnits).to.equal(0n, `${label}: operatorEthVUnits should be 0`);
 }
 
-async function assertG11Violated(
-  views: any,
-  provider: any,
-  contractAddress: string,
-  operatorId: number | bigint,
-  label: string,
-): Promise<void> {
-  const opData = await views.getOperatorById(BigInt(operatorId));
-  expect(opData.isActive).to.equal(false, `${label}: isActive should be false`);
-  const vUnits = await readOperatorEthVUnits(provider, contractAddress, operatorId);
-  expect(vUnits).to.not.equal(0n, `${label}: operatorEthVUnits should be NON-ZERO (G11 violated)`);
-}
 
 // ---------------------------------------------------------------------------
 //  EB update helper
@@ -369,8 +357,8 @@ describe("Invariant Gap Tests (INV-017..050)", function () {
     });
   });
 
-  describe("INV-018: G4 — Operator removal + EB update creates stale vUnit data", () => {
-    it("daoTotalEthVUnits includes stale data from removed operator after EB update", async () => {
+  describe("INV-018: G4 — Operator removal + EB update — guard prevents stale vUnit data", () => {
+    it("daoTotalEthVUnits correct after EB update — removed operator excluded by guard", async () => {
       const { network, views, ssvToken } = await ssvNetworkFullFixture(connection);
       const provider = connection.ethers.provider;
       const signers = await connection.ethers.getSigners();
@@ -397,23 +385,16 @@ describe("Invariant Gap Tests (INV-017..050)", function () {
         connection, network, oracles, provider, clusterOwner, operatorIds, cluster, 48,
       );
 
-      // G11 violated: removed op has non-zero vUnits
-      await assertG11Violated(views, provider, contractAddr, operatorIds[0], "INV-018 G11");
+      // G11 holds: guard skips removed op during EB update
+      await assertG11Holds(views, provider, contractAddr, operatorIds[0], "INV-018 G11");
 
-      // G4 check: all 4 operators (including removed) got same deviation
+      // G4 check: removed op has 0 vUnits, only live ops have deviation
       const removedOpVUnits = await readOperatorEthVUnits(provider, contractAddr, operatorIds[0]);
-      const liveOpVUnits = await readOperatorEthVUnits(provider, contractAddr, operatorIds[1]);
-      expect(removedOpVUnits).to.be.greaterThan(0n, "INV-018: removed op has stale vUnits");
-      expect(removedOpVUnits).to.equal(liveOpVUnits, "INV-018: removed op got same deviation as live ops");
+      expect(removedOpVUnits).to.equal(0n, "INV-018: removed op vUnits stays 0");
 
-      // daoTotalEthVUnits includes the deviation from the EB update
-      const daoVUnits = await readDaoTotalEthVUnits(provider, contractAddr);
-      const valCount = BigInt(await views.getNetworkValidatorsCount());
-      const expectedVUnits = calcVUnits(48n); // ceil(48*10000/32) = 15000
-      expect(daoVUnits).to.equal(
-        valCount * BPS_DENOMINATOR + (expectedVUnits - valCount * BPS_DENOMINATOR),
-        "INV-018: daoTotalEthVUnits includes deviation (stale data on removed op corrupts operator-level sum)",
-      );
+      // Live ops should have the deviation from the EB update
+      const liveOpVUnits = await readOperatorEthVUnits(provider, contractAddr, operatorIds[1]);
+      expect(liveOpVUnits).to.be.greaterThan(0n, "INV-018: live op has vUnits from EB update");
     });
   });
 
@@ -601,8 +582,8 @@ describe("Invariant Gap Tests (INV-017..050)", function () {
   //  G11: Removed Operator Zero State — INV-039..045
   // =========================================================================
 
-  describe("INV-039: G11 — Removal + EB update (primary bug path)", () => {
-    it("EB update after operator removal writes stale vUnits — G11 VIOLATED", async () => {
+  describe("INV-039: G11 — Removal + EB update — G11 holds (guard skips removed op)", () => {
+    it("EB update after operator removal preserves G11 — guard skips removed op", async () => {
       const { network, views, ssvToken } = await ssvNetworkFullFixture(connection);
       const provider = connection.ethers.provider;
       const signers = await connection.ethers.getSigners();
@@ -630,13 +611,13 @@ describe("Invariant Gap Tests (INV-017..050)", function () {
         connection, network, oracles, provider, clusterOwner, operatorIds, cluster, 48,
       );
 
-      // G11 VIOLATED
-      await assertG11Violated(views, provider, contractAddr, operatorIds[0], "INV-039 post-EB");
+      // G11 HOLDS: guard skips removed op in _updateOperatorVUnits
+      await assertG11Holds(views, provider, contractAddr, operatorIds[0], "INV-039 post-EB");
     });
   });
 
-  describe("INV-040: G11 — Cascading removal (2 ops) + EB update", () => {
-    it("Both removed operators get stale vUnits — G11 VIOLATED for both", async () => {
+  describe("INV-040: G11 — Cascading removal (2 ops) + EB update — G11 holds for both", () => {
+    it("EB update after removing 2 operators preserves G11 for both — guard skips them", async () => {
       const { network, views, ssvToken } = await ssvNetworkFullFixture(connection);
       const provider = connection.ethers.provider;
       const signers = await connection.ethers.getSigners();
@@ -662,18 +643,18 @@ describe("Invariant Gap Tests (INV-017..050)", function () {
       await assertG11Holds(views, provider, contractAddr, operatorIds[0], "INV-040 op1 pre-EB");
       await assertG11Holds(views, provider, contractAddr, operatorIds[1], "INV-040 op2 pre-EB");
 
-      // EB update writes to both removed operators
+      // EB update — guard skips both removed operators
       cluster = await performEBUpdate(
         connection, network, oracles, provider, clusterOwner, operatorIds, cluster, 48,
       );
 
-      await assertG11Violated(views, provider, contractAddr, operatorIds[0], "INV-040 op1 post-EB");
-      await assertG11Violated(views, provider, contractAddr, operatorIds[1], "INV-040 op2 post-EB");
+      await assertG11Holds(views, provider, contractAddr, operatorIds[0], "INV-040 op1 post-EB");
+      await assertG11Holds(views, provider, contractAddr, operatorIds[1], "INV-040 op2 post-EB");
     });
   });
 
-  describe("INV-041: G11 — Removal + liquidation with explicit EB — cluster un-liquidatable", () => {
-    it("Liquidation reverts (deviation cleanup underflows on removed operator)", async () => {
+  describe("INV-041: G11 — Removal + liquidation with explicit EB — guard prevents underflow", () => {
+    it("Liquidation succeeds — guard skips removed operator in deviation cleanup", async () => {
       const { network, views, ssvToken } = await ssvNetworkFullFixture(connection);
       const provider = connection.ethers.provider;
       const signers = await connection.ethers.getSigners();
@@ -725,13 +706,15 @@ describe("Invariant Gap Tests (INV-017..050)", function () {
       }
       await mineBlocks(provider, 1);
 
-      // BUG: Liquidation REVERTS — underflow on operatorEthVUnits[removedOp] subtraction
-      await expect(
-        network.connect(liquidator).liquidate(clusterOwner.address, operatorIds, cluster),
-      ).to.be.revertedWithPanic(0x11);
+      // Guard prevents underflow: liquidation succeeds, skips removed operator
+      const liqTx = await network.connect(liquidator).liquidate(
+        clusterOwner.address, operatorIds, cluster,
+      );
+      const liqReceipt = await liqTx.wait();
+      cluster = parseClusterFromEvent(network, liqReceipt, Events.CLUSTER_LIQUIDATED);
 
-      // G11 preserved (liquidation never completed)
-      await assertG11Holds(views, provider, contractAddr, operatorIds[0], "INV-041 G11 preserved");
+      // G11 holds after successful liquidation
+      await assertG11Holds(views, provider, contractAddr, operatorIds[0], "INV-041 G11 holds after liquidation");
     });
   });
 
@@ -825,8 +808,8 @@ describe("Invariant Gap Tests (INV-017..050)", function () {
     });
   });
 
-  describe("INV-044: G11 — Shared operator removal + multiple EB updates — cumulative stale data", () => {
-    it("Two independent clusters write cumulative stale vUnits to removed shared operator", async () => {
+  describe("INV-044: G11 — Shared operator removal + multiple EB updates — G11 holds", () => {
+    it("Guard prevents stale data from two independent clusters on removed shared operator", async () => {
       const { network, views, ssvToken } = await ssvNetworkFullFixture(connection);
       const provider = connection.ethers.provider;
       const signers = await connection.ethers.getSigners();
@@ -869,27 +852,27 @@ describe("Invariant Gap Tests (INV-017..050)", function () {
       await network.connect(owner).removeOperator(BigInt(opsA[0]));
       await assertG11Holds(views, provider, contractAddr, opsA[0], "INV-044 after removal");
 
-      // EB update on cluster A
+      // EB update on cluster A — guard skips removed shared op
       await mineBlocks(provider, 5);
       clusterA = await performEBUpdate(
         connection, network, oracles, provider, clusterOwnerA, opsA, clusterA, 48,
       );
       const vUnitsAfterA = await readOperatorEthVUnits(provider, contractAddr, opsA[0]);
-      expect(vUnitsAfterA).to.not.equal(0n, "INV-044: stale data from cluster A");
+      expect(vUnitsAfterA).to.equal(0n, "INV-044: guard prevents stale data from cluster A");
 
-      // EB update on cluster B
+      // EB update on cluster B — guard also skips removed shared op
       await mineBlocks(provider, 5);
       clusterB = await performEBUpdate(
         connection, network, oracles, provider, clusterOwnerB, opsB, clusterB, 64,
       );
       const vUnitsAfterBoth = await readOperatorEthVUnits(provider, contractAddr, opsA[0]);
-      expect(vUnitsAfterBoth).to.be.greaterThan(vUnitsAfterA, "INV-044: cumulative stale data");
-      await assertG11Violated(views, provider, contractAddr, opsA[0], "INV-044 after both EB updates");
+      expect(vUnitsAfterBoth).to.equal(0n, "INV-044: guard prevents cumulative stale data");
+      await assertG11Holds(views, provider, contractAddr, opsA[0], "INV-044 after both EB updates");
     });
   });
 
-  describe("INV-045: G11 — Full lifecycle (EB → remove → liquidate) — cluster un-liquidatable", () => {
-    it("Full lifecycle: EB → removal → liquidation reverts (deviation cleanup underflows)", async () => {
+  describe("INV-045: G11 — Full lifecycle (EB → remove → liquidate) — guard prevents underflow", () => {
+    it("Full lifecycle: EB → removal → liquidation succeeds (guard skips removed op)", async () => {
       const { network, views, ssvToken } = await ssvNetworkFullFixture(connection);
       const provider = connection.ethers.provider;
       const signers = await connection.ethers.getSigners();
@@ -944,13 +927,15 @@ describe("Invariant Gap Tests (INV-017..050)", function () {
       }
       await mineBlocks(provider, 1);
 
-      // BUG: Liquidation reverts — uint64 underflow on removed operator's vUnits
-      await expect(
-        network.connect(liquidator).liquidate(clusterOwner.address, operatorIds, cluster),
-      ).to.be.revertedWithPanic(0x11);
+      // Guard prevents underflow: liquidation succeeds, skips removed operator
+      const liqTx = await network.connect(liquidator).liquidate(
+        clusterOwner.address, operatorIds, cluster,
+      );
+      const liqReceipt = await liqTx.wait();
+      cluster = parseClusterFromEvent(network, liqReceipt, Events.CLUSTER_LIQUIDATED);
 
-      // G11 preserved since liquidation never completed
-      await assertG11Holds(views, provider, contractAddr, operatorIds[0], "INV-045 G11 preserved");
+      // G11 holds after successful liquidation
+      await assertG11Holds(views, provider, contractAddr, operatorIds[0], "INV-045 G11 holds after liquidation");
     });
   });
 
@@ -1240,8 +1225,8 @@ describe("Invariant Gap Tests (INV-017..050)", function () {
         connection, network, oracles, provider, ownerA, ops1, clusterA, 64,
       );
 
-      // G11 VIOLATED for removed op
-      await assertG11Violated(views, provider, contractAddr, ops1[1], "Step 6: G11 violated on EB update");
+      // G11 holds: guard skips removed op during EB update
+      await assertG11Holds(views, provider, contractAddr, ops1[1], "Step 6: G11 holds after EB update");
 
       // G3 still 3
       expect(await views.getNetworkValidatorsCount()).to.equal(3n, "Step 6: G3 = 3");
