@@ -325,9 +325,13 @@ describe("XO: Operator↔Cluster Cross-Module Tests", () => {
       const txW = await network.connect(clusterOwner).withdraw(operatorIds, 0n, cluster);
       cluster = parseClusterFromEvent(network, await txW.wait(), Events.CLUSTER_WITHDRAWN);
 
-      // Balance should be less than initial (fees drained)
-      expect(cluster.balance).to.be.lessThan(balAfterRegister);
-      expect(cluster.balance).to.be.greaterThan(0n);
+      // Exact burn: mine(100) + declare(1) + mine(604801) + execute(1) + mine(100) + withdraw(1) = 605004 blocks total
+      // Op1 runs at old rate for 604903 blocks (up to execute), then 101 blocks at 2x rate
+      // Equivalent to: all 4 ops at old rate for full 605004 + op1 extra (2x-1x) for 101 blocks
+      const vUnitsXO1 = defaultVUnits(1n);
+      const baseBurn = calcClusterBurn({ blockDiff: 605004n, numOperators: 4n, ethFee: OP_ETH_FEE_RAW, networkFee: DEFAULT_NETWORK_FEE_RAW, effectiveVUnits: vUnitsXO1 });
+      const extraBurn = calcClusterBurn({ blockDiff: 101n, numOperators: 1n, ethFee: OP_ETH_FEE_RAW, networkFee: 0n, effectiveVUnits: vUnitsXO1 });
+      expect(cluster.balance).to.equal(balAfterRegister - baseBurn - extraBurn);
 
       // -- G4 vUnit consistency: implicit EB, all operators should have 0 deviation --
       for (const opId of operatorIds) {
@@ -367,10 +371,13 @@ describe("XO: Operator↔Cluster Cross-Module Tests", () => {
       await mineBlocks(provider, 100);
 
       // Verify cluster balance reflects segmented accrual
-      // Use getBalance view to check current balance
+      // mine(100) + declare(1) + mine(604801) + execute(1) + mine(100) = 605003 blocks from register
+      // Op1 at old rate for 604903, then 100 blocks at 2x → extra = 100 blocks * 1 op
+      const vUnitsXO2 = defaultVUnits(1n);
+      const baseBurnXO2 = calcClusterBurn({ blockDiff: 605003n, numOperators: 4n, ethFee: OP_ETH_FEE_RAW, networkFee: DEFAULT_NETWORK_FEE_RAW, effectiveVUnits: vUnitsXO2 });
+      const extraBurnXO2 = calcClusterBurn({ blockDiff: 100n, numOperators: 1n, ethFee: OP_ETH_FEE_RAW, networkFee: 0n, effectiveVUnits: vUnitsXO2 });
       const balView = await views.getBalance(clusterOwner.address, operatorIds, cluster);
-      expect(BigInt(balView)).to.be.lessThan(balAfterRegister);
-      expect(BigInt(balView)).to.be.greaterThan(0n);
+      expect(BigInt(balView)).to.equal(balAfterRegister - baseBurnXO2 - extraBurnXO2);
 
       // -- G4 vUnit consistency: implicit EB, no deviation --
       for (const opId of operatorIds) {
@@ -425,9 +432,15 @@ describe("XO: Operator↔Cluster Cross-Module Tests", () => {
       txW = await network.connect(clusterOwner).withdraw(operatorIds, 0n, cluster);
       cluster = parseClusterFromEvent(network, await txW.wait(), Events.CLUSTER_WITHDRAWN);
 
-      // Balance should still be positive (lower burn rate means slower drain)
-      expect(cluster.balance).to.be.greaterThan(0n);
-      expect(cluster.balance).to.be.lessThan(balAfterHighRate);
+      // From first withdraw to second: reduceOperatorFee(1) + mine(100) + withdraw(1) = 102 blocks
+      // Op1: 1 block at 2x (before reduce) + 101 blocks at 1x (after reduce)
+      // Ops 2-4: 102 blocks at 2x rate; Network: 102 blocks
+      const vUnitsXO3 = defaultVUnits(1n);
+      const highFeeRaw = highFee / ETH_DEDUCTED_DIGITS;
+      const burnXO3 = calcClusterBurn({ blockDiff: 102n, numOperators: 3n, ethFee: highFeeRaw, networkFee: DEFAULT_NETWORK_FEE_RAW, effectiveVUnits: vUnitsXO3 })
+        + calcClusterBurn({ blockDiff: 1n, numOperators: 1n, ethFee: highFeeRaw, networkFee: 0n, effectiveVUnits: vUnitsXO3 })
+        + calcClusterBurn({ blockDiff: 101n, numOperators: 1n, ethFee: OP_ETH_FEE_RAW, networkFee: 0n, effectiveVUnits: vUnitsXO3 });
+      expect(cluster.balance).to.equal(balAfterHighRate - burnXO3);
 
       // -- G4 vUnit consistency: implicit EB --
       for (const opId of operatorIds) {
@@ -616,10 +629,19 @@ describe("XO: Operator↔Cluster Cross-Module Tests", () => {
       const txW = await network.connect(clusterOwner).withdraw(operatorIds, 0n, cluster);
       cluster = parseClusterFromEvent(network, await txW.wait(), Events.CLUSTER_WITHDRAWN);
 
-      // Balance should be significantly reduced by the higher fee rate
-      expect(cluster.balance).to.be.lessThan(balBefore);
-      // Higher fees mean less remaining balance than at old rate
-      expect(cluster.balance).to.be.greaterThan(0n);
+      // Each declareAndExecuteFee = DECLARE_OPERATOR_FEE_PERIOD + 3 blocks
+      // Total: 4 * (DECLARE_OPERATOR_FEE_PERIOD + 3n) + 5000 + 1 = totalBlocks
+      const feeChangeBlocks = DECLARE_OPERATOR_FEE_PERIOD + 3n;
+      const totalBlocks12 = 4n * feeChangeBlocks + 5001n;
+      const vUnitsXO12 = defaultVUnits(1n);
+      // Baseline: all 4 ops at old rate for totalBlocks + network fee
+      let totalBurn12 = calcClusterBurn({ blockDiff: totalBlocks12, numOperators: 4n, ethFee: OP_ETH_FEE_RAW, networkFee: DEFAULT_NETWORK_FEE_RAW, effectiveVUnits: vUnitsXO12 });
+      // Extra burn for each op's time at 2x (extra 1x over baseline)
+      for (let i = 1n; i <= 4n; i++) {
+        const extraBlocks = totalBlocks12 - i * feeChangeBlocks;
+        totalBurn12 += calcClusterBurn({ blockDiff: extraBlocks, numOperators: 1n, ethFee: OP_ETH_FEE_RAW, networkFee: 0n, effectiveVUnits: vUnitsXO12 });
+      }
+      expect(cluster.balance).to.equal(balBefore - totalBurn12);
     });
 
     // XO-013: fee reduction enables previously-failing withdraw
@@ -645,8 +667,15 @@ describe("XO: Operator↔Cluster Cross-Module Tests", () => {
       const txW = await network.connect(clusterOwner).withdraw(operatorIds, 0n, cluster);
       cluster = parseClusterFromEvent(network, await txW.wait(), Events.CLUSTER_WITHDRAWN);
 
-      // Cluster balance should be positive (fees deducted but still solvent)
-      expect(cluster.balance).to.be.greaterThan(0n);
+      // Block diff: mine(5000) + withdraw(1) = 5001 blocks from register
+      const expectedBurn = calcClusterBurn({
+        blockDiff: 5001n,
+        numOperators: 4n,
+        ethFee: OP_ETH_FEE_RAW,
+        networkFee: DEFAULT_NETWORK_FEE_RAW,
+        effectiveVUnits: defaultVUnits(1n),
+      });
+      expect(cluster.balance).to.equal(SMALL_ETH_REGISTER_VALUE - expectedBurn);
     });
 
     // XO-015: declare fee before EB, execute after EB
@@ -681,8 +710,10 @@ describe("XO: Operator↔Cluster Cross-Module Tests", () => {
       expect(BigInt(opData.fee)).to.equal(newFee);
 
       // Verify op's vUnits reflect EB update
+      // EB=48 for 1 validator: deviation = calcVUnits(48) - defaultVUnits(1) = 15000 - 10000 = 5000
+      const expectedDeviation = calcVUnits(48n) - defaultVUnits(1n);
       const vUnits = await readOperatorEthVUnits(provider, proxyAddr, BigInt(operatorIds[0]));
-      expect(vUnits).to.be.greaterThan(0n);
+      expect(vUnits).to.equal(expectedDeviation);
     });
 
     // XO-021: fee change on shared operator, 2 cluster withdrawals
@@ -720,9 +751,18 @@ describe("XO: Operator↔Cluster Cross-Module Tests", () => {
       const txB = await network.connect(clusterOwner2).withdraw(operatorIds, 0n, clusterB);
       clusterB = parseClusterFromEvent(network, await txB.wait(), Events.CLUSTER_WITHDRAWN);
 
-      // Both should have lower balance (fees deducted)
-      expect(clusterA.balance).to.be.lessThan(DEFAULT_ETH_REGISTER_VALUE);
-      expect(clusterB.balance).to.be.lessThan(DEFAULT_ETH_REGISTER_VALUE);
+      // Cluster A: registered at R, withdraw at R+605005.
+      // Op1 old rate 604904 blocks + new rate 101 blocks. Equivalent to 4-op baseline + 101 extra.
+      const vUnitsXO21 = defaultVUnits(1n);
+      const baseBurnA21 = calcClusterBurn({ blockDiff: 605005n, numOperators: 4n, ethFee: OP_ETH_FEE_RAW, networkFee: DEFAULT_NETWORK_FEE_RAW, effectiveVUnits: vUnitsXO21 });
+      const extraBurnA21 = calcClusterBurn({ blockDiff: 101n, numOperators: 1n, ethFee: OP_ETH_FEE_RAW, networkFee: 0n, effectiveVUnits: vUnitsXO21 });
+      expect(clusterA.balance).to.equal(DEFAULT_ETH_REGISTER_VALUE - baseBurnA21 - extraBurnA21);
+
+      // Cluster B: registered at R+1, withdraw at R+605006. Same 605005 block span.
+      // Op1 old rate 604903 blocks + new rate 102 blocks. Equivalent to 4-op baseline + 102 extra.
+      const baseBurnB21 = calcClusterBurn({ blockDiff: 605005n, numOperators: 4n, ethFee: OP_ETH_FEE_RAW, networkFee: DEFAULT_NETWORK_FEE_RAW, effectiveVUnits: vUnitsXO21 });
+      const extraBurnB21 = calcClusterBurn({ blockDiff: 102n, numOperators: 1n, ethFee: OP_ETH_FEE_RAW, networkFee: 0n, effectiveVUnits: vUnitsXO21 });
+      expect(clusterB.balance).to.equal(DEFAULT_ETH_REGISTER_VALUE - baseBurnB21 - extraBurnB21);
     });
 
     // XO-038: multiple operators increase fees sequentially then withdraw
@@ -751,9 +791,15 @@ describe("XO: Operator↔Cluster Cross-Module Tests", () => {
       const txW = await network.connect(clusterOwner).withdraw(operatorIds, 0n, cluster);
       cluster = parseClusterFromEvent(network, await txW.wait(), Events.CLUSTER_WITHDRAWN);
 
-      // Balance decreased (compound fee increase)
-      expect(cluster.balance).to.be.lessThan(DEFAULT_ETH_REGISTER_VALUE);
-      expect(cluster.balance).to.be.greaterThan(0n);
+      // Each declareAndExecuteFee = DECLARE_OPERATOR_FEE_PERIOD + 3n blocks
+      const feeBlocks38 = DECLARE_OPERATOR_FEE_PERIOD + 3n;
+      const totalBlocks38 = 2n * feeBlocks38 + 51n; // 2 fee changes + mine(50) + withdraw(1)
+      const vUnitsXO38 = defaultVUnits(1n);
+      const baseBurn38 = calcClusterBurn({ blockDiff: totalBlocks38, numOperators: 4n, ethFee: OP_ETH_FEE_RAW, networkFee: DEFAULT_NETWORK_FEE_RAW, effectiveVUnits: vUnitsXO38 });
+      // Op1 extra: totalBlocks - 1*feeBlocks; Op2 extra: totalBlocks - 2*feeBlocks
+      const extra1_38 = calcClusterBurn({ blockDiff: totalBlocks38 - feeBlocks38, numOperators: 1n, ethFee: OP_ETH_FEE_RAW, networkFee: 0n, effectiveVUnits: vUnitsXO38 });
+      const extra2_38 = calcClusterBurn({ blockDiff: totalBlocks38 - 2n * feeBlocks38, numOperators: 1n, ethFee: OP_ETH_FEE_RAW, networkFee: 0n, effectiveVUnits: vUnitsXO38 });
+      expect(cluster.balance).to.equal(DEFAULT_ETH_REGISTER_VALUE - baseBurn38 - extra1_38 - extra2_38);
     });
 
     // XO-039: fee increase + EB increase compound — cluster drains faster
@@ -787,8 +833,19 @@ describe("XO: Operator↔Cluster Cross-Module Tests", () => {
       const txW = await network.connect(clusterOwner).withdraw(operatorIds, 0n, cluster);
       cluster = parseClusterFromEvent(network, await txW.wait(), Events.CLUSTER_WITHDRAWN);
 
-      // Balance should have decreased significantly from compound effects
-      expect(cluster.balance).to.be.lessThan(balBefore);
+      // Phase 1 (register to EB update): 4 * feeChangeBlocks + 5 = totalP1, at implicit vUnits
+      const feeBlocks39 = DECLARE_OPERATOR_FEE_PERIOD + 3n;
+      const totalP1 = 4n * feeBlocks39 + 5n;
+      const vUnitsXO39 = defaultVUnits(1n);
+      let burnP1 = calcClusterBurn({ blockDiff: totalP1, numOperators: 4n, ethFee: OP_ETH_FEE_RAW, networkFee: DEFAULT_NETWORK_FEE_RAW, effectiveVUnits: vUnitsXO39 });
+      for (let i = 1n; i <= 4n; i++) {
+        burnP1 += calcClusterBurn({ blockDiff: totalP1 - i * feeBlocks39, numOperators: 1n, ethFee: OP_ETH_FEE_RAW, networkFee: 0n, effectiveVUnits: vUnitsXO39 });
+      }
+      // Phase 2 (EB update to withdraw): 1 block, all 4 ops at 2x, EB=64 vUnits
+      const ebVUnits39 = calcVUnits(64n);
+      const newFeeRaw39 = newFee / ETH_DEDUCTED_DIGITS;
+      const burnP2 = calcClusterBurn({ blockDiff: 1n, numOperators: 4n, ethFee: newFeeRaw39, networkFee: DEFAULT_NETWORK_FEE_RAW, effectiveVUnits: ebVUnits39 });
+      expect(cluster.balance).to.equal(balBefore - burnP1 - burnP2);
     });
 
     // XO-040: operator fee reduced to zero — cluster sees 3-op effective burn rate
@@ -811,8 +868,16 @@ describe("XO: Operator↔Cluster Cross-Module Tests", () => {
       // Settle to check balance
       const txW = await network.connect(clusterOwner).withdraw(operatorIds, 0n, cluster);
       cluster = parseClusterFromEvent(network, await txW.wait(), Events.CLUSTER_WITHDRAWN);
-      expect(cluster.balance).to.be.lessThan(balBefore);
-      expect(cluster.balance).to.be.greaterThan(0n);
+
+      // Block diff: mine(100) + withdraw(1) = 101 blocks from register
+      const expectedBurn = calcClusterBurn({
+        blockDiff: 101n,
+        numOperators: 4n,
+        ethFee: OP_ETH_FEE_RAW,
+        networkFee: DEFAULT_NETWORK_FEE_RAW,
+        effectiveVUnits: defaultVUnits(1n),
+      });
+      expect(cluster.balance).to.equal(balBefore - expectedBurn);
     });
 
     // XO-045: declare fee, remove operator, execute fee — reverts
@@ -878,8 +943,16 @@ describe("XO: Operator↔Cluster Cross-Module Tests", () => {
       await mineBlocks(provider, 200);
 
       // Operator withdraws earnings
+      // 200 blocks from register, 1 operator's share, 1 validator at default vUnits
+      const expectedEarnings = calcClusterBurn({
+        blockDiff: 200n,
+        numOperators: 1n,
+        ethFee: OP_ETH_FEE_RAW,
+        networkFee: 0n,
+        effectiveVUnits: defaultVUnits(1n),
+      });
       const earningsBefore = await views.getOperatorEarnings(BigInt(operatorIds[0]));
-      expect(earningsBefore).to.be.greaterThan(0n);
+      expect(earningsBefore).to.equal(expectedEarnings);
       await network.connect(opOwner).withdrawAllOperatorEarnings(operatorIds[0]);
 
       // Cluster owner withdraws
@@ -893,7 +966,7 @@ describe("XO: Operator↔Cluster Cross-Module Tests", () => {
       for (const opId of operatorIds) {
         totalOpEarnings += BigInt(await views.getOperatorEarnings(BigInt(opId)));
       }
-      expect(contractBal).to.be.greaterThanOrEqual(
+      expect(contractBal).to.equal(
         cluster.balance + totalOpEarnings + daoEarnings,
       );
     });
@@ -966,8 +1039,13 @@ describe("XO: Operator↔Cluster Cross-Module Tests", () => {
       const txW = await network.connect(clusterOwner).withdraw(operatorIds, 0n, cluster);
       cluster = parseClusterFromEvent(network, await txW.wait(), Events.CLUSTER_WITHDRAWN);
 
-      // Balance reduced from fees
-      expect(cluster.balance).to.be.lessThan(DEFAULT_ETH_REGISTER_VALUE);
+      // Total: declareAndExecuteFee (604803 blocks) + withdraw(1) = 604804 blocks
+      // Op1 at old rate for 604803, then 1 block at 2x. Extra = 1 block.
+      const totalBlocks53 = DECLARE_OPERATOR_FEE_PERIOD + 3n + 1n;
+      const vUnitsXO53 = defaultVUnits(1n);
+      const baseBurn53 = calcClusterBurn({ blockDiff: totalBlocks53, numOperators: 4n, ethFee: OP_ETH_FEE_RAW, networkFee: DEFAULT_NETWORK_FEE_RAW, effectiveVUnits: vUnitsXO53 });
+      const extraBurn53 = calcClusterBurn({ blockDiff: 1n, numOperators: 1n, ethFee: OP_ETH_FEE_RAW, networkFee: 0n, effectiveVUnits: vUnitsXO53 });
+      expect(cluster.balance).to.equal(DEFAULT_ETH_REGISTER_VALUE - baseBurn53 - extraBurn53);
     });
   });
 
@@ -1119,9 +1197,18 @@ describe("XO: Operator↔Cluster Cross-Module Tests", () => {
       const txB = await network.connect(clusterOwner2).withdraw(operatorIds, 0n, clusterB);
       clusterB = parseClusterFromEvent(network, await txB.wait(), Events.CLUSTER_WITHDRAWN);
 
-      // Both should have balances reflecting 3-op burn rate (more remaining than 4-op would leave)
-      expect(clusterA.balance).to.be.greaterThan(0n);
-      expect(clusterB.balance).to.be.greaterThan(0n);
+      // Cluster A: registered at R, withdrawal at R+203
+      // Op1 contributed 102 blocks (R to R+102); ops 2-4 contributed 203 blocks; network: 203 blocks
+      const vUnitsA = defaultVUnits(1n);
+      const burnA = calcClusterBurn({ blockDiff: 203n, numOperators: 3n, ethFee: OP_ETH_FEE_RAW, networkFee: DEFAULT_NETWORK_FEE_RAW, effectiveVUnits: vUnitsA })
+        + calcClusterBurn({ blockDiff: 102n, numOperators: 1n, ethFee: OP_ETH_FEE_RAW, networkFee: 0n, effectiveVUnits: vUnitsA });
+      expect(clusterA.balance).to.equal(DEFAULT_ETH_REGISTER_VALUE - burnA);
+
+      // Cluster B: registered at R+1, withdrawal at R+204
+      // Op1 contributed 101 blocks; ops 2-4 contributed 203 blocks; network: 203 blocks
+      const burnB = calcClusterBurn({ blockDiff: 203n, numOperators: 3n, ethFee: OP_ETH_FEE_RAW, networkFee: DEFAULT_NETWORK_FEE_RAW, effectiveVUnits: vUnitsA })
+        + calcClusterBurn({ blockDiff: 101n, numOperators: 1n, ethFee: OP_ETH_FEE_RAW, networkFee: 0n, effectiveVUnits: vUnitsA });
+      expect(clusterB.balance).to.equal(DEFAULT_ETH_REGISTER_VALUE - burnB);
     });
 
     // XO-020: 2 clusters, removed op, deposits
@@ -1182,8 +1269,15 @@ describe("XO: Operator↔Cluster Cross-Module Tests", () => {
       await mineBlocks(provider, 100);
 
       // Remove op1 — final settlement includes EB-weighted earnings
+      // Phase 1: register→EBUpdate = 5 blocks at implicit vUnits, 1 operator share
+      // Phase 2: EBUpdate→now = 100 blocks at EB=48 vUnits, 1 operator share
+      const expEarnings = calcClusterBurn({
+        blockDiff: 5n, numOperators: 1n, ethFee: OP_ETH_FEE_RAW, networkFee: 0n, effectiveVUnits: defaultVUnits(1n),
+      }) + calcClusterBurn({
+        blockDiff: 100n, numOperators: 1n, ethFee: OP_ETH_FEE_RAW, networkFee: 0n, effectiveVUnits: calcVUnits(48n),
+      });
       const earningsBefore = await views.getOperatorEarnings(BigInt(operatorIds[0]));
-      expect(earningsBefore).to.be.greaterThan(0n, "operator should have accrued earnings before removal");
+      expect(earningsBefore).to.equal(expEarnings);
 
       const opBalBefore = await provider.getBalance(opOwner.address);
       await network.connect(opOwner).removeOperator(operatorIds[0]);
@@ -1193,9 +1287,8 @@ describe("XO: Operator↔Cluster Cross-Module Tests", () => {
       // The payout amount should reflect EB-weighted accrual (higher than baseline)
       // Since earningsBefore is the EB-weighted accrual over 100 blocks, it should be significant
       const netReceived = opBalAfter - opBalBefore; // includes gas cost (negative offset)
-      // earningsBefore reflects what was accrued; after gas, netReceived is less but still positive direction
-      // The key: earningsBefore was nonzero — confirming EB-weighted accrual happened
-      expect(earningsBefore).to.be.greaterThan(0n, "earningsBefore confirms EB-weighted accrual");
+      // earningsBefore reflects what was accrued; removeOperator settles +1 block of additional earnings
+      // Already verified exact earnings above — this confirms EB-weighted accrual happened
 
       // operatorEthVUnits[op1] should be deleted
       const vUnits = await readOperatorEthVUnits(provider, proxyAddr, BigInt(operatorIds[0]));
@@ -1283,8 +1376,16 @@ describe("XO: Operator↔Cluster Cross-Module Tests", () => {
       const txW = await network.connect(clusterOwner).withdraw(operatorIds, 0n, cluster);
       cluster = parseClusterFromEvent(network, await txW.wait(), Events.CLUSTER_WITHDRAWN);
 
-      // Zero burn rate, so most balance should remain (minus fees accrued before removals)
-      expect(cluster.balance).to.be.greaterThan(0n);
+      // Removals happen sequentially: op1@1, op2@2, op3@3, op4@4 blocks after register
+      // Then mine(200) + withdraw(1) = 201 more blocks with 0 ops. Total = 205 blocks.
+      // Operator fees: 4*1 + 3*1 + 2*1 + 1*1 = 10 operator-block units
+      const vUnitsVal = defaultVUnits(1n);
+      const opBurn = calcClusterBurn({ blockDiff: 1n, numOperators: 4n, ethFee: OP_ETH_FEE_RAW, networkFee: 0n, effectiveVUnits: vUnitsVal })
+        + calcClusterBurn({ blockDiff: 1n, numOperators: 3n, ethFee: OP_ETH_FEE_RAW, networkFee: 0n, effectiveVUnits: vUnitsVal })
+        + calcClusterBurn({ blockDiff: 1n, numOperators: 2n, ethFee: OP_ETH_FEE_RAW, networkFee: 0n, effectiveVUnits: vUnitsVal })
+        + calcClusterBurn({ blockDiff: 1n, numOperators: 1n, ethFee: OP_ETH_FEE_RAW, networkFee: 0n, effectiveVUnits: vUnitsVal });
+      const netBurn = calcClusterBurn({ blockDiff: 205n, numOperators: 0n, ethFee: 0n, networkFee: DEFAULT_NETWORK_FEE_RAW, effectiveVUnits: vUnitsVal });
+      expect(cluster.balance).to.equal(DEFAULT_ETH_REGISTER_VALUE - opBurn - netBurn);
     });
 
     // XO-044: two clusters share op1 removed — both withdraw correctly
@@ -1322,8 +1423,17 @@ describe("XO: Operator↔Cluster Cross-Module Tests", () => {
       const txB = await network.connect(clusterOwner2).withdraw(operatorIds, 0n, cB);
       cB = parseClusterFromEvent(network, await txB.wait(), Events.CLUSTER_WITHDRAWN);
 
-      expect(cA.balance).to.be.greaterThan(0n);
-      expect(cB.balance).to.be.greaterThan(0n);
+      // cA registered at R, withdraw at R+203. Op1 removed at R+2.
+      // Op1: 2 blocks. Ops 2-4: 203 blocks. Network: 203 blocks.
+      const vUnitsVal = defaultVUnits(1n);
+      const burnA = calcClusterBurn({ blockDiff: 203n, numOperators: 3n, ethFee: OP_ETH_FEE_RAW, networkFee: DEFAULT_NETWORK_FEE_RAW, effectiveVUnits: vUnitsVal })
+        + calcClusterBurn({ blockDiff: 2n, numOperators: 1n, ethFee: OP_ETH_FEE_RAW, networkFee: 0n, effectiveVUnits: vUnitsVal });
+      expect(cA.balance).to.equal(DEFAULT_ETH_REGISTER_VALUE - burnA);
+
+      // cB registered at R+1, withdraw at R+204. Op1: 1 block. Ops 2-4: 203 blocks. Network: 203 blocks.
+      const burnB = calcClusterBurn({ blockDiff: 203n, numOperators: 3n, ethFee: OP_ETH_FEE_RAW, networkFee: DEFAULT_NETWORK_FEE_RAW, effectiveVUnits: vUnitsVal })
+        + calcClusterBurn({ blockDiff: 1n, numOperators: 1n, ethFee: OP_ETH_FEE_RAW, networkFee: 0n, effectiveVUnits: vUnitsVal });
+      expect(cB.balance).to.equal(DEFAULT_ETH_REGISTER_VALUE - burnB);
     });
 
     // XO-052: remove all validators from explicit-EB cluster with removed op
@@ -1388,8 +1498,12 @@ describe("XO: Operator↔Cluster Cross-Module Tests", () => {
       const txW = await network.connect(clusterOwner).withdraw(operatorIds, 0n, cluster);
       cluster = parseClusterFromEvent(network, await txW.wait(), Events.CLUSTER_WITHDRAWN);
 
-      expect(cluster.balance).to.be.greaterThan(0n);
-      expect(cluster.balance).to.be.lessThan(DEFAULT_ETH_REGISTER_VALUE);
+      // Block counting: mine(100) + removeOp(1) + withdraw(1) = 102 total from register
+      // Op1 removed at block 101 (contributed 101 blocks); ops 2-4 contribute full 102 blocks
+      const vUnits = defaultVUnits(1n);
+      const burn3ops = calcClusterBurn({ blockDiff: 102n, numOperators: 3n, ethFee: OP_ETH_FEE_RAW, networkFee: DEFAULT_NETWORK_FEE_RAW, effectiveVUnits: vUnits });
+      const burnRemovedOp = calcClusterBurn({ blockDiff: 101n, numOperators: 1n, ethFee: OP_ETH_FEE_RAW, networkFee: 0n, effectiveVUnits: vUnits });
+      expect(cluster.balance).to.equal(DEFAULT_ETH_REGISTER_VALUE - burn3ops - burnRemovedOp);
     });
 
     // XO-058: long-duration removed operator — fee math correct
@@ -1420,8 +1534,11 @@ describe("XO: Operator↔Cluster Cross-Module Tests", () => {
       const txW = await network.connect(clusterOwner).withdraw(operatorIds, 0n, cluster);
       cluster = parseClusterFromEvent(network, await txW.wait(), Events.CLUSTER_WITHDRAWN);
 
-      // Balance should be > 0 (survived 1000 blocks at 3-op rate)
-      expect(cluster.balance).to.be.greaterThan(0n);
+      // Block counting: removeOp(1) + mine(1000) + withdraw(1) = 1002 total from register
+      // Op1 removed at block 1; ops 2-4 contribute full 1002 blocks
+      const burn3ops = calcClusterBurn({ blockDiff: 1002n, numOperators: 3n, ethFee: OP_ETH_FEE_RAW, networkFee: DEFAULT_NETWORK_FEE_RAW, effectiveVUnits: defaultVUnits(1n) });
+      const burnRemovedOp = calcClusterBurn({ blockDiff: 1n, numOperators: 1n, ethFee: OP_ETH_FEE_RAW, networkFee: 0n, effectiveVUnits: defaultVUnits(1n) });
+      expect(cluster.balance).to.equal(DEFAULT_ETH_REGISTER_VALUE - burn3ops - burnRemovedOp);
     });
 
     // XO-059: withdraw after op removal from explicit-EB cluster
@@ -1466,9 +1583,16 @@ describe("XO: Operator↔Cluster Cross-Module Tests", () => {
       await mineBlocks(provider, 100);
 
       // Withdraw
+      const balAfterEB = cluster.balance;
       const txW = await network.connect(clusterOwner).withdraw(operatorIds, 0n, cluster);
       cluster = parseClusterFromEvent(network, await txW.wait(), Events.CLUSTER_WITHDRAWN);
-      expect(cluster.balance).to.be.greaterThan(0n);
+
+      // From EB update: removeOp(1) + mine(100) + withdraw(1) = 102 blocks
+      // Op1 contributed 1 block, ops 2-4 contribute 102 blocks at EB=48 vUnits
+      const ebVUnits = calcVUnits(48n);
+      const burn3ops = calcClusterBurn({ blockDiff: 102n, numOperators: 3n, ethFee: OP_ETH_FEE_RAW, networkFee: DEFAULT_NETWORK_FEE_RAW, effectiveVUnits: ebVUnits });
+      const burnRemovedOp = calcClusterBurn({ blockDiff: 1n, numOperators: 1n, ethFee: OP_ETH_FEE_RAW, networkFee: 0n, effectiveVUnits: ebVUnits });
+      expect(cluster.balance).to.equal(balAfterEB - burn3ops - burnRemovedOp);
 
       // Verify vUnits still unchanged for remaining ops after withdraw
       for (const opId of operatorIds.slice(1)) {
@@ -1530,8 +1654,16 @@ describe("XO: Operator↔Cluster Cross-Module Tests", () => {
       await mineBlocks(provider, 200);
 
       // Withdraw earnings first
+      // 200 blocks from register, 1 operator share, 1 validator at default vUnits
+      const expectedEarningsBeforeW = calcClusterBurn({
+        blockDiff: 200n,
+        numOperators: 1n,
+        ethFee: OP_ETH_FEE_RAW,
+        networkFee: 0n,
+        effectiveVUnits: defaultVUnits(1n),
+      });
       const earningsBefore = await views.getOperatorEarnings(BigInt(operatorIds[0]));
-      expect(earningsBefore).to.be.greaterThan(0n);
+      expect(earningsBefore).to.equal(expectedEarningsBeforeW);
 
       const opOwnerBalBefore = await provider.getBalance(opOwner.address);
       await network.connect(opOwner).withdrawAllOperatorEarnings(operatorIds[0]);
@@ -1540,22 +1672,26 @@ describe("XO: Operator↔Cluster Cross-Module Tests", () => {
       const opOwnerBalAfterWithdraw = await provider.getBalance(opOwner.address);
       await network.connect(opOwner).removeOperator(operatorIds[0]);
 
-      // The removal ETH payout should be small (only 1-2 blocks of accrual since withdrawal)
+      // Residual earnings: 1 block of accrual between withdrawal and removal
+      const residualEarnings = calcClusterBurn({
+        blockDiff: 1n,
+        numOperators: 1n,
+        ethFee: OP_ETH_FEE_RAW,
+        networkFee: 0n,
+        effectiveVUnits: defaultVUnits(1n),
+      });
       const opOwnerBalAfterRemove = await provider.getBalance(opOwner.address);
-      // Accounting: no double payout — just residual accrual
-      const removalPayout = opOwnerBalAfterRemove - opOwnerBalAfterWithdraw;
-      // removalPayout accounts for gas cost + any residual earnings.
-      // The key assertion: the total withdrawal + removal payout is not significantly more than earningsBefore.
-      // Since gas is consumed, the net payout after removal should be less than earningsBefore.
       const totalReceived = opOwnerBalAfterRemove - opOwnerBalBefore;
+      // Total payout = earningsBefore + residual - gas. Must be < earningsBefore + residual (gas > 0).
       expect(totalReceived).to.be.lessThan(
-        earningsBefore,
-        "no double payout: total received (minus gas) must not exceed original earnings",
+        earningsBefore + residualEarnings,
+        "no double payout: total received (minus gas) must be < earnings + residual",
       );
-      // removalPayout itself should be small (residual accrual for ~2 blocks minus gas)
+      // Net change from withdrawal to removal = residual - gas (negative or small positive)
+      const removalPayout = opOwnerBalAfterRemove - opOwnerBalAfterWithdraw;
       expect(removalPayout).to.be.lessThan(
-        earningsBefore,
-        "removal payout should be much smaller than initial earnings",
+        residualEarnings,
+        "removal payout net of gas should be less than 1-block residual",
       );
     });
 
@@ -1583,9 +1719,15 @@ describe("XO: Operator↔Cluster Cross-Module Tests", () => {
       // Remove op1
       await network.connect(opOwner).removeOperator(operatorIds[0]);
 
-      // Verify op2 earnings are valid
+      // Verify op2 earnings: Phase 1 (register→EBUpdate) = 5 blocks implicit +
+      // Phase 2 (EBUpdate→removeOp1) = mine(100)+removeOp(1) = 101 blocks at EB=48
+      const expectedOp2Earnings = calcClusterBurn({
+        blockDiff: 5n, numOperators: 1n, ethFee: OP_ETH_FEE_RAW, networkFee: 0n, effectiveVUnits: defaultVUnits(1n),
+      }) + calcClusterBurn({
+        blockDiff: 101n, numOperators: 1n, ethFee: OP_ETH_FEE_RAW, networkFee: 0n, effectiveVUnits: calcVUnits(48n),
+      });
       const op2Earnings = await views.getOperatorEarnings(BigInt(operatorIds[1]));
-      expect(op2Earnings).to.be.greaterThan(0n);
+      expect(op2Earnings).to.equal(expectedOp2Earnings);
 
       // Withdraw op2 earnings — should succeed
       await network.connect(opOwner).withdrawAllOperatorEarnings(operatorIds[1]);
@@ -1762,7 +1904,16 @@ describe("XO: Operator↔Cluster Cross-Module Tests", () => {
 
       const txW = await network.connect(clusterOwner).withdraw(operatorIds, 0n, cluster);
       cluster = parseClusterFromEvent(network, await txW.wait(), Events.CLUSTER_WITHDRAWN);
-      expect(cluster.balance).to.be.greaterThan(0n);
+
+      // Block diff: setPrivate(1) + mine(50) + withdraw(1) = 52 blocks from register
+      const expectedBurn = calcClusterBurn({
+        blockDiff: 52n,
+        numOperators: 4n,
+        ethFee: OP_ETH_FEE_RAW,
+        networkFee: DEFAULT_NETWORK_FEE_RAW,
+        effectiveVUnits: defaultVUnits(1n),
+      });
+      expect(cluster.balance).to.equal(DEFAULT_ETH_REGISTER_VALUE - expectedBurn);
     });
 
     // XO-030: privacy change has no effect on removeValidator
@@ -1883,8 +2034,23 @@ describe("XO: Operator↔Cluster Cross-Module Tests", () => {
       const txW = await network.connect(clusterOwner).withdraw(operatorIds, 0n, cluster);
       cluster = parseClusterFromEvent(network, await txW.wait(), Events.CLUSTER_WITHDRAWN);
 
-      // Balance should be lower than starting deposit (fees drained faster at EB=48)
-      expect(cluster.balance).to.be.lessThan(balBefore);
+      // Phase 1: register to EB update = 5 blocks (mine(1) + 3 commits + 1 updateClusterBalance) at implicit vUnits
+      const burnPhase1 = calcClusterBurn({
+        blockDiff: 5n,
+        numOperators: 4n,
+        ethFee: OP_ETH_FEE_RAW,
+        networkFee: DEFAULT_NETWORK_FEE_RAW,
+        effectiveVUnits: defaultVUnits(1n),
+      });
+      // Phase 2: EB update to withdraw = mine(100) + withdraw(1) = 101 blocks at EB=48 vUnits
+      const burnPhase2 = calcClusterBurn({
+        blockDiff: 101n,
+        numOperators: 4n,
+        ethFee: OP_ETH_FEE_RAW,
+        networkFee: DEFAULT_NETWORK_FEE_RAW,
+        effectiveVUnits: calcVUnits(48n),
+      });
+      expect(cluster.balance).to.equal(balBefore - burnPhase1 - burnPhase2);
 
       // -- Per-operator vUnits deviation: EB=48 for 1 validator --
       // explicit vUnits = ceil(48*10000/32) = 15000; implicit = 10000; deviation = 5000
@@ -1930,7 +2096,13 @@ describe("XO: Operator↔Cluster Cross-Module Tests", () => {
       // Withdraw — should succeed
       const txW = await network.connect(clusterOwner).withdraw(operatorIds, 0n, cluster);
       cluster = parseClusterFromEvent(network, await txW.wait(), Events.CLUSTER_WITHDRAWN);
-      expect(cluster.balance).to.be.greaterThan(0n);
+
+      // Burns: register→EBUpdate = 5 blocks implicit; EBUpdate→deposit = 1 block EB48; deposit→withdraw = 1 block EB48
+      const ebVUnits = calcVUnits(48n);
+      const burnImplicit = calcClusterBurn({ blockDiff: 5n, numOperators: 4n, ethFee: OP_ETH_FEE_RAW, networkFee: DEFAULT_NETWORK_FEE_RAW, effectiveVUnits: defaultVUnits(1n) });
+      const burnEB1 = calcClusterBurn({ blockDiff: 1n, numOperators: 4n, ethFee: OP_ETH_FEE_RAW, networkFee: DEFAULT_NETWORK_FEE_RAW, effectiveVUnits: ebVUnits });
+      const burnEB2 = burnEB1;
+      expect(cluster.balance).to.equal(DEFAULT_ETH_REGISTER_VALUE - burnImplicit - burnEB1 + dep - burnEB2);
     });
 
     // XO-035: inactive cluster EB update then reactivation
@@ -2005,10 +2177,11 @@ describe("XO: Operator↔Cluster Cross-Module Tests", () => {
       cluster = parseClusterFromEvent(network, await txDep.wait(), Events.CLUSTER_DEPOSITED);
 
       // Withdraw from inactive cluster — no fee settlement, full amount recoverable
+      const balAfterDeposit36 = cluster.balance;
       const txW = await network.connect(clusterOwner).withdraw(operatorIds, dep, cluster);
       cluster = parseClusterFromEvent(network, await txW.wait(), Events.CLUSTER_WITHDRAWN);
-      // Balance should be near 0 (whatever was left after liquidation)
-      expect(cluster.balance).to.be.lessThanOrEqual(dep);
+      // Balance = deposit balance - withdrawn amount (no fees for inactive clusters)
+      expect(cluster.balance).to.equal(balAfterDeposit36 - dep);
 
       // Cluster should remain inactive after deposit+withdraw
       expect(cluster.active).to.equal(false);
@@ -2155,9 +2328,15 @@ describe("XO: Operator↔Cluster Cross-Module Tests", () => {
       const newFee = MINIMAL_OPERATOR_ETH_FEE * 2n;
       await declareAndExecuteFee(network, provider, opOwner, operatorIds[0], newFee);
 
-      // Withdraw operator earnings
+      // Operator earnings: Phase 1 (register→EBUpdate) = 5 blocks implicit
+      // Phase 2 (EBUpdate→execute) = mine(100) + declare(1) + mine(604801) + execute(1) = 604903 blocks at EB=48
+      const expectedEarnings48 = calcClusterBurn({
+        blockDiff: 5n, numOperators: 1n, ethFee: OP_ETH_FEE_RAW, networkFee: 0n, effectiveVUnits: defaultVUnits(1n),
+      }) + calcClusterBurn({
+        blockDiff: 604903n, numOperators: 1n, ethFee: OP_ETH_FEE_RAW, networkFee: 0n, effectiveVUnits: calcVUnits(48n),
+      });
       const earnings = await views.getOperatorEarnings(BigInt(operatorIds[0]));
-      expect(earnings).to.be.greaterThan(0n);
+      expect(earnings).to.equal(expectedEarnings48);
       await network.connect(opOwner).withdrawAllOperatorEarnings(operatorIds[0]);
 
       // -- Per-operator vUnits: EB=48, 1 validator --
@@ -2217,6 +2396,7 @@ describe("XO: Operator↔Cluster Cross-Module Tests", () => {
         .connect(clusterOwner)
         .deposit(clusterOwner.address, operatorIds, cluster, { value: dep });
       cluster = parseClusterFromEvent(network, await txDep.wait(), Events.CLUSTER_DEPOSITED);
+      const balAfterDeposit = cluster.balance;
 
       const txR = await network.connect(clusterOwner).reactivate(operatorIds, cluster, { value: 0n });
       cluster = parseClusterFromEvent(network, await txR.wait(), Events.CLUSTER_REACTIVATED);
@@ -2235,16 +2415,8 @@ describe("XO: Operator↔Cluster Cross-Module Tests", () => {
       const daoV = await readDaoTotalEthVUnits(provider, proxyAddr);
       expect(daoV).to.equal(ebVUnits, "daoTotalEthVUnits should equal total vUnits after reactivation");
 
-      // -- Exact boundary: threshold computed with EB-weighted vUnits --
-      const expectedThreshold = calcLiquidationThreshold({
-        minimumBlocksBeforeLiquidation: MINIMAL_LIQUIDATION_THRESHOLD,
-        numOperators: 4n,
-        ethFee: OP_ETH_FEE_RAW,
-        networkFee: DEFAULT_NETWORK_FEE_RAW,
-        effectiveVUnits: ebVUnits,
-      });
-      // Cluster balance should exceed the EB-weighted threshold
-      expect(cluster.balance).to.be.greaterThan(expectedThreshold);
+      // -- Reactivation of inactive cluster: no fees deducted, balance = deposit balance --
+      expect(cluster.balance).to.equal(balAfterDeposit);
     });
 
     // XO-051: EB changed while liquidated then reactivation
@@ -2323,9 +2495,16 @@ describe("XO: Operator↔Cluster Cross-Module Tests", () => {
 
       await mineBlocks(provider, 100);
 
-      // Operator should have earnings reflecting deviation from cluster A only
+      // Operator earnings across 3 phases:
+      // Phase 1 (register cA → EB update): 5 blocks, 1 val, implicit vUnits
+      // Phase 2 (EB update → register cB): 1 block, 1 val, EB=48 vUnits (15000)
+      // Phase 3 (register cB → now): 100 blocks, 2 vals, vUnits = 2*10000 + 5000 = 25000
+      const expectedEarnings55 =
+        calcClusterBurn({ blockDiff: 5n, numOperators: 1n, ethFee: OP_ETH_FEE_RAW, networkFee: 0n, effectiveVUnits: defaultVUnits(1n) })
+        + calcClusterBurn({ blockDiff: 1n, numOperators: 1n, ethFee: OP_ETH_FEE_RAW, networkFee: 0n, effectiveVUnits: calcVUnits(48n) })
+        + calcClusterBurn({ blockDiff: 100n, numOperators: 1n, ethFee: OP_ETH_FEE_RAW, networkFee: 0n, effectiveVUnits: defaultVUnits(2n) + (calcVUnits(48n) - defaultVUnits(1n)) });
       const earnings = await views.getOperatorEarnings(BigInt(operatorIds[0]));
-      expect(earnings).to.be.greaterThan(0n);
+      expect(earnings).to.equal(expectedEarnings55);
     });
 
     // XO-056: alternating EB updates and fee changes — operator earnings sum segments
@@ -2358,9 +2537,21 @@ describe("XO: Operator↔Cluster Cross-Module Tests", () => {
       ));
       await mineBlocks(provider, 50);
 
-      // Operator earnings should be positive and reflect all segments
+      // Operator earnings: 4 segments (operator snapshots settle at EB updates and fee execute)
+      // Phase 1 (register → 1st EB update): 5 blocks at ethFee, implicit vUnits (10000)
+      // Phase 2 (1st EB update → fee execute): 604853 blocks at ethFee, vUnits=15000 (EB=48 deviation)
+      // Phase 3 (fee execute → 2nd EB update): 55 blocks at 2x ethFee, vUnits=15000 (deviation unchanged)
+      // Phase 4 (2nd EB update → now): 50 blocks at 2x ethFee, vUnits=20000 (EB=64 deviation)
+      const newFeeRaw56 = newFee / ETH_DEDUCTED_DIGITS;
+      const ebVUnits48 = calcVUnits(48n); // 15000
+      const ebVUnits64 = calcVUnits(64n); // 20000
+      const expectedEarnings56 =
+        calcClusterBurn({ blockDiff: 5n, numOperators: 1n, ethFee: OP_ETH_FEE_RAW, networkFee: 0n, effectiveVUnits: defaultVUnits(1n) })
+        + calcClusterBurn({ blockDiff: 604853n, numOperators: 1n, ethFee: OP_ETH_FEE_RAW, networkFee: 0n, effectiveVUnits: ebVUnits48 })
+        + calcClusterBurn({ blockDiff: 55n, numOperators: 1n, ethFee: newFeeRaw56, networkFee: 0n, effectiveVUnits: ebVUnits48 })
+        + calcClusterBurn({ blockDiff: 50n, numOperators: 1n, ethFee: newFeeRaw56, networkFee: 0n, effectiveVUnits: ebVUnits64 });
       const earnings = await views.getOperatorEarnings(BigInt(operatorIds[0]));
-      expect(earnings).to.be.greaterThan(0n);
+      expect(earnings).to.equal(expectedEarnings56);
       await network.connect(opOwner).withdrawAllOperatorEarnings(operatorIds[0]);
     });
 
@@ -2415,10 +2606,11 @@ describe("XO: Operator↔Cluster Cross-Module Tests", () => {
       const removedV = await readOperatorEthVUnits(provider, proxyAddr, BigInt(operatorIds[0]));
       expect(removedV).to.equal(0n, "removed op should not receive deviation on reactivation");
 
-      // Active ops should have deviation restored
+      // Active ops should have deviation restored: EB=48, 1 validator → deviation = 5000
+      const expectedActiveDeviation = calcVUnits(48n) - defaultVUnits(1n);
       for (let i = 1; i < 4; i++) {
         const v = await readOperatorEthVUnits(provider, proxyAddr, BigInt(operatorIds[i]));
-        expect(v).to.be.greaterThan(0n, `active op${operatorIds[i]} should have deviation`);
+        expect(v).to.equal(expectedActiveDeviation, `active op${operatorIds[i]} deviation should be ${expectedActiveDeviation}`);
       }
     });
 
@@ -2449,13 +2641,22 @@ describe("XO: Operator↔Cluster Cross-Module Tests", () => {
         network, provider, clusterOwner, operatorIds, cluster, 64, oracles(),
       );
 
-      // If auto-liquidation triggered
-      if (!updated.active) {
-        expect(updated.active).to.equal(false);
-      } else {
-        // Cluster survived but balance should be very low
-        expect(updated.balance).to.be.greaterThan(0n);
+      // Compute exact burn: 4 * feeChangeBlocks + 3005 blocks total from register
+      // Settlement uses OLD (implicit) vUnits = 10000
+      const feeBlocks60 = DECLARE_OPERATOR_FEE_PERIOD + 3n;
+      const totalP1_60 = 4n * feeBlocks60 + 3005n; // register to EB update
+      const vUnits60 = defaultVUnits(1n);
+      // Baseline: all 4 ops at old rate + network fee
+      let burnP1_60 = calcClusterBurn({ blockDiff: totalP1_60, numOperators: 4n, ethFee: OP_ETH_FEE_RAW, networkFee: DEFAULT_NETWORK_FEE_RAW, effectiveVUnits: vUnits60 });
+      // Extra burn for each op's time at 2x (extra 1x over baseline)
+      for (let i = 1n; i <= 4n; i++) {
+        burnP1_60 += calcClusterBurn({ blockDiff: totalP1_60 - i * feeBlocks60, numOperators: 1n, ethFee: OP_ETH_FEE_RAW, networkFee: 0n, effectiveVUnits: vUnits60 });
       }
+      // Balance after EB update settlement (before new vUnits applied): SMALL_ETH - burnP1
+      // After EB update, new vUnits = calcVUnits(64) = 20000. Liquidation check uses new vUnits.
+      // If balance > 0 after settlement, cluster survives (fees ~0.025 ETH << 1 ETH deposit)
+      expect(updated.active).to.equal(true);
+      expect(updated.balance).to.equal(SMALL_ETH_REGISTER_VALUE - burnP1_60);
     });
 
     // XO-063: zero-fee operator + EB update — deviation written, burn rate = 0 for that op
@@ -2478,16 +2679,23 @@ describe("XO: Operator↔Cluster Cross-Module Tests", () => {
         network, provider, clusterOwner, operatorIds, cluster, 48, oracles(),
       ));
 
-      // All ops should have deviation
+      // All ops should have deviation = calcVUnits(48) - defaultVUnits(1) = 5000
+      const expectedDev63 = calcVUnits(48n) - defaultVUnits(1n);
       for (const opId of operatorIds) {
         const v = await readOperatorEthVUnits(provider, proxyAddr, BigInt(opId));
-        expect(v).to.be.greaterThan(0n);
+        expect(v).to.equal(expectedDev63);
       }
 
       // Op1 still earns (it has a fee, just at minimum)
       await mineBlocks(provider, 100);
+      // Earnings: Phase 1 (register→EBUpdate) = 5 blocks implicit + Phase 2 (EBUpdate→now) = 100 blocks EB=48
+      const expectedEarnings63 = calcClusterBurn({
+        blockDiff: 5n, numOperators: 1n, ethFee: OP_ETH_FEE_RAW, networkFee: 0n, effectiveVUnits: defaultVUnits(1n),
+      }) + calcClusterBurn({
+        blockDiff: 100n, numOperators: 1n, ethFee: OP_ETH_FEE_RAW, networkFee: 0n, effectiveVUnits: calcVUnits(48n),
+      });
       const earnings = await views.getOperatorEarnings(BigInt(operatorIds[0]));
-      expect(earnings).to.be.greaterThan(0n);
+      expect(earnings).to.equal(expectedEarnings63);
     });
 
     // XO-064: remove 1 of 2 validators from explicit-EB cluster → withdrawOperatorEarnings
@@ -2524,9 +2732,18 @@ describe("XO: Operator↔Cluster Cross-Module Tests", () => {
 
       await mineBlocks(provider, 100);
 
-      // Operator earnings should be positive
+      // Operator earnings: 4 phases of accrual for 1 operator
+      // Phase 1: val1→val2 (1 block, 1 val, vUnits=10000)
+      // Phase 2: val2→EBUpdate (5 blocks, 2 vals, vUnits=20000)
+      // Phase 3: EBUpdate→removeVal (101 blocks, 2 vals, EB=96 vUnits=30000)
+      // Phase 4: removeVal→now (100 blocks, 1 val, deviation=10000 still set, vUnits=1*10000+10000=20000)
+      const expectedEarnings64 =
+        calcClusterBurn({ blockDiff: 1n, numOperators: 1n, ethFee: OP_ETH_FEE_RAW, networkFee: 0n, effectiveVUnits: defaultVUnits(1n) })
+        + calcClusterBurn({ blockDiff: 5n, numOperators: 1n, ethFee: OP_ETH_FEE_RAW, networkFee: 0n, effectiveVUnits: defaultVUnits(2n) })
+        + calcClusterBurn({ blockDiff: 101n, numOperators: 1n, ethFee: OP_ETH_FEE_RAW, networkFee: 0n, effectiveVUnits: calcVUnits(96n) })
+        + calcClusterBurn({ blockDiff: 100n, numOperators: 1n, ethFee: OP_ETH_FEE_RAW, networkFee: 0n, effectiveVUnits: defaultVUnits(1n) + (calcVUnits(96n) - defaultVUnits(2n)) });
       const earnings = await views.getOperatorEarnings(BigInt(operatorIds[0]));
-      expect(earnings).to.be.greaterThan(0n);
+      expect(earnings).to.equal(expectedEarnings64);
       await network.connect(opOwner).withdrawAllOperatorEarnings(operatorIds[0]);
     });
 
@@ -2580,10 +2797,11 @@ describe("XO: Operator↔Cluster Cross-Module Tests", () => {
       cB = parseClusterFromEvent(network, await txR.wait(), Events.CLUSTER_REACTIVATED);
       expect(cB.active).to.equal(true);
 
-      // Operators should still have deviation from cluster A
+      // Operators should still have deviation from cluster A's EB=48: deviation = 5000
+      const expectedDevFromA = calcVUnits(48n) - defaultVUnits(1n);
       for (const opId of operatorIds) {
         const v = await readOperatorEthVUnits(provider, proxyAddr, BigInt(opId));
-        expect(v).to.be.greaterThan(0n, "deviation from cluster A should persist");
+        expect(v).to.equal(expectedDevFromA, "deviation from cluster A should persist");
       }
     });
   });
@@ -2617,9 +2835,15 @@ describe("XO: Operator↔Cluster Cross-Module Tests", () => {
       const newFee = MINIMAL_OPERATOR_ETH_FEE * 2n;
       await declareAndExecuteFee(network, provider, opOwner, operatorIds[0], newFee);
 
-      // Earnings should reflect EB-weighted accrual
+      // Earnings: Phase 1 (register→EBUpdate) = 5 blocks implicit
+      // Phase 2 (EBUpdate→execute) = mine(100) + declare(1) + mine(604801) + execute(1) = 604903 blocks at EB=48
+      const expectedEarningsXO14 = calcClusterBurn({
+        blockDiff: 5n, numOperators: 1n, ethFee: OP_ETH_FEE_RAW, networkFee: 0n, effectiveVUnits: defaultVUnits(1n),
+      }) + calcClusterBurn({
+        blockDiff: 604903n, numOperators: 1n, ethFee: OP_ETH_FEE_RAW, networkFee: 0n, effectiveVUnits: calcVUnits(48n),
+      });
       const earnings = await views.getOperatorEarnings(BigInt(operatorIds[0]));
-      expect(earnings).to.be.greaterThan(0n);
+      expect(earnings).to.equal(expectedEarningsXO14);
 
       // Withdraw
       await network.connect(opOwner).withdrawAllOperatorEarnings(operatorIds[0]);
@@ -2709,7 +2933,7 @@ describe("XO: Operator↔Cluster Cross-Module Tests", () => {
         newNetwork, receiptMig, Events.CLUSTER_MIGRATED_TO_ETH,
       );
       expect(migCluster.active).to.equal(true);
-      expect(migCluster.balance).to.be.greaterThan(0n);
+      expect(migCluster.balance).to.equal(ethDeposit);
     });
 
     // XO-026: migration with removed op + explicit EB

@@ -251,12 +251,17 @@ describe("XL: Liquidation-Reactivation Chain Tests", function () {
       await assertAllOpVUnits(prov, addr, ops, dev48, "after EB 48");
 
       cl = await drainAndLiq(network, prov, clusterOwner, liquidator, ops, cl, 7n, v48);
+      expect(cl.active).to.equal(false);
+      expect(cl.balance).to.equal(0n);
       await assertAllOpVUnits(prov, addr, ops, 0n, "after liq");
 
       cl = await react(network, clusterOwner, ops, cl);
+      expect(cl.active).to.equal(true);
+      expect(cl.validatorCount).to.equal(1n);
       await assertAllOpVUnits(prov, addr, ops, dev48, "after react");
 
       cl = await doEB(network, prov, clusterOwner, ops, cl, 64, oracles3());
+      expect(cl.active).to.equal(true);
       const dev64 = calcVUnits(64n) - defaultVUnits(1n);
       await assertAllOpVUnits(prov, addr, ops, dev64, "after EB 64");
     });
@@ -272,10 +277,16 @@ describe("XL: Liquidation-Reactivation Chain Tests", function () {
       const v64 = calcVUnits(64n);
 
       cl = await drainAndLiq(network, prov, clusterOwner, liquidator, ops, cl, NUM_OPS, v64);
+      expect(cl.active).to.equal(false);
+      expect(cl.balance).to.equal(0n);
+
       cl = await react(network, clusterOwner, ops, cl);
+      expect(cl.active).to.equal(true);
+      expect(cl.validatorCount).to.equal(1n);
 
       // EB decrease 64→48
       cl = await doEB(network, prov, clusterOwner, ops, cl, 48, oracles3());
+      expect(cl.active).to.equal(true);
       const dev48 = calcVUnits(48n) - defaultVUnits(1n);
       await assertAllOpVUnits(prov, addr, ops, dev48, "after EB decrease 64→48");
     });
@@ -352,15 +363,22 @@ describe("XL: Liquidation-Reactivation Chain Tests", function () {
       cl = await drainAndLiq(network, prov, clusterOwner, liquidator, ops, cl, NUM_OPS, calcVUnits(48n));
       cl = await react(network, clusterOwner, ops, cl, ethers.parseEther("5"));
 
+      const preDepositBalance = BigInt(cl.balance);
+
       // Deposit
       const depAmount = ethers.parseEther("3");
       const depTx = await network.connect(clusterOwner).deposit(clusterOwner.address, ops, cl, { value: depAmount });
       cl = parseClusterFromEvent(network, await depTx.wait(), Events.CLUSTER_DEPOSITED);
+      expect(cl.active).to.equal(true);
+      // Deposit simply adds msg.value to cluster balance (no fee settlement)
+      expect(BigInt(cl.balance)).to.equal(preDepositBalance + depAmount);
 
       // Second EB update — fees settled against accumulated balance
       cl = await doEB(network, prov, clusterOwner, ops, cl, 64, oracles3());
       expect(cl.active).to.equal(true);
-      expect(cl.balance).to.be.gt(0n);
+      const addr = await network.getAddress();
+      const devDep64 = calcVUnits(64n) - defaultVUnits(1n);
+      await assertAllOpVUnits(prov, addr, ops, devDep64, "XL-007: after EB 64");
     });
 
     it("XL-008: deposit on liquidated cluster before reactivation", async function () {
@@ -374,13 +392,18 @@ describe("XL: Liquidation-Reactivation Chain Tests", function () {
       expect(cl.balance).to.equal(0n);
 
       // Deposit on liquidated cluster
-      const depTx = await network.connect(clusterOwner).deposit(clusterOwner.address, ops, cl, { value: ethers.parseEther("5") });
+      const depAmt = ethers.parseEther("5");
+      const depTx = await network.connect(clusterOwner).deposit(clusterOwner.address, ops, cl, { value: depAmt });
       cl = parseClusterFromEvent(network, await depTx.wait(), Events.CLUSTER_DEPOSITED);
       expect(cl.active).to.equal(false);
+      // Liquidated cluster has no burn, so balance == deposit amount
+      expect(cl.balance).to.equal(depAmt);
 
       // Reactivate — total balance = deposit + react msg.value
-      cl = await react(network, clusterOwner, ops, cl, ethers.parseEther("5"));
+      const reactAmt = ethers.parseEther("5");
+      cl = await react(network, clusterOwner, ops, cl, reactAmt);
       expect(cl.active).to.equal(true);
+      expect(cl.validatorCount).to.equal(1n);
     });
 
     it("XL-009: auto-liquidation from EB increase, then reactivate", async function () {
@@ -452,9 +475,11 @@ describe("XL: Liquidation-Reactivation Chain Tests", function () {
 
       cl = await doEB(network, prov, clusterOwner, ops, cl, 128, oracles3());
       expect(cl.active).to.equal(false);
+      expect(cl.balance).to.equal(0n);
 
       cl = await react(network, clusterOwner, ops, cl, ethers.parseEther("50"));
       expect(cl.active).to.equal(true);
+      expect(cl.validatorCount).to.equal(1n);
 
       // Second EB update 128→64 (decrease)
       cl = await doEB(network, prov, clusterOwner, ops, cl, 64, oracles3());
@@ -495,6 +520,7 @@ describe("XL: Liquidation-Reactivation Chain Tests", function () {
       // Liquidation succeeds — guard skips removed op in _executeLiquidation
       cl = await drainAndLiq(network, prov, clusterOwner, liquidator, ops, cl, 3n, v48);
       expect(cl.active).to.equal(false, "XL-011: cluster liquidated");
+      expect(cl.balance).to.equal(0n);
 
       // Removed op stays at 0, active ops cleaned
       expect(await readOpVUnits(prov, addr, BigInt(ops[3]))).to.equal(0n, "XL-011: removed op stays 0");
@@ -529,6 +555,7 @@ describe("XL: Liquidation-Reactivation Chain Tests", function () {
       const v64 = calcVUnits(64n);
       cl = await drainAndLiq(network, prov, clusterOwner, liquidator, ops, cl, 3n, v64);
       expect(cl.active).to.equal(false, "cluster liquidated");
+      expect(cl.balance).to.equal(0n);
       expect(await readOpVUnits(prov, addr, BigInt(ops[3]))).to.equal(0n, "removed op stays 0 after liq");
     });
 
@@ -560,6 +587,7 @@ describe("XL: Liquidation-Reactivation Chain Tests", function () {
       // EB 128: auto-liq fires because balance < v128 threshold — guard skips removed op
       cl = await doEB(network, prov, clusterOwner, ops, cl, 128, oracles3());
       expect(cl.active).to.equal(false, "XL-013: auto-liquidation triggered");
+      expect(cl.balance).to.equal(0n);
 
       // Removed op stays 0, active ops cleaned by liquidation
       expect(await readOpVUnits(prov, addr, BigInt(ops[3]))).to.equal(0n, "XL-013: removed op stays 0");
@@ -586,6 +614,7 @@ describe("XL: Liquidation-Reactivation Chain Tests", function () {
       const v48 = calcVUnits(48n);
       cl = await drainAndLiq(network, prov, clusterOwner, liquidator, ops, cl, 2n, v48);
       expect(cl.active).to.equal(false, "cluster liquidated");
+      expect(cl.balance).to.equal(0n);
 
       // Both removed ops stay at 0
       expect(await readOpVUnits(prov, addr, BigInt(ops[2]))).to.equal(0n, "removed op3 stays 0");
@@ -617,6 +646,7 @@ describe("XL: Liquidation-Reactivation Chain Tests", function () {
       const v48 = calcVUnits(48n);
       cl = await drainAndLiq(network, prov, clusterOwner, liquidator, ops, cl, 3n, v48);
       expect(cl.active).to.equal(false);
+      expect(cl.balance).to.equal(0n);
       expect(await readOpVUnits(prov, addr, BigInt(ops[3]))).to.equal(0n, "removed op stays 0 after liq");
     });
 
@@ -657,11 +687,13 @@ describe("XL: Liquidation-Reactivation Chain Tests", function () {
       // Liquidation succeeds — guard skips removed op
       cl = await drainAndLiq(network, prov, clusterOwner, liquidator, ops, cl, 3n, v48);
       expect(cl.active).to.equal(false, "cluster liquidated");
+      expect(cl.balance).to.equal(0n);
       expect(await readOpVUnits(prov, addr, BigInt(ops[3]))).to.equal(0n, "removed op stays 0");
 
       // Reactivation path is no longer blocked
       cl = await react(network, clusterOwner, ops, cl);
       expect(cl.active).to.equal(true, "reactivation succeeds");
+      expect(cl.validatorCount).to.equal(1n);
     });
 
     it("XL-018: remove op4 → EB update → liquidate → reactivate (guard skips removed op throughout)", async function () {
@@ -687,9 +719,12 @@ describe("XL: Liquidation-Reactivation Chain Tests", function () {
       // Liquidation succeeds
       const v48 = calcVUnits(48n);
       cl = await drainAndLiq(network, prov, clusterOwner, liquidator, ops, cl, 3n, v48);
+      expect(cl.active).to.equal(false);
+      expect(cl.balance).to.equal(0n);
 
       cl = await react(network, clusterOwner, ops, cl);
       expect(cl.active).to.equal(true);
+      expect(cl.validatorCount).to.equal(1n);
 
       // DAO vUnits should be consistent
       const daoV = await readDaoVUnits(prov, addr);
@@ -716,6 +751,7 @@ describe("XL: Liquidation-Reactivation Chain Tests", function () {
       const v48 = calcVUnits(48n);
       cl = await drainAndLiq(network, prov, clusterOwner, liquidator, ops, cl, 3n, v48);
       expect(cl.active).to.equal(false, "cluster liquidated");
+      expect(cl.balance).to.equal(0n);
       expect(await readOpVUnits(prov, addr, BigInt(ops[3]))).to.equal(0n, "removed op stays 0 after liq");
     });
 
@@ -741,6 +777,7 @@ describe("XL: Liquidation-Reactivation Chain Tests", function () {
       const v64 = calcVUnits(64n);
       cl = await drainAndLiq(network, prov, clusterOwner, liquidator, ops, cl, 2n, v64);
       expect(cl.active).to.equal(false, "cluster liquidated");
+      expect(cl.balance).to.equal(0n);
       expect(await readOpVUnits(prov, addr, BigInt(ops[2]))).to.equal(0n, "removed op3 stays 0");
       expect(await readOpVUnits(prov, addr, BigInt(ops[3]))).to.equal(0n, "removed op4 stays 0");
     });
@@ -758,6 +795,8 @@ describe("XL: Liquidation-Reactivation Chain Tests", function () {
       let cl = await regVal(network, clusterOwner, ops, EMPTY_CLUSTER, DEFAULT_ETH_REGISTER_VALUE, 1);
       const v = defaultVUnits(1n);
       cl = await drainAndLiq(network, prov, clusterOwner, liquidator, ops, cl, NUM_OPS, v);
+      expect(cl.active).to.equal(false);
+      expect(cl.balance).to.equal(0n);
 
       await network.connect(opOwner).removeOperator(ops[3]);
 
@@ -765,10 +804,10 @@ describe("XL: Liquidation-Reactivation Chain Tests", function () {
       expect(cl.active).to.equal(true);
       expect(cl.validatorCount).to.equal(1n);
 
-      // ethValidatorCount: only 3 live ops incremented
+      // ethValidatorCount: only 3 live ops incremented; removed op stays at 0
       for (let i = 0; i < 3; i++) {
         const opData = await views.getOperatorById(BigInt(ops[i]));
-        expect(opData.validatorCount).to.be.gt(0n);
+        expect(opData.validatorCount).to.equal(1n, `XL-021: live op${i} validatorCount`);
       }
       const deadOp = await views.getOperatorById(BigInt(ops[3]));
       expect(deadOp.validatorCount).to.equal(0n);
@@ -786,11 +825,15 @@ describe("XL: Liquidation-Reactivation Chain Tests", function () {
       const dev = v48 - defaultVUnits(1n);
 
       cl = await drainAndLiq(network, prov, clusterOwner, liquidator, ops, cl, NUM_OPS, v48);
+      expect(cl.active).to.equal(false);
+      expect(cl.balance).to.equal(0n);
       await assertAllOpVUnits(prov, addr, ops, 0n, "after liq");
 
       await network.connect(opOwner).removeOperator(ops[3]);
 
       cl = await react(network, clusterOwner, ops, cl);
+      expect(cl.active).to.equal(true);
+      expect(cl.validatorCount).to.equal(1n);
       // Deviation added to 3 live ops
       for (let i = 0; i < 3; i++) {
         expect(await readOpVUnits(prov, addr, BigInt(ops[i]))).to.equal(dev);
@@ -805,12 +848,15 @@ describe("XL: Liquidation-Reactivation Chain Tests", function () {
 
       let cl = await regVal(network, clusterOwner, ops, EMPTY_CLUSTER, DEFAULT_ETH_REGISTER_VALUE, 1);
       cl = await drainAndLiq(network, prov, clusterOwner, liquidator, ops, cl, NUM_OPS, defaultVUnits(1n));
+      expect(cl.active).to.equal(false);
+      expect(cl.balance).to.equal(0n);
 
       await network.connect(opOwner).removeOperator(ops[2]);
       await network.connect(opOwner).removeOperator(ops[3]);
 
       cl = await react(network, clusterOwner, ops, cl);
       expect(cl.active).to.equal(true);
+      expect(cl.validatorCount).to.equal(1n);
     });
 
     it("XL-024: liquidate → remove ALL ops → reactivate", async function () {
@@ -820,12 +866,15 @@ describe("XL: Liquidation-Reactivation Chain Tests", function () {
 
       let cl = await regVal(network, clusterOwner, ops, EMPTY_CLUSTER, DEFAULT_ETH_REGISTER_VALUE, 1);
       cl = await drainAndLiq(network, prov, clusterOwner, liquidator, ops, cl, NUM_OPS, defaultVUnits(1n));
+      expect(cl.active).to.equal(false);
+      expect(cl.balance).to.equal(0n);
 
       for (const id of ops) await network.connect(opOwner).removeOperator(id);
 
       // Reactivate — all ops skipped, burn rate = network fee only
       cl = await react(network, clusterOwner, ops, cl, ethers.parseEther("5"));
       expect(cl.active).to.equal(true);
+      expect(cl.validatorCount).to.equal(1n);
     });
 
     it("XL-025: liquidate → remove ALL ops → reactivate with insufficient → revert", async function () {
@@ -835,6 +884,8 @@ describe("XL: Liquidation-Reactivation Chain Tests", function () {
 
       let cl = await regVal(network, clusterOwner, ops, EMPTY_CLUSTER, DEFAULT_ETH_REGISTER_VALUE, 1);
       cl = await drainAndLiq(network, prov, clusterOwner, liquidator, ops, cl, NUM_OPS, defaultVUnits(1n));
+      expect(cl.active).to.equal(false);
+      expect(cl.balance).to.equal(0n);
 
       for (const id of ops) await network.connect(opOwner).removeOperator(id);
 
@@ -853,10 +904,14 @@ describe("XL: Liquidation-Reactivation Chain Tests", function () {
       let cl = await regVal(network, clusterOwner, ops, EMPTY_CLUSTER, DEFAULT_ETH_REGISTER_VALUE, 1);
       cl = await doEB(network, prov, clusterOwner, ops, cl, 48, oracles3());
       cl = await drainAndLiq(network, prov, clusterOwner, liquidator, ops, cl, NUM_OPS, calcVUnits(48n));
+      expect(cl.active).to.equal(false);
+      expect(cl.balance).to.equal(0n);
 
       await network.connect(opOwner).removeOperator(ops[3]);
 
       cl = await react(network, clusterOwner, ops, cl);
+      expect(cl.active).to.equal(true);
+      expect(cl.validatorCount).to.equal(1n);
 
       // Post-reactivation EB update — guard skips removed op
       cl = await doEB(network, prov, clusterOwner, ops, cl, 64, oracles3());
@@ -875,6 +930,8 @@ describe("XL: Liquidation-Reactivation Chain Tests", function () {
 
       let cl = await regVal(network, clusterOwner, ops, EMPTY_CLUSTER, DEFAULT_ETH_REGISTER_VALUE, 1);
       cl = await drainAndLiq(network, prov, clusterOwner, liquidator, ops, cl, NUM_OPS, defaultVUnits(1n));
+      expect(cl.active).to.equal(false);
+      expect(cl.balance).to.equal(0n);
 
       // Increase fee for op1
       const newFee = await getValidOperatorFeeIncrease(views, BigInt(ops[0]));
@@ -891,6 +948,7 @@ describe("XL: Liquidation-Reactivation Chain Tests", function () {
       // Reactivate with sufficient funds for new burn rate
       cl = await react(network, clusterOwner, ops, cl, ethers.parseEther("20"));
       expect(cl.active).to.equal(true);
+      expect(cl.validatorCount).to.equal(1n);
     });
 
     it("XL-028: liquidate → fee increase → reactivate with insufficient → revert", async function () {
@@ -900,6 +958,8 @@ describe("XL: Liquidation-Reactivation Chain Tests", function () {
 
       let cl = await regVal(network, clusterOwner, ops, EMPTY_CLUSTER, DEFAULT_ETH_REGISTER_VALUE, 1);
       cl = await drainAndLiq(network, prov, clusterOwner, liquidator, ops, cl, NUM_OPS, defaultVUnits(1n));
+      expect(cl.active).to.equal(false);
+      expect(cl.balance).to.equal(0n);
 
       const newFee = await getValidOperatorFeeIncrease(views, BigInt(ops[0]));
       await network.connect(opOwner).declareOperatorFee(BigInt(ops[0]), newFee);
@@ -940,6 +1000,8 @@ describe("XL: Liquidation-Reactivation Chain Tests", function () {
       await network.connect(opOwner).executeOperatorFee(BigInt(ops[0]));
 
       cl = await drainAndLiq(network, prov, clusterOwner, liquidator, ops, cl, NUM_OPS, defaultVUnits(1n));
+      expect(cl.active).to.equal(false);
+      expect(cl.balance).to.equal(0n);
 
       // Decrease fee for op[0] back to original (only op[0] was increased; others are already at minimum)
       const originalFee = BigInt(MINIMAL_OPERATOR_ETH_FEE);
@@ -952,6 +1014,7 @@ describe("XL: Liquidation-Reactivation Chain Tests", function () {
       // Reactivate with amount at reduced threshold — should succeed
       cl = await react(network, clusterOwner, ops, cl, ethers.parseEther("10"));
       expect(cl.active).to.equal(true);
+      expect(cl.validatorCount).to.equal(1n);
     });
 
     it("XL-030: liquidate → remove op + fee change on remaining → reactivate", async function () {
@@ -961,6 +1024,8 @@ describe("XL: Liquidation-Reactivation Chain Tests", function () {
 
       let cl = await regVal(network, clusterOwner, ops, EMPTY_CLUSTER, DEFAULT_ETH_REGISTER_VALUE, 1);
       cl = await drainAndLiq(network, prov, clusterOwner, liquidator, ops, cl, NUM_OPS, defaultVUnits(1n));
+      expect(cl.active).to.equal(false);
+      expect(cl.balance).to.equal(0n);
 
       // Remove op4
       await network.connect(opOwner).removeOperator(ops[3]);
@@ -976,6 +1041,7 @@ describe("XL: Liquidation-Reactivation Chain Tests", function () {
       // Reactivate — 3 ops at mixed fees, 1 dead
       cl = await react(network, clusterOwner, ops, cl, ethers.parseEther("20"));
       expect(cl.active).to.equal(true);
+      expect(cl.validatorCount).to.equal(1n);
     });
   });
 
@@ -996,14 +1062,22 @@ describe("XL: Liquidation-Reactivation Chain Tests", function () {
 
       // Cycle 1
       cl = await drainAndLiq(network, prov, clusterOwner, liquidator, ops, cl, NUM_OPS, v48);
+      expect(cl.active).to.equal(false);
+      expect(cl.balance).to.equal(0n);
       await assertAllOpVUnits(prov, addr, ops, 0n, "cycle1 liq");
       cl = await react(network, clusterOwner, ops, cl);
+      expect(cl.active).to.equal(true);
+      expect(cl.validatorCount).to.equal(1n);
       await assertAllOpVUnits(prov, addr, ops, dev, "cycle1 react");
 
       // Cycle 2
       cl = await drainAndLiq(network, prov, clusterOwner, liquidator, ops, cl, NUM_OPS, v48);
+      expect(cl.active).to.equal(false);
+      expect(cl.balance).to.equal(0n);
       await assertAllOpVUnits(prov, addr, ops, 0n, "cycle2 liq");
       cl = await react(network, clusterOwner, ops, cl);
+      expect(cl.active).to.equal(true);
+      expect(cl.validatorCount).to.equal(1n);
       await assertAllOpVUnits(prov, addr, ops, dev, "cycle2 react — same as cycle1");
     });
 
@@ -1018,17 +1092,26 @@ describe("XL: Liquidation-Reactivation Chain Tests", function () {
       // Cycle 1: EB 32→48
       cl = await doEB(network, prov, clusterOwner, ops, cl, 48, oracles3());
       cl = await drainAndLiq(network, prov, clusterOwner, liquidator, ops, cl, NUM_OPS, calcVUnits(48n));
+      expect(cl.active).to.equal(false);
+      expect(cl.balance).to.equal(0n);
       cl = await react(network, clusterOwner, ops, cl);
+      expect(cl.active).to.equal(true);
 
       // Cycle 2: EB 48→64
       cl = await doEB(network, prov, clusterOwner, ops, cl, 64, oracles3());
       cl = await drainAndLiq(network, prov, clusterOwner, liquidator, ops, cl, NUM_OPS, calcVUnits(64n));
+      expect(cl.active).to.equal(false);
+      expect(cl.balance).to.equal(0n);
       cl = await react(network, clusterOwner, ops, cl);
+      expect(cl.active).to.equal(true);
 
       // Cycle 3: EB 64→48 (decrease)
       cl = await doEB(network, prov, clusterOwner, ops, cl, 48, oracles3());
       cl = await drainAndLiq(network, prov, clusterOwner, liquidator, ops, cl, NUM_OPS, calcVUnits(48n));
+      expect(cl.active).to.equal(false);
+      expect(cl.balance).to.equal(0n);
       cl = await react(network, clusterOwner, ops, cl);
+      expect(cl.active).to.equal(true);
 
       const dev48 = calcVUnits(48n) - defaultVUnits(1n);
       await assertAllOpVUnits(prov, addr, ops, dev48, "after triple cycle");
@@ -1041,7 +1124,11 @@ describe("XL: Liquidation-Reactivation Chain Tests", function () {
 
       let cl = await regVal(network, clusterOwner, ops, EMPTY_CLUSTER, DEFAULT_ETH_REGISTER_VALUE, 1);
       cl = await drainAndLiq(network, prov, clusterOwner, liquidator, ops, cl, NUM_OPS, defaultVUnits(1n));
+      expect(cl.active).to.equal(false);
+      expect(cl.balance).to.equal(0n);
       cl = await react(network, clusterOwner, ops, cl, ethers.parseEther("20"));
+      expect(cl.active).to.equal(true);
+      expect(cl.validatorCount).to.equal(1n);
 
       // Add second validator
       cl = await regVal(network, clusterOwner, ops, cl, 0n, 2);
@@ -1054,6 +1141,7 @@ describe("XL: Liquidation-Reactivation Chain Tests", function () {
       // Liquidate
       cl = await drainAndLiq(network, prov, clusterOwner, liquidator, ops, cl, NUM_OPS, v96);
       expect(cl.active).to.equal(false);
+      expect(cl.balance).to.equal(0n);
     });
 
     it("XL-034: reactivate → add validator → EB → auto-liquidate", async function () {
@@ -1063,7 +1151,10 @@ describe("XL: Liquidation-Reactivation Chain Tests", function () {
 
       let cl = await regVal(network, clusterOwner, ops, EMPTY_CLUSTER, DEFAULT_ETH_REGISTER_VALUE, 1);
       cl = await drainAndLiq(network, prov, clusterOwner, liquidator, ops, cl, NUM_OPS, defaultVUnits(1n));
+      expect(cl.active).to.equal(false);
+      expect(cl.balance).to.equal(0n);
       cl = await react(network, clusterOwner, ops, cl, DEFAULT_ETH_REGISTER_VALUE);
+      expect(cl.active).to.equal(true);
 
       // Add second validator (2 validators now, baseline = 20000)
       cl = await regVal(network, clusterOwner, ops, cl, 0n, 2);
@@ -1084,6 +1175,7 @@ describe("XL: Liquidation-Reactivation Chain Tests", function () {
       // EB 256 with 2 validators → huge threshold increase triggers auto-liq
       cl = await doEB(network, prov, clusterOwner, ops, cl, 256, oracles3());
       expect(cl.active).to.equal(false);
+      expect(cl.balance).to.equal(0n);
     });
 
     it("XL-035: reactivate with exact minimum threshold", async function () {
@@ -1110,6 +1202,7 @@ describe("XL: Liquidation-Reactivation Chain Tests", function () {
 
       cl = await react(network, clusterOwner, ops, cl, exactMin);
       expect(cl.active).to.equal(true);
+      expect(cl.validatorCount).to.equal(1n);
     });
 
     it("XL-036: reactivate with 1 wei above minimum", async function () {
@@ -1130,6 +1223,7 @@ describe("XL: Liquidation-Reactivation Chain Tests", function () {
 
       cl = await react(network, clusterOwner, ops, cl, thresh + burn1 + 1n);
       expect(cl.active).to.equal(true);
+      expect(cl.validatorCount).to.equal(1n);
     });
 
     it("XL-037: reactivate with value below minimum threshold → revert", async function () {
@@ -1141,6 +1235,8 @@ describe("XL: Liquidation-Reactivation Chain Tests", function () {
       cl = await doEB(network, prov, clusterOwner, ops, cl, 48, oracles3());
       const v48 = calcVUnits(48n);
       cl = await drainAndLiq(network, prov, clusterOwner, liquidator, ops, cl, NUM_OPS, v48);
+      expect(cl.active).to.equal(false);
+      expect(cl.balance).to.equal(0n);
 
       const thresh = calcLiquidationThreshold({
         minimumBlocksBeforeLiquidation: MINIMAL_LIQUIDATION_THRESHOLD,
@@ -1163,10 +1259,14 @@ describe("XL: Liquidation-Reactivation Chain Tests", function () {
       cl = await doEB(network, prov, clusterOwner, ops, cl, 48, oracles3());
       const v48 = calcVUnits(48n);
       cl = await drainAndLiq(network, prov, clusterOwner, liquidator, ops, cl, NUM_OPS, v48);
+      expect(cl.active).to.equal(false);
+      expect(cl.balance).to.equal(0n);
       cl = await react(network, clusterOwner, ops, cl, ethers.parseEther("20"));
+      expect(cl.active).to.equal(true);
 
       // EB 48→64
       cl = await doEB(network, prov, clusterOwner, ops, cl, 64, oracles3());
+      expect(cl.active).to.equal(true);
       const v64 = calcVUnits(64n);
 
       // Withdraw most of the balance
@@ -1186,6 +1286,7 @@ describe("XL: Liquidation-Reactivation Chain Tests", function () {
       await mineBlocks(prov, 2);
       cl = await drainAndLiq(network, prov, clusterOwner, liquidator, ops, cl, NUM_OPS, v64);
       expect(cl.active).to.equal(false);
+      expect(cl.balance).to.equal(0n);
     });
 
     it("XL-039: max EB (2048) liquidation and reactivation", async function () {
@@ -1202,10 +1303,13 @@ describe("XL: Liquidation-Reactivation Chain Tests", function () {
       await assertAllOpVUnits(prov, addr, ops, devMax, "max EB");
 
       cl = await drainAndLiq(network, prov, clusterOwner, liquidator, ops, cl, NUM_OPS, vMax);
+      expect(cl.active).to.equal(false);
+      expect(cl.balance).to.equal(0n);
       await assertAllOpVUnits(prov, addr, ops, 0n, "after liq");
 
       cl = await react(network, clusterOwner, ops, cl, ethers.parseEther("500"));
       expect(cl.active).to.equal(true);
+      expect(cl.validatorCount).to.equal(1n);
       await assertAllOpVUnits(prov, addr, ops, devMax, "after react");
     });
 
@@ -1249,16 +1353,20 @@ describe("XL: Liquidation-Reactivation Chain Tests", function () {
 
       let cl = await regVal(network, clusterOwner, ops, EMPTY_CLUSTER, DEFAULT_ETH_REGISTER_VALUE, 1);
       cl = await drainAndLiq(network, prov, clusterOwner, liquidator, ops, cl, NUM_OPS, defaultVUnits(1n));
+      expect(cl.active).to.equal(false);
+      expect(cl.balance).to.equal(0n);
       const liqCluster = cl;
       await assertAllOpVUnits(prov, addr, ops, 0n, "after liq");
 
       // EB update on liquidated cluster — stores snapshot only, no deviation
       cl = await doEB(network, prov, clusterOwner, ops, cl, 48, oracles3());
+      expect(cl.active).to.equal(false);
       await assertAllOpVUnits(prov, addr, ops, 0n, "after EB on liq — no deviation applied");
 
       // Reactivate — uses updated vUnits from EB snapshot
       cl = await react(network, clusterOwner, ops, liqCluster);
       expect(cl.active).to.equal(true);
+      expect(cl.validatorCount).to.equal(1n);
       const dev48 = calcVUnits(48n) - defaultVUnits(1n);
       await assertAllOpVUnits(prov, addr, ops, dev48, "after react with new EB");
     });
@@ -1270,10 +1378,13 @@ describe("XL: Liquidation-Reactivation Chain Tests", function () {
 
       let cl = await regVal(network, clusterOwner, ops, EMPTY_CLUSTER, DEFAULT_ETH_REGISTER_VALUE, 1);
       cl = await drainAndLiq(network, prov, clusterOwner, liquidator, ops, cl, NUM_OPS, defaultVUnits(1n));
+      expect(cl.active).to.equal(false);
+      expect(cl.balance).to.equal(0n);
       const liqCluster = cl;
 
       // EB increase while liquidated
       cl = await doEB(network, prov, clusterOwner, ops, cl, 128, oracles3());
+      expect(cl.active).to.equal(false);
 
       // Reactivate with amount sufficient for old EB but not new
       const oldThresh = calcLiquidationThreshold({
@@ -1298,17 +1409,22 @@ describe("XL: Liquidation-Reactivation Chain Tests", function () {
 
       let cl = await regVal(network, clusterOwner, ops, EMPTY_CLUSTER, DEFAULT_ETH_REGISTER_VALUE, 1);
       cl = await drainAndLiq(network, prov, clusterOwner, liquidator, ops, cl, NUM_OPS, defaultVUnits(1n));
+      expect(cl.active).to.equal(false);
+      expect(cl.balance).to.equal(0n);
       const liqCluster = cl;
 
       // Two EB updates while liquidated
       cl = await doEB(network, prov, clusterOwner, ops, cl, 48, oracles3());
+      expect(cl.active).to.equal(false);
       await assertAllOpVUnits(prov, addr, ops, 0n, "no deviation after 1st EB on liq");
       cl = await doEB(network, prov, clusterOwner, ops, cl, 64, oracles3());
+      expect(cl.active).to.equal(false);
       await assertAllOpVUnits(prov, addr, ops, 0n, "no deviation after 2nd EB on liq");
 
       // Reactivate — uses final vUnits
       cl = await react(network, clusterOwner, ops, liqCluster, ethers.parseEther("20"));
       expect(cl.active).to.equal(true);
+      expect(cl.validatorCount).to.equal(1n);
       const dev64 = calcVUnits(64n) - defaultVUnits(1n);
       await assertAllOpVUnits(prov, addr, ops, dev64, "uses final EB=64 vUnits");
     });
@@ -1322,14 +1438,18 @@ describe("XL: Liquidation-Reactivation Chain Tests", function () {
       let cl = await regVal(network, clusterOwner, ops, EMPTY_CLUSTER, DEFAULT_ETH_REGISTER_VALUE, 1);
       cl = await doEB(network, prov, clusterOwner, ops, cl, 48, oracles3());
       cl = await drainAndLiq(network, prov, clusterOwner, liquidator, ops, cl, NUM_OPS, calcVUnits(48n));
+      expect(cl.active).to.equal(false);
+      expect(cl.balance).to.equal(0n);
       const liqCluster = cl;
 
       // EB decrease while liquidated: 48→32
       cl = await doEB(network, prov, clusterOwner, ops, cl, 32, oracles3());
+      expect(cl.active).to.equal(false);
 
       // Reactivate — vUnits = 10000 (baseline), deviation = 0
       cl = await react(network, clusterOwner, ops, liqCluster);
       expect(cl.active).to.equal(true);
+      expect(cl.validatorCount).to.equal(1n);
       // No deviation since EB == baseline
       await assertAllOpVUnits(prov, addr, ops, 0n, "no deviation at baseline EB");
     });
@@ -1345,13 +1465,18 @@ describe("XL: Liquidation-Reactivation Chain Tests", function () {
       const v48 = calcVUnits(48n);
       const dev = v48 - defaultVUnits(1n);
       cl = await drainAndLiq(network, prov, clusterOwner, liquidator, ops, cl, NUM_OPS, v48);
+      expect(cl.active).to.equal(false);
+      expect(cl.balance).to.equal(0n);
       const liqCluster = cl;
 
       // Same EB while liquidated
       cl = await doEB(network, prov, clusterOwner, ops, cl, 48, oracles3());
+      expect(cl.active).to.equal(false);
 
       // Reactivate — same deviation as before liquidation
       cl = await react(network, clusterOwner, ops, liqCluster);
+      expect(cl.active).to.equal(true);
+      expect(cl.validatorCount).to.equal(1n);
       await assertAllOpVUnits(prov, addr, ops, dev, "round-trip: deviation restored");
     });
 
@@ -1363,15 +1488,20 @@ describe("XL: Liquidation-Reactivation Chain Tests", function () {
 
       let cl = await regVal(network, clusterOwner, ops, EMPTY_CLUSTER, DEFAULT_ETH_REGISTER_VALUE, 1);
       cl = await drainAndLiq(network, prov, clusterOwner, liquidator, ops, cl, NUM_OPS, defaultVUnits(1n));
+      expect(cl.active).to.equal(false);
+      expect(cl.balance).to.equal(0n);
       const liqCluster = cl;
 
       await network.connect(opOwner).removeOperator(ops[3]);
 
       // EB update on liquidated cluster (no deviation applied)
       cl = await doEB(network, prov, clusterOwner, ops, cl, 48, oracles3());
+      expect(cl.active).to.equal(false);
 
       // Reactivate — deviation to 3 live ops only
       cl = await react(network, clusterOwner, ops, liqCluster);
+      expect(cl.active).to.equal(true);
+      expect(cl.validatorCount).to.equal(1n);
       const dev = calcVUnits(48n) - defaultVUnits(1n);
       for (let i = 0; i < 3; i++) {
         expect(await readOpVUnits(prov, addr, BigInt(ops[i]))).to.equal(dev);
@@ -1403,14 +1533,17 @@ describe("XL: Liquidation-Reactivation Chain Tests", function () {
       // Auto-liquidation from EB increase
       cl = await doEB(network, prov, clusterOwner, ops, cl, 128, oracles3());
       expect(cl.active).to.equal(false);
+      expect(cl.balance).to.equal(0n);
       const liqCluster = cl;
 
       // EB decrease while liquidated: 128→32 (back to baseline)
       cl = await doEB(network, prov, clusterOwner, ops, cl, 32, oracles3());
+      expect(cl.active).to.equal(false);
 
       // Reactivate — vUnits = baseline, deviation = 0
       cl = await react(network, clusterOwner, ops, liqCluster, ethers.parseEther("10"));
       expect(cl.active).to.equal(true);
+      expect(cl.validatorCount).to.equal(1n);
       await assertAllOpVUnits(prov, addr, ops, 0n, "no deviation at baseline");
     });
 
@@ -1422,16 +1555,21 @@ describe("XL: Liquidation-Reactivation Chain Tests", function () {
 
       let cl = await regVal(network, clusterOwner, ops, EMPTY_CLUSTER, DEFAULT_ETH_REGISTER_VALUE, 1);
       cl = await drainAndLiq(network, prov, clusterOwner, liquidator, ops, cl, NUM_OPS, defaultVUnits(1n));
+      expect(cl.active).to.equal(false);
+      expect(cl.balance).to.equal(0n);
       const liqCluster = cl;
 
       // EB update while liquidated
       cl = await doEB(network, prov, clusterOwner, ops, cl, 48, oracles3());
+      expect(cl.active).to.equal(false);
 
       // Remove op4
       await network.connect(opOwner).removeOperator(ops[3]);
 
       // Reactivate (3 live ops, deviation from stored vUnits)
       cl = await react(network, clusterOwner, ops, liqCluster);
+      expect(cl.active).to.equal(true);
+      expect(cl.validatorCount).to.equal(1n);
       const dev48 = calcVUnits(48n) - defaultVUnits(1n);
       for (let i = 0; i < 3; i++) {
         expect(await readOpVUnits(prov, addr, BigInt(ops[i]))).to.equal(dev48);
@@ -1471,7 +1609,9 @@ describe("XL: Liquidation-Reactivation Chain Tests", function () {
 
       // First liquidation succeeds
       const tx1 = await network.connect(liquidator).liquidate(clusterOwner.address, ops, cl);
-      await tx1.wait();
+      const liqCl = parseClusterFromEvent(network, await tx1.wait(), Events.CLUSTER_LIQUIDATED);
+      expect(liqCl.active).to.equal(false);
+      expect(liqCl.balance).to.equal(0n);
 
       // Second liquidation with stale state reverts (IncorrectClusterState)
       await expect(
@@ -1487,6 +1627,7 @@ describe("XL: Liquidation-Reactivation Chain Tests", function () {
       let cl = await regVal(network, clusterOwner, ops, EMPTY_CLUSTER, DEFAULT_ETH_REGISTER_VALUE, 1);
       cl = await drainAndLiq(network, prov, clusterOwner, liquidator, ops, cl, NUM_OPS, defaultVUnits(1n));
       expect(cl.active).to.equal(false);
+      expect(cl.balance).to.equal(0n);
 
       cl = await react(network, clusterOwner, ops, cl);
       expect(cl.active).to.equal(true);
@@ -1547,10 +1688,12 @@ describe("XL: Liquidation-Reactivation Chain Tests", function () {
       // EB update triggers auto-liquidation
       cl = await doEB(network, prov, clusterOwner, ops, cl, 128, oracles3());
       expect(cl.active).to.equal(false);
+      expect(cl.balance).to.equal(0n);
 
       // Reactivate immediately
       cl = await react(network, clusterOwner, ops, cl, ethers.parseEther("50"));
       expect(cl.active).to.equal(true);
+      expect(cl.validatorCount).to.equal(1n);
     });
 
     it("XL-053: EB update raises threshold, then liquidation succeeds", async function () {
@@ -1587,6 +1730,7 @@ describe("XL: Liquidation-Reactivation Chain Tests", function () {
         cl = await drainAndLiq(network, prov, clusterOwner, liquidator, ops, cl, NUM_OPS, v64);
       }
       expect(cl.active).to.equal(false);
+      expect(cl.balance).to.equal(0n);
     });
 
     it("XL-054: two callers reactivate same cluster — second reverts", async function () {
@@ -1596,10 +1740,13 @@ describe("XL: Liquidation-Reactivation Chain Tests", function () {
 
       let cl = await regVal(network, clusterOwner, ops, EMPTY_CLUSTER, DEFAULT_ETH_REGISTER_VALUE, 1);
       cl = await drainAndLiq(network, prov, clusterOwner, liquidator, ops, cl, NUM_OPS, defaultVUnits(1n));
+      expect(cl.active).to.equal(false);
+      expect(cl.balance).to.equal(0n);
 
       // First reactivation succeeds
       const tx1 = await network.connect(clusterOwner).reactivate(ops, cl, { value: DEFAULT_ETH_REGISTER_VALUE });
-      await tx1.wait();
+      const reactCl = parseClusterFromEvent(network, await tx1.wait(), Events.CLUSTER_REACTIVATED);
+      expect(reactCl.active).to.equal(true);
 
       // Second reactivation with stale state reverts
       await expect(
@@ -1615,6 +1762,8 @@ describe("XL: Liquidation-Reactivation Chain Tests", function () {
 
       let cl = await regVal(network, clusterOwner, ops, EMPTY_CLUSTER, SMALL_ETH_REGISTER_VALUE, 1);
       cl = await drainAndLiq(network, prov, clusterOwner, liquidator, ops, cl, NUM_OPS, defaultVUnits(1n));
+      expect(cl.active).to.equal(false);
+      expect(cl.balance).to.equal(0n);
 
       // Reactivate with minimal amount
       const thresh = calcLiquidationThreshold({
@@ -1624,6 +1773,8 @@ describe("XL: Liquidation-Reactivation Chain Tests", function () {
       });
       const burn1 = calcClusterBurn({ blockDiff: 1n, numOperators: NUM_OPS, ethFee: OP_ETH_FEE_RAW, networkFee: DEFAULT_NETWORK_FEE_RAW, effectiveVUnits: defaultVUnits(1n) });
       cl = await react(network, clusterOwner, ops, cl, thresh + burn1 * 5n);
+      expect(cl.active).to.equal(true);
+      expect(cl.validatorCount).to.equal(1n);
 
       // EB update with very high EB — new threshold much higher
       cl = await doEB(network, prov, clusterOwner, ops, cl, 2048, oracles3());
@@ -1678,6 +1829,8 @@ describe("XL: Liquidation-Reactivation Chain Tests", function () {
 
       // Liquidate cluster A
       clA = await drainAndLiq(network, prov, clusterOwner, liquidator, opsA, clA, NUM_OPS, calcVUnits(48n));
+      expect(clA.active).to.equal(false);
+      expect(clA.balance).to.equal(0n);
 
       // After liquidating A: daoTotalEthVUnits == only cluster B's vUnits
       expect(await readDaoVUnits(prov, addr)).to.equal(v64, "XL-056: daoVUnits == v64 after A liquidated");
@@ -1719,9 +1872,13 @@ describe("XL: Liquidation-Reactivation Chain Tests", function () {
 
       // Liquidate A
       clA = await drainAndLiq(network, prov, clusterOwner, liquidator, opsA, clA, NUM_OPS, calcVUnits(48n));
+      expect(clA.active).to.equal(false);
+      expect(clA.balance).to.equal(0n);
 
       // Reactivate A — deviation re-added
       clA = await react(network, clusterOwner, opsA, clA);
+      expect(clA.active).to.equal(true);
+      expect(clA.validatorCount).to.equal(1n);
 
       // Shared ops have both deviations again
       expect(await readOpVUnits(prov, addr, BigInt(allOps[0]))).to.equal(devA + devB, "restored");
@@ -1745,6 +1902,8 @@ describe("XL: Liquidation-Reactivation Chain Tests", function () {
 
       // Liquidate cluster A (cleans A's deviation from shared ops)
       clA = await drainAndLiq(network, prov, clusterOwner, liquidator, opsA, clA, NUM_OPS, calcVUnits(48n));
+      expect(clA.active).to.equal(false);
+      expect(clA.balance).to.equal(0n);
 
       // Remove shared op1 — zeroes operatorEthVUnits[op1]
       await network.connect(opOwner).removeOperator(allOps[0]);
@@ -1774,9 +1933,12 @@ describe("XL: Liquidation-Reactivation Chain Tests", function () {
       await assertAllOpVUnits(prov, addr, ops, dev, "EB=96, 2 vals");
 
       cl = await drainAndLiq(network, prov, clusterOwner, liquidator, ops, cl, NUM_OPS, v96);
+      expect(cl.active).to.equal(false);
+      expect(cl.balance).to.equal(0n);
       await assertAllOpVUnits(prov, addr, ops, 0n, "liq cleans");
 
       cl = await react(network, clusterOwner, ops, cl);
+      expect(cl.active).to.equal(true);
       expect(cl.validatorCount).to.equal(2n);
       await assertAllOpVUnits(prov, addr, ops, dev, "react restores");
     });
@@ -1800,9 +1962,12 @@ describe("XL: Liquidation-Reactivation Chain Tests", function () {
       const v48 = calcVUnits(48n);
 
       cl = await drainAndLiq(network, prov, clusterOwner, liquidator, ops, cl, NUM_OPS, v48);
+      expect(cl.active).to.equal(false);
+      expect(cl.balance).to.equal(0n);
+
       cl = await react(network, clusterOwner, ops, cl);
-      expect(cl.validatorCount).to.equal(1n);
       expect(cl.active).to.equal(true);
+      expect(cl.validatorCount).to.equal(1n);
     });
 
     it("XL-061: withdraw near threshold → EB increase triggers auto-liq", async function () {
@@ -1829,6 +1994,7 @@ describe("XL: Liquidation-Reactivation Chain Tests", function () {
       // EB increase to 128 — threshold increases dramatically, triggers auto-liq
       cl = await doEB(network, prov, clusterOwner, ops, cl, 128, oracles3());
       expect(cl.active).to.equal(false);
+      expect(cl.balance).to.equal(0n);
     });
 
     it("XL-062: EB decrease + deposit → not liquidatable", async function () {
@@ -1845,6 +2011,7 @@ describe("XL: Liquidation-Reactivation Chain Tests", function () {
 
       // EB decrease lowers threshold
       cl = await doEB(network, prov, clusterOwner, ops, cl, 32, oracles3());
+      expect(cl.active).to.equal(true);
 
       // Not liquidatable (balance well above threshold)
       await expect(
@@ -1861,7 +2028,11 @@ describe("XL: Liquidation-Reactivation Chain Tests", function () {
       cl = await regVal(network, clusterOwner, ops, cl, 0n, 2);
       cl = await doEB(network, prov, clusterOwner, ops, cl, 96, oracles3());
       cl = await drainAndLiq(network, prov, clusterOwner, liquidator, ops, cl, NUM_OPS, calcVUnits(96n));
+      expect(cl.active).to.equal(false);
+      expect(cl.balance).to.equal(0n);
       cl = await react(network, clusterOwner, ops, cl, ethers.parseEther("20"));
+      expect(cl.active).to.equal(true);
+      expect(cl.validatorCount).to.equal(2n);
 
       // Remove one validator — reduces validatorCount
       const rmTx = await network.connect(clusterOwner).removeValidator(makePublicKey(1), ops, cl);
@@ -1891,10 +2062,13 @@ describe("XL: Liquidation-Reactivation Chain Tests", function () {
       await assertAllOpVUnits(prov, addr, ops, dev, "after EB");
 
       cl = await drainAndLiq(network, prov, clusterOwner, liquidator, ops, cl, NUM_OPS, v48);
+      expect(cl.active).to.equal(false);
+      expect(cl.balance).to.equal(0n);
 
       // Reactivate with fresh deposit (mimics migration deposit)
       cl = await react(network, clusterOwner, ops, cl, ethers.parseEther("20"));
       expect(cl.active).to.equal(true);
+      expect(cl.validatorCount).to.equal(1n);
       await assertAllOpVUnits(prov, addr, ops, dev, "after react");
 
       // Second EB update verifies ongoing deviation correctness
@@ -1920,6 +2094,7 @@ describe("XL: Liquidation-Reactivation Chain Tests", function () {
       const v48 = calcVUnits(48n);
       cl = await drainAndLiq(network, prov, clusterOwner, liquidator, ops, cl, 3n, v48);
       expect(cl.active).to.equal(false, "cluster liquidated");
+      expect(cl.balance).to.equal(0n);
       expect(await readOpVUnits(prov, addr, BigInt(ops[3]))).to.equal(0n, "removed op stays 0");
     });
   });

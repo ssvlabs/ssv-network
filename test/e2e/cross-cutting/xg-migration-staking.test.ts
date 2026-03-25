@@ -32,11 +32,13 @@ import {
   DEFAULT_ETH_REGISTER_VALUE,
   EMPTY_CLUSTER,
   ETH_DEDUCTED_DIGITS,
+  BPS_DENOMINATOR,
   TOKEN_REGISTER_AMOUNT,
   MINIMAL_OPERATOR_ETH_FEE,
   STAKE_AMOUNT,
   DEFAULT_NETWORK_FEE_UNPACKED,
   DECLARE_OPERATOR_FEE_PERIOD,
+  NETWORK_FEE_ETH,
 } from "../../common/constants.ts";
 import { Events } from "../../common/events.ts";
 import { Errors } from "../../common/errors.ts";
@@ -309,7 +311,8 @@ describe("XG: Migration x Staking Cross-Module Tests", () => {
       const migrateTx = await network.connect(clusterOwner).migrateClusterToETH(
         operatorIds, cluster, { value: DEFAULT_ETH_REGISTER_VALUE },
       );
-      await migrateTx.wait();
+      const migrateReceipt = await migrateTx.wait();
+      const migrateBlock = migrateReceipt!.blockNumber;
 
       const daoVUnits = await readDaoTotalEthVUnits(provider, networkAddress);
       expect(daoVUnits).to.equal(defaultVUnits(3n));
@@ -323,8 +326,18 @@ describe("XG: Migration x Staking Cross-Module Tests", () => {
       expect(accAfterSync).to.be.greaterThan(accBefore);
 
       // Claim
-      const { amount } = await claimAndGetAmount(network, provider, staker);
-      expect(amount).to.be.greaterThan(0n);
+      const { amount, block: claimBlock } = await claimAndGetAmount(network, provider, staker);
+
+      // Exact reward computation
+      const PRECISION = 10n ** 18n;
+      const networkFeePacked = 3_000_000_000n / ETH_DEDUCTED_DIGITS; // legacy fixture
+      const vUnits = defaultVUnits(3n);
+      const blockDiff = BigInt(claimBlock - migrateBlock);
+      const feesWei = (blockDiff * networkFeePacked * vUnits / BPS_DENOMINATOR) * ETH_DEDUCTED_DIGITS;
+      const accDelta = (feesWei * PRECISION) / stakeAmount;
+      const expectedRaw = (stakeAmount * accDelta) / PRECISION;
+      const expectedClaim = expectedRaw - (expectedRaw % ETH_DEDUCTED_DIGITS);
+      expect(amount).to.equal(expectedClaim);
       // Payout must be truncated to ETH_DEDUCTED_DIGITS granularity
       expect(amount % ETH_DEDUCTED_DIGITS).to.equal(0n);
     });
@@ -355,7 +368,15 @@ describe("XG: Migration x Staking Cross-Module Tests", () => {
       // Claim
       const { amount, block: claimBlock } = await claimAndGetAmount(network, provider, staker);
       // Staker's rewards should only reflect post-stake blocks
-      expect(amount).to.be.greaterThan(0n);
+      const PRECISION = 10n ** 18n;
+      const networkFeePacked = 3_000_000_000n / ETH_DEDUCTED_DIGITS;
+      const vUnits = defaultVUnits(1n);
+      const blockDiff = BigInt(claimBlock - stakeBlock);
+      const feesWei = (blockDiff * networkFeePacked * vUnits / BPS_DENOMINATOR) * ETH_DEDUCTED_DIGITS;
+      const accDelta = (feesWei * PRECISION) / stakeAmount;
+      const expectedRaw = (stakeAmount * accDelta) / PRECISION;
+      const expectedClaim = expectedRaw - (expectedRaw % ETH_DEDUCTED_DIGITS);
+      expect(amount).to.equal(expectedClaim);
       expect(amount % ETH_DEDUCTED_DIGITS).to.equal(0n);
     });
 
@@ -382,7 +403,7 @@ describe("XG: Migration x Staking Cross-Module Tests", () => {
 
       // Staker B stakes after migration
       const stakeB = ethers.parseEther("30");
-      await stakeSSV(network, ssvToken, stakerB, stakeB);
+      const stakeBBlock = await stakeSSV(network, ssvToken, stakerB, stakeB);
 
       // Advance more blocks
       await mineBlocks(provider, 50);
@@ -391,12 +412,36 @@ describe("XG: Migration x Staking Cross-Module Tests", () => {
       const claimA = await claimAndGetAmount(network, provider, staker);
       const claimB = await claimAndGetAmount(network, provider, stakerB);
 
-      // Staker A should get more (was staked during the 50-block solo period)
-      expect(claimA.amount).to.be.greaterThan(0n);
-      expect(claimB.amount).to.be.greaterThan(0n);
-      // A was alone for 50 blocks and has smaller stake for the next 50+claim blocks
-      // B entered later with 3x stake
-      expect(claimA.amount + claimB.amount).to.be.greaterThan(0n);
+      // Exact reward computation
+      const PRECISION = 10n ** 18n;
+      const networkFeePacked = 3_000_000_000n / ETH_DEDUCTED_DIGITS;
+      const vUnits = defaultVUnits(2n);
+
+      // Phase 1: migration to stakeB (only staker A has cSSV)
+      const phase1Blocks = BigInt(stakeBBlock - migrateBlock);
+      const phase1FeesWei = (phase1Blocks * networkFeePacked * vUnits / BPS_DENOMINATOR) * ETH_DEDUCTED_DIGITS;
+      const delta1 = (phase1FeesWei * PRECISION) / stakeA;
+
+      // Phase 2: stakeB to claimA (both stakers)
+      const phase2Blocks = BigInt(claimA.block - stakeBBlock);
+      const phase2FeesWei = (phase2Blocks * networkFeePacked * vUnits / BPS_DENOMINATOR) * ETH_DEDUCTED_DIGITS;
+      const totalSupply2 = stakeA + stakeB;
+      const delta2 = (phase2FeesWei * PRECISION) / totalSupply2;
+
+      const expectedARaw = (stakeA * (delta1 + delta2)) / PRECISION;
+      const expectedA = expectedARaw - (expectedARaw % ETH_DEDUCTED_DIGITS);
+      expect(claimA.amount).to.equal(expectedA);
+
+      // Phase 3: claimA to claimB
+      const phase3Blocks = BigInt(claimB.block - claimA.block);
+      const phase3FeesWei = (phase3Blocks * networkFeePacked * vUnits / BPS_DENOMINATOR) * ETH_DEDUCTED_DIGITS;
+      const delta3 = (phase3FeesWei * PRECISION) / totalSupply2;
+
+      const expectedBRaw = (stakeB * (delta2 + delta3)) / PRECISION;
+      const expectedB = expectedBRaw - (expectedBRaw % ETH_DEDUCTED_DIGITS);
+      expect(claimB.amount).to.equal(expectedB);
+
+      expect(claimA.amount + claimB.amount).to.equal(expectedA + expectedB);
     });
 
     it("XG-004: Migrate -> updateClusterBalance (explicit EB > baseline) -> syncFees -> claim", async function () {
@@ -416,8 +461,9 @@ describe("XG: Migration x Staking Cross-Module Tests", () => {
       const migrateTx = await network.connect(clusterOwner).migrateClusterToETH(
         operatorIds, cluster, { value: DEFAULT_ETH_REGISTER_VALUE },
       );
-      await migrateTx.wait();
-      let migratedCluster = parseClusterFromEvent(network, await migrateTx.wait(), Events.CLUSTER_MIGRATED_TO_ETH);
+      const migrateReceipt = await migrateTx.wait();
+      const migrateBlock = migrateReceipt!.blockNumber;
+      let migratedCluster = parseClusterFromEvent(network, migrateReceipt, Events.CLUSTER_MIGRATED_TO_ETH);
 
       await mineBlocks(provider, 50);
       await network.syncFees();
@@ -428,6 +474,7 @@ describe("XG: Migration x Staking Cross-Module Tests", () => {
         network, provider, clusterOwner, operatorIds,
         migratedCluster, 128,
       );
+      const ebBlock = ebResult.block;
 
       const daoVUnits = await readDaoTotalEthVUnits(provider, networkAddress);
       expect(daoVUnits).to.equal(calcVUnits(128n));
@@ -437,8 +484,26 @@ describe("XG: Migration x Staking Cross-Module Tests", () => {
       const accAfterEB = BigInt(await views.accEthPerShare());
       expect(accAfterEB).to.be.greaterThan(accBeforeEB);
 
-      const { amount } = await claimAndGetAmount(network, provider, staker);
-      expect(amount).to.be.greaterThan(0n);
+      const { amount, block: claimBlock } = await claimAndGetAmount(network, provider, staker);
+
+      // Exact reward: two phases with different vUnits, single staker
+      const PRECISION = 10n ** 18n;
+      const networkFeePacked = 3_000_000_000n / ETH_DEDUCTED_DIGITS;
+      const totalCSSV = STAKE_AMOUNT + stakeAmount; // setupOracles stakes STAKE_AMOUNT + stakeSSV stakes stakeAmount
+      const vUnitsPhase1 = defaultVUnits(2n);
+      const vUnitsPhase2 = calcVUnits(128n);
+
+      const phase1Blocks = BigInt(ebBlock - migrateBlock);
+      const phase1FeesWei = (phase1Blocks * networkFeePacked * vUnitsPhase1 / BPS_DENOMINATOR) * ETH_DEDUCTED_DIGITS;
+      const delta1 = (phase1FeesWei * PRECISION) / totalCSSV;
+
+      const phase2Blocks = BigInt(claimBlock - ebBlock);
+      const phase2FeesWei = (phase2Blocks * networkFeePacked * vUnitsPhase2 / BPS_DENOMINATOR) * ETH_DEDUCTED_DIGITS;
+      const delta2 = (phase2FeesWei * PRECISION) / totalCSSV;
+
+      const expectedRaw = (totalCSSV * (delta1 + delta2)) / PRECISION;
+      const expectedClaim = expectedRaw - (expectedRaw % ETH_DEDUCTED_DIGITS);
+      expect(amount).to.equal(expectedClaim);
     });
 
     it("XG-005: Explicit EB set on SSV cluster before migration -> carries deviation into daoTotalEthVUnits", async function () {
@@ -465,12 +530,23 @@ describe("XG: Migration x Staking Cross-Module Tests", () => {
 
       // Stake and verify rewards accrue at the elevated EB rate
       const stakeAmount = ethers.parseEther("10");
-      await stakeSSV(network, ssvToken, stakerB, stakeAmount);
+      const stakeBBlock = await stakeSSV(network, ssvToken, stakerB, stakeAmount);
 
       await mineBlocks(provider, 100);
 
-      const { amount } = await claimAndGetAmount(network, provider, stakerB);
-      expect(amount).to.be.greaterThan(0n);
+      const { amount, block: claimBlock } = await claimAndGetAmount(network, provider, stakerB);
+
+      // Exact reward: stakerB only gets fees from stake block to claim block
+      const PRECISION = 10n ** 18n;
+      const networkFeePacked = 500_000_000n / ETH_DEDUCTED_DIGITS; // ETH fixture
+      const vUnits = calcVUnits(128n);
+      const totalCSSV = STAKE_AMOUNT + stakeAmount; // staker (from setupOracles) + stakerB
+      const blockDiff = BigInt(claimBlock - stakeBBlock);
+      const feesWei = (blockDiff * networkFeePacked * vUnits / BPS_DENOMINATOR) * ETH_DEDUCTED_DIGITS;
+      const accDelta = (feesWei * PRECISION) / totalCSSV;
+      const expectedRaw = (stakeAmount * accDelta) / PRECISION;
+      const expectedClaim = expectedRaw - (expectedRaw % ETH_DEDUCTED_DIGITS);
+      expect(amount).to.equal(expectedClaim);
     });
 
     it("XG-006: Migrate -> network fee change -> syncFees -> claim (both fee rate periods)", async function () {
@@ -483,17 +559,19 @@ describe("XG: Migration x Staking Cross-Module Tests", () => {
       await stakeSSV(network, ssvToken, staker, stakeAmount);
 
       // Migrate
-      await network.connect(clusterOwner).migrateClusterToETH(
+      const migrateTx = await network.connect(clusterOwner).migrateClusterToETH(
         operatorIds, cluster, { value: DEFAULT_ETH_REGISTER_VALUE },
       );
+      const migrateBlock = (await migrateTx.wait())!.blockNumber;
 
       await mineBlocks(provider, 50);
       await network.syncFees();
       const accAfterPeriod1 = BigInt(await views.accEthPerShare());
 
-      // Change network fee (double it)
+      // Change network fee (double DEFAULT_NETWORK_FEE_UNPACKED)
       const newFee = DEFAULT_NETWORK_FEE_UNPACKED * 2n;
-      await network.updateNetworkFee(newFee);
+      const feeChangeTx = await network.updateNetworkFee(newFee);
+      const feeChangeBlock = (await feeChangeTx.wait())!.blockNumber;
 
       await mineBlocks(provider, 50);
       await network.syncFees();
@@ -502,8 +580,25 @@ describe("XG: Migration x Staking Cross-Module Tests", () => {
       // accEthPerShare should have grown more in period 2 (higher fee)
       expect(accAfterPeriod2).to.be.greaterThan(accAfterPeriod1);
 
-      const { amount } = await claimAndGetAmount(network, provider, staker);
-      expect(amount).to.be.greaterThan(0n);
+      const { amount, block: claimBlock } = await claimAndGetAmount(network, provider, staker);
+
+      // Exact reward: two phases with different network fees
+      const PRECISION = 10n ** 18n;
+      const fee1Packed = 3_000_000_000n / ETH_DEDUCTED_DIGITS; // legacy fixture initial fee
+      const fee2Packed = newFee / ETH_DEDUCTED_DIGITS;
+      const vUnits = defaultVUnits(1n);
+
+      const phase1Blocks = BigInt(feeChangeBlock - migrateBlock);
+      const phase1FeesWei = (phase1Blocks * fee1Packed * vUnits / BPS_DENOMINATOR) * ETH_DEDUCTED_DIGITS;
+      const delta1 = (phase1FeesWei * PRECISION) / stakeAmount;
+
+      const phase2Blocks = BigInt(claimBlock - feeChangeBlock);
+      const phase2FeesWei = (phase2Blocks * fee2Packed * vUnits / BPS_DENOMINATOR) * ETH_DEDUCTED_DIGITS;
+      const delta2 = (phase2FeesWei * PRECISION) / stakeAmount;
+
+      const expectedRaw = (stakeAmount * (delta1 + delta2)) / PRECISION;
+      const expectedClaim = expectedRaw - (expectedRaw % ETH_DEDUCTED_DIGITS);
+      expect(amount).to.equal(expectedClaim);
     });
   });
 
@@ -553,7 +648,8 @@ describe("XG: Migration x Staking Cross-Module Tests", () => {
 
       // Advance blocks to drain the cluster and sync right before liquidation
       await mineBlocks(provider, 500_000);
-      await network.syncFees();
+      const syncPreLiqTx = await network.syncFees();
+      const syncPreLiqBlock = (await syncPreLiqTx.wait())!.blockNumber;
       const accPreLiq = BigInt(await views.accEthPerShare());
 
       // Liquidate using cluster from migration event (getCurrentClusterState lookback too small)
@@ -561,6 +657,7 @@ describe("XG: Migration x Staking Cross-Module Tests", () => {
         clusterOwner.address, operatorIds, migratedCluster,
       );
       const liqReceipt = await liqTx.wait();
+      const liqBlock = liqReceipt!.blockNumber;
 
       // daoTotalEthVUnits should drop to 0
       const daoVUnits = await readDaoTotalEthVUnits(provider, networkAddress);
@@ -576,13 +673,25 @@ describe("XG: Migration x Staking Cross-Module Tests", () => {
       await mineBlocks(provider, 100);
       await network.syncFees();
       const accPostLiq = BigInt(await views.accEthPerShare());
-      // Accumulator should not materially increase after liquidation (no active clusters)
-      // It may increase slightly due to fees accrued during the liquidation block itself
-      expect(accPostLiq).to.be.greaterThanOrEqual(accPreLiq);
+      // Accumulator increases by fees accrued between syncPreLiq and liquidation (1 block gap)
+      // After liquidation, vUnits = 0 so no more fees accrue
+      const PRECISION = 10n ** 18n;
+      const networkFeePacked = 3_000_000_000n / ETH_DEDUCTED_DIGITS;
+      const vUnits = defaultVUnits(2n);
+      const gapBlocks = BigInt(liqBlock - syncPreLiqBlock);
+      const gapFeesWei = (gapBlocks * networkFeePacked * vUnits / BPS_DENOMINATOR) * ETH_DEDUCTED_DIGITS;
+      const gapDelta = (gapFeesWei * PRECISION) / stakeAmount;
+      expect(accPostLiq).to.equal(accPreLiq + gapDelta);
 
-      // Claim — only pre-liquidation rewards
-      const { amount } = await claimAndGetAmount(network, provider, staker);
-      expect(amount).to.be.greaterThan(0n);
+      // Claim — all fees from migration to liquidation
+      const { amount, block: claimBlock } = await claimAndGetAmount(network, provider, staker);
+      const migrateBlock = migrateReceipt!.blockNumber;
+      const totalFeesBlocks = BigInt(liqBlock - migrateBlock);
+      const totalFeesWei = (totalFeesBlocks * networkFeePacked * vUnits / BPS_DENOMINATOR) * ETH_DEDUCTED_DIGITS;
+      const totalAccDelta = (totalFeesWei * PRECISION) / stakeAmount;
+      const expectedRaw = (stakeAmount * totalAccDelta) / PRECISION;
+      const expectedClaim = expectedRaw - (expectedRaw % ETH_DEDUCTED_DIGITS);
+      expect(amount).to.equal(expectedClaim);
     });
 
     it("XG-008: Multiple stakers + migrate + liquidate -> proportional distribution", async function () {
@@ -604,7 +713,9 @@ describe("XG: Migration x Staking Cross-Module Tests", () => {
       const migrateTx = await network.connect(clusterOwner).migrateClusterToETH(
         operatorIds, cluster, { value: ethers.parseEther("0.005") },
       );
-      const migratedCluster = parseClusterFromEvent(network, await migrateTx.wait(), Events.CLUSTER_MIGRATED_TO_ETH);
+      const migrateReceipt = await migrateTx.wait();
+      const migrateBlock = migrateReceipt!.blockNumber;
+      const migratedCluster = parseClusterFromEvent(network, migrateReceipt, Events.CLUSTER_MIGRATED_TO_ETH);
 
       // Advance, sync
       await mineBlocks(provider, 50);
@@ -612,19 +723,37 @@ describe("XG: Migration x Staking Cross-Module Tests", () => {
 
       // Liquidate — 500K blocks drains ~0.01 ETH, balance goes to 0
       await mineBlocks(provider, 500_000);
-      await network.connect(liquidator).liquidate(clusterOwner.address, operatorIds, migratedCluster);
+      const liqTx = await network.connect(liquidator).liquidate(clusterOwner.address, operatorIds, migratedCluster);
+      const liqBlock = (await liqTx.wait())!.blockNumber;
 
       // All three claim
       const claimA = await claimAndGetAmount(network, provider, staker);
       const claimB = await claimAndGetAmount(network, provider, stakerB);
       const claimC = await claimAndGetAmount(network, provider, stakerC);
 
-      expect(claimA.amount).to.be.greaterThan(0n);
-      expect(claimB.amount).to.be.greaterThan(0n);
-      expect(claimC.amount).to.be.greaterThan(0n);
+      // Exact reward: fees accrue from migration to liquidation, shared proportionally
+      // After liquidation vUnits = 0, so no more fees accrue between claims
+      const PRECISION = 10n ** 18n;
+      const networkFeePacked = 3_000_000_000n / ETH_DEDUCTED_DIGITS;
+      const vUnits = defaultVUnits(2n);
+      const totalCSSV = stakeAmountA + stakeAmountB + stakeAmountC;
+      const totalFeeBlocks = BigInt(liqBlock - migrateBlock);
+      const totalFeesWei = (totalFeeBlocks * networkFeePacked * vUnits / BPS_DENOMINATOR) * ETH_DEDUCTED_DIGITS;
+      const accDelta = (totalFeesWei * PRECISION) / totalCSSV;
+
+      const expectedARaw = (stakeAmountA * accDelta) / PRECISION;
+      const expectedA = expectedARaw - (expectedARaw % ETH_DEDUCTED_DIGITS);
+      expect(claimA.amount).to.equal(expectedA);
+
+      const expectedBRaw = (stakeAmountB * accDelta) / PRECISION;
+      const expectedB = expectedBRaw - (expectedBRaw % ETH_DEDUCTED_DIGITS);
+      expect(claimB.amount).to.equal(expectedB);
+
+      const expectedCRaw = (stakeAmountC * accDelta) / PRECISION;
+      const expectedC = expectedCRaw - (expectedCRaw % ETH_DEDUCTED_DIGITS);
+      expect(claimC.amount).to.equal(expectedC);
 
       // Proportional distribution: C got ~3x more than A, B got ~2x more than A
-      // (approximate due to block-by-block differences)
       if (claimA.amount > 0n) {
         const ratioB = (claimB.amount * 100n) / claimA.amount;
         const ratioC = (claimC.amount * 100n) / claimA.amount;
@@ -649,6 +778,7 @@ describe("XG: Migration x Staking Cross-Module Tests", () => {
         operatorIds, cluster, { value: ethers.parseEther("0.003") },
       );
       const migrateReceipt = await migrateTx.wait();
+      const migrateBlock = migrateReceipt!.blockNumber;
       let migratedCluster = parseClusterFromEvent(network, migrateReceipt, Events.CLUSTER_MIGRATED_TO_ETH);
 
       await mineBlocks(provider, 50);
@@ -661,6 +791,7 @@ describe("XG: Migration x Staking Cross-Module Tests", () => {
         clusterOwner.address, operatorIds, migratedCluster,
       );
       const liqReceipt = await liqTx.wait();
+      const liqBlock = liqReceipt!.blockNumber;
       const liqCluster = parseClusterFromEvent(network, liqReceipt, Events.CLUSTER_LIQUIDATED);
 
       // Reactivate with fresh deposit
@@ -668,6 +799,7 @@ describe("XG: Migration x Staking Cross-Module Tests", () => {
         operatorIds, liqCluster, { value: DEFAULT_ETH_REGISTER_VALUE },
       );
       const reactivateReceipt = await reactivateTx.wait();
+      const reactivateBlock = reactivateReceipt!.blockNumber;
 
       const daoVUnitsAfterReact = await readDaoTotalEthVUnits(provider, networkAddress);
       expect(daoVUnitsAfterReact).to.equal(defaultVUnits(1n));
@@ -679,8 +811,24 @@ describe("XG: Migration x Staking Cross-Module Tests", () => {
       expect(accPostReact).to.be.greaterThan(accPreLiq);
 
       // Claim
-      const { amount } = await claimAndGetAmount(network, provider, staker);
-      expect(amount).to.be.greaterThan(0n);
+      const { amount, block: claimBlock } = await claimAndGetAmount(network, provider, staker);
+
+      // Exact reward: two active phases (migration→liquidation, reactivation→claim)
+      const PRECISION = 10n ** 18n;
+      const networkFeePacked = 3_000_000_000n / ETH_DEDUCTED_DIGITS;
+      const vUnits = defaultVUnits(1n);
+
+      const phase1Blocks = BigInt(liqBlock - migrateBlock);
+      const phase1FeesWei = (phase1Blocks * networkFeePacked * vUnits / BPS_DENOMINATOR) * ETH_DEDUCTED_DIGITS;
+      const delta1 = (phase1FeesWei * PRECISION) / stakeAmount;
+
+      const phase2Blocks = BigInt(claimBlock - reactivateBlock);
+      const phase2FeesWei = (phase2Blocks * networkFeePacked * vUnits / BPS_DENOMINATOR) * ETH_DEDUCTED_DIGITS;
+      const delta2 = (phase2FeesWei * PRECISION) / stakeAmount;
+
+      const expectedRaw = (stakeAmount * (delta1 + delta2)) / PRECISION;
+      const expectedClaim = expectedRaw - (expectedRaw % ETH_DEDUCTED_DIGITS);
+      expect(amount).to.equal(expectedClaim);
     });
   });
 
@@ -698,21 +846,44 @@ describe("XG: Migration x Staking Cross-Module Tests", () => {
       await stakeSSV(network, ssvToken, staker, stakeAmount);
 
       // Migrate
-      await network.connect(clusterOwner).migrateClusterToETH(
+      const migrateTx = await network.connect(clusterOwner).migrateClusterToETH(
         operatorIds, cluster, { value: DEFAULT_ETH_REGISTER_VALUE },
       );
+      const migrateBlock = (await migrateTx.wait())!.blockNumber;
 
       await mineBlocks(provider, 50);
 
-      // Partial unstake (half)
+      // Partial unstake (half) — settles phase 1 rewards internally
       const halfStake = stakeAmount / 2n;
-      await network.connect(staker).requestUnstake(halfStake);
+      const unstakeTx = await network.connect(staker).requestUnstake(halfStake);
+      const unstakeBlock = (await unstakeTx.wait())!.blockNumber;
 
       // Advance and claim on reduced cSSV balance
       await mineBlocks(provider, 100);
 
-      const { amount } = await claimAndGetAmount(network, provider, staker);
-      expect(amount).to.be.greaterThan(0n);
+      const { amount, block: claimBlock } = await claimAndGetAmount(network, provider, staker);
+
+      // Exact reward: two phases (full cSSV, then half after unstake)
+      const PRECISION = 10n ** 18n;
+      const networkFeePacked = 3_000_000_000n / ETH_DEDUCTED_DIGITS;
+      const vUnits = defaultVUnits(1n);
+
+      // Phase 1: migration to unstake (totalCSSV = stakeAmount)
+      const phase1Blocks = BigInt(unstakeBlock - migrateBlock);
+      const phase1FeesWei = (phase1Blocks * networkFeePacked * vUnits / BPS_DENOMINATOR) * ETH_DEDUCTED_DIGITS;
+      const delta1 = (phase1FeesWei * PRECISION) / stakeAmount;
+      // Settled at unstake: full cSSV balance * delta1
+      const settledRaw = (stakeAmount * delta1) / PRECISION;
+
+      // Phase 2: unstake to claim (totalCSSV = halfStake)
+      const phase2Blocks = BigInt(claimBlock - unstakeBlock);
+      const phase2FeesWei = (phase2Blocks * networkFeePacked * vUnits / BPS_DENOMINATOR) * ETH_DEDUCTED_DIGITS;
+      const delta2 = (phase2FeesWei * PRECISION) / halfStake;
+      const phase2Raw = (halfStake * delta2) / PRECISION;
+
+      const totalRaw = settledRaw + phase2Raw;
+      const expectedClaim = totalRaw - (totalRaw % ETH_DEDUCTED_DIGITS);
+      expect(amount).to.equal(expectedClaim);
       expect(amount % ETH_DEDUCTED_DIGITS).to.equal(0n);
     });
 
@@ -726,41 +897,54 @@ describe("XG: Migration x Staking Cross-Module Tests", () => {
       await stakeSSV(network, ssvToken, staker, stakeAmount);
 
       // Migrate
-      await network.connect(clusterOwner).migrateClusterToETH(
+      const migrateTx = await network.connect(clusterOwner).migrateClusterToETH(
         operatorIds, cluster, { value: DEFAULT_ETH_REGISTER_VALUE },
       );
+      const migrateBlock = (await migrateTx.wait())!.blockNumber;
 
       await mineBlocks(provider, 50);
-      await network.syncFees();
+      const syncTx = await network.syncFees();
+      const syncBlock = (await syncTx.wait())!.blockNumber;
       const accPreUnstake = BigInt(await views.accEthPerShare());
 
       // Full unstake -> totalSupply = 0
-      await network.connect(staker).requestUnstake(stakeAmount);
+      const unstakeTx = await network.connect(staker).requestUnstake(stakeAmount);
+      const unstakeBlock = (await unstakeTx.wait())!.blockNumber;
 
       // Advance 200 blocks — fees generated but no cSSV to distribute to
       await mineBlocks(provider, 200);
       await network.syncFees();
       const accDuringZero = BigInt(await views.accEthPerShare());
-      // accEthPerShare may increase by ~1 block of fees (requestUnstake syncs internally
-      // before burning cSSV), but should NOT grow during the 200-block zero-supply period
-      expect(accDuringZero).to.be.greaterThanOrEqual(accPreUnstake);
+      // requestUnstake syncs internally: 1 block of fees from syncBlock to unstakeBlock
+      const PRECISION = 10n ** 18n;
+      const networkFeePacked = 3_000_000_000n / ETH_DEDUCTED_DIGITS;
+      const vUnits = defaultVUnits(1n);
+      const gapBlocks = BigInt(unstakeBlock - syncBlock);
+      const gapFeesWei = (gapBlocks * networkFeePacked * vUnits / BPS_DENOMINATOR) * ETH_DEDUCTED_DIGITS;
+      const gapDelta = (gapFeesWei * PRECISION) / stakeAmount;
+      expect(accDuringZero).to.equal(accPreUnstake + gapDelta);
 
       // stakingEthPoolBalance is inflated relative to what can be claimed
       const poolBalance = BigInt(await views.stakingEthPoolBalance());
 
       // New staker enters
       const stakeAmountB = STAKE_AMOUNT;
-      await stakeSSV(network, ssvToken, stakerB, stakeAmountB);
+      const stakeBBlock = await stakeSSV(network, ssvToken, stakerB, stakeAmountB);
 
       await mineBlocks(provider, 50);
 
       // stakerB can only claim post-re-stake fees, NOT the 200-block gap fees
-      const { amount: claimB } = await claimAndGetAmount(network, provider, stakerB);
-      expect(claimB).to.be.greaterThan(0n);
+      const { amount: claimB, block: claimBBlock } = await claimAndGetAmount(network, provider, stakerB);
+      const blockDiffB = BigInt(claimBBlock - stakeBBlock);
+      const feesWeiB = (blockDiffB * networkFeePacked * vUnits / BPS_DENOMINATOR) * ETH_DEDUCTED_DIGITS;
+      const accDeltaB = (feesWeiB * PRECISION) / stakeAmountB;
+      const expectedBRaw = (stakeAmountB * accDeltaB) / PRECISION;
+      const expectedClaimB = expectedBRaw - (expectedBRaw % ETH_DEDUCTED_DIGITS);
+      expect(claimB).to.equal(expectedClaimB);
 
       // Verify: pool balance > total claimable (BUG-6 confirmed — fees lost)
       const poolAfter = BigInt(await views.stakingEthPoolBalance());
-      expect(poolAfter).to.be.greaterThan(0n);
+      expect(poolAfter).to.be.greaterThan(claimB);
     });
   });
 
@@ -783,18 +967,27 @@ describe("XG: Migration x Staking Cross-Module Tests", () => {
 
       // Stake
       const stakeAmount = ethers.parseEther("10");
-      await stakeSSV(network, ssvToken, stakerB, stakeAmount);
+      const stakeBBlock = await stakeSSV(network, ssvToken, stakerB, stakeAmount);
 
       await mineBlocks(provider, 100);
       await network.syncFees();
 
       // daoTotalEthVUnits still includes baseline for all 4 ops
       const daoVUnits = await readDaoTotalEthVUnits(provider, networkAddress);
-      expect(daoVUnits).to.be.greaterThan(0n);
+      expect(daoVUnits).to.equal(defaultVUnits(1n));
 
       // Claim rewards
-      const { amount } = await claimAndGetAmount(network, provider, stakerB);
-      expect(amount).to.be.greaterThan(0n);
+      const { amount, block: claimBlock } = await claimAndGetAmount(network, provider, stakerB);
+      const PRECISION = 10n ** 18n;
+      const networkFeePacked = 500_000_000n / ETH_DEDUCTED_DIGITS; // ETH fixture
+      const vUnits = defaultVUnits(1n);
+      const totalCSSV = STAKE_AMOUNT + stakeAmount; // staker (setupOracles) + stakerB
+      const blockDiff = BigInt(claimBlock - stakeBBlock);
+      const feesWei = (blockDiff * networkFeePacked * vUnits / BPS_DENOMINATOR) * ETH_DEDUCTED_DIGITS;
+      const accDelta = (feesWei * PRECISION) / totalCSSV;
+      const expectedRaw = (stakeAmount * accDelta) / PRECISION;
+      const expectedClaim = expectedRaw - (expectedRaw % ETH_DEDUCTED_DIGITS);
+      expect(amount).to.equal(expectedClaim);
     });
 
     it("XG-013: Migrate with removed op + explicit EB -> stranded deviation inflates daoTotalEthVUnits", async function () {
@@ -825,16 +1018,26 @@ describe("XG: Migration x Staking Cross-Module Tests", () => {
 
       // Stake
       const stakeAmount = ethers.parseEther("10");
-      await stakeSSV(network, ssvToken, stakerB, stakeAmount);
+      const stakeBBlock = await stakeSSV(network, ssvToken, stakerB, stakeAmount);
 
       const daoVUnits = await readDaoTotalEthVUnits(provider, networkAddress);
-      expect(daoVUnits).to.be.greaterThan(0n);
+      // EB=96 with 2 validators: calcVUnits(96)=30000. Guard on op removal may reduce deviation.
+      // Use actual value from contract for reward computation.
+      expect(daoVUnits).to.equal(calcVUnits(96n));
 
       await mineBlocks(provider, 100);
 
       // Claim
-      const { amount } = await claimAndGetAmount(network, provider, stakerB);
-      expect(amount).to.be.greaterThan(0n);
+      const { amount, block: claimBlock } = await claimAndGetAmount(network, provider, stakerB);
+      const PRECISION = 10n ** 18n;
+      const networkFeePacked = 500_000_000n / ETH_DEDUCTED_DIGITS; // ETH fixture
+      const totalCSSV = STAKE_AMOUNT + stakeAmount;
+      const blockDiff = BigInt(claimBlock - stakeBBlock);
+      const feesWei = (blockDiff * networkFeePacked * daoVUnits / BPS_DENOMINATOR) * ETH_DEDUCTED_DIGITS;
+      const accDelta = (feesWei * PRECISION) / totalCSSV;
+      const expectedRaw = (stakeAmount * accDelta) / PRECISION;
+      const expectedClaim = expectedRaw - (expectedRaw % ETH_DEDUCTED_DIGITS);
+      expect(amount).to.equal(expectedClaim);
     });
   });
 
@@ -893,23 +1096,40 @@ describe("XG: Migration x Staking Cross-Module Tests", () => {
       await stakeSSV(network, ssvToken, staker, stakeAmount);
 
       // Migrate cluster A
-      await network.connect(clusterOwner).migrateClusterToETH(
+      const migAReceipt = await (await network.connect(clusterOwner).migrateClusterToETH(
         operatorIds, clusterA, { value: DEFAULT_ETH_REGISTER_VALUE },
-      );
+      )).wait();
+      const migABlock = migAReceipt!.blockNumber;
       const daoVUnitsA = await readDaoTotalEthVUnits(provider, networkAddress);
       expect(daoVUnitsA).to.equal(defaultVUnits(2n));
 
       // Migrate cluster B
-      await network.connect(clusterOwner2).migrateClusterToETH(
+      const migBReceipt = await (await network.connect(clusterOwner2).migrateClusterToETH(
         operatorIds, clusterB, { value: DEFAULT_ETH_REGISTER_VALUE },
-      );
+      )).wait();
+      const migBBlock = migBReceipt!.blockNumber;
       const daoVUnitsAB = await readDaoTotalEthVUnits(provider, networkAddress);
       expect(daoVUnitsAB).to.equal(defaultVUnits(2n) + defaultVUnits(3n));
 
       await mineBlocks(provider, 100);
 
-      const { amount } = await claimAndGetAmount(network, provider, staker);
-      expect(amount).to.be.greaterThan(0n);
+      const { amount, block: claimBlock } = await claimAndGetAmount(network, provider, staker);
+
+      // Exact reward: phase 1 (only A migrated, 2 validators), phase 2 (A+B, 5 validators)
+      const PRECISION = 10n ** 18n;
+      const networkFeePacked = 3_000_000_000n / ETH_DEDUCTED_DIGITS;
+
+      const phase1Blocks = BigInt(migBBlock - migABlock);
+      const phase1FeesWei = (phase1Blocks * networkFeePacked * defaultVUnits(2n) / BPS_DENOMINATOR) * ETH_DEDUCTED_DIGITS;
+      const delta1 = (phase1FeesWei * PRECISION) / stakeAmount;
+
+      const phase2Blocks = BigInt(claimBlock - migBBlock);
+      const phase2FeesWei = (phase2Blocks * networkFeePacked * defaultVUnits(5n) / BPS_DENOMINATOR) * ETH_DEDUCTED_DIGITS;
+      const delta2 = (phase2FeesWei * PRECISION) / stakeAmount;
+
+      const expectedRaw = (stakeAmount * (delta1 + delta2)) / PRECISION;
+      const expectedClaim = expectedRaw - (expectedRaw % ETH_DEDUCTED_DIGITS);
+      expect(amount).to.equal(expectedClaim);
     });
 
     it("XG-015: Migrate multiple clusters (shared operators) -> one liquidated -> reward rate drops", async function () {
@@ -960,11 +1180,13 @@ describe("XG: Migration x Staking Cross-Module Tests", () => {
       const migA = await network.connect(clusterOwner).migrateClusterToETH(
         operatorIds, clusterA, { value: ethers.parseEther("0.007") },
       );
+      const migABlock = (await migA.wait())!.blockNumber;
       const migratedA = parseClusterFromEvent(network, await migA.wait(), Events.CLUSTER_MIGRATED_TO_ETH);
 
-      await network.connect(clusterOwner2).migrateClusterToETH(
+      const migB = await network.connect(clusterOwner2).migrateClusterToETH(
         operatorIds, clusterB, { value: DEFAULT_ETH_REGISTER_VALUE },
       );
+      const migBBlock = (await migB.wait())!.blockNumber;
 
       const daoVUnitsTotal = await readDaoTotalEthVUnits(provider, networkAddress);
       expect(daoVUnitsTotal).to.equal(defaultVUnits(8n)); // 3+5
@@ -975,7 +1197,8 @@ describe("XG: Migration x Staking Cross-Module Tests", () => {
 
       // Liquidate cluster A using saved migration event cluster (getCurrentClusterState lookback too small)
       await mineBlocks(provider, 500_000);
-      await network.connect(liquidator).liquidate(clusterOwner.address, operatorIds, migratedA);
+      const liqTx = await network.connect(liquidator).liquidate(clusterOwner.address, operatorIds, migratedA);
+      const liqBlock = (await liqTx.wait())!.blockNumber;
 
       const daoVUnitsAfterLiq = await readDaoTotalEthVUnits(provider, networkAddress);
       expect(daoVUnitsAfterLiq).to.equal(defaultVUnits(5n)); // only cluster B
@@ -983,8 +1206,30 @@ describe("XG: Migration x Staking Cross-Module Tests", () => {
       await mineBlocks(provider, 100);
       await network.syncFees();
 
-      const { amount } = await claimAndGetAmount(network, provider, staker);
-      expect(amount).to.be.greaterThan(0n);
+      const { amount, block: claimBlock } = await claimAndGetAmount(network, provider, staker);
+
+      // Exact reward: 3 phases with different vUnits
+      const PRECISION = 10n ** 18n;
+      const networkFeePacked = 3_000_000_000n / ETH_DEDUCTED_DIGITS;
+
+      // Phase 1: migA to migB (only cluster A, 3 validators)
+      const p1Blocks = BigInt(migBBlock - migABlock);
+      const p1Fees = (p1Blocks * networkFeePacked * defaultVUnits(3n) / BPS_DENOMINATOR) * ETH_DEDUCTED_DIGITS;
+      const d1 = (p1Fees * PRECISION) / stakeAmount;
+
+      // Phase 2: migB to liqBlock (both clusters, 8 validators)
+      const p2Blocks = BigInt(liqBlock - migBBlock);
+      const p2Fees = (p2Blocks * networkFeePacked * defaultVUnits(8n) / BPS_DENOMINATOR) * ETH_DEDUCTED_DIGITS;
+      const d2 = (p2Fees * PRECISION) / stakeAmount;
+
+      // Phase 3: liqBlock to claimBlock (only cluster B, 5 validators)
+      const p3Blocks = BigInt(claimBlock - liqBlock);
+      const p3Fees = (p3Blocks * networkFeePacked * defaultVUnits(5n) / BPS_DENOMINATOR) * ETH_DEDUCTED_DIGITS;
+      const d3 = (p3Fees * PRECISION) / stakeAmount;
+
+      const expectedRaw = (stakeAmount * (d1 + d2 + d3)) / PRECISION;
+      const expectedClaim = expectedRaw - (expectedRaw % ETH_DEDUCTED_DIGITS);
+      expect(amount).to.equal(expectedClaim);
     });
 
     it("XG-016: Large staking event -> small cluster liquidation -> precision check", async function () {
@@ -1004,18 +1249,27 @@ describe("XG: Migration x Staking Cross-Module Tests", () => {
       const migrateTx = await network.connect(clusterOwner).migrateClusterToETH(
         operatorIds, cluster, { value: ethers.parseEther("0.003") },
       );
+      const migrateBlock = (await migrateTx.wait())!.blockNumber;
       const migratedCluster = parseClusterFromEvent(network, await migrateTx.wait(), Events.CLUSTER_MIGRATED_TO_ETH);
 
       await mineBlocks(provider, 10);
-      await network.syncFees();
+      const syncTx = await network.syncFees();
+      const syncBlock = (await syncTx.wait())!.blockNumber;
 
       // Liquidate using saved migration event cluster (getCurrentClusterState lookback too small)
       await mineBlocks(provider, 500_000);
-      await network.connect(liquidator).liquidate(clusterOwner.address, operatorIds, migratedCluster);
+      const liqTx = await network.connect(liquidator).liquidate(clusterOwner.address, operatorIds, migratedCluster);
+      await liqTx.wait();
 
       const accFinal = BigInt(await views.accEthPerShare());
-      // Verify no phantom rewards by checking accumulator is reasonable
-      expect(accFinal).to.be.greaterThanOrEqual(0n);
+      // Accumulator only reflects fees up to the last syncFees (liquidate does NOT sync)
+      const PRECISION = 10n ** 18n;
+      const networkFeePacked = 3_000_000_000n / ETH_DEDUCTED_DIGITS;
+      const vUnits = defaultVUnits(1n);
+      const syncBlocks = BigInt(syncBlock - migrateBlock);
+      const syncFeesWei = (syncBlocks * networkFeePacked * vUnits / BPS_DENOMINATOR) * ETH_DEDUCTED_DIGITS;
+      const expectedAcc = (syncFeesWei * PRECISION) / largeStake;
+      expect(accFinal).to.equal(expectedAcc);
 
       // Claim — may be 0 or small due to precision, but should not revert unexpectedly
       try {
@@ -1104,8 +1358,17 @@ describe("XG: Migration x Staking Cross-Module Tests", () => {
 
       await mineBlocks(provider, 100);
 
-      const { amount } = await claimAndGetAmount(network, provider, staker);
-      expect(amount).to.be.greaterThan(0n);
+      const { amount, block: claimBlock } = await claimAndGetAmount(network, provider, staker);
+      const PRECISION = 10n ** 18n;
+      const networkFeePacked = 3_000_000_000n / ETH_DEDUCTED_DIGITS;
+      const vUnits = defaultVUnits(1n);
+      const migrateBlock = migrateReceipt!.blockNumber;
+      const blockDiff = BigInt(claimBlock - migrateBlock);
+      const feesWei = (blockDiff * networkFeePacked * vUnits / BPS_DENOMINATOR) * ETH_DEDUCTED_DIGITS;
+      const accDelta = (feesWei * PRECISION) / stakeAmount;
+      const expectedRaw = (stakeAmount * accDelta) / PRECISION;
+      const expectedClaim = expectedRaw - (expectedRaw % ETH_DEDUCTED_DIGITS);
+      expect(amount).to.equal(expectedClaim);
     });
 
     it("XG-018: Migrate -> EB update triggers auto-liquidation -> staker rewards stop", async function () {
@@ -1128,11 +1391,13 @@ describe("XG: Migration x Staking Cross-Module Tests", () => {
       // Drain balance over many blocks
       await mineBlocks(provider, 200_000);
       // Sync right before liquidation to capture all pre-liquidation fees
-      await network.syncFees();
+      const syncPreLiqTx = await network.syncFees();
+      const syncPreLiqBlock = (await syncPreLiqTx.wait())!.blockNumber;
       const accBeforeLiq = BigInt(await views.accEthPerShare());
 
       // Liquidate using saved cluster from registration (getCurrentClusterState lookback too small)
-      await network.connect(liquidator).liquidate(clusterOwner.address, operatorIds, reg.cluster);
+      const liqTx = await network.connect(liquidator).liquidate(clusterOwner.address, operatorIds, reg.cluster);
+      const liqBlock = (await liqTx.wait())!.blockNumber;
 
       const daoVUnits = await readDaoTotalEthVUnits(provider, networkAddress);
       expect(daoVUnits).to.equal(0n);
@@ -1140,10 +1405,15 @@ describe("XG: Migration x Staking Cross-Module Tests", () => {
       await mineBlocks(provider, 50);
       await network.syncFees();
       const accAfter = BigInt(await views.accEthPerShare());
-      // No significant new accrual after liquidation — accEthPerShare may increase by
-      // ~1 block of fees between the syncFees and liquidate calls, but should not grow
-      // during the 50-block zero-vUnits period
-      expect(accAfter).to.be.greaterThanOrEqual(accBeforeLiq);
+      // Accumulator increases by fees accrued between syncPreLiq and liquidation block
+      const PRECISION = 10n ** 18n;
+      const networkFeePacked = 500_000_000n / ETH_DEDUCTED_DIGITS; // ETH fixture
+      const vUnits = defaultVUnits(1n);
+      const totalCSSV = STAKE_AMOUNT + stakeAmount;
+      const gapBlocks = BigInt(liqBlock - syncPreLiqBlock);
+      const gapFees = (gapBlocks * networkFeePacked * vUnits / BPS_DENOMINATOR) * ETH_DEDUCTED_DIGITS;
+      const gapDelta = (gapFees * PRECISION) / totalCSSV;
+      expect(accAfter).to.equal(accBeforeLiq + gapDelta);
     });
 
     it("XG-019: syncFees sandwich: sync -> migrate -> sync -> claim (index recalculation)", async function () {
@@ -1154,19 +1424,34 @@ describe("XG: Migration x Staking Cross-Module Tests", () => {
 
       // Register pre-existing ETH cluster
       const reg = await registerCluster(network, clusterOwner, operatorIds);
+      const regBlock = reg.block;
 
       const stakeAmount = ethers.parseEther("10");
-      await stakeSSV(network, ssvToken, stakerB, stakeAmount);
+      const stakeBBlock = await stakeSSV(network, ssvToken, stakerB, stakeAmount);
 
       // Advance and pre-migration sync
       await mineBlocks(provider, 50);
-      await network.syncFees();
+      const syncTx1 = await network.syncFees();
+      const sync1Block = (await syncTx1.wait())!.blockNumber;
       const accPreMigration = BigInt(await views.accEthPerShare());
-      expect(accPreMigration).to.be.greaterThan(0n);
+      // accPreMigration covers fees from registration to sync1 for 1 validator
+      // Two sub-phases: regBlock→stakeBBlock (supply=STAKE_AMOUNT), stakeBBlock→sync1Block (supply=STAKE_AMOUNT+stakeAmount)
+      const PRECISION = 10n ** 18n;
+      const networkFeePacked = 500_000_000n / ETH_DEDUCTED_DIGITS; // ETH fixture
+      const totalCSSV = STAKE_AMOUNT + stakeAmount;
+      const subA = BigInt(stakeBBlock - regBlock);
+      const subAFees = (subA * networkFeePacked * defaultVUnits(1n) / BPS_DENOMINATOR) * ETH_DEDUCTED_DIGITS;
+      const dA = (subAFees * PRECISION) / STAKE_AMOUNT;
+      const subB = BigInt(sync1Block - stakeBBlock);
+      const subBFees = (subB * networkFeePacked * defaultVUnits(1n) / BPS_DENOMINATOR) * ETH_DEDUCTED_DIGITS;
+      const dB = (subBFees * PRECISION) / totalCSSV;
+      const expectedPreAcc = dA + dB;
+      expect(accPreMigration).to.equal(expectedPreAcc);
 
       // Now set up a legacy cluster to migrate
       // We already have an ETH cluster, just add more via registerValidator
       const reg2 = await registerCluster(network, clusterOwner2, operatorIds, DEFAULT_ETH_REGISTER_VALUE, 10);
+      const reg2Block = reg2.block;
 
       // Post-addition sync
       await mineBlocks(provider, 50);
@@ -1174,8 +1459,19 @@ describe("XG: Migration x Staking Cross-Module Tests", () => {
       const accPostAddition = BigInt(await views.accEthPerShare());
       expect(accPostAddition).to.be.greaterThan(accPreMigration);
 
-      const { amount } = await claimAndGetAmount(network, provider, stakerB);
-      expect(amount).to.be.greaterThan(0n);
+      const { amount, block: claimBlock } = await claimAndGetAmount(network, provider, stakerB);
+      // stakerB's rewards: fees from stakeBBlock to reg2Block (1 cluster), reg2Block to claimBlock (2 clusters)
+      const phase1Blocks = BigInt(reg2Block - stakeBBlock);
+      const phase1Fees = (phase1Blocks * networkFeePacked * defaultVUnits(1n) / BPS_DENOMINATOR) * ETH_DEDUCTED_DIGITS;
+      const d1 = (phase1Fees * PRECISION) / totalCSSV;
+
+      const phase2Blocks = BigInt(claimBlock - reg2Block);
+      const phase2Fees = (phase2Blocks * networkFeePacked * defaultVUnits(2n) / BPS_DENOMINATOR) * ETH_DEDUCTED_DIGITS;
+      const d2 = (phase2Fees * PRECISION) / totalCSSV;
+
+      const expectedRaw = (stakeAmount * (d1 + d2)) / PRECISION;
+      const expectedClaim = expectedRaw - (expectedRaw % ETH_DEDUCTED_DIGITS);
+      expect(amount).to.equal(expectedClaim);
     });
   });
 
@@ -1202,6 +1498,7 @@ describe("XG: Migration x Staking Cross-Module Tests", () => {
         operatorIds, cluster, { value: DEFAULT_ETH_REGISTER_VALUE },
       );
       const migrateReceipt = await migrateTx.wait();
+      const migrateBlock = migrateReceipt!.blockNumber;
 
       // G2: SSV conservation — refund from event matches actual token transfer
       const migrateEventArgs = extractEventArgs(network, migrateReceipt, Events.CLUSTER_MIGRATED_TO_ETH);
@@ -1235,8 +1532,15 @@ describe("XG: Migration x Staking Cross-Module Tests", () => {
       // (only ethValidatorCount on the operator changes)
       const daoVUnitsPost = await readDaoTotalEthVUnits(provider, networkAddress);
 
-      const { amount } = await claimAndGetAmount(network, provider, staker);
-      expect(amount).to.be.greaterThan(0n);
+      const { amount, block: claimBlock } = await claimAndGetAmount(network, provider, staker);
+      const PRECISION = 10n ** 18n;
+      const networkFeePacked = 3_000_000_000n / ETH_DEDUCTED_DIGITS;
+      const blockDiff = BigInt(claimBlock - migrateBlock);
+      const feesWei = (blockDiff * networkFeePacked * defaultVUnits(2n) / BPS_DENOMINATOR) * ETH_DEDUCTED_DIGITS;
+      const accDelta = (feesWei * PRECISION) / stakeAmount;
+      const expectedRaw = (stakeAmount * accDelta) / PRECISION;
+      const expectedClaim = expectedRaw - (expectedRaw % ETH_DEDUCTED_DIGITS);
+      expect(amount).to.equal(expectedClaim);
     });
 
     it("XG-021: Migrate -> deposit ETH -> syncFees -> claim (deposit does not change fee accrual)", async function () {
@@ -1251,6 +1555,7 @@ describe("XG: Migration x Staking Cross-Module Tests", () => {
       const migrateTx = await network.connect(clusterOwner).migrateClusterToETH(
         operatorIds, cluster, { value: DEFAULT_ETH_REGISTER_VALUE },
       );
+      const migrateBlock = (await migrateTx.wait())!.blockNumber;
       let migratedCluster = parseClusterFromEvent(network, await migrateTx.wait(), Events.CLUSTER_MIGRATED_TO_ETH);
 
       await mineBlocks(provider, 50);
@@ -1269,8 +1574,16 @@ describe("XG: Migration x Staking Cross-Module Tests", () => {
       expect(accAfterDeposit).to.be.greaterThan(accBeforeDeposit);
 
       // Reward rate should be same as before deposit (vUnits unchanged)
-      const { amount } = await claimAndGetAmount(network, provider, staker);
-      expect(amount).to.be.greaterThan(0n);
+      const { amount, block: claimBlock } = await claimAndGetAmount(network, provider, staker);
+      const PRECISION = 10n ** 18n;
+      const networkFeePacked = 3_000_000_000n / ETH_DEDUCTED_DIGITS;
+      const vUnits = defaultVUnits(1n);
+      const blockDiff = BigInt(claimBlock - migrateBlock);
+      const feesWei = (blockDiff * networkFeePacked * vUnits / BPS_DENOMINATOR) * ETH_DEDUCTED_DIGITS;
+      const accDelta = (feesWei * PRECISION) / stakeAmount;
+      const expectedRaw = (stakeAmount * accDelta) / PRECISION;
+      const expectedClaim = expectedRaw - (expectedRaw % ETH_DEDUCTED_DIGITS);
+      expect(amount).to.equal(expectedClaim);
     });
 
     it("XG-022: Migrate -> withdraw ETH -> cluster near liquidation -> syncFees -> claim", async function () {
@@ -1285,6 +1598,7 @@ describe("XG: Migration x Staking Cross-Module Tests", () => {
       const migrateTx = await network.connect(clusterOwner).migrateClusterToETH(
         operatorIds, cluster, { value: DEFAULT_ETH_REGISTER_VALUE },
       );
+      const migrateBlock = (await migrateTx.wait())!.blockNumber;
       let migratedCluster = parseClusterFromEvent(network, await migrateTx.wait(), Events.CLUSTER_MIGRATED_TO_ETH);
 
       await mineBlocks(provider, 10);
@@ -1299,8 +1613,16 @@ describe("XG: Migration x Staking Cross-Module Tests", () => {
       // Fee rate unchanged by withdrawal
       await mineBlocks(provider, 50);
 
-      const { amount } = await claimAndGetAmount(network, provider, staker);
-      expect(amount).to.be.greaterThan(0n);
+      const { amount, block: claimBlock } = await claimAndGetAmount(network, provider, staker);
+      const PRECISION = 10n ** 18n;
+      const networkFeePacked = 3_000_000_000n / ETH_DEDUCTED_DIGITS;
+      const vUnits = defaultVUnits(1n);
+      const blockDiff = BigInt(claimBlock - migrateBlock);
+      const feesWei = (blockDiff * networkFeePacked * vUnits / BPS_DENOMINATOR) * ETH_DEDUCTED_DIGITS;
+      const accDelta = (feesWei * PRECISION) / stakeAmount;
+      const expectedRaw = (stakeAmount * accDelta) / PRECISION;
+      const expectedClaim = expectedRaw - (expectedRaw % ETH_DEDUCTED_DIGITS);
+      expect(amount).to.equal(expectedClaim);
       expect(amount % ETH_DEDUCTED_DIGITS).to.equal(0n);
     });
 
@@ -1326,6 +1648,7 @@ describe("XG: Migration x Staking Cross-Module Tests", () => {
         operatorIds, cluster, { value: DEFAULT_ETH_REGISTER_VALUE },
       );
       const migrateReceipt = await migrateTx.wait();
+      const migrateBlock = migrateReceipt!.blockNumber;
 
       // G2: SSV conservation — refund from event matches actual token transfer
       const migrateEventArgs = extractEventArgs(network, migrateReceipt, Events.CLUSTER_MIGRATED_TO_ETH);
@@ -1350,7 +1673,8 @@ describe("XG: Migration x Staking Cross-Module Tests", () => {
 
       // Transfer half of staker's cSSV to stakerB (triggers onCSSVTransfer settlement)
       const transferAmount = stakeA / 2n;
-      await cssvToken.connect(staker).transfer(stakerB.address, transferAmount);
+      const transferTx = await cssvToken.connect(staker).transfer(stakerB.address, transferAmount);
+      const transferBlock = (await transferTx.wait())!.blockNumber;
 
       await mineBlocks(provider, 50);
 
@@ -1362,8 +1686,44 @@ describe("XG: Migration x Staking Cross-Module Tests", () => {
       const claimA = await claimAndGetAmount(network, provider, staker);
       const claimB = await claimAndGetAmount(network, provider, stakerB);
 
-      expect(claimA.amount).to.be.greaterThanOrEqual(0n);
-      expect(claimB.amount).to.be.greaterThan(0n);
+      // Exact reward computation
+      const PRECISION = 10n ** 18n;
+      const networkFeePacked = 3_000_000_000n / ETH_DEDUCTED_DIGITS;
+      const vUnits = defaultVUnits(1n);
+      const totalCSSV = stakeA + stakeB;
+
+      // Phase 1: migration to transfer (A=10, B=10, total=20)
+      const p1Blocks = BigInt(transferBlock - migrateBlock);
+      const p1Fees = (p1Blocks * networkFeePacked * vUnits / BPS_DENOMINATOR) * ETH_DEDUCTED_DIGITS;
+      const d1 = (p1Fees * PRECISION) / totalCSSV;
+
+      // Transfer settles: A gets stakeA * d1, B gets stakeB * d1 as pending
+
+      // Phase 2: transfer to claimA (A=5e18, B=15e18, total=20e18)
+      const p2Blocks = BigInt(claimA.block - transferBlock);
+      const p2Fees = (p2Blocks * networkFeePacked * vUnits / BPS_DENOMINATOR) * ETH_DEDUCTED_DIGITS;
+      const d2 = (p2Fees * PRECISION) / totalCSSV;
+
+      // A's total: settled from transfer (stakeA * d1) + post-transfer accrual (transferAmount * d2)
+      // transferAmount = stakeA/2 = 5e18 (A's remaining cSSV after transfer)
+      const settledA = (stakeA * d1) / PRECISION;
+      const postTransferA = (transferAmount * d2) / PRECISION;
+      const totalARaw = settledA + postTransferA;
+      const expectedA = totalARaw - (totalARaw % ETH_DEDUCTED_DIGITS);
+      expect(claimA.amount).to.equal(expectedA);
+
+      // Phase 3: claimA to claimB
+      const p3Blocks = BigInt(claimB.block - claimA.block);
+      const p3Fees = (p3Blocks * networkFeePacked * vUnits / BPS_DENOMINATOR) * ETH_DEDUCTED_DIGITS;
+      const d3 = (p3Fees * PRECISION) / totalCSSV;
+
+      // B's total: settled from transfer (stakeB * d1) + post-transfer accrual ((stakeB + transferAmount) * (d2 + d3))
+      const cssvB = stakeB + transferAmount; // 15e18
+      const settledB = (stakeB * d1) / PRECISION;
+      const postTransferB = (cssvB * (d2 + d3)) / PRECISION;
+      const totalBRaw = settledB + postTransferB;
+      const expectedB = totalBRaw - (totalBRaw % ETH_DEDUCTED_DIGITS);
+      expect(claimB.amount).to.equal(expectedB);
     });
   });
 
@@ -1391,14 +1751,23 @@ describe("XG: Migration x Staking Cross-Module Tests", () => {
       expect(accSSVEra2).to.equal(accSSVEra); // No ETH fee accrual from SSV clusters
 
       // Migrate
-      await network.connect(clusterOwner).migrateClusterToETH(
+      const migrateTx = await network.connect(clusterOwner).migrateClusterToETH(
         operatorIds, cluster, { value: DEFAULT_ETH_REGISTER_VALUE },
       );
+      const migrateBlock = (await migrateTx.wait())!.blockNumber;
 
       await mineBlocks(provider, 100);
 
-      const { amount } = await claimAndGetAmount(network, provider, staker);
-      expect(amount).to.be.greaterThan(0n);
+      const { amount, block: claimBlock } = await claimAndGetAmount(network, provider, staker);
+      const PRECISION = 10n ** 18n;
+      const networkFeePacked = NETWORK_FEE_ETH / ETH_DEDUCTED_DIGITS;
+      const vUnits = defaultVUnits(1n);
+      const blockDiff = BigInt(claimBlock - migrateBlock);
+      const feesWei = (blockDiff * networkFeePacked * vUnits / BPS_DENOMINATOR) * ETH_DEDUCTED_DIGITS;
+      const accDelta = (feesWei * PRECISION) / stakeAmount;
+      const expectedRaw = (stakeAmount * accDelta) / PRECISION;
+      const expectedClaim = expectedRaw - (expectedRaw % ETH_DEDUCTED_DIGITS);
+      expect(amount).to.equal(expectedClaim);
     });
 
     it("XG-025: Mixed SSV and ETH clusters -> migrate SSV cluster -> syncFees -> claim", async function () {
@@ -1411,22 +1780,35 @@ describe("XG: Migration x Staking Cross-Module Tests", () => {
       const reg = await registerCluster(network, clusterOwner, operatorIds);
 
       const stakeAmount = ethers.parseEther("10");
-      await stakeSSV(network, ssvToken, stakerB, stakeAmount);
+      const stakeBBlock = await stakeSSV(network, ssvToken, stakerB, stakeAmount);
 
       await mineBlocks(provider, 50);
       await network.syncFees();
       const accPreAdd = BigInt(await views.accEthPerShare());
 
       // Register additional ETH cluster (simulating migration contribution)
-      await registerCluster(network, clusterOwner2, operatorIds, DEFAULT_ETH_REGISTER_VALUE, 20);
+      const reg2 = await registerCluster(network, clusterOwner2, operatorIds, DEFAULT_ETH_REGISTER_VALUE, 20);
+      const reg2Block = reg2.block;
 
       await mineBlocks(provider, 50);
       await network.syncFees();
       const accPostAdd = BigInt(await views.accEthPerShare());
       expect(accPostAdd).to.be.greaterThan(accPreAdd);
 
-      const { amount } = await claimAndGetAmount(network, provider, stakerB);
-      expect(amount).to.be.greaterThan(0n);
+      const { amount, block: claimBlock } = await claimAndGetAmount(network, provider, stakerB);
+      // stakerB's reward: fees from stakeBBlock to reg2Block (1 validator), reg2Block to claimBlock (2 validators)
+      const PRECISION = 10n ** 18n;
+      const networkFeePacked = 500_000_000n / ETH_DEDUCTED_DIGITS;
+      const totalCSSV = STAKE_AMOUNT + stakeAmount;
+      const p1 = BigInt(reg2Block - stakeBBlock);
+      const p1Fees = (p1 * networkFeePacked * defaultVUnits(1n) / BPS_DENOMINATOR) * ETH_DEDUCTED_DIGITS;
+      const d1 = (p1Fees * PRECISION) / totalCSSV;
+      const p2 = BigInt(claimBlock - reg2Block);
+      const p2Fees = (p2 * networkFeePacked * defaultVUnits(2n) / BPS_DENOMINATOR) * ETH_DEDUCTED_DIGITS;
+      const d2 = (p2Fees * PRECISION) / totalCSSV;
+      const expectedRaw = (stakeAmount * (d1 + d2)) / PRECISION;
+      const expectedClaim = expectedRaw - (expectedRaw % ETH_DEDUCTED_DIGITS);
+      expect(amount).to.equal(expectedClaim);
     });
 
     it("XG-026: Migrate -> network fee set to zero -> syncFees -> claim (rewards freeze)", async function () {
@@ -1439,28 +1821,46 @@ describe("XG: Migration x Staking Cross-Module Tests", () => {
       await stakeSSV(network, ssvToken, staker, stakeAmount);
 
       // Migrate
-      await network.connect(clusterOwner).migrateClusterToETH(
+      const migrateTx = await network.connect(clusterOwner).migrateClusterToETH(
         operatorIds, cluster, { value: DEFAULT_ETH_REGISTER_VALUE },
       );
+      const migrateBlock = (await migrateTx.wait())!.blockNumber;
 
       await mineBlocks(provider, 50);
-      await network.syncFees();
+      const syncTx1 = await network.syncFees();
+      const sync1Block = (await syncTx1.wait())!.blockNumber;
       const accBefore = BigInt(await views.accEthPerShare());
-      expect(accBefore).to.be.greaterThan(0n);
+
+      // Exact accBefore computation
+      const PRECISION = 10n ** 18n;
+      const networkFeePacked = NETWORK_FEE_ETH / ETH_DEDUCTED_DIGITS;
+      const vUnits = defaultVUnits(1n);
+      const totalCSSV = stakeAmount;
+      const p1Diff = BigInt(sync1Block - migrateBlock);
+      const p1Fees = (p1Diff * networkFeePacked * vUnits / BPS_DENOMINATOR) * ETH_DEDUCTED_DIGITS;
+      const expectedAccBefore = (p1Fees * PRECISION) / totalCSSV;
+      expect(accBefore).to.equal(expectedAccBefore);
 
       // Set network fee to 0 (updateNetworkFee snapshots DAO earnings for the block gap)
-      await network.updateNetworkFee(0n);
+      const feeChangeTx = await network.updateNetworkFee(0n);
+      const feeChangeBlock = (await feeChangeTx.wait())!.blockNumber;
 
       await mineBlocks(provider, 100);
       await network.syncFees();
       const accAfterZeroFee = BigInt(await views.accEthPerShare());
-      // accEthPerShare may increase by ~1 block of fees (the block between syncFees and
-      // updateNetworkFee), but should NOT grow during the 100-block zero-fee period
-      expect(accAfterZeroFee).to.be.greaterThanOrEqual(accBefore);
+      // accEthPerShare increases by fees from the 1 block between sync1 and updateNetworkFee,
+      // then zero fees for the 100-block zero-fee period
+      const gapDiff = BigInt(feeChangeBlock - sync1Block);
+      const gapFees = (gapDiff * networkFeePacked * vUnits / BPS_DENOMINATOR) * ETH_DEDUCTED_DIGITS;
+      const expectedAccAfter = expectedAccBefore + (gapFees * PRECISION) / totalCSSV;
+      expect(accAfterZeroFee).to.equal(expectedAccAfter);
 
       // Claim what was accrued before fee went to 0
       const { amount } = await claimAndGetAmount(network, provider, staker);
-      expect(amount).to.be.greaterThan(0n);
+      // claimEthRewards calls syncFees internally, but fee=0 so no additional accrual
+      const expectedRaw = (stakeAmount * expectedAccAfter) / PRECISION;
+      const expectedClaim = expectedRaw - (expectedRaw % ETH_DEDUCTED_DIGITS);
+      expect(amount).to.equal(expectedClaim);
     });
 
     it("XG-027: Migrate cluster with 0 validators -> syncFees -> claim (no fee contribution)", async function () {
@@ -1549,8 +1949,8 @@ describe("XG: Migration x Staking Cross-Module Tests", () => {
       await network.syncFees();
       const accPhase2 = BigInt(await views.accEthPerShare());
 
-      // Claim phase 1+2
-      await claimAndGetAmount(network, provider, stakerB);
+      // Claim phase 1+2 — sets user index to current acc
+      const { block: claim1Block } = await claimAndGetAmount(network, provider, stakerB);
 
       // EB decrease back to 64 ETH -> vUnits = 20000
       const eb2 = await commitAndUpdateEB(network, provider, clusterOwner, operatorIds, cluster, 64);
@@ -1562,8 +1962,24 @@ describe("XG: Migration x Staking Cross-Module Tests", () => {
       // Phase 3: advance blocks at original rate
       await mineBlocks(provider, 50);
 
-      const { amount: phase3Claim } = await claimAndGetAmount(network, provider, stakerB);
-      expect(phase3Claim).to.be.greaterThan(0n);
+      const { amount: phase3Claim, block: claim2Block } = await claimAndGetAmount(network, provider, stakerB);
+      // Exact computation for phase 3:
+      // Fees accrue from eb2.block to claim2Block at vUnits=20000 (baseline for 2 validators)
+      const PRECISION = 10n ** 18n;
+      const networkFeePacked = DEFAULT_NETWORK_FEE_UNPACKED / ETH_DEDUCTED_DIGITS;
+      const totalCSSV = STAKE_AMOUNT + stakeAmount;
+      // User index was set at claim1Block. Between claim1Block and eb2.block, vUnits=40000 (128 ETH EB).
+      // Between eb2.block and claim2Block, vUnits=20000 (64 ETH EB = baseline).
+      const p3aDiff = BigInt(eb2.block - claim1Block);
+      const p3aVUnits = calcVUnits(128n);
+      const p3aFees = (p3aDiff * networkFeePacked * p3aVUnits / BPS_DENOMINATOR) * ETH_DEDUCTED_DIGITS;
+      const p3bDiff = BigInt(claim2Block - eb2.block);
+      const p3bVUnits = defaultVUnits(2n);
+      const p3bFees = (p3bDiff * networkFeePacked * p3bVUnits / BPS_DENOMINATOR) * ETH_DEDUCTED_DIGITS;
+      const accDelta3 = ((p3aFees + p3bFees) * PRECISION) / totalCSSV;
+      const expectedRaw = (stakeAmount * accDelta3) / PRECISION;
+      const expectedClaim = expectedRaw - (expectedRaw % ETH_DEDUCTED_DIGITS);
+      expect(phase3Claim).to.equal(expectedClaim);
     });
 
     it("XG-029: Migrate -> EB update to MAX (2048 ETH) -> syncFees -> claim (max vUnits, no overflow)", async function () {
@@ -1591,8 +2007,19 @@ describe("XG: Migration x Staking Cross-Module Tests", () => {
       await mineBlocks(provider, 100);
 
       // Should not overflow
-      const { amount } = await claimAndGetAmount(network, provider, stakerB);
-      expect(amount).to.be.greaterThan(0n);
+      const { amount, block: claimBlock } = await claimAndGetAmount(network, provider, stakerB);
+      // Exact computation: phase 1 (reg to EB update at implicit vUnits) + phase 2 (EB update to claim at max vUnits)
+      const PRECISION = 10n ** 18n;
+      const networkFeePacked = DEFAULT_NETWORK_FEE_UNPACKED / ETH_DEDUCTED_DIGITS;
+      const totalCSSV = STAKE_AMOUNT + stakeAmount;
+      const p1Diff = BigInt(ebResult.block - reg.block);
+      const p1Fees = (p1Diff * networkFeePacked * defaultVUnits(1n) / BPS_DENOMINATOR) * ETH_DEDUCTED_DIGITS;
+      const p2Diff = BigInt(claimBlock - ebResult.block);
+      const p2Fees = (p2Diff * networkFeePacked * expectedVUnits / BPS_DENOMINATOR) * ETH_DEDUCTED_DIGITS;
+      const accDelta = ((p1Fees + p2Fees) * PRECISION) / totalCSSV;
+      const expectedRaw = (stakeAmount * accDelta) / PRECISION;
+      const expectedClaim = expectedRaw - (expectedRaw % ETH_DEDUCTED_DIGITS);
+      expect(amount).to.equal(expectedClaim);
       expect(amount % ETH_DEDUCTED_DIGITS).to.equal(0n);
     });
   });
@@ -1610,23 +2037,37 @@ describe("XG: Migration x Staking Cross-Module Tests", () => {
       const stakeAmount = ethers.parseEther("10");
       await stakeSSV(network, ssvToken, staker, stakeAmount);
 
-      await network.connect(clusterOwner).migrateClusterToETH(
+      const migrateTx = await network.connect(clusterOwner).migrateClusterToETH(
         operatorIds, cluster, { value: DEFAULT_ETH_REGISTER_VALUE },
       );
+      const migrateBlock = (await migrateTx.wait())!.blockNumber;
 
       await mineBlocks(provider, 100);
 
       // Sync fees first so poolBefore reflects the current accumulated fees
-      await network.syncFees();
+      const syncTx = await network.syncFees();
+      const syncBlock = (await syncTx.wait())!.blockNumber;
 
       // Claim and verify pool balance consistency
       const poolBefore = BigInt(await views.stakingEthPoolBalance());
-      const { amount } = await claimAndGetAmount(network, provider, staker);
+      const { amount, block: claimBlock } = await claimAndGetAmount(network, provider, staker);
       const poolAfter = BigInt(await views.stakingEthPoolBalance());
 
-      expect(amount).to.be.greaterThan(0n);
-      // Pool balance should decrease by the amount claimed
-      expect(poolBefore - poolAfter).to.be.greaterThan(0n);
+      // Exact claim computation
+      const PRECISION = 10n ** 18n;
+      const networkFeePacked = NETWORK_FEE_ETH / ETH_DEDUCTED_DIGITS;
+      const vUnits = defaultVUnits(1n);
+      const totalCSSV = stakeAmount;
+      const blockDiff = BigInt(claimBlock - migrateBlock);
+      const feesWei = (blockDiff * networkFeePacked * vUnits / BPS_DENOMINATOR) * ETH_DEDUCTED_DIGITS;
+      const accDelta = (feesWei * PRECISION) / totalCSSV;
+      const expectedRaw = (stakeAmount * accDelta) / PRECISION;
+      const expectedClaim = expectedRaw - (expectedRaw % ETH_DEDUCTED_DIGITS);
+      expect(amount).to.equal(expectedClaim);
+      // Pool = poolBefore + gapFees - amount (claim syncs fees internally adding gapFees)
+      const gapDiff = BigInt(claimBlock - syncBlock);
+      const gapFees = (gapDiff * networkFeePacked * vUnits / BPS_DENOMINATOR) * ETH_DEDUCTED_DIGITS;
+      expect(poolBefore - poolAfter).to.equal(amount - gapFees);
     });
 
     it("XG-031: Migrate -> operator fee change -> syncFees -> claim (staker reward unaffected by op fee)", async function () {
@@ -1641,7 +2082,8 @@ describe("XG: Migration x Staking Cross-Module Tests", () => {
       const reg = await registerCluster(network, clusterOwner, operatorIds);
 
       await mineBlocks(provider, 50);
-      await network.syncFees();
+      const syncTx1 = await network.syncFees();
+      const sync1Block = (await syncTx1.wait())!.blockNumber;
       const accBefore = BigInt(await views.accEthPerShare());
 
       // Declare and execute operator fee change (double the fee)
@@ -1651,15 +2093,32 @@ describe("XG: Migration x Staking Cross-Module Tests", () => {
       await network.connect(operatorOwner).executeOperatorFee(operatorIds[0]);
 
       await mineBlocks(provider, 50);
-      await network.syncFees();
+      const syncTx2 = await network.syncFees();
+      const sync2Block = (await syncTx2.wait())!.blockNumber;
       const accAfter = BigInt(await views.accEthPerShare());
 
       // Staker reward rate depends on network fee * vUnits, NOT operator fees
-      // So accEthPerShare should grow at the same rate
-      expect(accAfter).to.be.greaterThan(accBefore);
+      // So accEthPerShare grows at the same rate throughout
+      const { amount, block: claimBlock } = await claimAndGetAmount(network, provider, stakerB);
+      // Exact computation: constant network fee rate from reg.block to claimBlock
+      const PRECISION = 10n ** 18n;
+      const networkFeePacked = DEFAULT_NETWORK_FEE_UNPACKED / ETH_DEDUCTED_DIGITS;
+      const totalCSSV = STAKE_AMOUNT + stakeAmount;
+      const vUnits = defaultVUnits(1n);
+      const blockDiff = BigInt(claimBlock - reg.block);
+      const feesWei = (blockDiff * networkFeePacked * vUnits / BPS_DENOMINATOR) * ETH_DEDUCTED_DIGITS;
+      const accDelta = (feesWei * PRECISION) / totalCSSV;
+      const expectedRaw = (stakeAmount * accDelta) / PRECISION;
+      const expectedClaim = expectedRaw - (expectedRaw % ETH_DEDUCTED_DIGITS);
+      expect(amount).to.equal(expectedClaim);
 
-      const { amount } = await claimAndGetAmount(network, provider, stakerB);
-      expect(amount).to.be.greaterThan(0n);
+      // accBefore and accAfter: exact computation at constant rate
+      const acc1Diff = BigInt(sync1Block - reg.block);
+      const acc1Fees = (acc1Diff * networkFeePacked * vUnits / BPS_DENOMINATOR) * ETH_DEDUCTED_DIGITS;
+      expect(accBefore).to.equal((acc1Fees * PRECISION) / totalCSSV);
+      const acc2Diff = BigInt(sync2Block - reg.block);
+      const acc2Fees = (acc2Diff * networkFeePacked * vUnits / BPS_DENOMINATOR) * ETH_DEDUCTED_DIGITS;
+      expect(accAfter).to.equal((acc2Fees * PRECISION) / totalCSSV);
     });
 
     it("XG-032: Migrate -> liquidate (ETH to liquidator) -> verify staking pool not affected", async function () {
@@ -1678,20 +2137,26 @@ describe("XG: Migration x Staking Cross-Module Tests", () => {
       const migratedCluster = parseClusterFromEvent(network, await migrateTx.wait(), Events.CLUSTER_MIGRATED_TO_ETH);
 
       await mineBlocks(provider, 50);
-      await network.syncFees();
+      const syncTx1 = await network.syncFees();
+      const sync1Block = (await syncTx1.wait())!.blockNumber;
 
       const poolBefore = BigInt(await views.stakingEthPoolBalance());
 
       // Liquidate — 500K blocks drains ~0.00506 ETH, well above 0.003 deposit
       await mineBlocks(provider, 500_000);
-      await network.connect(liquidator).liquidate(clusterOwner.address, operatorIds, migratedCluster);
+      const liqTx = await network.connect(liquidator).liquidate(clusterOwner.address, operatorIds, migratedCluster);
+      const liqBlock = (await liqTx.wait())!.blockNumber;
 
       await network.syncFees();
       const poolAfter = BigInt(await views.stakingEthPoolBalance());
 
-      // Staking pool balance should NOT be reduced by liquidation
-      // (liquidation transfers from cluster balance, not from staking pool)
-      expect(poolAfter).to.be.greaterThanOrEqual(poolBefore);
+      // Pool increases by fees from sync1Block to liqBlock (cluster was active until liquidation)
+      // After liquidation vUnits=0, so no fees accrue between liqBlock and sync2Block
+      const networkFeePacked = NETWORK_FEE_ETH / ETH_DEDUCTED_DIGITS;
+      const vUnits = defaultVUnits(1n);
+      const blockDiff = BigInt(liqBlock - sync1Block);
+      const newFees = (blockDiff * networkFeePacked * vUnits / BPS_DENOMINATOR) * ETH_DEDUCTED_DIGITS;
+      expect(poolAfter).to.equal(poolBefore + newFees);
     });
   });
 
@@ -1712,14 +2177,22 @@ describe("XG: Migration x Staking Cross-Module Tests", () => {
 
       // Stake immediately in next block (not literally same block in Hardhat but very close)
       const stakeAmount = ethers.parseEther("10");
-      await stakeSSV(network, ssvToken, staker, stakeAmount);
+      const stakeBlock = await stakeSSV(network, ssvToken, staker, stakeAmount);
 
       // syncFees immediately
-      await network.syncFees();
+      const syncTx = await network.syncFees();
+      const syncBlock = (await syncTx.wait())!.blockNumber;
 
       // No errors — pass
       const acc = BigInt(await views.accEthPerShare());
-      expect(acc).to.be.greaterThanOrEqual(0n);
+      // Fees accrued from stakeBlock (when cSSV supply became non-zero) to syncBlock
+      const PRECISION = 10n ** 18n;
+      const networkFeePacked = NETWORK_FEE_ETH / ETH_DEDUCTED_DIGITS;
+      const vUnits = defaultVUnits(1n);
+      const blockDiff = BigInt(syncBlock - stakeBlock);
+      const feesWei = (blockDiff * networkFeePacked * vUnits / BPS_DENOMINATOR) * ETH_DEDUCTED_DIGITS;
+      const expectedAcc = (feesWei * PRECISION) / stakeAmount;
+      expect(acc).to.equal(expectedAcc);
     });
 
     it("XG-034: Migrate -> liquidate -> all validators removed -> syncFees with daoTotalEthVUnits = 0", async function () {
@@ -1736,15 +2209,18 @@ describe("XG: Migration x Staking Cross-Module Tests", () => {
       const migrateTx = await network.connect(clusterOwner).migrateClusterToETH(
         operatorIds, cluster, { value: ethers.parseEther("0.003") },
       );
-      const migratedCluster = parseClusterFromEvent(network, await migrateTx.wait(), Events.CLUSTER_MIGRATED_TO_ETH);
+      const migrateReceipt = await migrateTx.wait();
+      const migratedCluster = parseClusterFromEvent(network, migrateReceipt, Events.CLUSTER_MIGRATED_TO_ETH);
 
       // Drain balance and sync right before liquidation to capture all pre-liq fees
       await mineBlocks(provider, 500_000);
-      await network.syncFees();
+      const syncTx1 = await network.syncFees();
+      const sync1Block = (await syncTx1.wait())!.blockNumber;
       const accBefore = BigInt(await views.accEthPerShare());
 
       // Liquidate — 500K blocks drains ~0.00506 ETH, well above 0.003 deposit
-      await network.connect(liquidator).liquidate(clusterOwner.address, operatorIds, migratedCluster);
+      const liqTx = await network.connect(liquidator).liquidate(clusterOwner.address, operatorIds, migratedCluster);
+      const liqBlock = (await liqTx.wait())!.blockNumber;
 
       // daoTotalEthVUnits == 0
       const daoVUnits = await readDaoTotalEthVUnits(provider, networkAddress);
@@ -1754,8 +2230,15 @@ describe("XG: Migration x Staking Cross-Module Tests", () => {
       await mineBlocks(provider, 100);
       await network.syncFees();
       const accAfter = BigInt(await views.accEthPerShare());
-      // Unchanged or only marginally higher (fees accrued during the liquidation block itself)
-      expect(accAfter).to.be.greaterThanOrEqual(accBefore);
+      // Increases by fees from the 1 block between sync1 and liquidation (vUnits still active)
+      // After liquidation vUnits=0, so zero new fees in the 100-block period
+      const PRECISION = 10n ** 18n;
+      const networkFeePacked = NETWORK_FEE_ETH / ETH_DEDUCTED_DIGITS;
+      const vUnits = defaultVUnits(1n);
+      const gapDiff = BigInt(liqBlock - sync1Block);
+      const gapFees = (gapDiff * networkFeePacked * vUnits / BPS_DENOMINATOR) * ETH_DEDUCTED_DIGITS;
+      const accGap = (gapFees * PRECISION) / stakeAmount;
+      expect(accAfter).to.equal(accBefore + accGap);
     });
   });
 
@@ -1827,18 +2310,19 @@ describe("XG: Migration x Staking Cross-Module Tests", () => {
       const expectedVUnits = calcVUnits(128n);
 
       // Liquidate — use enough blocks to fully drain 0.02 ETH at EB=128 burn rate
-      // minimumBlocksBeforeLiquidation = 21480, threshold ≈ 0.000654 ETH
-      // burn ≈ 30.46 gwei/block at vUnits=40000 → ~700K blocks to drain below threshold
       await mineBlocks(provider, 700_000);
       const liqTx = await network.connect(liquidator).liquidate(clusterOwner.address, operatorIds, cluster);
-      const liqCluster = parseClusterFromEvent(network, await liqTx.wait(), Events.CLUSTER_LIQUIDATED);
+      const liqReceipt = await liqTx.wait();
+      const liqBlock = liqReceipt!.blockNumber;
+      const liqCluster = parseClusterFromEvent(network, liqReceipt, Events.CLUSTER_LIQUIDATED);
 
       expect(await readDaoTotalEthVUnits(provider, networkAddress)).to.equal(0n);
 
       // Reactivate
-      await network.connect(clusterOwner).reactivate(
+      const reactTx = await network.connect(clusterOwner).reactivate(
         operatorIds, liqCluster, { value: DEFAULT_ETH_REGISTER_VALUE },
       );
+      const reactBlock = (await reactTx.wait())!.blockNumber;
 
       // Deviation should be restored (reactivation restores EB snapshot)
       const daoVUnitsAfter = await readDaoTotalEthVUnits(provider, networkAddress);
@@ -1846,8 +2330,29 @@ describe("XG: Migration x Staking Cross-Module Tests", () => {
 
       await mineBlocks(provider, 50);
 
-      const { amount } = await claimAndGetAmount(network, provider, stakerB);
-      expect(amount).to.be.greaterThan(0n);
+      const { amount, block: claimBlock } = await claimAndGetAmount(network, provider, stakerB);
+      // Exact computation: sum of all fee phases
+      const PRECISION = 10n ** 18n;
+      const networkFeePacked = DEFAULT_NETWORK_FEE_UNPACKED / ETH_DEDUCTED_DIGITS;
+      const totalCSSV = STAKE_AMOUNT + stakeAmount;
+      // Phase 1: reg.block to reg2.block at vUnits=defaultVUnits(1n)
+      const p1 = BigInt(reg2.block - reg.block);
+      const p1Fees = (p1 * networkFeePacked * defaultVUnits(1n) / BPS_DENOMINATOR) * ETH_DEDUCTED_DIGITS;
+      // Phase 2: reg2.block to ebResult.block at vUnits=defaultVUnits(2n)
+      const p2 = BigInt(ebResult.block - reg2.block);
+      const p2Fees = (p2 * networkFeePacked * defaultVUnits(2n) / BPS_DENOMINATOR) * ETH_DEDUCTED_DIGITS;
+      // Phase 3: ebResult.block to liqBlock at vUnits=calcVUnits(128n)
+      const p3 = BigInt(liqBlock - ebResult.block);
+      const p3Fees = (p3 * networkFeePacked * expectedVUnits / BPS_DENOMINATOR) * ETH_DEDUCTED_DIGITS;
+      // Phase 4: liqBlock to reactBlock at vUnits=0 (no fees)
+      // Phase 5: reactBlock to claimBlock at vUnits=calcVUnits(128n)
+      const p5 = BigInt(claimBlock - reactBlock);
+      const p5Fees = (p5 * networkFeePacked * expectedVUnits / BPS_DENOMINATOR) * ETH_DEDUCTED_DIGITS;
+      const totalFees = p1Fees + p2Fees + p3Fees + p5Fees;
+      const accDelta = (totalFees * PRECISION) / totalCSSV;
+      const expectedRaw = (stakeAmount * accDelta) / PRECISION;
+      const expectedClaim = expectedRaw - (expectedRaw % ETH_DEDUCTED_DIGITS);
+      expect(amount).to.equal(expectedClaim);
     });
   });
 
@@ -1893,27 +2398,48 @@ describe("XG: Migration x Staking Cross-Module Tests", () => {
       await stakeSSV(network, ssvToken, staker, stakeAmount);
 
       // 1. Migrate cluster A
-      await network.connect(clusterOwner).migrateClusterToETH(
+      const migATx = await network.connect(clusterOwner).migrateClusterToETH(
         operatorIds, clusterA, { value: DEFAULT_ETH_REGISTER_VALUE },
       );
+      const migABlock = (await migATx.wait())!.blockNumber;
 
-      // 2. Fee change
+      // 2. Fee change (from NETWORK_FEE_ETH=3B to newFee=1.5B)
       const newFee = DEFAULT_NETWORK_FEE_UNPACKED * 3n;
-      await network.updateNetworkFee(newFee);
+      const feeTx = await network.updateNetworkFee(newFee);
+      const feeBlock = (await feeTx.wait())!.blockNumber;
 
       // 3. Remove operator
       await network.connect(operatorOwner).removeOperator(operatorIds[3]);
 
       // 4. Migrate cluster B
-      await network.connect(clusterOwner2).migrateClusterToETH(
+      const migBTx = await network.connect(clusterOwner2).migrateClusterToETH(
         operatorIds, clusterB, { value: DEFAULT_ETH_REGISTER_VALUE },
       );
+      const migBBlock = (await migBTx.wait())!.blockNumber;
 
       await mineBlocks(provider, 100);
 
       // Claim
-      const { amount } = await claimAndGetAmount(network, provider, staker);
-      expect(amount).to.be.greaterThan(0n);
+      const { amount, block: claimBlock } = await claimAndGetAmount(network, provider, staker);
+      // Exact computation across 3 fee phases:
+      const PRECISION = 10n ** 18n;
+      const totalCSSV = stakeAmount;
+      const oldFeePacked = NETWORK_FEE_ETH / ETH_DEDUCTED_DIGITS;
+      const newFeePacked = newFee / ETH_DEDUCTED_DIGITS;
+      // Phase 1: migABlock to feeBlock — oldFee, vUnits=defaultVUnits(1n)
+      const p1 = BigInt(feeBlock - migABlock);
+      const p1Fees = (p1 * oldFeePacked * defaultVUnits(1n) / BPS_DENOMINATOR) * ETH_DEDUCTED_DIGITS;
+      // Phase 2: feeBlock to migBBlock — newFee, vUnits=defaultVUnits(1n)
+      const p2 = BigInt(migBBlock - feeBlock);
+      const p2Fees = (p2 * newFeePacked * defaultVUnits(1n) / BPS_DENOMINATOR) * ETH_DEDUCTED_DIGITS;
+      // Phase 3: migBBlock to claimBlock — newFee, vUnits=defaultVUnits(2n)
+      const p3 = BigInt(claimBlock - migBBlock);
+      const p3Fees = (p3 * newFeePacked * defaultVUnits(2n) / BPS_DENOMINATOR) * ETH_DEDUCTED_DIGITS;
+      const totalFees = p1Fees + p2Fees + p3Fees;
+      const accDelta = (totalFees * PRECISION) / totalCSSV;
+      const expectedRaw = (stakeAmount * accDelta) / PRECISION;
+      const expectedClaim = expectedRaw - (expectedRaw % ETH_DEDUCTED_DIGITS);
+      expect(amount).to.equal(expectedClaim);
     });
 
     it("XG-038: Stake -> migrate -> advance 10000 blocks -> syncFees -> claim -> verify ETH_DEDUCTED_DIGITS truncation", async function () {
@@ -1925,15 +2451,26 @@ describe("XG: Migration x Staking Cross-Module Tests", () => {
       const stakeAmount = ethers.parseEther("10");
       await stakeSSV(network, ssvToken, staker, stakeAmount);
 
-      await network.connect(clusterOwner).migrateClusterToETH(
+      const migrateTx = await network.connect(clusterOwner).migrateClusterToETH(
         operatorIds, cluster, { value: DEFAULT_ETH_REGISTER_VALUE },
       );
+      const migrateBlock = (await migrateTx.wait())!.blockNumber;
 
       // Advance many blocks for significant fee accrual
       await mineBlocks(provider, 10000);
 
-      const { amount } = await claimAndGetAmount(network, provider, staker);
-      expect(amount).to.be.greaterThan(0n);
+      const { amount, block: claimBlock } = await claimAndGetAmount(network, provider, staker);
+      // Exact computation
+      const PRECISION = 10n ** 18n;
+      const networkFeePacked = NETWORK_FEE_ETH / ETH_DEDUCTED_DIGITS;
+      const vUnits = defaultVUnits(1n);
+      const totalCSSV = stakeAmount;
+      const blockDiff = BigInt(claimBlock - migrateBlock);
+      const feesWei = (blockDiff * networkFeePacked * vUnits / BPS_DENOMINATOR) * ETH_DEDUCTED_DIGITS;
+      const accDelta = (feesWei * PRECISION) / totalCSSV;
+      const expectedRaw = (stakeAmount * accDelta) / PRECISION;
+      const expectedClaim = expectedRaw - (expectedRaw % ETH_DEDUCTED_DIGITS);
+      expect(amount).to.equal(expectedClaim);
       // Verify 100K-wei granularity truncation
       expect(amount % ETH_DEDUCTED_DIGITS).to.equal(0n);
     });
@@ -1973,7 +2510,9 @@ describe("XG: Migration x Staking Cross-Module Tests", () => {
       // (depends on whether over-reward actually exceeds pool)
       try {
         const { amount } = await claimAndGetAmount(network, provider, stakerB);
-        expect(amount).to.be.greaterThanOrEqual(0n);
+        // If claim succeeds, payout must be ETH_DEDUCTED_DIGITS aligned and positive
+        expect(amount % ETH_DEDUCTED_DIGITS).to.equal(0n);
+        expect(amount).to.be.greaterThan(0n);
       } catch (e: any) {
         expect(e.message).to.include(Errors.INSUFFICIENT_BALANCE);
       }
@@ -1989,9 +2528,10 @@ describe("XG: Migration x Staking Cross-Module Tests", () => {
       await stakeSSV(network, ssvToken, staker, stakeAmount);
 
       // Migrate
-      await network.connect(clusterOwner).migrateClusterToETH(
+      const migrateTx = await network.connect(clusterOwner).migrateClusterToETH(
         operatorIds, cluster, { value: DEFAULT_ETH_REGISTER_VALUE },
       );
+      const migrateBlock = (await migrateTx.wait())!.blockNumber;
 
       await mineBlocks(provider, 50);
       await network.syncFees();
@@ -2010,8 +2550,18 @@ describe("XG: Migration x Staking Cross-Module Tests", () => {
 
       // Staker can still claim
       await mineBlocks(provider, 50);
-      const { amount } = await claimAndGetAmount(network, provider, staker);
-      expect(amount).to.be.greaterThan(0n);
+      const { amount, block: claimBlock } = await claimAndGetAmount(network, provider, staker);
+      // Exact computation: fees from migrateBlock to claimBlock at constant rate
+      const PRECISION = 10n ** 18n;
+      const networkFeePacked = NETWORK_FEE_ETH / ETH_DEDUCTED_DIGITS;
+      const vUnits = defaultVUnits(1n);
+      const totalCSSV = stakeAmount;
+      const blockDiff = BigInt(claimBlock - migrateBlock);
+      const feesWei = (blockDiff * networkFeePacked * vUnits / BPS_DENOMINATOR) * ETH_DEDUCTED_DIGITS;
+      const accDelta = (feesWei * PRECISION) / totalCSSV;
+      const expectedRaw = (stakeAmount * accDelta) / PRECISION;
+      const expectedClaim = expectedRaw - (expectedRaw % ETH_DEDUCTED_DIGITS);
+      expect(amount).to.equal(expectedClaim);
     });
 
     it("XG-048: Migrate -> claim dust -> NothingToClaim revert (remainder preserved)", async function () {
@@ -2091,9 +2641,15 @@ describe("XG: Migration x Staking Cross-Module Tests", () => {
       // Should remain 0 — no cSSV supply to distribute to
       expect(acc).to.equal(0n);
 
-      // stakingEthPoolBalance is still updated (inflated)
+      // stakingEthPoolBalance is still updated (inflated) — compute exact value
+      const syncBlock = await getBlockNumber(provider);
+      const migrateBlock = migrateReceipt!.blockNumber;
+      const networkFeePacked = NETWORK_FEE_ETH / ETH_DEDUCTED_DIGITS;
+      const vUnits = defaultVUnits(1n);
+      const blockDiff = BigInt(syncBlock - migrateBlock);
+      const expectedPool = (blockDiff * networkFeePacked * vUnits / BPS_DENOMINATOR) * ETH_DEDUCTED_DIGITS;
       const poolBalance = BigInt(await views.stakingEthPoolBalance());
-      expect(poolBalance).to.be.greaterThan(0n);
+      expect(poolBalance).to.equal(expectedPool);
 
       // G4: daoTotalEthVUnits unchanged after syncFees (cluster still active)
       const daoVUnitsPost = await readDaoTotalEthVUnits(provider, networkAddress);
@@ -2142,8 +2698,25 @@ describe("XG: Migration x Staking Cross-Module Tests", () => {
 
       await mineBlocks(provider, 100);
 
-      const { amount } = await claimAndGetAmount(network, provider, stakerB);
-      expect(amount).to.be.greaterThan(0n);
+      const { amount, block: claimBlock } = await claimAndGetAmount(network, provider, stakerB);
+      // Exact computation across 3 phases
+      const PRECISION = 10n ** 18n;
+      const networkFeePacked = DEFAULT_NETWORK_FEE_UNPACKED / ETH_DEDUCTED_DIGITS;
+      const totalCSSV = STAKE_AMOUNT + stakeAmount;
+      // Phase 1: regA.block to regB.block — vUnits=defaultVUnits(1n)
+      const p1 = BigInt(regB.block - regA.block);
+      const p1Fees = (p1 * networkFeePacked * defaultVUnits(1n) / BPS_DENOMINATOR) * ETH_DEDUCTED_DIGITS;
+      // Phase 2: regB.block to ebB.block — vUnits=defaultVUnits(1n)+defaultVUnits(1n) (both implicit)
+      const p2 = BigInt(ebB.block - regB.block);
+      const p2Fees = (p2 * networkFeePacked * defaultVUnits(2n) / BPS_DENOMINATOR) * ETH_DEDUCTED_DIGITS;
+      // Phase 3: ebB.block to claimBlock — vUnits=expectedTotal
+      const p3 = BigInt(claimBlock - ebB.block);
+      const p3Fees = (p3 * networkFeePacked * expectedTotal / BPS_DENOMINATOR) * ETH_DEDUCTED_DIGITS;
+      const totalFees = p1Fees + p2Fees + p3Fees;
+      const accDelta = (totalFees * PRECISION) / totalCSSV;
+      const expectedRaw = (stakeAmount * accDelta) / PRECISION;
+      const expectedClaim = expectedRaw - (expectedRaw % ETH_DEDUCTED_DIGITS);
+      expect(amount).to.equal(expectedClaim);
     });
   });
 
@@ -2173,12 +2746,36 @@ describe("XG: Migration x Staking Cross-Module Tests", () => {
       cluster = ebResult.cluster;
 
       // Remove operator — this cleans up operatorEthVUnits for the removed op
-      await network.connect(operatorOwner).removeOperator(operatorIds[3]);
+      const removeOpTx = await network.connect(operatorOwner).removeOperator(operatorIds[3]);
+      const removeOpBlock = (await removeOpTx.wait())!.blockNumber;
+
+      // Read actual daoTotalEthVUnits after removal (may differ from pre-removal)
+      const daoVUnitsPostRemoval = await readDaoTotalEthVUnits(provider, networkAddress);
 
       // Verify staking rewards still accrue after operator removal
       await mineBlocks(provider, 100);
-      const { amount } = await claimAndGetAmount(network, provider, stakerB);
-      expect(amount).to.be.greaterThan(0n);
+      const { amount, block: claimBlock } = await claimAndGetAmount(network, provider, stakerB);
+      // Exact computation across phases
+      const PRECISION = 10n ** 18n;
+      const networkFeePacked = DEFAULT_NETWORK_FEE_UNPACKED / ETH_DEDUCTED_DIGITS;
+      const totalCSSV = STAKE_AMOUNT + stakeAmount;
+      // Phase 1: reg.block to reg2.block at vUnits=defaultVUnits(1n)
+      const p1 = BigInt(reg2.block - reg.block);
+      const p1Fees = (p1 * networkFeePacked * defaultVUnits(1n) / BPS_DENOMINATOR) * ETH_DEDUCTED_DIGITS;
+      // Phase 2: reg2.block to ebResult.block at vUnits=defaultVUnits(2n)
+      const p2 = BigInt(ebResult.block - reg2.block);
+      const p2Fees = (p2 * networkFeePacked * defaultVUnits(2n) / BPS_DENOMINATOR) * ETH_DEDUCTED_DIGITS;
+      // Phase 3: ebResult.block to removeOpBlock at vUnits=calcVUnits(128n)
+      const p3 = BigInt(removeOpBlock - ebResult.block);
+      const p3Fees = (p3 * networkFeePacked * calcVUnits(128n) / BPS_DENOMINATOR) * ETH_DEDUCTED_DIGITS;
+      // Phase 4: removeOpBlock to claimBlock at vUnits=daoVUnitsPostRemoval
+      const p4 = BigInt(claimBlock - removeOpBlock);
+      const p4Fees = (p4 * networkFeePacked * daoVUnitsPostRemoval / BPS_DENOMINATOR) * ETH_DEDUCTED_DIGITS;
+      const totalFees = p1Fees + p2Fees + p3Fees + p4Fees;
+      const accDelta = (totalFees * PRECISION) / totalCSSV;
+      const expectedRaw = (stakeAmount * accDelta) / PRECISION;
+      const expectedClaim = expectedRaw - (expectedRaw % ETH_DEDUCTED_DIGITS);
+      expect(amount).to.equal(expectedClaim);
 
       // Liquidation succeeds — guard skips removed op in _executeLiquidation
       await mineBlocks(provider, 900_000);
@@ -2214,8 +2811,18 @@ describe("XG: Migration x Staking Cross-Module Tests", () => {
 
       await mineBlocks(provider, 100);
 
-      const { amount } = await claimAndGetAmount(network, provider, stakerB);
-      expect(amount).to.be.greaterThan(0n);
+      const { amount, block: claimBlock } = await claimAndGetAmount(network, provider, stakerB);
+      // Exact computation: fees from reg.block to claimBlock
+      const PRECISION = 10n ** 18n;
+      const networkFeePacked = DEFAULT_NETWORK_FEE_UNPACKED / ETH_DEDUCTED_DIGITS;
+      const totalCSSV = STAKE_AMOUNT + stakeAmount;
+      const vUnits = defaultVUnits(1n);
+      const blockDiff = BigInt(claimBlock - reg.block);
+      const feesWei = (blockDiff * networkFeePacked * vUnits / BPS_DENOMINATOR) * ETH_DEDUCTED_DIGITS;
+      const accDelta = (feesWei * PRECISION) / totalCSSV;
+      const expectedRaw = (stakeAmount * accDelta) / PRECISION;
+      const expectedClaim = expectedRaw - (expectedRaw % ETH_DEDUCTED_DIGITS);
+      expect(amount).to.equal(expectedClaim);
       expect(amount % ETH_DEDUCTED_DIGITS).to.equal(0n);
     });
   });
@@ -2279,28 +2886,46 @@ describe("XG: Migration x Staking Cross-Module Tests", () => {
       await stakeSSV(network, ssvToken, staker, stakeAmount);
 
       // Migrate
-      await network.connect(clusterOwner).migrateClusterToETH(
+      const migrateTx = await network.connect(clusterOwner).migrateClusterToETH(
         operatorIds, cluster, { value: DEFAULT_ETH_REGISTER_VALUE },
       );
+      const migrateBlock = (await migrateTx.wait())!.blockNumber;
 
       // Sync immediately after migration
-      await network.syncFees();
+      const syncTx1 = await network.syncFees();
+      const sync1Block = (await syncTx1.wait())!.blockNumber;
       const poolAfterMigrate = BigInt(await views.stakingEthPoolBalance());
 
       // Advance blocks
       await mineBlocks(provider, 100);
-      await network.syncFees();
+      const syncTx2 = await network.syncFees();
+      const sync2Block = (await syncTx2.wait())!.blockNumber;
       const poolAfter100Blocks = BigInt(await views.stakingEthPoolBalance());
 
-      // Pool balance should increase monotonically
-      expect(poolAfter100Blocks).to.be.greaterThanOrEqual(poolAfterMigrate);
+      // Pool balance increases by exact fee accrual
+      const networkFeePacked = NETWORK_FEE_ETH / ETH_DEDUCTED_DIGITS;
+      const vUnits = defaultVUnits(1n);
+      const gap = BigInt(sync2Block - sync1Block);
+      const newFees = (gap * networkFeePacked * vUnits / BPS_DENOMINATOR) * ETH_DEDUCTED_DIGITS;
+      expect(poolAfter100Blocks).to.equal(poolAfterMigrate + newFees);
 
       // Claim
-      const { amount } = await claimAndGetAmount(network, provider, staker);
-      expect(amount).to.be.greaterThan(0n);
+      const { amount, block: claimBlock } = await claimAndGetAmount(network, provider, staker);
+      // Exact claim: fees from migrateBlock to claimBlock
+      const PRECISION = 10n ** 18n;
+      const totalCSSV = stakeAmount;
+      const blockDiff = BigInt(claimBlock - migrateBlock);
+      const feesWei = (blockDiff * networkFeePacked * vUnits / BPS_DENOMINATOR) * ETH_DEDUCTED_DIGITS;
+      const accDelta = (feesWei * PRECISION) / totalCSSV;
+      const expectedRaw = (stakeAmount * accDelta) / PRECISION;
+      const expectedClaim = expectedRaw - (expectedRaw % ETH_DEDUCTED_DIGITS);
+      expect(amount).to.equal(expectedClaim);
 
       const poolAfterClaim = BigInt(await views.stakingEthPoolBalance());
-      expect(poolAfterClaim).to.be.lessThan(poolAfter100Blocks);
+      // Pool increases by fees from sync2 to claim, then decreases by amount
+      const claimGap = BigInt(claimBlock - sync2Block);
+      const claimGapFees = (claimGap * networkFeePacked * vUnits / BPS_DENOMINATOR) * ETH_DEDUCTED_DIGITS;
+      expect(poolAfterClaim).to.equal(poolAfter100Blocks + claimGapFees - amount);
     });
   });
 
@@ -2321,6 +2946,7 @@ describe("XG: Migration x Staking Cross-Module Tests", () => {
       // Register multiple validators for stress test
       let cluster: Cluster = EMPTY_CLUSTER;
       const numValidators = 10; // Practical limit for test speed
+      const regBlocks: number[] = [];
       for (let i = 0; i < numValidators; i++) {
         const reg = await registerCluster(
           network, clusterOwner, operatorIds,
@@ -2328,6 +2954,7 @@ describe("XG: Migration x Staking Cross-Module Tests", () => {
           i === 0 ? undefined : cluster,
         );
         cluster = reg.cluster;
+        regBlocks.push(reg.block);
       }
 
       // Set high EB (2048 * 10 = 20480 ETH total)
@@ -2335,14 +2962,34 @@ describe("XG: Migration x Staking Cross-Module Tests", () => {
         network, provider, clusterOwner, operatorIds, cluster, 2048 * numValidators,
       );
 
+      const expectedVUnits = calcVUnits(BigInt(2048 * numValidators));
       const daoVUnits = await readDaoTotalEthVUnits(provider, networkAddress);
-      expect(daoVUnits).to.be.greaterThan(0n);
+      expect(daoVUnits).to.equal(expectedVUnits);
 
       await mineBlocks(provider, 100);
 
       // Should not revert with overflow
-      const { amount } = await claimAndGetAmount(network, provider, stakerB);
-      expect(amount).to.be.greaterThan(0n);
+      const { amount, block: claimBlock } = await claimAndGetAmount(network, provider, stakerB);
+      // Exact computation across all phases
+      const PRECISION = 10n ** 18n;
+      const networkFeePacked = DEFAULT_NETWORK_FEE_UNPACKED / ETH_DEDUCTED_DIGITS;
+      const totalCSSV = STAKE_AMOUNT + stakeAmount;
+      let totalFees = 0n;
+      // Phases from each registration to next (implicit EB)
+      for (let i = 0; i < numValidators; i++) {
+        const endBlock = i < numValidators - 1 ? regBlocks[i + 1] : ebResult.block;
+        const startBlock = regBlocks[i];
+        const phaseVUnits = defaultVUnits(BigInt(i + 1));
+        const phaseDiff = BigInt(endBlock - startBlock);
+        totalFees += (phaseDiff * networkFeePacked * phaseVUnits / BPS_DENOMINATOR) * ETH_DEDUCTED_DIGITS;
+      }
+      // Phase after EB update to claim
+      const ebPhaseDiff = BigInt(claimBlock - ebResult.block);
+      totalFees += (ebPhaseDiff * networkFeePacked * expectedVUnits / BPS_DENOMINATOR) * ETH_DEDUCTED_DIGITS;
+      const accDelta = (totalFees * PRECISION) / totalCSSV;
+      const expectedRaw = (stakeAmount * accDelta) / PRECISION;
+      const expectedClaim = expectedRaw - (expectedRaw % ETH_DEDUCTED_DIGITS);
+      expect(amount).to.equal(expectedClaim);
     });
   });
 
@@ -2395,14 +3042,25 @@ describe("XG: Migration x Staking Cross-Module Tests", () => {
       expect(accSSVEra).to.equal(0n);
 
       // Migrate (reactivation)
-      await network.connect(clusterOwner).migrateClusterToETH(
+      const migrateTx = await network.connect(clusterOwner).migrateClusterToETH(
         operatorIds, cluster, { value: DEFAULT_ETH_REGISTER_VALUE },
       );
+      const migrateBlock = (await migrateTx.wait())!.blockNumber;
 
       await mineBlocks(provider, 100);
 
-      const { amount } = await claimAndGetAmount(network, provider, staker);
-      expect(amount).to.be.greaterThan(0n);
+      const { amount, block: claimBlock } = await claimAndGetAmount(network, provider, staker);
+      // Exact computation: fees from migrateBlock to claimBlock (no SSV-era fees)
+      const PRECISION = 10n ** 18n;
+      const networkFeePacked = NETWORK_FEE_ETH / ETH_DEDUCTED_DIGITS;
+      const vUnits = defaultVUnits(1n);
+      const totalCSSV = stakeAmount;
+      const blockDiff = BigInt(claimBlock - migrateBlock);
+      const feesWei = (blockDiff * networkFeePacked * vUnits / BPS_DENOMINATOR) * ETH_DEDUCTED_DIGITS;
+      const accDelta = (feesWei * PRECISION) / totalCSSV;
+      const expectedRaw = (stakeAmount * accDelta) / PRECISION;
+      const expectedClaim = expectedRaw - (expectedRaw % ETH_DEDUCTED_DIGITS);
+      expect(amount).to.equal(expectedClaim);
     });
   });
 
@@ -2419,27 +3077,41 @@ describe("XG: Migration x Staking Cross-Module Tests", () => {
       const stakeAmount = ethers.parseEther("10");
       await stakeSSV(network, ssvToken, staker, stakeAmount);
 
-      await network.connect(clusterOwner).migrateClusterToETH(
+      const migrateTx = await network.connect(clusterOwner).migrateClusterToETH(
         operatorIds, cluster, { value: DEFAULT_ETH_REGISTER_VALUE },
       );
+      const migrateBlock = (await migrateTx.wait())!.blockNumber;
 
       // Advance sufficient blocks
       await mineBlocks(provider, 1000);
 
       // Sync + claim
-      await network.syncFees();
+      const syncTx = await network.syncFees();
+      const syncBlock = (await syncTx.wait())!.blockNumber;
       const poolBefore = BigInt(await views.stakingEthPoolBalance());
 
-      const { amount } = await claimAndGetAmount(network, provider, staker);
-      expect(amount).to.be.greaterThan(0n);
+      const { amount, block: claimBlock } = await claimAndGetAmount(network, provider, staker);
+      // Exact computation
+      const PRECISION = 10n ** 18n;
+      const networkFeePacked = NETWORK_FEE_ETH / ETH_DEDUCTED_DIGITS;
+      const vUnits = defaultVUnits(2n);
+      const totalCSSV = stakeAmount;
+      const blockDiff = BigInt(claimBlock - migrateBlock);
+      const feesWei = (blockDiff * networkFeePacked * vUnits / BPS_DENOMINATOR) * ETH_DEDUCTED_DIGITS;
+      const accDelta = (feesWei * PRECISION) / totalCSSV;
+      const expectedRaw = (stakeAmount * accDelta) / PRECISION;
+      const expectedClaim = expectedRaw - (expectedRaw % ETH_DEDUCTED_DIGITS);
+      expect(amount).to.equal(expectedClaim);
 
       // pack(unpack(x)) == x: payout is ETH_DEDUCTED_DIGITS aligned
       expect(amount % ETH_DEDUCTED_DIGITS).to.equal(0n);
 
       const poolAfter = BigInt(await views.stakingEthPoolBalance());
-      // Pool decrease should be pack-aligned too
+      // Pool = poolBefore + gapFees - amount, where gapFees are from syncBlock to claimBlock
+      const gapDiff = BigInt(claimBlock - syncBlock);
+      const gapFees = (gapDiff * networkFeePacked * vUnits / BPS_DENOMINATOR) * ETH_DEDUCTED_DIGITS;
       const poolDecrease = poolBefore - poolAfter;
-      expect(poolDecrease).to.be.greaterThan(0n);
+      expect(poolDecrease).to.equal(amount - gapFees);
     });
   });
 });
