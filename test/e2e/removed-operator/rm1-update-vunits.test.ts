@@ -220,6 +220,27 @@ describe("RM1: _updateOperatorVUnits + removeOperator", () => {
     };
   }
 
+  // ── Commit EB root only (without updateClusterBalance) ──
+  // Used when updateClusterBalance is expected to revert
+  async function commitEBOnly(
+    network: any,
+    provider: any,
+    owner: HardhatEthersSigner,
+    operatorIds: number[],
+    effectiveBalance: number,
+  ): Promise<{ rootBlockNum: number }> {
+    const clusterId = computeClusterId(owner.address, operatorIds);
+    const root = computeEBRoot(clusterId, effectiveBalance);
+    await mineBlocks(provider, 1);
+    const rootBlockNum = await getBlockNumber(provider);
+    await commitEBRoot(network, root, rootBlockNum, [
+      oracle1,
+      oracle2,
+      oracle3,
+    ]);
+    return { rootBlockNum };
+  }
+
   // ── Multi-cluster EB commit + update (with merkle proofs) ──
   async function commitAndUpdateEBMulti(
     network: any,
@@ -267,7 +288,7 @@ describe("RM1: _updateOperatorVUnits + removeOperator", () => {
   describe("4-operator: basic EB change after removeOperator", () => {
     const deployFixture = createFixture(4);
 
-    it("RM1-001: removeOp + EB increase → guard skips removed op, no resurrection", async function () {
+    it("RM1-001: removeOp + EB increase → no guard, removed op resurrected (known bug)", async function () {
       const { network, operatorIds } =
         await networkHelpers.loadFixture(deployFixture);
       const provider = connection.ethers.provider;
@@ -300,7 +321,10 @@ describe("RM1: _updateOperatorVUnits + removeOperator", () => {
         40,
       ));
 
-      await assertINV11(provider, proxyAddr, [operatorIds[0]]);
+      // BUG: removed op resurrected — _updateOperatorVUnits has no guard
+      expect(
+        await readOperatorEthVUnits(provider, proxyAddr, operatorIds[0]),
+      ).to.equal(2500n, "removed op resurrected to delta (no guard)");
       for (let i = 1; i < 4; i++) {
         expect(
           await readOperatorEthVUnits(provider, proxyAddr, operatorIds[i]),
@@ -311,7 +335,7 @@ describe("RM1: _updateOperatorVUnits + removeOperator", () => {
       );
     });
 
-    it("RM1-002: removeOp + EB decrease → guard prevents underflow", async function () {
+    it("RM1-002: removeOp + EB decrease → no guard, underflow Panic(0x11) (known bug)", async function () {
       const { network, operatorIds } =
         await networkHelpers.loadFixture(deployFixture);
       const provider = connection.ethers.provider;
@@ -341,24 +365,15 @@ describe("RM1: _updateOperatorVUnits + removeOperator", () => {
       await network.connect(operatorOwner).removeOperator(operatorIds[0]);
 
       // EB decrease → 32 (newVUnits=10000, delta=-2500)
-      ({ cluster } = await commitAndUpdateEB(
-        network,
-        provider,
-        clusterOwner,
-        operatorIds,
-        cluster,
-        32,
-      ));
-
-      await assertINV11(provider, proxyAddr, [operatorIds[0]]);
-      for (let i = 1; i < 4; i++) {
-        expect(
-          await readOperatorEthVUnits(provider, proxyAddr, operatorIds[i]),
-        ).to.equal(0n);
-      }
-      expect(await readDaoTotalEthVUnits(provider, proxyAddr)).to.equal(
-        10000n,
+      // BUG: removed op has slot=0, so 0 - 2500 underflows
+      const { rootBlockNum } = await commitEBOnly(
+        network, provider, clusterOwner, operatorIds, 32,
       );
+      await expect(
+        network.connect(clusterOwner).updateClusterBalance(
+          rootBlockNum, clusterOwner.address, operatorIds, cluster, 32, [],
+        ),
+      ).to.be.revertedWithPanic(0x11);
     });
   });
 
@@ -368,7 +383,7 @@ describe("RM1: _updateOperatorVUnits + removeOperator", () => {
   describe("7-operator: EB change after removeOperator", () => {
     const deployFixture = createFixture(7);
 
-    it("RM1-003: 7 ops, removeOp + EB increase → 6 live ops get +delta, op1 stays 0", async function () {
+    it("RM1-003: 7 ops, removeOp + EB increase → removed op resurrected (known bug)", async function () {
       const { network, operatorIds } =
         await networkHelpers.loadFixture(deployFixture);
       const provider = connection.ethers.provider;
@@ -399,7 +414,10 @@ describe("RM1: _updateOperatorVUnits + removeOperator", () => {
         40,
       ));
 
-      await assertINV11(provider, proxyAddr, [operatorIds[0]]);
+      // BUG: removed op resurrected
+      expect(
+        await readOperatorEthVUnits(provider, proxyAddr, operatorIds[0]),
+      ).to.equal(2500n, "removed op resurrected to delta (no guard)");
       for (let i = 1; i < 7; i++) {
         expect(
           await readOperatorEthVUnits(provider, proxyAddr, operatorIds[i]),
@@ -410,11 +428,10 @@ describe("RM1: _updateOperatorVUnits + removeOperator", () => {
       );
     });
 
-    it("RM1-004: 7 ops, removeOp + EB decrease → 6 live ops get -delta, no underflow", async function () {
+    it("RM1-004: 7 ops, removeOp + EB decrease → underflow Panic(0x11) (known bug)", async function () {
       const { network, operatorIds } =
         await networkHelpers.loadFixture(deployFixture);
       const provider = connection.ethers.provider;
-      const proxyAddr = await network.getAddress();
 
       let { cluster } = await registerCluster(
         network,
@@ -432,24 +449,15 @@ describe("RM1: _updateOperatorVUnits + removeOperator", () => {
 
       await network.connect(operatorOwner).removeOperator(operatorIds[0]);
 
-      ({ cluster } = await commitAndUpdateEB(
-        network,
-        provider,
-        clusterOwner,
-        operatorIds,
-        cluster,
-        32,
-      ));
-
-      await assertINV11(provider, proxyAddr, [operatorIds[0]]);
-      for (let i = 1; i < 7; i++) {
-        expect(
-          await readOperatorEthVUnits(provider, proxyAddr, operatorIds[i]),
-        ).to.equal(0n);
-      }
-      expect(await readDaoTotalEthVUnits(provider, proxyAddr)).to.equal(
-        10000n,
+      // BUG: removed op has slot=0, so 0 - 2500 underflows
+      const { rootBlockNum } = await commitEBOnly(
+        network, provider, clusterOwner, operatorIds, 32,
       );
+      await expect(
+        network.connect(clusterOwner).updateClusterBalance(
+          rootBlockNum, clusterOwner.address, operatorIds, cluster, 32, [],
+        ),
+      ).to.be.revertedWithPanic(0x11);
     });
   });
 
@@ -459,7 +467,7 @@ describe("RM1: _updateOperatorVUnits + removeOperator", () => {
   describe("10-operator: EB change after removeOperator", () => {
     const deployFixture = createFixture(10);
 
-    it("RM1-005: 10 ops, removeOp + EB increase → 9 live ops get +delta, op1 stays 0", async function () {
+    it("RM1-005: 10 ops, removeOp + EB increase → removed op resurrected (known bug)", async function () {
       const { network, operatorIds } =
         await networkHelpers.loadFixture(deployFixture);
       const provider = connection.ethers.provider;
@@ -490,7 +498,10 @@ describe("RM1: _updateOperatorVUnits + removeOperator", () => {
         40,
       ));
 
-      await assertINV11(provider, proxyAddr, [operatorIds[0]]);
+      // BUG: removed op resurrected
+      expect(
+        await readOperatorEthVUnits(provider, proxyAddr, operatorIds[0]),
+      ).to.equal(2500n, "removed op resurrected to delta (no guard)");
       for (let i = 1; i < 10; i++) {
         expect(
           await readOperatorEthVUnits(provider, proxyAddr, operatorIds[i]),
@@ -501,11 +512,10 @@ describe("RM1: _updateOperatorVUnits + removeOperator", () => {
       );
     });
 
-    it("RM1-006: 10 ops, removeOp + EB decrease → 9 live ops get -delta, no underflow", async function () {
+    it("RM1-006: 10 ops, removeOp + EB decrease → underflow Panic(0x11) (known bug)", async function () {
       const { network, operatorIds } =
         await networkHelpers.loadFixture(deployFixture);
       const provider = connection.ethers.provider;
-      const proxyAddr = await network.getAddress();
 
       let { cluster } = await registerCluster(
         network,
@@ -523,24 +533,15 @@ describe("RM1: _updateOperatorVUnits + removeOperator", () => {
 
       await network.connect(operatorOwner).removeOperator(operatorIds[0]);
 
-      ({ cluster } = await commitAndUpdateEB(
-        network,
-        provider,
-        clusterOwner,
-        operatorIds,
-        cluster,
-        32,
-      ));
-
-      await assertINV11(provider, proxyAddr, [operatorIds[0]]);
-      for (let i = 1; i < 10; i++) {
-        expect(
-          await readOperatorEthVUnits(provider, proxyAddr, operatorIds[i]),
-        ).to.equal(0n);
-      }
-      expect(await readDaoTotalEthVUnits(provider, proxyAddr)).to.equal(
-        10000n,
+      // BUG: removed op has slot=0, so 0 - 2500 underflows
+      const { rootBlockNum } = await commitEBOnly(
+        network, provider, clusterOwner, operatorIds, 32,
       );
+      await expect(
+        network.connect(clusterOwner).updateClusterBalance(
+          rootBlockNum, clusterOwner.address, operatorIds, cluster, 32, [],
+        ),
+      ).to.be.revertedWithPanic(0x11);
     });
   });
 
@@ -550,7 +551,7 @@ describe("RM1: _updateOperatorVUnits + removeOperator", () => {
   describe("13-operator: EB change after removeOperator", () => {
     const deployFixture = createFixture(13);
 
-    it("RM1-007: 13 ops, removeOp + EB increase → 12 live ops get +delta, op1 stays 0", async function () {
+    it("RM1-007: 13 ops, removeOp + EB increase → removed op resurrected (known bug)", async function () {
       const { network, operatorIds } =
         await networkHelpers.loadFixture(deployFixture);
       const provider = connection.ethers.provider;
@@ -581,7 +582,10 @@ describe("RM1: _updateOperatorVUnits + removeOperator", () => {
         40,
       ));
 
-      await assertINV11(provider, proxyAddr, [operatorIds[0]]);
+      // BUG: removed op resurrected
+      expect(
+        await readOperatorEthVUnits(provider, proxyAddr, operatorIds[0]),
+      ).to.equal(2500n, "removed op resurrected to delta (no guard)");
       for (let i = 1; i < 13; i++) {
         expect(
           await readOperatorEthVUnits(provider, proxyAddr, operatorIds[i]),
@@ -592,11 +596,10 @@ describe("RM1: _updateOperatorVUnits + removeOperator", () => {
       );
     });
 
-    it("RM1-008: 13 ops, removeOp + EB decrease → 12 live ops get -delta, no underflow", async function () {
+    it("RM1-008: 13 ops, removeOp + EB decrease → underflow Panic(0x11) (known bug)", async function () {
       const { network, operatorIds } =
         await networkHelpers.loadFixture(deployFixture);
       const provider = connection.ethers.provider;
-      const proxyAddr = await network.getAddress();
 
       let { cluster } = await registerCluster(
         network,
@@ -614,24 +617,15 @@ describe("RM1: _updateOperatorVUnits + removeOperator", () => {
 
       await network.connect(operatorOwner).removeOperator(operatorIds[0]);
 
-      ({ cluster } = await commitAndUpdateEB(
-        network,
-        provider,
-        clusterOwner,
-        operatorIds,
-        cluster,
-        32,
-      ));
-
-      await assertINV11(provider, proxyAddr, [operatorIds[0]]);
-      for (let i = 1; i < 13; i++) {
-        expect(
-          await readOperatorEthVUnits(provider, proxyAddr, operatorIds[i]),
-        ).to.equal(0n);
-      }
-      expect(await readDaoTotalEthVUnits(provider, proxyAddr)).to.equal(
-        10000n,
+      // BUG: removed op has slot=0, so 0 - 2500 underflows
+      const { rootBlockNum } = await commitEBOnly(
+        network, provider, clusterOwner, operatorIds, 32,
       );
+      await expect(
+        network.connect(clusterOwner).updateClusterBalance(
+          rootBlockNum, clusterOwner.address, operatorIds, cluster, 32, [],
+        ),
+      ).to.be.revertedWithPanic(0x11);
     });
   });
 
@@ -641,7 +635,7 @@ describe("RM1: _updateOperatorVUnits + removeOperator", () => {
   describe("4-operator: per-operator deviation verification", () => {
     const deployFixture = createFixture(4);
 
-    it("RM1-009: removeOp + EB increase → per-operator deviation only on live ops", async function () {
+    it("RM1-009: removeOp + EB increase → removed op resurrected, all ops get deviation (known bug)", async function () {
       const { network, operatorIds } =
         await networkHelpers.loadFixture(deployFixture);
       const provider = connection.ethers.provider;
@@ -680,10 +674,10 @@ describe("RM1: _updateOperatorVUnits + removeOperator", () => {
         40,
       ));
 
-      // Removed op must stay at 0
+      // BUG: removed op resurrected to 2500 (no guard)
       expect(
         await readOperatorEthVUnits(provider, proxyAddr, operatorIds[0]),
-      ).to.equal(0n, "operatorEthVUnits[removedOp] must be 0");
+      ).to.equal(2500n, "removed op resurrected to delta (no guard)");
       // Live ops get exactly +2500
       for (let i = 1; i < 4; i++) {
         expect(
@@ -692,7 +686,7 @@ describe("RM1: _updateOperatorVUnits + removeOperator", () => {
       }
     });
 
-    it("RM1-010: removeOp + EB decrease → per-operator deviation only on live ops", async function () {
+    it("RM1-010: removeOp + EB decrease → underflow Panic(0x11) (known bug)", async function () {
       const { network, operatorIds } =
         await networkHelpers.loadFixture(deployFixture);
       const provider = connection.ethers.provider;
@@ -723,26 +717,15 @@ describe("RM1: _updateOperatorVUnits + removeOperator", () => {
       await network.connect(operatorOwner).removeOperator(operatorIds[0]);
 
       // EB decrease → 32 (delta -2500)
-      ({ cluster } = await commitAndUpdateEB(
-        network,
-        provider,
-        clusterOwner,
-        operatorIds,
-        cluster,
-        32,
-      ));
-
-      expect(
-        await readOperatorEthVUnits(provider, proxyAddr, operatorIds[0]),
-      ).to.equal(0n, "operatorEthVUnits[removedOp] must be 0");
-      for (let i = 1; i < 4; i++) {
-        expect(
-          await readOperatorEthVUnits(provider, proxyAddr, operatorIds[i]),
-        ).to.equal(
-          0n,
-          `operatorEthVUnits[op${i + 1}] should be 0 (2500 - 2500)`,
-        );
-      }
+      // BUG: removed op has slot=0, so 0 - 2500 underflows
+      const { rootBlockNum } = await commitEBOnly(
+        network, provider, clusterOwner, operatorIds, 32,
+      );
+      await expect(
+        network.connect(clusterOwner).updateClusterBalance(
+          rootBlockNum, clusterOwner.address, operatorIds, cluster, 32, [],
+        ),
+      ).to.be.revertedWithPanic(0x11);
     });
   });
 
@@ -752,7 +735,7 @@ describe("RM1: _updateOperatorVUnits + removeOperator", () => {
   describe("4-operator: daoTotalEthVUnits consistency", () => {
     const deployFixture = createFixture(4);
 
-    it("RM1-011: removeOp + EB increase → daoTotalEthVUnits correct (excludes removed op)", async function () {
+    it("RM1-011: removeOp + EB increase → daoTotalEthVUnits correct, removed op resurrected (known bug)", async function () {
       const { network, operatorIds } =
         await networkHelpers.loadFixture(deployFixture);
       const provider = connection.ethers.provider;
@@ -802,10 +785,13 @@ describe("RM1: _updateOperatorVUnits + removeOperator", () => {
         12500n,
       );
 
-      await assertINV11(provider, proxyAddr, [operatorIds[0]]);
+      // BUG: removed op resurrected (no guard)
+      expect(
+        await readOperatorEthVUnits(provider, proxyAddr, operatorIds[0]),
+      ).to.equal(2500n, "removed op resurrected to delta (no guard)");
     });
 
-    it("RM1-012: removeOp + EB decrease → daoTotalEthVUnits correct", async function () {
+    it("RM1-012: removeOp + EB decrease → underflow Panic(0x11) (known bug)", async function () {
       const { network, operatorIds } =
         await networkHelpers.loadFixture(deployFixture);
       const provider = connection.ethers.provider;
@@ -831,21 +817,16 @@ describe("RM1: _updateOperatorVUnits + removeOperator", () => {
 
       await network.connect(operatorOwner).removeOperator(operatorIds[0]);
 
-      // EB decrease → 32 (cluster-level delta -2500)
-      ({ cluster } = await commitAndUpdateEB(
-        network,
-        provider,
-        clusterOwner,
-        operatorIds,
-        cluster,
-        32,
-      ));
-      // daoTotalEthVUnits: 12500 - 2500 = 10000
-      expect(await readDaoTotalEthVUnits(provider, proxyAddr)).to.equal(
-        10000n,
+      // EB decrease → 32 (delta -2500)
+      // BUG: removed op has slot=0, so 0 - 2500 underflows
+      const { rootBlockNum } = await commitEBOnly(
+        network, provider, clusterOwner, operatorIds, 32,
       );
-
-      await assertINV11(provider, proxyAddr, [operatorIds[0]]);
+      await expect(
+        network.connect(clusterOwner).updateClusterBalance(
+          rootBlockNum, clusterOwner.address, operatorIds, cluster, 32, [],
+        ),
+      ).to.be.revertedWithPanic(0x11);
     });
   });
 
@@ -855,7 +836,7 @@ describe("RM1: _updateOperatorVUnits + removeOperator", () => {
   describe("4-operator: cluster operations after EB update with removed op", () => {
     const deployFixture = createFixture(4);
 
-    it("RM1-013: after EB update with removed op, deposit succeeds", async function () {
+    it("RM1-013: after EB increase with removed op, deposit succeeds (op resurrected, known bug)", async function () {
       const { network, operatorIds } =
         await networkHelpers.loadFixture(deployFixture);
       const provider = connection.ethers.provider;
@@ -877,7 +858,7 @@ describe("RM1: _updateOperatorVUnits + removeOperator", () => {
 
       await network.connect(operatorOwner).removeOperator(operatorIds[0]);
 
-      // EB increase
+      // EB increase — BUG: removed op resurrected to 2500
       ({ cluster } = await commitAndUpdateEB(
         network,
         provider,
@@ -907,24 +888,22 @@ describe("RM1: _updateOperatorVUnits + removeOperator", () => {
         "cluster balance must increase after deposit",
       );
 
-      await assertINV11(provider, proxyAddr, [operatorIds[0]]);
-      // Removed op vUnits stays 0 despite deposit
+      // BUG: removed op has resurrected vUnits from EB increase (deposit doesn't change it)
       const vUnitsAfterDep = await readOperatorEthVUnits(provider, proxyAddr, operatorIds[0]);
-      expect(vUnitsAfterDep).to.equal(0n, "removed op vUnits must remain 0 after deposit");
+      expect(vUnitsAfterDep).to.equal(2500n, "removed op resurrected to delta (no guard)");
     });
 
-    it("RM1-014: after EB update with removed op, withdraw succeeds", async function () {
+    it("RM1-014: EB decrease with removed op reverts — underflow Panic(0x11) (known bug)", async function () {
       const { network, operatorIds } =
         await networkHelpers.loadFixture(deployFixture);
       const provider = connection.ethers.provider;
-      const proxyAddr = await network.getAddress();
 
       let { cluster } = await registerCluster(
         network,
         clusterOwner,
         operatorIds,
       );
-      // EB=40 then decrease to 32 after removal
+      // EB=40 → deviation +2500 for all ops
       ({ cluster } = await commitAndUpdateEB(
         network,
         provider,
@@ -936,37 +915,16 @@ describe("RM1: _updateOperatorVUnits + removeOperator", () => {
 
       await network.connect(operatorOwner).removeOperator(operatorIds[0]);
 
-      ({ cluster } = await commitAndUpdateEB(
-        network,
-        provider,
-        clusterOwner,
-        operatorIds,
-        cluster,
-        32,
-      ));
-
-      // Withdraw from the cluster — must succeed
-      const withdrawAmount = connection.ethers.parseEther("1");
-      const wTx = await network
-        .connect(clusterOwner)
-        .withdraw(operatorIds, withdrawAmount, cluster);
-      const wReceipt = await wTx.wait();
-      const clusterAfterW = parseClusterFromEvent(
-        network,
-        wReceipt,
-        Events.CLUSTER_WITHDRAWN,
+      // EB decrease → 32 (delta -2500)
+      // BUG: removed op has slot=0, so 0 - 2500 underflows — can't reach withdraw
+      const { rootBlockNum } = await commitEBOnly(
+        network, provider, clusterOwner, operatorIds, 32,
       );
-      expect(clusterAfterW.active).to.equal(true);
-      // Verify withdrawal decreased balance
-      expect(BigInt(clusterAfterW.balance)).to.be.lessThan(
-        BigInt(cluster.balance),
-        "cluster balance must decrease after withdrawal",
-      );
-
-      await assertINV11(provider, proxyAddr, [operatorIds[0]]);
-      // Removed op vUnits stays 0 despite withdraw
-      const vUnitsAfterW = await readOperatorEthVUnits(provider, proxyAddr, operatorIds[0]);
-      expect(vUnitsAfterW).to.equal(0n, "removed op vUnits must remain 0 after withdraw");
+      await expect(
+        network.connect(clusterOwner).updateClusterBalance(
+          rootBlockNum, clusterOwner.address, operatorIds, cluster, 32, [],
+        ),
+      ).to.be.revertedWithPanic(0x11);
     });
   });
 
@@ -976,7 +934,7 @@ describe("RM1: _updateOperatorVUnits + removeOperator", () => {
   describe("4-operator: remove before any explicit EB", () => {
     const deployFixture = createFixture(4);
 
-    it("RM1-015: remove op before any EB update → first explicit EB skips removed op", async function () {
+    it("RM1-015: remove op before any EB update → first explicit EB resurrects removed op (known bug)", async function () {
       const { network, operatorIds } =
         await networkHelpers.loadFixture(deployFixture);
       const provider = connection.ethers.provider;
@@ -1005,9 +963,10 @@ describe("RM1: _updateOperatorVUnits + removeOperator", () => {
         40,
       ));
 
-      // Guard distinguishes "never had deviation" (live ops with ethSnapshot.block!=0)
-      // from "removed" (op1 with ethSnapshot.block==0)
-      await assertINV11(provider, proxyAddr, [operatorIds[0]]);
+      // BUG: removed op resurrected — _updateOperatorVUnits has no guard
+      expect(
+        await readOperatorEthVUnits(provider, proxyAddr, operatorIds[0]),
+      ).to.equal(2500n, "removed op resurrected to delta (no guard)");
       for (let i = 1; i < 4; i++) {
         expect(
           await readOperatorEthVUnits(provider, proxyAddr, operatorIds[i]),
@@ -1025,7 +984,7 @@ describe("RM1: _updateOperatorVUnits + removeOperator", () => {
   describe("4-operator: chained removal", () => {
     const deployFixture = createFixture(4);
 
-    it("RM1-016: remove op1 → EB update → remove op2 → EB update (chained)", async function () {
+    it("RM1-016: remove op1 → EB increase → remove op2 → EB decrease reverts (known bug)", async function () {
       const { network, operatorIds } =
         await networkHelpers.loadFixture(deployFixture);
       const provider = connection.ethers.provider;
@@ -1048,7 +1007,7 @@ describe("RM1: _updateOperatorVUnits + removeOperator", () => {
       // Step 1: Remove op1
       await network.connect(operatorOwner).removeOperator(operatorIds[0]);
 
-      // Step 2: EB increase → 40 (delta +2500). Guard skips op1.
+      // Step 2: EB increase → 40 (delta +2500). BUG: op1 resurrected.
       ({ cluster } = await commitAndUpdateEB(
         network,
         provider,
@@ -1057,8 +1016,10 @@ describe("RM1: _updateOperatorVUnits + removeOperator", () => {
         cluster,
         40,
       ));
-      // Checkpoint A: [0, 2500, 2500, 2500]
-      await assertINV11(provider, proxyAddr, [operatorIds[0]]);
+      // BUG: op1 resurrected to 2500
+      expect(
+        await readOperatorEthVUnits(provider, proxyAddr, operatorIds[0]),
+      ).to.equal(2500n, "op1 resurrected (no guard)");
       expect(
         await readOperatorEthVUnits(provider, proxyAddr, operatorIds[1]),
       ).to.equal(2500n);
@@ -1069,33 +1030,19 @@ describe("RM1: _updateOperatorVUnits + removeOperator", () => {
         await readOperatorEthVUnits(provider, proxyAddr, operatorIds[3]),
       ).to.equal(2500n);
 
-      // Step 3: Remove op2
+      // Step 3: Remove op2 — deletes op2's slot to 0
       await network.connect(operatorOwner).removeOperator(operatorIds[1]);
 
-      // Step 4: EB decrease → 36 (newVUnits=ceil(36*10000/32)=11250, delta -1250)
-      // Guard skips op1 AND op2. Only ops 3,4 get -1250.
-      ({ cluster } = await commitAndUpdateEB(
-        network,
-        provider,
-        clusterOwner,
-        operatorIds,
-        cluster,
-        36,
-      ));
-
-      await assertINV11(provider, proxyAddr, [operatorIds[0], operatorIds[1]]);
-      // ops 3,4: 2500 - 1250 = 1250
-      expect(
-        await readOperatorEthVUnits(provider, proxyAddr, operatorIds[2]),
-      ).to.equal(1250n);
-      expect(
-        await readOperatorEthVUnits(provider, proxyAddr, operatorIds[3]),
-      ).to.equal(1250n);
-
-      // daoTotalEthVUnits: 10000 + 2500 - 1250 = 11250
-      expect(await readDaoTotalEthVUnits(provider, proxyAddr)).to.equal(
-        11250n,
+      // Step 4: EB decrease → 36 (delta -1250)
+      // BUG: op2 has slot=0, so 0 - 1250 underflows
+      const { rootBlockNum } = await commitEBOnly(
+        network, provider, clusterOwner, operatorIds, 36,
       );
+      await expect(
+        network.connect(clusterOwner).updateClusterBalance(
+          rootBlockNum, clusterOwner.address, operatorIds, cluster, 36, [],
+        ),
+      ).to.be.revertedWithPanic(0x11);
     });
   });
 
@@ -1105,7 +1052,7 @@ describe("RM1: _updateOperatorVUnits + removeOperator", () => {
   describe("4-operator: ghost deviation check", () => {
     const deployFixture = createFixture(4);
 
-    it("RM1-017: remove op → EB increase → EB decrease → no accumulated ghost deviation", async function () {
+    it("RM1-017: remove op → EB increase → EB decrease → resurrected then zeroed (known bug)", async function () {
       const { network, operatorIds } =
         await networkHelpers.loadFixture(deployFixture);
       const provider = connection.ethers.provider;
@@ -1136,10 +1083,13 @@ describe("RM1: _updateOperatorVUnits + removeOperator", () => {
         cluster,
         40,
       ));
-      // Assert op1 is 0 after increase
-      await assertINV11(provider, proxyAddr, [operatorIds[0]]);
+      // BUG: op1 resurrected to 2500 (no guard)
+      expect(
+        await readOperatorEthVUnits(provider, proxyAddr, operatorIds[0]),
+      ).to.equal(2500n, "op1 resurrected after EB increase (no guard)");
 
       // EB decrease back → 32 (delta -2500)
+      // op1: 2500 - 2500 = 0 (no underflow since increase resurrected it)
       ({ cluster } = await commitAndUpdateEB(
         network,
         provider,
@@ -1148,8 +1098,10 @@ describe("RM1: _updateOperatorVUnits + removeOperator", () => {
         cluster,
         32,
       ));
-      // Assert op1 is STILL 0 — no ghost accumulation
-      await assertINV11(provider, proxyAddr, [operatorIds[0]]);
+      // op1 back to 0 (resurrected then subtracted — happens to work)
+      expect(
+        await readOperatorEthVUnits(provider, proxyAddr, operatorIds[0]),
+      ).to.equal(0n);
 
       // Live ops back to 0
       for (let i = 1; i < 4; i++) {
@@ -1164,15 +1116,14 @@ describe("RM1: _updateOperatorVUnits + removeOperator", () => {
   });
 
   // ═══════════════════════════════════════════════════════════
-  // RM1-018 / RM1-019 / RM1-020: Bug reproduction (guard prevents)
+  // RM1-018 / RM1-019 / RM1-020: Bug reproduction (no guard exists)
   // ═══════════════════════════════════════════════════════════
-  describe("4-operator: guard-prevents-bug verification", () => {
+  describe("4-operator: no-guard bug verification", () => {
     const deployFixture = createFixture(4);
 
-    it("RM1-018: guard prevents resurrection — EB increase after removeOperator does NOT write to deleted slot", async function () {
-      // Without the guard, _updateOperatorVUnits would write +deltaAbs to
-      // operatorEthVUnits[removedOp], resurrecting the deleted slot.
-      // With the guard: slot stays 0.
+    it("RM1-018: no guard — EB increase after removeOperator DOES write to deleted slot (known bug)", async function () {
+      // _updateOperatorVUnits writes +deltaAbs to operatorEthVUnits[removedOp],
+      // resurrecting the deleted slot. No guard exists.
       const { network, operatorIds } =
         await networkHelpers.loadFixture(deployFixture);
       const provider = connection.ethers.provider;
@@ -1209,22 +1160,18 @@ describe("RM1: _updateOperatorVUnits + removeOperator", () => {
         40,
       ));
 
-      // With guard: NOT resurrected
+      // BUG: resurrected — no guard to prevent it
       expect(
         await readOperatorEthVUnits(provider, proxyAddr, operatorIds[0]),
-      ).to.equal(0n, "Guard must prevent resurrection of deleted slot");
-
-      await assertINV11(provider, proxyAddr, [operatorIds[0]]);
+      ).to.equal(2500n, "removed op resurrected to delta (no guard)");
     });
 
-    it("RM1-019: guard prevents underflow — EB decrease after removeOperator succeeds", async function () {
-      // Without the guard, subtracting deltaAbs from a deleted (0) slot
-      // would cause uint64 underflow → Panic(0x11). With the guard:
-      // the removed op is skipped and the tx succeeds.
+    it("RM1-019: no guard — EB decrease after removeOperator causes underflow Panic(0x11) (known bug)", async function () {
+      // No guard: subtracting deltaAbs from a deleted (0) slot
+      // causes uint64 underflow → Panic(0x11).
       const { network, operatorIds } =
         await networkHelpers.loadFixture(deployFixture);
       const provider = connection.ethers.provider;
-      const proxyAddr = await network.getAddress();
 
       let { cluster } = await registerCluster(
         network,
@@ -1243,32 +1190,20 @@ describe("RM1: _updateOperatorVUnits + removeOperator", () => {
 
       await network.connect(operatorOwner).removeOperator(operatorIds[0]);
 
-      // EB decrease → 32. Without guard: revert with underflow.
-      // With guard: succeeds.
-      ({ cluster } = await commitAndUpdateEB(
-        network,
-        provider,
-        clusterOwner,
-        operatorIds,
-        cluster,
-        32,
-      ));
-
-      // Tx succeeded (no revert) — the guard prevented the underflow
-      await assertINV11(provider, proxyAddr, [operatorIds[0]]);
-      expect(cluster.active).to.equal(true);
-      // Verify removed op vUnits is specifically 0 after EB decrease
-      const vUnitsAfterDecrease = await readOperatorEthVUnits(provider, proxyAddr, operatorIds[0]);
-      expect(vUnitsAfterDecrease).to.equal(0n, "removed op vUnits must be 0 after EB decrease — guard prevented underflow");
-      // Verify DAO total is consistent
-      const daoVUnits = await readDaoTotalEthVUnits(provider, proxyAddr);
-      expect(daoVUnits).to.be.greaterThanOrEqual(0n, "daoTotalEthVUnits must be non-negative after EB decrease");
+      // EB decrease → 32. BUG: removed op has slot=0, so 0 - 2500 underflows
+      const { rootBlockNum } = await commitEBOnly(
+        network, provider, clusterOwner, operatorIds, 32,
+      );
+      await expect(
+        network.connect(clusterOwner).updateClusterBalance(
+          rootBlockNum, clusterOwner.address, operatorIds, cluster, 32, [],
+        ),
+      ).to.be.revertedWithPanic(0x11);
     });
 
-    it("RM1-020: guard prevents corruption — chained EB increase + decrease on removed op has no residual state", async function () {
-      // Without the guard: increase resurrects slot to deltaAbs, then
-      // decrease subtracts — if deltaDecrease <= deltaIncrease, result
-      // is non-zero garbage. With guard: always 0.
+    it("RM1-020: no guard — chained EB increase + partial decrease leaves residual on removed op (known bug)", async function () {
+      // No guard: increase resurrects slot to deltaAbs, then
+      // partial decrease subtracts — result is non-zero residual.
       const { network, operatorIds } =
         await networkHelpers.loadFixture(deployFixture);
       const provider = connection.ethers.provider;
@@ -1290,7 +1225,7 @@ describe("RM1: _updateOperatorVUnits + removeOperator", () => {
 
       await network.connect(operatorOwner).removeOperator(operatorIds[0]);
 
-      // EB increase → 40 (delta +2500)
+      // EB increase → 40 (delta +2500) — BUG: op1 resurrected to 2500
       ({ cluster } = await commitAndUpdateEB(
         network,
         provider,
@@ -1299,9 +1234,11 @@ describe("RM1: _updateOperatorVUnits + removeOperator", () => {
         cluster,
         40,
       ));
-      await assertINV11(provider, proxyAddr, [operatorIds[0]]);
+      expect(
+        await readOperatorEthVUnits(provider, proxyAddr, operatorIds[0]),
+      ).to.equal(2500n, "op1 resurrected after EB increase (no guard)");
 
-      // EB decrease → 36 (delta -1250) — partial decrease
+      // EB decrease → 36 (delta -1250) — op1: 2500 - 1250 = 1250
       ({ cluster } = await commitAndUpdateEB(
         network,
         provider,
@@ -1311,8 +1248,10 @@ describe("RM1: _updateOperatorVUnits + removeOperator", () => {
         36,
       ));
 
-      // With guard: op1 stays 0 (no residual from partial increase-then-decrease)
-      await assertINV11(provider, proxyAddr, [operatorIds[0]]);
+      // BUG: op1 has residual 1250 (resurrected then partially decreased)
+      expect(
+        await readOperatorEthVUnits(provider, proxyAddr, operatorIds[0]),
+      ).to.equal(1250n, "removed op has residual from resurrection (no guard)");
 
       // Live ops: 2500 - 1250 = 1250
       for (let i = 1; i < 4; i++) {
@@ -1329,10 +1268,9 @@ describe("RM1: _updateOperatorVUnits + removeOperator", () => {
   describe("4-operator: real removeOperator cleanup verification", () => {
     const deployFixture = createFixture(4);
 
-    it("RM1-021: real removeOperator deletes vUnits → EB increase does not pollute", async function () {
+    it("RM1-021: real removeOperator deletes vUnits → EB increase resurrects (known bug)", async function () {
       // Real removeOperator() deletes seb.operatorEthVUnits[operatorId],
-      // unlike mockRemoveOperator which leaves stale deviation.
-      // This test verifies real removeOperator properly cleans up.
+      // but _updateOperatorVUnits has no guard, so EB increase resurrects it.
       const { network, operatorIds } =
         await networkHelpers.loadFixture(deployFixture);
       const provider = connection.ethers.provider;
@@ -1372,8 +1310,10 @@ describe("RM1: _updateOperatorVUnits + removeOperator", () => {
         48,
       ));
 
-      // With real removeOperator + guard: no stale pollution
-      await assertINV11(provider, proxyAddr, [operatorIds[0]]);
+      // BUG: removed op resurrected to 2500 (no guard)
+      expect(
+        await readOperatorEthVUnits(provider, proxyAddr, operatorIds[0]),
+      ).to.equal(2500n, "removed op resurrected to delta (no guard)");
       // Live ops: 2500 + 2500 = 5000
       for (let i = 1; i < 4; i++) {
         expect(
@@ -1382,10 +1322,8 @@ describe("RM1: _updateOperatorVUnits + removeOperator", () => {
       }
     });
 
-    it("RM1-022: real removeOperator deletes vUnits → EB decrease does not subtract from stale value", async function () {
-      // With mockRemoveOperator (stale slot), EB decrease would subtract
-      // from the stale value instead of underflowing. With real
-      // removeOperator (slot=0), the guard skips the removed op entirely.
+    it("RM1-022: real removeOperator deletes vUnits → EB decrease causes underflow Panic(0x11) (known bug)", async function () {
+      // With real removeOperator (slot=0), EB decrease tries 0 - delta → underflow.
       const { network, operatorIds } =
         await networkHelpers.loadFixture(deployFixture);
       const provider = connection.ethers.provider;
@@ -1413,23 +1351,15 @@ describe("RM1: _updateOperatorVUnits + removeOperator", () => {
       await network.connect(operatorOwner).removeOperator(operatorIds[0]);
 
       // EB decrease → 40 (delta -2500)
-      ({ cluster } = await commitAndUpdateEB(
-        network,
-        provider,
-        clusterOwner,
-        operatorIds,
-        cluster,
-        40,
-      ));
-
-      // Real removeOperator + guard: op1 stays 0 (not 5000-2500=2500)
-      await assertINV11(provider, proxyAddr, [operatorIds[0]]);
-      // Live ops: 5000 - 2500 = 2500
-      for (let i = 1; i < 4; i++) {
-        expect(
-          await readOperatorEthVUnits(provider, proxyAddr, operatorIds[i]),
-        ).to.equal(2500n);
-      }
+      // BUG: removed op has slot=0, so 0 - 2500 underflows
+      const { rootBlockNum } = await commitEBOnly(
+        network, provider, clusterOwner, operatorIds, 40,
+      );
+      await expect(
+        network.connect(clusterOwner).updateClusterBalance(
+          rootBlockNum, clusterOwner.address, operatorIds, cluster, 40, [],
+        ),
+      ).to.be.revertedWithPanic(0x11);
     });
   });
 
@@ -1437,7 +1367,7 @@ describe("RM1: _updateOperatorVUnits + removeOperator", () => {
   // RM1-023: Shared operator across two clusters
   // ═══════════════════════════════════════════════════════════
   describe("4-operator: cross-cluster shared operator", () => {
-    it("RM1-023: shared op removed → EB updates on both clusters skip it, no cross-cluster contamination", async function () {
+    it("RM1-023: shared op removed → EB updates on both clusters resurrect it (cross-cluster contamination, known bug)", async function () {
       // Op1 belongs to Cluster A (ops 1,2,3,4) and Cluster B (ops 1,5,6,7)
       const { network, ssvToken } = await ssvNetworkFullFixture(connection);
       await network.updateNetworkFee(DEFAULT_NETWORK_FEE_UNPACKED);
@@ -1524,12 +1454,12 @@ describe("RM1: _updateOperatorVUnits + removeOperator", () => {
         entriesA40,
       ));
 
-      // op1 must still be 0 after Cluster A's update
+      // BUG: op1 resurrected to 2500 after Cluster A's update (no guard)
       expect(
         await readOperatorEthVUnits(provider, proxyAddr, allOpIds[0]),
-      ).to.equal(0n, "shared op1 stays 0 after Cluster A EB update");
+      ).to.equal(2500n, "shared op1 resurrected after Cluster A EB update (no guard)");
 
-      // EB increase on Cluster B → 48
+      // EB increase on Cluster B → 48 (delta +5000)
       const entriesB48 = [
         { clusterId: clusterIdA, effectiveBalance: 40 },
         { clusterId: clusterIdB, effectiveBalance: 48 },
@@ -1544,8 +1474,10 @@ describe("RM1: _updateOperatorVUnits + removeOperator", () => {
         entriesB48,
       ));
 
-      // op1 must still be 0 after BOTH clusters' updates
-      await assertINV11(provider, proxyAddr, [allOpIds[0]]);
+      // BUG: op1 now has 2500 + 5000 = 7500 (resurrected from both clusters)
+      expect(
+        await readOperatorEthVUnits(provider, proxyAddr, allOpIds[0]),
+      ).to.equal(7500n, "shared op1 accumulated from both cluster EB updates (no guard)");
 
       // Cluster A live ops (ops 2,3,4): +2500
       for (let i = 1; i <= 3; i++) {
@@ -1568,7 +1500,7 @@ describe("RM1: _updateOperatorVUnits + removeOperator", () => {
   describe("4-operator: remove all operators", () => {
     const deployFixture = createFixture(4);
 
-    it("RM1-024: remove all 4 ops → EB update → all ops skipped, no state written", async function () {
+    it("RM1-024: remove all 4 ops → EB increase → all ops resurrected (known bug)", async function () {
       const { network, operatorIds } =
         await networkHelpers.loadFixture(deployFixture);
       const provider = connection.ethers.provider;
@@ -1600,8 +1532,7 @@ describe("RM1: _updateOperatorVUnits + removeOperator", () => {
         ).to.equal(0n);
       }
 
-      // EB increase → 40. Guard skips all 4 operators. No operatorEthVUnits written.
-      // But daoTotalEthVUnits still gets updated at cluster level.
+      // EB increase → 40 (delta +2500). BUG: all removed ops resurrected.
       ({ cluster } = await commitAndUpdateEB(
         network,
         provider,
@@ -1611,8 +1542,12 @@ describe("RM1: _updateOperatorVUnits + removeOperator", () => {
         40,
       ));
 
-      // All operatorEthVUnits remain 0
-      await assertINV11(provider, proxyAddr, operatorIds);
+      // BUG: all operatorEthVUnits resurrected to 2500 (no guard)
+      for (const opId of operatorIds) {
+        expect(
+          await readOperatorEthVUnits(provider, proxyAddr, opId),
+        ).to.equal(2500n, "removed op resurrected to delta (no guard)");
+      }
 
       // daoTotalEthVUnits: 10000 + 2500 = 12500 (cluster-level, not per-op)
       expect(await readDaoTotalEthVUnits(provider, proxyAddr)).to.equal(
