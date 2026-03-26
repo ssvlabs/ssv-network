@@ -37,3 +37,28 @@ export function computeClusterBalance(
 
   return usage > prevBalance ? 0n : prevBalance - usage;
 }
+
+export function computeClusterBalanceWithVUnits(
+  prevBalance: bigint,
+  operatorFees: bigint[],
+  networkFee: bigint,
+  vUnits: bigint,
+  blocks: bigint,
+): bigint {
+  if (vUnits === 0n || blocks === 0n) return prevBalance;
+
+  let packedOpTotal = 0n;
+  for (const fee of operatorFees) {
+    packedOpTotal += fee / ETH_DEDUCTED_DIGITS;
+  }
+  const packedNetFee = networkFee / ETH_DEDUCTED_DIGITS;
+
+  const opIndexDelta = packedOpTotal * blocks;
+  const netIndexDelta = packedNetFee * blocks;
+
+  const networkFeeUnits = (netIndexDelta * vUnits) / BPS_DENOMINATOR;
+  const usageUnits = (opIndexDelta * vUnits) / BPS_DENOMINATOR + networkFeeUnits;
+  const usage = usageUnits * ETH_DEDUCTED_DIGITS;
+
+  return usage > prevBalance ? 0n : prevBalance - usage;
+}

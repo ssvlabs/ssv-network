@@ -1,11 +1,13 @@
 import type { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/types";
-import type { FuzzContext, ClusterRecord, StepFn } from "./types.ts";
+import type { FuzzContext, ClusterRecord, OperatorRecord, StepFn } from "./types.ts";
 import { parseClusterFromEvent } from "../../helpers/cluster.ts";
 import { Events } from "../../common/events.ts";
 import { setAccountBalance } from "../../helpers/blocks.ts";
-import { ETH_DEDUCTED_DIGITS, BPS_DENOMINATOR } from "../../common/constants.ts";
+import { makePublicKey } from "../../helpers/keys.ts";
+import { ETH_DEDUCTED_DIGITS, BPS_DENOMINATOR, DEFAULT_SHARES, DEFAULT_ETH_REGISTER_VALUE } from "../../common/constants.ts";
 import {
   computeClusterId,
+  computeEBRoot,
   generateMerkleForClusterEB,
   commitEBRoot,
 } from "../../helpers/oracle.ts";
@@ -179,5 +181,74 @@ export function updateAllClusterBalances<S extends { clusters: ClusterRecord[]; 
     }
 
     await ctx.network.syncFees();
+  };
+}
+
+export function ebValidatorLifecycle<S extends { cluster: ClusterRecord; operators: OperatorRecord[]; oracle: OracleState; nextKeyOffset: number; tickDepositDelta: bigint }>(
+  ebPerValidatorMin: number,
+  ebPerValidatorMax: number,
+): StepFn<S> {
+  return async function ebValidatorLifecycle(ctx: FuzzContext<S>): Promise<void> {
+    const { cluster, oracle } = ctx.state;
+    ctx.state.tickDepositDelta = 0n;
+    const action = Number(ctx.rng.nextInRange(0n, 2n));
+
+    if (action === 0) {
+      const blockNum = BigInt(await ctx.provider.getBlockNumber());
+      if (blockNum <= oracle.lastCommittedBlock) return;
+      if (cluster.cluster.validatorCount === 0n) return;
+
+      const ebPerValidator = Number(ctx.rng.nextInRange(BigInt(ebPerValidatorMin), BigInt(ebPerValidatorMax)));
+      const eb = Number(cluster.cluster.validatorCount) * ebPerValidator;
+      const clusterId = computeClusterId(cluster.owner.address, cluster.operatorIds);
+      const root = computeEBRoot(clusterId, eb);
+
+      await commitEBRoot(ctx.network, root, Number(blockNum), oracle.oracles);
+      oracle.lastCommittedBlock = blockNum;
+
+      const tx = await ctx.network.updateClusterBalance(
+        blockNum,
+        cluster.owner.address,
+        cluster.operatorIds,
+        cluster.cluster,
+        eb,
+        [],
+      );
+      const receipt = await tx.wait();
+      cluster.cluster = parseClusterFromEvent(ctx.network, receipt, Events.CLUSTER_BALANCE_UPDATED);
+    } else if (action === 1) {
+      if (cluster.validatorKeys.length === 0) return;
+
+      const count = Math.min(
+        Number(ctx.rng.nextInRange(1n, 5n)),
+        cluster.validatorKeys.length,
+      );
+      const keysToRemove = cluster.validatorKeys.splice(0, count);
+
+      const tx = await ctx.network
+        .connect(cluster.owner)
+        .bulkRemoveValidator(keysToRemove, cluster.operatorIds, cluster.cluster);
+      const receipt = await tx.wait();
+      cluster.cluster = parseClusterFromEvent(ctx.network, receipt, Events.VALIDATOR_REMOVED);
+    } else {
+      const count = Number(ctx.rng.nextInRange(1n, 5n));
+      const keys: string[] = [];
+      const shares: string[] = [];
+      for (let i = 0; i < count; i++) {
+        keys.push(makePublicKey(ctx.state.nextKeyOffset++));
+        shares.push(DEFAULT_SHARES);
+      }
+
+      const deposit = DEFAULT_ETH_REGISTER_VALUE * BigInt(count);
+      await setAccountBalance(ctx.provider, cluster.owner.address, deposit + 10n ** 18n);
+
+      const tx = await ctx.network
+        .connect(cluster.owner)
+        .bulkRegisterValidator(keys, cluster.operatorIds, shares, cluster.cluster, { value: deposit });
+      const receipt = await tx.wait();
+      cluster.cluster = parseClusterFromEvent(ctx.network, receipt, Events.VALIDATOR_ADDED);
+      cluster.validatorKeys.push(...keys);
+      ctx.state.tickDepositDelta = deposit;
+    }
   };
 }
