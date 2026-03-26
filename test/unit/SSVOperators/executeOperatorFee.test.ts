@@ -165,7 +165,7 @@ describe("SSVOperators function `executeOperatorFee()`", async () => {
     );
   });
 
-  it("[F-07] executeOperatorFee reverts when governance minimum rises above declared fee", async function () {
+  it("executeOperatorFee reverts when governance minimum rises above declared fee", async function () {
     const { operators } = await networkHelpers.loadFixture(deployOperatorsFixture);
     const declaredFee = MINIMAL_OPERATOR_ETH_FEE + ETH_DEDUCTED_DIGITS;
     const raisedMinimum = declaredFee + ETH_DEDUCTED_DIGITS;
