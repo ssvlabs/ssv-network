@@ -42,6 +42,7 @@ export async function registerFuzzCluster(
   operatorIds: number[],
   validatorCount: number,
   depositValue: bigint = DEFAULT_ETH_REGISTER_VALUE,
+  keyOffset: number = 2000,
 ): Promise<ClusterRecord> {
   await ctx.network.connect(operatorOwner).setOperatorsWhitelists(operatorIds, [clusterOwner.address]);
 
@@ -51,7 +52,7 @@ export async function registerFuzzCluster(
   const validatorKeys: string[] = [];
   const sharesData: string[] = [];
   for (let i = 0; i < validatorCount; i++) {
-    validatorKeys.push(makePublicKey(2000 + i));
+    validatorKeys.push(makePublicKey(keyOffset + i));
     sharesData.push(DEFAULT_SHARES);
   }
 

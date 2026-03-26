@@ -1,8 +1,14 @@
+import type { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/types";
 import type { FuzzContext, ClusterRecord, StepFn } from "./types.ts";
 import { parseClusterFromEvent } from "../../helpers/cluster.ts";
 import { Events } from "../../common/events.ts";
 import { setAccountBalance } from "../../helpers/blocks.ts";
 import { ETH_DEDUCTED_DIGITS, BPS_DENOMINATOR } from "../../common/constants.ts";
+import {
+  computeClusterId,
+  generateMerkleForClusterEB,
+  commitEBRoot,
+} from "../../helpers/oracle.ts";
 
 export function removeValidators<S extends { cluster: ClusterRecord }>(min: number, max: number): StepFn<S> {
   return async function removeValidators(ctx: FuzzContext<S>): Promise<void> {
@@ -120,5 +126,58 @@ export function liquidateOrReactivate<S extends { cluster: ClusterRecord; phase:
       cluster.cluster = parseClusterFromEvent(ctx.network, receipt, Events.CLUSTER_REACTIVATED);
       ctx.state.phase = "reactivated";
     }
+  };
+}
+
+export async function setupFuzzOracles(
+  ctx: FuzzContext<any>,
+  oracles: HardhatEthersSigner[],
+): Promise<void> {
+  for (let i = 0; i < oracles.length; i++) {
+    await ctx.network.replaceOracle(i + 1, oracles[i].address);
+  }
+}
+
+export interface OracleState {
+  oracles: HardhatEthersSigner[];
+  lastCommittedBlock: bigint;
+}
+
+export function updateAllClusterBalances<S extends { clusters: ClusterRecord[]; oracle: OracleState }>(
+  ebPerValidatorMin: number,
+  ebPerValidatorMax: number,
+): StepFn<S> {
+  return async function updateAllClusterBalances(ctx: FuzzContext<S>): Promise<void> {
+    const { clusters, oracle } = ctx.state;
+    const blockNum = BigInt(await ctx.provider.getBlockNumber());
+    if (blockNum <= oracle.lastCommittedBlock) return;
+
+    const ebPerValidator = Number(ctx.rng.nextInRange(BigInt(ebPerValidatorMin), BigInt(ebPerValidatorMax)));
+
+    const entries = clusters.map(c => ({
+      clusterId: computeClusterId(c.owner.address, c.operatorIds),
+      effectiveBalance: Number(c.cluster.validatorCount) * ebPerValidator,
+    }));
+    const { root, proofs } = generateMerkleForClusterEB(ctx.connection, entries);
+
+    await commitEBRoot(ctx.network, root, Number(blockNum), oracle.oracles);
+    oracle.lastCommittedBlock = blockNum;
+
+    for (let i = 0; i < clusters.length; i++) {
+      const c = clusters[i];
+      const clusterId = entries[i].clusterId;
+      const tx = await ctx.network.updateClusterBalance(
+        blockNum,
+        c.owner.address,
+        c.operatorIds,
+        c.cluster,
+        entries[i].effectiveBalance,
+        proofs[clusterId],
+      );
+      const receipt = await tx.wait();
+      c.cluster = parseClusterFromEvent(ctx.network, receipt, Events.CLUSTER_BALANCE_UPDATED);
+    }
+
+    await ctx.network.syncFees();
   };
 }

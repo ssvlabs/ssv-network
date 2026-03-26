@@ -335,6 +335,62 @@ export async function assertOperatorValidatorCounts<S extends { cluster: Cluster
   }
 }
 
+export async function assertCSSVTotalSupply<S extends { stakers: { signer: { address: string }; staked: bigint }[] }>(
+  ctx: FuzzContext<S>,
+): Promise<void> {
+  const totalSupply = BigInt(await ctx.cssvToken.totalSupply());
+  let expectedSupply = 0n;
+  for (const staker of ctx.state.stakers) {
+    expectedSupply += staker.staked;
+  }
+  expect(totalSupply).to.equal(expectedSupply);
+}
+
+export async function assertStakerCSSVBalances<S extends { stakers: { signer: { address: string }; staked: bigint }[] }>(
+  ctx: FuzzContext<S>,
+): Promise<void> {
+  for (const staker of ctx.state.stakers) {
+    const balance = BigInt(await ctx.cssvToken.balanceOf(staker.signer.address));
+    expect(balance).to.equal(staker.staked);
+  }
+}
+
+const PRECISION = 10n ** 18n;
+
+export async function assertStakingRewards<S extends { stakers: { signer: { address: string }; staked: bigint }[] }>(
+  ctx: FuzzContext<S>,
+): Promise<void> {
+  const totalCSSV = BigInt(await ctx.cssvToken.totalSupply());
+  if (totalCSSV === 0n) return;
+
+  const storedAcc = BigInt(await ctx.views.accEthPerShare());
+  const currentEarnings = BigInt(await ctx.views.getNetworkEarnings());
+  const poolBalance = BigInt(await ctx.views.stakingEthPoolBalance());
+
+  const packedCurrent = currentEarnings / ETH_DEDUCTED_DIGITS;
+  const packedPrevious = poolBalance / ETH_DEDUCTED_DIGITS;
+
+  let liveAcc = storedAcc;
+  if (packedCurrent > packedPrevious) {
+    const packedNewFees = packedCurrent - packedPrevious;
+    const newFeesWei = packedNewFees * ETH_DEDUCTED_DIGITS;
+    liveAcc = storedAcc + (newFeesWei * PRECISION) / totalCSSV;
+  }
+
+  let totalClaimable = 0n;
+  for (const staker of ctx.state.stakers) {
+    const expected = (staker.staked * liveAcc) / PRECISION;
+    const claimable = BigInt(await ctx.views.previewClaimableEth(staker.signer.address));
+    expect(claimable).to.equal(expected);
+    totalClaimable += claimable;
+  }
+
+  // dust from integer division in accEthPerShare and per-staker truncation is expected
+  const livePoolBalance = packedCurrent * ETH_DEDUCTED_DIGITS;
+  const dust = livePoolBalance - totalClaimable;
+  expect(dust).to.approximately(0n, BigInt(ctx.state.stakers.length) * ETH_DEDUCTED_DIGITS);
+}
+
 export interface Snapshot {
   block: bigint;
   balance: bigint;
