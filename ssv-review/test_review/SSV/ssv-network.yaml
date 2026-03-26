@@ -1,0 +1,112 @@
+repo: ssv-network
+
+stack:
+  frameworks: [hardhat, mocha, chai, echidna, foundry]
+  fuzzing: true
+  invariants: true
+  forking: true
+  custom_engine: true
+
+test_types:
+  unit: { status: present }
+  integration: { status: present }
+  fork: { status: present }
+  fuzz: { status: present }
+  invariant: { status: present }
+  scenario: { status: present }
+  differential: { status: maybe }
+  regression: { status: present }
+  upgrade: { status: present }
+  gas: { status: present }
+
+advanced_patterns:
+  - name: "Stateful Echidna harnesses with actor contracts and shadow bookkeeping"
+    category: fuzz
+    complexity: high
+    reusable: true
+  - name: "Protocol Monte Carlo engine with weighted actions and periodic invariants"
+    category: scenario
+    complexity: high
+    reusable: true
+  - name: "Strict fork preflight with deployed-state fallback to in-test upgrade path"
+    category: fork
+    complexity: high
+    reusable: true
+  - name: "Legacy-artifact replay fixtures for upgrade and migration testing"
+    category: architecture
+    complexity: high
+    reusable: true
+  - name: "Event-scanned state discovery and sampling on mainnet forks"
+    category: fork
+    complexity: high
+    reusable: true
+  - name: "Harness contracts exposing storage setters/getters and synthetic edge paths"
+    category: architecture
+    complexity: medium
+    reusable: true
+  - name: "Gas budget registry with baseline diff and PR reporting"
+    category: other
+    complexity: medium
+    reusable: true
+  - name: "Scenario coverage matrix with discrepancy annotations"
+    category: scenario
+    complexity: medium
+    reusable: true
+  - name: "Formula-backed shadow accounting invariants"
+    category: invariant
+    complexity: high
+    reusable: true
+
+complexity_management:
+  fork:
+    patterns:
+      - "Env-configured hardhat_forked network with explicit fork block selection and custom chain descriptor for local fork history"
+      - "Fork config hydration from deployment JSON and FORK_CONFIG_PATH files"
+      - "Strict source-RPC preflight before using deployed upgraded state on fork"
+      - "Fallback from unreadable deployed state to an in-test upgrade/deploy path"
+      - "Impersonation and balance seeding for DAO, sampled operators, and scenario actors"
+      - "Event scanning on fork to discover and sample live operators for simulation seeding"
+  fuzz:
+    patterns:
+      - "Auto-discovery of every test/echidna/*Echidna.sol harness in CI and local scripts"
+      - "Action/property harness design with action_* mutators and echidna_* properties"
+      - "Auxiliary actor contracts to exercise owner-only and cross-user flows"
+      - "Per-harness shadow records, bookkeeping totals, and sticky violation flags"
+      - "Shared Echidna config with long sequences, shrinking, and parallel workers"
+  invariant:
+    patterns:
+      - "Invariant state stored inside Echidna harnesses instead of separate Foundry handlers"
+      - "Periodic and final invariant passes in the Monte Carlo simulation"
+      - "Reusable TypeScript assertion helpers for conservation, supply, monotonicity, and vUnits checks"
+      - "Shadow books for clusters, operators, and stakers compared against on-chain views and events"
+
+test_architecture:
+  uses_base_tests: false
+  uses_helpers: true
+  uses_fixtures: true
+  uses_custom_assertions: true
+
+metrics:
+  fork_complexity: high
+  fuzz_sophistication: high
+  invariant_maturity: high
+  scenario_depth: high
+
+maturity:
+  level: very_advanced
+
+notable_strengths:
+  - "Broad multi-layer suite: unit, integration, e2e scenario, fork, regression/sanity, Echidna properties, coverage, and gas enforcement"
+  - "Stateful Echidna harnesses model real actors and maintain shadow accounting instead of only stateless property checks"
+  - "Fork testing is treated as infrastructure, with config hydration, preflight validation, impersonation helpers, and fallback upgrade replay"
+  - "Upgrade and migration testing can replay archived legacy artifacts entirely inside fixtures"
+  - "Monte Carlo simulation adds deterministic long-horizon workload testing with periodic and final invariants"
+  - "Gas limits are centralized, versioned against a baseline report, and enforced in CI with PR feedback"
+  - "Scenario coverage is documented explicitly with discrepancy annotations and assertion-quality notes"
+
+notable_gaps:
+  - "No evidence of forge test, Foundry-native testFuzz_*, or invariant_* suites; Foundry appears to support Echidna compilation/tooling rather than a separate runner"
+  - "No explicit reference-implementation differential suite; model and formula checks exist, but not a dedicated dual-implementation harness"
+  - "Fork test entrypoints are split across test/forked/ and test/test-forked/, and the files are not identical"
+  - "Coverage workflow is Hardhat-only; no evidence that Echidna or simulation suites contribute to coverage metrics"
+  - "No evidence of mutation testing or formal-spec tooling beyond Echidna and helper assertions"

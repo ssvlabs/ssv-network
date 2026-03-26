@@ -1,0 +1,122 @@
+repo: uniswap/v4-core
+
+stack:
+  frameworks: [foundry, echidna]
+  fuzzing: true
+  invariants: true
+  forking: false
+  custom_engine: false
+
+test_types:
+  unit: { status: present }
+  integration: { status: present }
+  fork: { status: not_found }
+  fuzz: { status: present }
+  invariant: { status: present }
+  scenario: { status: present }
+  differential: { status: present }
+  regression: { status: maybe }
+  upgrade: { status: not_found }
+  gas: { status: present }
+
+advanced_patterns:
+  - name: "FFI cross-language oracle validation"
+    category: other
+    complexity: high
+    reusable: true
+
+  - name: "V3-vs-V4 differential fuzzing"
+    category: fuzz
+    complexity: high
+    reusable: true
+
+  - name: "Bounded fuzz parameter generation library"
+    category: fuzz
+    complexity: medium
+    reusable: true
+
+  - name: "Echidna stateful property contracts"
+    category: invariant
+    complexity: high
+    reusable: true
+
+  - name: "Gas snapshot regression tracking"
+    category: other
+    complexity: medium
+    reusable: true
+
+  - name: "Callback router test contracts"
+    category: architecture
+    complexity: medium
+    reusable: true
+
+  - name: "Hook permutation testing via vm.etch"
+    category: scenario
+    complexity: medium
+    reusable: false
+
+  - name: "Tiered fuzz profiles (dev/PR/CI)"
+    category: fuzz
+    complexity: low
+    reusable: true
+
+  - name: "Custom curve and fee hook scenarios"
+    category: scenario
+    complexity: medium
+    reusable: false
+
+  - name: "Tick overflow safety stateful fuzzing"
+    category: invariant
+    complexity: high
+    reusable: false
+
+complexity_management:
+  fork:
+    patterns: []
+  fuzz:
+    patterns:
+      - "Fuzzers.sol helper library with domain-aware bounding (tick spacing, liquidity caps, price ranges)"
+      - "Tiered profile system (1K/10K/100K runs) via foundry.toml forge-config"
+      - "Per-test fuzz run overrides via inline forge-config comments"
+      - "Tight bounding for multi-position scenarios to avoid tick overlap"
+      - "Logger.sol for pre-bound parameter inspection during fuzz debugging"
+  invariant:
+    patterns:
+      - "Echidna property contracts with assert-based invariants"
+      - "Stateful TickOverflowSafetyEchidnaTest with simulated tick crossing"
+      - "Monotonicity and range invariants for mathematical libraries"
+      - "Rounding direction invariants (up vs down within 1 unit)"
+
+test_architecture:
+  uses_base_tests: true
+  uses_helpers: true
+  uses_fixtures: true
+  uses_custom_assertions: false
+
+metrics:
+  fork_complexity: low
+  fuzz_sophistication: high
+  invariant_maturity: high
+  scenario_depth: high
+
+maturity:
+  level: very_advanced
+
+notable_strengths:
+  - "Differential fuzzing against deployed V3 bytecode validates V4 behavioral equivalence"
+  - "FFI bridge to JavaScript/TypeScript provides independent reference oracle for math libraries"
+  - "Echidna property tests cover deep mathematical invariants (monotonicity, rounding, overflow safety)"
+  - "Stateful Echidna harness for tick crossing simulates fee growth overflow at half-max uint256"
+  - "Fuzzers.sol is a reusable, domain-aware parameter generation library with liquidity and tick bounding"
+  - "Gas snapshot system with 20 JSON files enables automated performance regression detection"
+  - "Rich hook test infrastructure (CustomCurveHook, DeltaReturningHook, FeeTakingHook) exercises extensibility"
+  - "Tiered fuzz depth (100 local / 10K PR / 100K CI) balances developer speed with merge safety"
+  - "Callback router contracts (PoolSwapTest, PoolModifyLiquidityTest, etc.) cleanly separate test logic from protocol callbacks"
+
+notable_gaps:
+  - "No fork tests against live mainnet state"
+  - "No upgrade tests (no UUPS/proxy upgrade path in v4-core itself)"
+  - "No formal regression test suite (gas snapshots partially cover this)"
+  - "Echidna config is mostly defaults with no custom corpus or advanced tuning"
+  - "No handler-based stateful invariant testing via Forge (only Echidna)"
+  - "No formal mutation testing or coverage-guided fuzzing configuration"

@@ -1,0 +1,113 @@
+repo: rocket-pool/rocketpool
+
+stack:
+  frameworks: [hardhat, mocha]
+  fuzzing: false
+  invariants: true
+  forking: true
+  custom_engine: false
+
+test_types:
+  unit: { status: present }
+  integration: { status: present }
+  fork: { status: maybe }
+  fuzz: { status: not_found }
+  invariant: { status: present }
+  scenario: { status: present }
+  differential: { status: not_found }
+  regression: { status: maybe }
+  upgrade: { status: present }
+  gas: { status: present }
+
+advanced_patterns:
+  - name: "Storage-backed artifact rehydration from on-chain registry"
+    category: architecture
+    complexity: high
+    reusable: true
+
+  - name: "Staged full-protocol deployer reused by tests and deployment scripts"
+    category: architecture
+    complexity: high
+    reusable: true
+
+  - name: "Nested snapshot fixture tree"
+    category: architecture
+    complexity: medium
+    reusable: true
+
+  - name: "Post-test global accounting invariant sweep"
+    category: invariant
+    complexity: medium
+    reusable: true
+
+  - name: "Scenario action modules with embedded balance-delta assertions"
+    category: scenario
+    complexity: medium
+    reusable: true
+
+  - name: "Legacy-to-current upgrade compatibility harness"
+    category: architecture
+    complexity: high
+    reusable: true
+
+  - name: "Test-only helper contracts for unreachable protocol states"
+    category: architecture
+    complexity: medium
+    reusable: true
+
+  - name: "Consensus-proof bypass with real-proof spot checks"
+    category: scenario
+    complexity: medium
+    reusable: true
+
+  - name: "Compiler-mode-aware revert assertion helper"
+    category: other
+    complexity: low
+    reusable: true
+
+complexity_management:
+  fork:
+    patterns:
+      - "Separate fork config and entrypoint isolate mainnet-fork execution from the main suite"
+      - "Fork entrypoint reuses the same snapshot wrappers as the main suite"
+      - "Checked-in fork suite is scaffold-only; no fork assertions were found"
+  fuzz:
+    patterns: []
+  invariant:
+    patterns:
+      - "Global afterEach invariant sweep walks node, minipool, and megapool state after every main-suite test"
+      - "Megapool scenario helpers call targeted invariant checks immediately after complex transitions"
+      - "Tests that intentionally break delegate configuration reset shared state before teardown so invariant checks remain usable"
+      - "Invariant checks are deterministic accounting assertions, not randomized stateful invariant runs"
+
+test_architecture:
+  uses_base_tests: false
+  uses_helpers: true
+  uses_fixtures: true
+  uses_custom_assertions: true
+
+metrics:
+  fork_complexity: low
+  fuzz_sophistication: low
+  invariant_maturity: medium
+  scenario_depth: high
+
+maturity:
+  level: advanced
+
+notable_strengths:
+  - "Large scenario layer: 55 scenario modules feed 27 suite files across auction, DAO, deposit, minipool, megapool, network, node, rewards, and token domains"
+  - "Upgrade harness deploys the new implementation set, executes the upgrade against a legacy deployment, and reloads contract metadata from Rocket Storage"
+  - "Nested snapshot fixtures keep deep stateful suites practical without redeploying the full protocol"
+  - "Global cross-contract invariant checks catch accounting drift after ordinary scenario tests"
+  - "Test-only helper contracts and proof mocks make beacon-proof, delegate-upgrade, and snapshot edge cases reachable"
+  - "Separate gas and coverage entry points exist in package scripts"
+
+notable_gaps:
+  - "No fuzzing or property-based framework was found"
+  - "No differential test harness was found"
+  - "Forking infrastructure exists, but no checked-in fork test cases were found under test-fork"
+  - "Gas reporting exists, but no gas budget assertions or snapshot-style gas regression files were found"
+  - "CI evidence only runs npm test; no checked-in job runs fork, upgrade, gas, or coverage paths"
+  - "The main suite contains it.only in test/minipool/minipool-tests.js, and no forbid-only guard was found"
+  - "Upgrade automation depends on the old submodule path; .gitmodules exists but the inspected old/ directory was empty"

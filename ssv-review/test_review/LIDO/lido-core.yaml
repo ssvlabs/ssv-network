@@ -1,0 +1,140 @@
+repo: lido-core
+
+stack:
+  frameworks: [hardhat, foundry, mocha, chai]
+  fuzzing: true
+  invariants: true
+  forking: true
+  custom_engine: false
+
+test_types:
+  unit: { status: present }
+  integration: { status: present }
+  fork: { status: present }
+  fuzz: { status: present }
+  invariant: { status: present }
+  scenario: { status: present }
+  differential: { status: present }
+  regression: { status: maybe }
+  upgrade: { status: present }
+  gas: { status: present }
+
+advanced_patterns:
+  - name: "Handler-based invariant testing"
+    category: invariant
+    complexity: high
+    reusable: true
+  - name: "Differential testing via naive reference implementation"
+    category: invariant
+    complexity: high
+    reusable: true
+  - name: "Ghost variable tracking in handlers"
+    category: invariant
+    complexity: medium
+    reusable: true
+  - name: "Cross-framework BLS fuzz (TypeScript + Solidity harness)"
+    category: fuzz
+    complexity: high
+    reusable: false
+  - name: "Multi-mode integration deployment (scratch vs fork vs upgrade)"
+    category: fork
+    complexity: high
+    reusable: true
+  - name: "Protocol context discovery with auto-provisioning"
+    category: scenario
+    complexity: high
+    reusable: true
+  - name: "Bail-on-failure sequential scenario chains"
+    category: scenario
+    complexity: medium
+    reusable: true
+  - name: "Snapshot-based state isolation"
+    category: architecture
+    complexity: low
+    reusable: true
+  - name: "Custom Chai assertions for domain-specific rounding"
+    category: other
+    complexity: medium
+    reusable: true
+  - name: "Solidity-version-partitioned test directories"
+    category: architecture
+    complexity: medium
+    reusable: true
+  - name: "Inline fuzz/invariant config annotations"
+    category: fuzz
+    complexity: low
+    reusable: true
+  - name: "Multi-network fork integration (mainnet + hoodi + scratch)"
+    category: fork
+    complexity: high
+    reusable: true
+  - name: "Harness contracts exposing internal functions"
+    category: architecture
+    complexity: low
+    reusable: true
+  - name: "EVM snapshot refresh for parallel test suites"
+    category: architecture
+    complexity: medium
+    reusable: true
+  - name: "Mock contracts with naming convention (Contract__MockForX)"
+    category: architecture
+    complexity: low
+    reusable: true
+
+complexity_management:
+  fork:
+    patterns:
+      - "Multi-mode deployment: MODE=scratch (clean deploy), MODE=forking (mainnet state), UPGRADE=true (upgrade simulation)"
+      - "Protocol context auto-discovery from deployed-*.json state files"
+      - "EIP precompile provisioning (EIP-4788, EIP-7002, EIP-7251) in scratch mode"
+      - "Docker-based Hardhat node for scratch CI integration"
+      - "Separate CI workflows per fork target (mainnet, hoodi, scratch)"
+  fuzz:
+    patterns:
+      - "Inline forge-config annotations per-test for fuzz runs and max-test-rejects"
+      - "Cross-framework BLS fuzz with TypeScript random key generation and Solidity precompile verification"
+      - "Bounded input generation with vm.bound() in Foundry handlers"
+      - "Configurable fuzz runs via environment variable (BLS_BLST_FUZZ_RUNS)"
+  invariant:
+    patterns:
+      - "Handler contracts with ghost variables tracking cumulative state"
+      - "targetSelector/targetContract for guided invariant testing"
+      - "Differential testing: optimized algorithm vs naive O(n) reference implementation"
+      - "Multiple invariants per contract (5+ per invariant suite)"
+      - "Inline invariant config annotations (runs, depth, fail-on-revert)"
+
+test_architecture:
+  uses_base_tests: true
+  uses_helpers: true
+  uses_fixtures: true
+  uses_custom_assertions: true
+
+metrics:
+  fork_complexity: high
+  fuzz_sophistication: high
+  invariant_maturity: high
+  scenario_depth: high
+
+maturity:
+  level: very_advanced
+
+notable_strengths:
+  - "Comprehensive handler-based invariant testing for critical subsystems (WithdrawalQueue, BeaconChainDepositor, MinFirstAllocation)"
+  - "Differential testing with naive reference implementations to verify optimized algorithms"
+  - "Three-mode integration test infrastructure (scratch deploy, mainnet fork, upgrade simulation) sharing the same test suites"
+  - "Custom domain-specific Chai assertions (equalStETH with rounding margin, OZ access control)"
+  - "Cross-framework BLS12-381 E2E fuzz combining TypeScript crypto with Solidity precompile verification"
+  - "Deeply structured protocol context discovery with auto-provisioning for integration tests"
+  - "Rich scenario tests with bail-on-failure chains for dependent sequential operations"
+  - "Ghost variable pattern for precise accounting verification in invariant handlers"
+  - "CI pipeline with separate workflows for unit, forge fuzz/invariant, mainnet fork, hoodi fork, scratch, and coverage"
+  - "Static analysis integration (Slither + Slitherin) in CI"
+  - "Solidity-version-partitioned test directories for multi-version contract compatibility"
+  - "95% coverage threshold enforced in CI with diff reporting"
+
+notable_gaps:
+  - "No dedicated regression test directory or naming convention"
+  - "Gas tests limited to a single module (ValidatorsExitBusOracle); no systematic gas benchmarking suite"
+  - "Foundry fuzz/invariant config in foundry.toml is commented out; relies solely on inline annotations"
+  - "No Echidna or Medusa fuzzing; Foundry is the only fuzzer"
+  - "No formal property-based specification files or mutation testing"

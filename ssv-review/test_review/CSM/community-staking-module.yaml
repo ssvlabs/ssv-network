@@ -1,0 +1,112 @@
+repo: community-staking-module
+
+stack:
+  frameworks: [foundry]
+  fuzzing: true
+  invariants: true
+  forking: true
+  custom_engine: false
+
+test_types:
+  unit: { status: present }
+  integration: { status: present }
+  fork: { status: present }
+  fuzz: { status: present }
+  invariant: { status: maybe }
+  scenario: { status: present }
+  differential: { status: maybe }
+  regression: { status: not_found }
+  upgrade: { status: present }
+  gas: { status: present }
+
+advanced_patterns:
+  - name: "Inline invariant modifier with gas-metering toggle"
+    category: invariant
+    complexity: high
+    reusable: true
+  - name: "brutalizeMemory modifier for memory safety"
+    category: fuzz
+    complexity: medium
+    reusable: true
+  - name: "Multi-fork state comparison (before/after upgrade)"
+    category: fork
+    complexity: high
+    reusable: true
+  - name: "JSON fixture-driven cryptographic proof verification"
+    category: scenario
+    complexity: high
+    reusable: true
+  - name: "Cross-beacon-fork historical proof testing"
+    category: fork
+    complexity: high
+    reusable: false
+  - name: "Storage slot backward-compatibility assertions via vm.load"
+    category: invariant
+    complexity: medium
+    reusable: true
+  - name: "Governance vote simulation with forked state"
+    category: fork
+    complexity: high
+    reusable: true
+  - name: "Conditional invariant execution by CI profile"
+    category: architecture
+    complexity: medium
+    reusable: true
+  - name: "Gas snapshot metering (vm.startSnapshotGas/vm.stopSnapshotGas)"
+    category: other
+    complexity: low
+    reusable: true
+
+complexity_management:
+  fork:
+    patterns:
+      - "Environment-driven config (RPC_URL, DEPLOY_CONFIG, VOTE_PREV_BLOCK)"
+      - "Deployment state hydration from JSON artifacts"
+      - "Multi-fork comparison via vm.createFork + vm.selectFork"
+      - "Separate CI profile with higher fuzz runs for fork tests"
+      - "Anvil-backed local fork with lifecycle commands (make-fork, kill-fork)"
+  fuzz:
+    patterns:
+      - "Tiered fuzz runs: 256 default / 10,000 CI"
+      - "brutalizeMemory modifier corrupts unused memory to catch safety bugs"
+      - "Deterministic address generation via SHA3 seed mutation"
+      - "Max test rejects tuned to 2,000,000 in CI"
+  invariant:
+    patterns:
+      - "Custom InvariantAsserts library with 10 reusable assertion functions"
+      - "assertInvariants modifier wraps test body; pauses gas metering during checks"
+      - "skipInvariants() gate: only executes on CI profile + active fork"
+      - "Storage slot inspection via vm.load for backward-compat checks"
+
+test_architecture:
+  uses_base_tests: true
+  uses_helpers: true
+  uses_fixtures: true
+  uses_custom_assertions: true
+
+metrics:
+  fork_complexity: high
+  fuzz_sophistication: medium
+  invariant_maturity: medium
+  scenario_depth: high
+
+maturity:
+  level: advanced
+
+notable_strengths:
+  - "Inline assertInvariants modifier runs 10 property checks after every test with gas metering paused"
+  - "Multi-fork upgrade testing compares full node-operator-level state before and after governance vote"
+  - "Cross-beacon-chain-fork proof verification (Capella/Deneb boundary)"
+  - "17 purpose-built mock contracts covering full Lido protocol surface"
+  - "brutalizeMemory modifier for Solidity memory safety testing in fuzz contexts"
+  - "Storage slot backward-compatibility assertions catch accidental layout breaks"
+  - "Configurable invariant gating (CI-only + fork-only) prevents false negatives in local dev"
+  - "Gas snapshot integration in fork tests for regression detection"
+
+notable_gaps:
+  - "No Foundry native invariant_* tests (handler-based stateful fuzzing)"
+  - "No external fuzzer integration (Echidna, Medusa)"
+  - "No explicit regression test suite or regression markers"
+  - "No differential testing against alternative implementations"
+  - "No mutation testing"
+  - "Fuzz tests use standard patterns — no custom input generators or corpus management"

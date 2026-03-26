@@ -1,0 +1,58 @@
+YAML SCHEMA (STRICT – MUST FOLLOW EXACTLY)
+
+repo: string
+
+stack:
+  frameworks: [string]
+  fuzzing: boolean
+  invariants: boolean
+  forking: boolean
+  custom_engine: boolean
+
+test_types:
+  unit: { status: present | maybe | not_found }
+  integration: { status: present | maybe | not_found }
+  fork: { status: present | maybe | not_found }
+  fuzz: { status: present | maybe | not_found }
+  invariant: { status: present | maybe | not_found }
+  scenario: { status: present | maybe | not_found }
+  differential: { status: present | maybe | not_found }
+  regression: { status: present | maybe | not_found }
+  upgrade: { status: present | maybe | not_found }
+  gas: { status: present | maybe | not_found }
+
+advanced_patterns:
+  - name: string
+    category: one_of [fork, fuzz, invariant, scenario, architecture, other]
+    complexity: one_of [low, medium, high]
+    reusable: boolean
+
+complexity_management:
+  fork:
+    patterns: [string]
+  fuzz:
+    patterns: [string]
+  invariant:
+    patterns: [string]
+
+test_architecture:
+  uses_base_tests: boolean
+  uses_helpers: boolean
+  uses_fixtures: boolean
+  uses_custom_assertions: boolean
+
+metrics:
+  fork_complexity: low | medium | high
+  fuzz_sophistication: low | medium | high
+  invariant_maturity: low | medium | high
+  scenario_depth: low | medium | high
+
+maturity:
+  level: basic | moderate | advanced | very_advanced
+
+advanced_patterns:
+  - id: handler_invariants
+    name: "Handler-based invariant testing"
+
+notable_strengths: [string]
+notable_gaps: [string]

@@ -1,0 +1,118 @@
+repo: aave/aave-v4
+
+stack:
+  frameworks: [foundry]
+  fuzzing: true
+  invariants: true
+  forking: false
+  custom_engine: true
+
+test_types:
+  unit: { status: present }
+  integration: { status: present }
+  fork: { status: not_found }
+  fuzz: { status: present }
+  invariant: { status: maybe }
+  scenario: { status: present }
+  differential: { status: not_found }
+  regression: { status: maybe }
+  upgrade: { status: present }
+  gas: { status: present }
+
+advanced_patterns:
+  - name: "Layered full-protocol fixture hierarchy"
+    category: architecture
+    complexity: high
+    reusable: true
+
+  - name: "Domain-specific bound helper network"
+    category: fuzz
+    complexity: high
+    reusable: true
+
+  - name: "Tiered Foundry fuzz profiles"
+    category: fuzz
+    complexity: low
+    reusable: true
+
+  - name: "Proxy upgrade persistence and reinitialization harnesses"
+    category: architecture
+    complexity: medium
+    reusable: true
+
+  - name: "State snapshot sandbox for temporary implementation swaps"
+    category: architecture
+    complexity: high
+    reusable: true
+
+  - name: "CI-enforced gas snapshot baselines"
+    category: other
+    complexity: medium
+    reusable: true
+
+  - name: "Standards compliance harness reuse"
+    category: other
+    complexity: medium
+    reusable: true
+
+  - name: "External TypeScript state-model invariant engine"
+    category: invariant
+    complexity: high
+    reusable: true
+
+  - name: "SMT-backed property proof scripts"
+    category: other
+    complexity: high
+    reusable: true
+
+  - name: "Injected reentrancy adversary mocks"
+    category: scenario
+    complexity: medium
+    reusable: true
+
+complexity_management:
+  fork:
+    patterns: []
+  fuzz:
+    patterns:
+      - "Tiered Foundry fuzz profiles (1K default / 5K PR / 10K CI) in foundry.toml"
+      - "Per-domain _bound helpers in Base, SpokeBase, TokenizationSpoke base tests, and LiquidationLogic base tests"
+      - "Typed-data builders, nonce helpers, and randomized deadlines support permit and signature fuzzing"
+      - "Assumption helpers exclude privileged actors and invalid reserve selections from fuzz inputs"
+      - "Scenario-specific clamp logic narrows inherited external harness fuzz ranges to protocol-safe values"
+  invariant:
+    patterns:
+      - "Separate TypeScript state model runs invariants after each random action, but outside Foundry and CI"
+      - "Z3 scripts encode algebraic safety properties for liquidation and maxWithdraw-style formulas"
+
+test_architecture:
+  uses_base_tests: true
+  uses_helpers: true
+  uses_fixtures: true
+  uses_custom_assertions: true
+
+metrics:
+  fork_complexity: low
+  fuzz_sophistication: high
+  invariant_maturity: medium
+  scenario_depth: high
+
+maturity:
+  level: advanced
+
+notable_strengths:
+  - "Large Foundry suite with unit, integration-style, scenario, upgrade, gas, and fuzz coverage in one shared hierarchy"
+  - "349 fuzz-named Solidity test functions plus tiered fuzz profiles give the repo substantial randomized coverage"
+  - "Shared fixture stack deploys a realistic protocol environment with hub, multiple spokes, treasury, roles, and test assets"
+  - "Upgrade tests check revision gating, storage persistence, proxy admin behavior, and reinitialization paths"
+  - "Gas snapshots are committed and enforced in CI, making performance regressions visible"
+  - "ERC4626 compliance is checked through an external reusable harness rather than only ad hoc assertions"
+  - "Auxiliary TypeScript model and Z3 proof scripts show unusually strong off-chain validation discipline"
+  - "Reentrancy attack simulation is injected directly into internal call sites with mockFunction plus attacker mocks"
+
+notable_gaps:
+  - "No fork test harness found despite rpc_endpoints entries in foundry.toml"
+  - "No Foundry StdInvariant or handler-based invariant suite found in Solidity tests"
+  - "No direct differential test comparing two live implementations was found"
+  - "Prototype invariant and proof tooling appears to sit outside the main CI path"
+  - "No clearly labeled functional regression suite was found beyond gas baseline checks"
