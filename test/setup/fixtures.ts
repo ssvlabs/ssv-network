@@ -350,7 +350,7 @@ export async function ssvNetworkFullForkedFixture(
   const allowDeployedFallback = process.env.FORK_ALLOW_DEPLOYED_FALLBACK !== "false";
 
   await ethers.provider.send("hardhat_impersonateAccount", [ForkConfig.DAO_ADDRESS]);
-  const daoSigner = await ethers.getSigner(ForkConfig.DAO_ADDRESS);
+  const daoSigner = await ethers.getImpersonatedSigner(ForkConfig.DAO_ADDRESS);
   await ethers.provider.send("hardhat_setBalance", [ForkConfig.DAO_ADDRESS, "0x" + (BigInt(1e18) * 100n).toString(16)]);
 
   const runInTestUpgradePath = async () => {

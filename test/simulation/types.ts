@@ -10,6 +10,7 @@ import type { SSVNetwork, SSVNetworkViews } from "../../types/ethers-contracts/i
 import type { Cluster } from "../common/types.ts";
 import type { SeededRNG } from "./rng.ts";
 import type { SimLogger } from "./sim-logger.ts";
+import type { EBModeTag } from "./coverage.ts";
 
 // Re-export Cluster so consumers don't need a second import
 export type { Cluster };
@@ -37,6 +38,8 @@ export interface ClusterRecord {
   version: ClusterVersion;
   /** Public keys of validators registered in this cluster */
   validatorKeys: string[];
+  /** Best-effort EB mode hint for coverage tagging */
+  ebModeHint?: EBModeTag;
 }
 
 /**

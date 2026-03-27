@@ -16,12 +16,14 @@ const LCG_MASK = LCG_MODULUS - 1n;
 const DEFAULT_SEED = 0xDEADBEEFCAFEBABEn;
 
 export class SeededRNG {
+  private readonly initialSeed: bigint;
   private state: bigint;
 
   constructor(seed?: bigint) {
     const resolvedSeed = seed ?? this.seedFromEnv() ?? DEFAULT_SEED;
     // Ensure non-zero initial state
-    this.state = resolvedSeed === 0n ? DEFAULT_SEED : resolvedSeed & LCG_MASK;
+    this.initialSeed = resolvedSeed === 0n ? DEFAULT_SEED : resolvedSeed & LCG_MASK;
+    this.state = this.initialSeed;
   }
 
   private seedFromEnv(): bigint | undefined {
@@ -91,5 +93,15 @@ export class SeededRNG {
       if (r <= 0) return i;
     }
     return weights.length - 1;
+  }
+
+  /** Get the original seed used to initialize this RNG. */
+  getInitialSeed(): bigint {
+    return this.initialSeed;
+  }
+
+  /** Get the current internal state for replay/debugging. */
+  getState(): bigint {
+    return this.state;
   }
 }

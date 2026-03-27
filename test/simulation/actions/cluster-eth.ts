@@ -43,15 +43,21 @@ function liquidatedEthClusters(state: SimulationState): ClusterRecord[] {
   );
 }
 
-/** Compute avg operator fee (raw packed) for a set of operator IDs. */
-function avgOperatorFee(state: SimulationState, operatorIds: bigint[]): bigint {
+/** Compute avg operator fee in raw packed units for a set of operator IDs. */
+async function avgOperatorFee(state: SimulationState, operatorIds: bigint[]): Promise<bigint> {
   let totalFee = 0n;
   let count = 0n;
   for (const id of operatorIds) {
     const op = state.operatorPool.get(id);
     if (op) {
-      totalFee += op.fee;
+      totalFee += op.fee / ETH_DEDUCTED_DIGITS;
       count++;
+      continue;
+    }
+    try {
+      totalFee += BigInt(await state.views.getOperatorFee(id)) / ETH_DEDUCTED_DIGITS;
+      count++;
+    } catch {
     }
   }
   return count > 0n ? totalFee / count : 0n;
@@ -100,7 +106,7 @@ export async function actionRegisterValidator(state: SimulationState): Promise<A
   const existing = state.clusterBook.get(key);
   const validatorCount = existing ? existing.cluster.validatorCount + 1n : 1n;
   const vUnits = defaultVUnits(validatorCount);
-  const avgFee = avgOperatorFee(state, operatorIds);
+  const avgFee = await avgOperatorFee(state, operatorIds);
   const depositAmount = minDeposit(BigInt(operatorIds.length), avgFee, vUnits);
 
   const clusterStruct = existing
@@ -128,6 +134,7 @@ export async function actionRegisterValidator(state: SimulationState): Promise<A
     if (existing) {
       existing.cluster = updatedCluster;
       existing.validatorKeys.push(validatorKey);
+      existing.ebModeHint ??= "implicit";
     } else {
       state.clusterBook.set(key, {
         owner,
@@ -136,6 +143,7 @@ export async function actionRegisterValidator(state: SimulationState): Promise<A
         cluster: updatedCluster,
         version: VERSION_ETH,
         validatorKeys: [validatorKey],
+        ebModeHint: "implicit",
       });
     }
 
@@ -243,7 +251,7 @@ export async function actionWithdrawEth(state: SimulationState): Promise<ActionR
   const key = clusterKey(ethers, cr.owner, cr.operatorIds);
 
   const vUnits = defaultVUnits(cr.cluster.validatorCount);
-  const avgFee = avgOperatorFee(state, cr.operatorIds);
+  const avgFee = await avgOperatorFee(state, cr.operatorIds);
   const threshold = calcLiquidationThreshold({
     minimumBlocksBeforeLiquidation: 214800n,
     numOperators: BigInt(cr.operatorIds.length),
@@ -335,7 +343,7 @@ export async function actionReactivateEth(state: SimulationState): Promise<Actio
 
   const validatorCount = cr.cluster.validatorCount > 0n ? cr.cluster.validatorCount : 1n;
   const vUnits = defaultVUnits(validatorCount);
-  const avgFee = avgOperatorFee(state, cr.operatorIds);
+  const avgFee = await avgOperatorFee(state, cr.operatorIds);
   const deposit = minDeposit(BigInt(cr.operatorIds.length), avgFee, vUnits);
 
   try {

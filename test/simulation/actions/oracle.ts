@@ -9,6 +9,7 @@ import { ethers } from "ethers";
 import { generateMerkleForClusterEB } from "../../common/helpers.ts";
 import type { SimulationState, ActionResult } from "../types.ts";
 import { VERSION_ETH } from "../types.ts";
+import type { EBModeTag } from "../coverage.ts";
 import {
   clusterKey,
   parseClusterFromReceipt,
@@ -44,9 +45,17 @@ export async function actionCommitEBRoot(state: SimulationState): Promise<Action
   if (oracleBlock <= 0) {
     return { name: NAME, success: false, revertReason: "SKIP: block too early" };
   }
+  const modeChoice = state.rng.pick<{
+    mode: EBModeTag;
+    perValidator: bigint;
+  }>([
+    { mode: "explicit-32", perValidator: 32n },
+    { mode: "explicit-high", perValidator: state.rng.pick([64n, 96n, 128n]) },
+    { mode: "explicit-max-safe", perValidator: state.rng.pick([256n, 512n]) },
+  ]);
   const entries = ethClusters.map((cr) => {
     const id = clusterKey(ethers, cr.owner, cr.operatorIds);
-    const effectiveBalance = 32 * Number(cr.cluster.validatorCount);
+    const effectiveBalance = Number(modeChoice.perValidator * cr.cluster.validatorCount);
     return { clusterId: id, effectiveBalance };
   });
 
@@ -78,12 +87,13 @@ export async function actionCommitEBRoot(state: SimulationState): Promise<Action
       await tx.wait();
     }
     let updatedCount = 0;
+    let firstUpdatedKey: string | undefined;
     for (const cr of ethClusters) {
       const id = clusterKey(ethers, cr.owner, cr.operatorIds);
       const proof = proofs[id];
       if (!proof) continue;
 
-      const effectiveBalance = 32 * Number(cr.cluster.validatorCount);
+      const effectiveBalance = Number(modeChoice.perValidator * cr.cluster.validatorCount);
 
       try {
         const tx = await state.network
@@ -103,7 +113,11 @@ export async function actionCommitEBRoot(state: SimulationState): Promise<Action
           receipt,
           "ClusterBalanceUpdated",
         );
-        if (updatedCluster) cr.cluster = updatedCluster;
+        if (updatedCluster) {
+          cr.cluster = updatedCluster;
+          cr.ebModeHint = modeChoice.mode;
+          firstUpdatedKey ??= id;
+        }
 
         updatedCount++;
       } catch {
@@ -112,7 +126,11 @@ export async function actionCommitEBRoot(state: SimulationState): Promise<Action
 
     state.currentBlock = await state.provider.getBlockNumber();
 
-    return { name: NAME, success: true };
+    return {
+      name: NAME,
+      success: true,
+      clusterKeyUpdated: firstUpdatedKey,
+    };
   } catch (err) {
     return { name: NAME, success: false, revertReason: err instanceof Error ? err.message : String(err) };
   }

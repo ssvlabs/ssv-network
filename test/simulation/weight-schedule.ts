@@ -50,8 +50,8 @@ export function getActionWeights(
   const dayIndex = elapsed / blocksPerDay;
 
   // Dynamic weights (change over transition period)
-  const migrateWeight = lerp(dayIndex, 5, 95);
-  const ssvOpsWeight = lerp(dayIndex, 50, 0);
+  const migrateWeight = lerp(dayIndex, 5, 70);
+  const ssvOpsWeight = lerp(dayIndex, 60, 0);
 
   // Constant weights
   const ethOpsWeight = 15;

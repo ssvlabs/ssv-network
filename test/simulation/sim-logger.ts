@@ -113,6 +113,33 @@ export class SimLogger {
   }
 
   /**
+   * Return the most recent log entries, oldest-first.
+   */
+  recent(limit = 20): LogEntry[] {
+    if (limit <= 0) {
+      return [];
+    }
+    return this.entries.slice(-limit);
+  }
+
+  /**
+   * Format the most recent actions for failure debugging.
+   */
+  formatRecent(limit = 20): string {
+    const recent = this.recent(limit);
+    if (recent.length === 0) {
+      return "Recent actions: none";
+    }
+
+    const lines = [`Recent actions (${recent.length}):`];
+    for (const entry of recent) {
+      const status = entry.success ? "ok" : `revert(${entry.revertReason ?? "unknown"})`;
+      lines.push(`  [${entry.block}] ${entry.name} ${status}`);
+    }
+    return lines.join("\n");
+  }
+
+  /**
    * Format summary as a human-readable string for console output.
    */
   formatSummary(): string {

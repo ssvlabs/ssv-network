@@ -49,8 +49,14 @@ export async function actionMigrateCluster(state: SimulationState): Promise<Acti
   for (const id of cr.operatorIds) {
     const op = state.operatorPool.get(id);
     if (op) {
-      avgFee += op.fee;
+      avgFee += op.fee / ETH_DEDUCTED_DIGITS;
       feeCount++;
+      continue;
+    }
+    try {
+      avgFee += BigInt(await state.views.getOperatorFee(id)) / ETH_DEDUCTED_DIGITS;
+      feeCount++;
+    } catch {
     }
   }
   if (feeCount > 0n) avgFee = avgFee / feeCount;
@@ -84,6 +90,7 @@ export async function actionMigrateCluster(state: SimulationState): Promise<Acti
     if (updatedCluster) cr.cluster = updatedCluster;
 
     cr.version = VERSION_ETH;
+    cr.ebModeHint = "implicit";
 
     trackEthFlow(state, "in", ethDeposit);
     if (receipt) state.currentBlock = receipt.blockNumber;

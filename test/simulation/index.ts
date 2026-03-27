@@ -19,6 +19,25 @@ export { VERSION_SSV, VERSION_ETH } from "./types.ts";
 // RNG
 export { SeededRNG } from "./rng.ts";
 
+// Coverage
+export {
+  CoverageTracker,
+  buildStateTag,
+  clusterSizeTag,
+  validatorBucketTag,
+  solvencyTag,
+} from "./coverage.ts";
+export type {
+  StateTag,
+  ClusterSizeTag,
+  ValidatorBucketTag,
+  EBModeTag,
+  SolvencyTag,
+  FeePhaseTag,
+  TopologyTag,
+  TransitionRecord,
+} from "./coverage.ts";
+
 // State discovery
 export {
   discoverOperators,

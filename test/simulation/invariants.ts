@@ -33,7 +33,8 @@ export function createInvariantContext(): InvariantContext {
 
 /**
  * INV-1: ETH Conservation
- * contract.ETH >= sum(cluster balances) + sum(operator earnings) + staking pool + DAO earnings
+ * SPEC.md / FLOWS.md source of truth:
+ * contract.ETH >= sum(cluster balances) + sum(operator earnings) + ProtocolLib.networkTotalEarnings()
  */
 async function checkINV1_ETHConservation(state: SimulationState): Promise<InvariantResult> {
   try {
@@ -64,21 +65,28 @@ async function checkINV1_ETHConservation(state: SimulationState): Promise<Invari
       }
     }
 
-    let stakingPool = 0n;
+    let stakingPoolSnapshot = 0n;
     try {
-      stakingPool = BigInt(await state.views.stakingEthPoolBalance());
+      stakingPoolSnapshot = BigInt(await state.views.stakingEthPoolBalance());
+    } catch {
+      // Optional debug context only; not part of the invariant sum.
+    }
+
+    let networkTotalEarnings = 0n;
+    try {
+      networkTotalEarnings = BigInt(await state.views.getNetworkEarnings());
     } catch {
       // May not be available
     }
 
-    let daoEarnings = 0n;
-    try {
-      daoEarnings = BigInt(await state.views.getNetworkEarnings());
-    } catch {
-      // May not be available
-    }
-
-    const totalAccounted = totalClusterBalances + totalOperatorEarnings + stakingPool + daoEarnings;
+    // Spec formula:
+    // contract.ETH ~= current ETH cluster balances
+    //              + current operator ETH earnings
+    //              + ProtocolLib.networkTotalEarnings()
+    //
+    // `stakingEthPoolBalance` is a staking sync snapshot of DAO ETH rewards, not an
+    // additional independent liability bucket. Summing both double-counts rewards.
+    const totalAccounted = totalClusterBalances + totalOperatorEarnings + networkTotalEarnings;
 
     // Allow a tolerance because:
     // - We only track a sample of operators/clusters, not all mainnet state
@@ -93,8 +101,8 @@ async function checkINV1_ETHConservation(state: SimulationState): Promise<Invari
       id: "INV-1",
       passed,
       message: passed
-        ? `INV-1 ETH Conservation: OK (contract=${contractBalance}, accounted=${totalAccounted}, diff=${contractBalance >= totalAccounted ? contractBalance - totalAccounted : -(totalAccounted - contractBalance)})`
-        : `INV-1 ETH Conservation: FAIL — contract balance ${contractBalance} < accounted ${totalAccounted} (diff=${totalAccounted - contractBalance}, exceeds tolerance ${TOLERANCE})`,
+        ? `INV-1 ETH Conservation: OK (contract=${contractBalance}, accounted=${totalAccounted}, diff=${contractBalance >= totalAccounted ? contractBalance - totalAccounted : -(totalAccounted - contractBalance)}, clusters=${totalClusterBalances}, operatorEarnings=${totalOperatorEarnings}, networkTotalEarnings=${networkTotalEarnings}, stakingPoolSnapshot=${stakingPoolSnapshot})`
+        : `INV-1 ETH Conservation: FAIL — contract balance ${contractBalance} < accounted ${totalAccounted} (diff=${totalAccounted - contractBalance}, exceeds tolerance ${TOLERANCE}, clusters=${totalClusterBalances}, operatorEarnings=${totalOperatorEarnings}, networkTotalEarnings=${networkTotalEarnings}, stakingPoolSnapshot=${stakingPoolSnapshot})`,
     };
   } catch (err) {
     return {
@@ -107,7 +115,8 @@ async function checkINV1_ETHConservation(state: SimulationState): Promise<Invari
 
 /**
  * INV-2: cSSV Supply Consistency
- * cssvToken.totalSupply() == sum of tracked staker cSSV balances
+ * Spec global invariant #6, specialized to the simulation's closed staker set:
+ * cSSV.totalSupply() == sum of all tracked cSSV holder balances
  */
 async function checkINV2_CSSVSupply(state: SimulationState): Promise<InvariantResult> {
   try {
@@ -138,8 +147,8 @@ async function checkINV2_CSSVSupply(state: SimulationState): Promise<InvariantRe
 
 /**
  * INV-3: Validator Count Consistency
- * views.getNetworkValidatorsCount() >= sum of tracked operator ethValidatorCounts
- * Note: >= because we only track a sample of operators
+ * SPEC.md / FLOWS.md source of truth:
+ * ethDaoValidatorCount == sum(cluster.validatorCount) across all active ETH clusters
  */
 async function checkINV3_ValidatorCount(state: SimulationState): Promise<InvariantResult> {
   try {
@@ -154,14 +163,13 @@ async function checkINV3_ValidatorCount(state: SimulationState): Promise<Invaria
       }
     }
 
-    // Network count should be >= our tracked clusters (there may be others we don't track)
-    const passed = networkCount >= trackedClusterValidators;
+    const passed = networkCount === trackedClusterValidators;
     return {
       id: "INV-3",
       passed,
       message: passed
         ? `INV-3 Validator Count: OK (network=${networkCount}, tracked ETH clusters=${trackedClusterValidators})`
-        : `INV-3 Validator Count: FAIL — network count ${networkCount} < tracked ETH cluster validators ${trackedClusterValidators}`,
+        : `INV-3 Validator Count: FAIL — network count ${networkCount} != tracked ETH cluster validators ${trackedClusterValidators}`,
     };
   } catch (err) {
     return {
@@ -237,6 +245,7 @@ async function checkINV5_AccumulatorMonotonic(
 
 /**
  * INV-6: Operator Earnings Non-Negative
+ * Supplemental simulation sanity check.
  * views.getOperatorEarnings(opId) >= 0 for all tracked operators
  */
 async function checkINV6_OperatorEarnings(state: SimulationState): Promise<InvariantResult> {
@@ -272,6 +281,7 @@ async function checkINV6_OperatorEarnings(state: SimulationState): Promise<Invar
 
 /**
  * INV-7: Staker Rewards Non-Negative (end-only)
+ * Supplemental simulation sanity check.
  * views.previewClaimableEth(staker) >= 0 for all tracked stakers
  */
 async function checkINV7_StakerRewards(state: SimulationState): Promise<InvariantResult> {
@@ -307,6 +317,7 @@ async function checkINV7_StakerRewards(state: SimulationState): Promise<Invarian
 
 /**
  * INV-8: No Cluster Balance Underflow
+ * Supplemental simulation sanity check.
  * For each active ETH cluster: views.getBalance(owner, opIds, cluster) >= 0
  */
 async function checkINV8_ClusterBalanceUnderflow(state: SimulationState): Promise<InvariantResult> {
@@ -343,10 +354,49 @@ async function checkINV8_ClusterBalanceUnderflow(state: SimulationState): Promis
   }
 }
 
+/**
+ * INV-9: Cluster Version / Asset-Type Consistency
+ * SPEC.md / FLOWS.md source of truth:
+ * a cluster key must exist in either SSV or ETH storage, never both, and the
+ * tracked version must match the on-chain asset type returned by SSVViews.
+ */
+async function checkINV9_ClusterVersionConsistency(state: SimulationState): Promise<InvariantResult> {
+  try {
+    const mismatches: string[] = [];
+
+    for (const [key, record] of state.clusterBook) {
+      try {
+        const assetType = Number(await state.views.getClusterAssetType(record.owner, record.operatorIds));
+        if (assetType !== record.version) {
+          mismatches.push(`${key}:tracked=${record.version}:onchain=${assetType}`);
+        }
+      } catch (err) {
+        mismatches.push(`${key}:error=${err instanceof Error ? err.message : String(err)}`);
+      }
+    }
+
+    const passed = mismatches.length === 0;
+    return {
+      id: "INV-9",
+      passed,
+      message: passed
+        ? `INV-9 Cluster Version: OK (all tracked cluster versions match on-chain asset type)`
+        : `INV-9 Cluster Version: FAIL — ${mismatches.length} mismatches: ${mismatches.slice(0, 5).join(", ")}`,
+    };
+  } catch (err) {
+    return {
+      id: "INV-9",
+      passed: false,
+      message: `INV-9 Cluster Version: ERROR — ${err instanceof Error ? err.message : String(err)}`,
+    };
+  }
+}
+
 // --- Exported runners ---
 
 /**
- * Run periodic invariants (INV-1, INV-2, INV-3, INV-5, INV-6, INV-8).
+ * Run periodic invariants.
+ * Includes spec-aligned checks plus a small set of simulation sanity checks.
  * These are safe to run frequently during the simulation.
  */
 export async function runPeriodicInvariants(
@@ -360,12 +410,13 @@ export async function runPeriodicInvariants(
     checkINV5_AccumulatorMonotonic(state, ctx),
     checkINV6_OperatorEarnings(state),
     checkINV8_ClusterBalanceUnderflow(state),
+    checkINV9_ClusterVersionConsistency(state),
   ]);
   return results;
 }
 
 /**
- * Run all 8 invariants including end-only checks (INV-4, INV-7).
+ * Run all simulation invariants including end-only checks (INV-4, INV-7).
  * Call this after the simulation loop completes.
  */
 export async function runFinalInvariants(
@@ -381,6 +432,7 @@ export async function runFinalInvariants(
     checkINV6_OperatorEarnings(state),
     checkINV7_StakerRewards(state),
     checkINV8_ClusterBalanceUnderflow(state),
+    checkINV9_ClusterVersionConsistency(state),
   ]);
   return results;
 }

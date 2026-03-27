@@ -22,6 +22,7 @@ import {
   DECLARE_OPERATOR_FEE_PERIOD,
   EXECUTE_OPERATOR_FEE_PERIOD,
   MINIMAL_OPERATOR_ETH_FEE,
+  ETH_DEDUCTED_DIGITS
 } from "../common/constants.ts";
 import { makePublicKey, makeOperatorKey } from "../common/helpers.ts";
 
@@ -44,12 +45,9 @@ import {
 } from "./bookkeeping.ts";
 import {
   discoverOperators,
+  discoverClusters,
   sampleOperators,
 } from "./state-discovery.ts";
-import {
-  getActionWeights,
-  selectAction,
-} from "./weight-schedule.ts";
 import {
   runPeriodicInvariants,
   runFinalInvariants,
@@ -57,6 +55,13 @@ import {
   type InvariantResult,
   type InvariantContext,
 } from "./invariants.ts";
+import {
+  CoverageTracker,
+  buildStateTag,
+  type TopologyTag,
+} from "./coverage.ts";
+import { WeightedActionSelector } from "./actions/index.ts";
+import { calcVUnits, defaultVUnits } from "../helpers/fee.ts";
 
 async function mineBlocks(provider: any, n: number): Promise<void> {
   if (n <= 0) return;
@@ -134,6 +139,132 @@ async function registerSimOperators(
     }
   }
   return records;
+}
+
+function cloneClusterRecord(record: ClusterRecord): ClusterRecord {
+  return {
+    ...record,
+    operatorIds: [...record.operatorIds],
+    validatorKeys: [...record.validatorKeys],
+    cluster: { ...record.cluster },
+  };
+}
+
+function snapshotClusterBook(clusterBook: Map<string, ClusterRecord>): Map<string, ClusterRecord> {
+  return new Map(
+    [...clusterBook.entries()].map(([key, record]) => [key, cloneClusterRecord(record)]),
+  );
+}
+
+function inferTopology(
+  clusterBook: Map<string, ClusterRecord>,
+  target: ClusterRecord,
+): TopologyTag {
+  for (const record of clusterBook.values()) {
+    if (
+      record.owner !== target.owner &&
+      record.version === VERSION_ETH &&
+      record.operatorIds.length === target.operatorIds.length &&
+      record.operatorIds.every((id, index) => id === target.operatorIds[index])
+    ) {
+      return "dual-cluster-shared-operators";
+    }
+  }
+  return "single-cluster";
+}
+
+async function getClusterLiquidationThreshold(
+  state: SimulationState,
+  record: ClusterRecord,
+): Promise<bigint> {
+  let effectiveBalance = 0n;
+  try {
+    effectiveBalance = BigInt(
+      await state.views.getEffectiveBalance(record.owner, record.operatorIds, record.cluster),
+    );
+  } catch {
+  }
+  const effectiveVUnits = effectiveBalance === 0n
+    ? defaultVUnits(record.cluster.validatorCount === 0n ? 1n : record.cluster.validatorCount)
+    : calcVUnits(effectiveBalance);
+
+  let totalOperatorFeeRaw = 0n;
+  for (const operatorId of record.operatorIds) {
+    try {
+      totalOperatorFeeRaw += BigInt(await state.views.getOperatorFee(operatorId)) / ETH_DEDUCTED_DIGITS;
+    } catch {
+    }
+  }
+
+  const networkFeeRaw = BigInt(await state.views.getNetworkFee()) / ETH_DEDUCTED_DIGITS;
+  const minBlocks = BigInt(await state.views.getLiquidationThresholdPeriod());
+  const minCollateral = BigInt(await state.views.getMinimumLiquidationCollateral());
+  const blockThreshold =
+    ((minBlocks * (totalOperatorFeeRaw + networkFeeRaw) * effectiveVUnits) / 10_000n) * ETH_DEDUCTED_DIGITS;
+
+  return blockThreshold > minCollateral ? blockThreshold : minCollateral;
+}
+
+async function captureCoverageTag(
+  state: SimulationState,
+  clusterBook: Map<string, ClusterRecord>,
+  record: ClusterRecord,
+  actionName: string,
+) {
+  const threshold = await getClusterLiquidationThreshold(state, record);
+  return buildStateTag({
+    cluster: record.cluster,
+    operatorCount: record.operatorIds.length,
+    liquidationThreshold: threshold,
+    ebMode: record.ebModeHint ?? "implicit",
+    feePhase: "flat",
+    topology: inferTopology(clusterBook, record),
+    lastAction: actionName,
+  });
+}
+
+async function recordCoverageTransition(
+  tracker: CoverageTracker,
+  state: SimulationState,
+  preSnapshot: Map<string, ClusterRecord>,
+  result: ActionResult,
+): Promise<void> {
+  const targetKey = result.clusterKeyUpdated;
+  if (!targetKey) {
+    return;
+  }
+
+  const postRecord = state.clusterBook.get(targetKey);
+  const preRecord = preSnapshot.get(targetKey);
+  const reference = postRecord ?? preRecord;
+  if (!reference || reference.version !== VERSION_ETH) {
+    return;
+  }
+
+  const preTag = await captureCoverageTag(
+    state,
+    preSnapshot,
+    preRecord ?? {
+      ...cloneClusterRecord(reference),
+      cluster: { ...EMPTY_CLUSTER, active: true },
+      ebModeHint: reference.ebModeHint ?? "implicit",
+    },
+    `before-${result.name}`,
+  );
+  const postTag = await captureCoverageTag(
+    state,
+    state.clusterBook,
+    postRecord ?? reference,
+    result.name,
+  );
+
+  tracker.recordTransition({
+    family: "fork-simulation",
+    seed: state.rng.getInitialSeed(),
+    action: result.name,
+    preTag,
+    postTag,
+  });
 }
 
 async function actionEthDeposit(state: SimulationState): Promise<ActionResult> {
@@ -465,6 +596,15 @@ async function exhaustPendingFees(state: SimulationState): Promise<void> {
   await mineBlocks(state.provider, totalPeriod + 100);
 }
 
+function shouldExhaustPendingFees(state: SimulationState): boolean {
+  if (process.env.SIM_EXHAUST_PENDING_FEES === "true") {
+    return true;
+  }
+
+  const byAction = state.logger.summary().byAction;
+  return (byAction.declareOperatorFee?.attempted ?? 0) > 0 || (byAction.executeOperatorFee?.attempted ?? 0) > 0;
+}
+
 async function claimAllRewards(state: SimulationState): Promise<void> {
   for (const staker of state.stakerPool) {
     try {
@@ -494,6 +634,9 @@ const RUN_FORK = process.env.RUN_FORK === "true";
 
   let state: SimulationState;
   let invCtx: InvariantContext;
+  let coverage: CoverageTracker;
+  let selector: WeightedActionSelector;
+  const replayLog: string[] = [];
 
   before(async function () {
     console.log("[SIM] Setting up forked environment...");
@@ -504,6 +647,9 @@ const RUN_FORK = process.env.RUN_FORK === "true";
     const networkAddress = await fixture.network.getAddress();
     const rng = new SeededRNG();
     const logger = new SimLogger();
+    coverage = new CoverageTracker();
+    selector = new WeightedActionSelector();
+    console.log(`[SIM] Seed: ${rng.getInitialSeed()}`);
     const [deployer, operatorOwner] = await connection.ethers.getSigners();
     await provider.send("hardhat_setBalance", [
       operatorOwner.address,
@@ -556,8 +702,48 @@ const RUN_FORK = process.env.RUN_FORK === "true";
       await fixture.cssvToken.balanceOf(bootstrapStaker.signer.address),
     );
     console.log(`[SIM] Initial cSSV supply: ${await fixture.cssvToken.totalSupply()}`);
-    console.log("[SIM] Creating synthetic clusters...");
     const clusterBook = new Map<string, ClusterRecord>();
+
+    console.log("[SIM] Discovering legacy clusters...");
+    try {
+      const discoveredClusters = await discoverClusters(
+        provider,
+        connection.ethers,
+        networkAddress,
+        scanFrom,
+        currentBlock,
+      );
+      const sampledClusters = rng
+        .shuffle(
+          [...discoveredClusters.values()].filter(
+            (cluster) => cluster.operatorIds.length > 0 && cluster.validatorCount > 0,
+          ),
+        )
+        .slice(0, 8);
+
+      for (const discovered of sampledClusters) {
+        await provider.send("hardhat_impersonateAccount", [discovered.owner]);
+        await provider.send("hardhat_setBalance", [
+          discovered.owner,
+          "0x" + BigInt(10e18).toString(16),
+        ]);
+        const ownerSigner = await connection.ethers.getSigner(discovered.owner);
+        const key = clusterKey(connection.ethers, discovered.owner, discovered.operatorIds);
+        clusterBook.set(key, {
+          owner: discovered.owner,
+          ownerSigner,
+          operatorIds: discovered.operatorIds,
+          cluster: { ...discovered.lastClusterTuple },
+          version: VERSION_SSV,
+          validatorKeys: [],
+        });
+      }
+      console.log(`[SIM] Seeded ${sampledClusters.length} legacy clusters from fork state`);
+    } catch (err) {
+      console.warn(`[SIM] Cluster discovery failed (${String(err).slice(0, 120)}); continuing with synthetic ETH clusters only`);
+    }
+
+    console.log("[SIM] Creating synthetic clusters...");
     const simOpIds = simOpRecords.map((r) => r.id);
 
     const opGroups = [
@@ -598,8 +784,41 @@ const RUN_FORK = process.env.RUN_FORK === "true";
         }
       }
     }
-    console.log(`[SIM] Created ${clusterBook.size} synthetic clusters`);
+    console.log(`[SIM] Tracking ${clusterBook.size} total clusters after synthetic bootstrap`);
     const startBlock = await provider.getBlockNumber();
+
+    const oracleAddresses = [
+      "0xc61f7bd9ee5a3d011caf47aa0e5411f720593920",
+      "0xc07332e05cec1c4896555a6d10361233fdf14422",
+      "0x28bEa5B242362974d5DDb8f17a1E0e525446960B",
+      "0x3A98EE5f80268Ed91F8A5880d93468b76a9F3bB4",
+    ];
+    const daoAddress = await fixture.daoSigner.getAddress();
+    await provider.send("hardhat_impersonateAccount", [daoAddress]);
+    await provider.send("hardhat_setBalance", [
+      daoAddress,
+      "0x" + (100n * 10n ** 18n).toString(16),
+    ]);
+    const daoSigner = await connection.ethers.getImpersonatedSigner(daoAddress);
+    const oracleSigners = await Promise.all(
+      oracleAddresses.map((addr) => connection.ethers.getImpersonatedSigner(addr))
+    );
+    for (let i = 0; i < oracleSigners.length; i++) {
+      const oracleAddr = await oracleSigners[i].getAddress();
+      await provider.send("hardhat_setBalance", [
+        oracleAddr,
+        "0x" + (10n ** 18n).toString(16),
+      ]);
+      try {
+        const tx = await fixture.network.connect(daoSigner).replaceOracle(i + 1, oracleAddr);
+        await tx.wait();
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        if (!message.includes("OracleAlreadyExists") && !message.includes("already")) {
+          throw err;
+        }
+      }
+    }
 
     state = {
       network: fixture.network,
@@ -616,7 +835,7 @@ const RUN_FORK = process.env.RUN_FORK === "true";
       networkAddress,
       ssvToken: fixture.ssvToken,
       cssvToken: fixture.cssvToken,
-      oracleSigners: [],
+      oracleSigners,
     };
     invCtx = createInvariantContext();
     try {
@@ -639,16 +858,53 @@ const RUN_FORK = process.env.RUN_FORK === "true";
 
     let epoch = 0;
 
+    const printFailureContext = (results: InvariantResult[]) => {
+      const failing = results.filter((result) => !result.passed);
+      const forkBlock =
+        process.env.FORK_BLOCK_NUMBER === undefined || process.env.FORK_BLOCK_NUMBER === ""
+          ? "<latest>"
+          : process.env.FORK_BLOCK_NUMBER;
+
+      console.error(`[SIM] Reproduce: RUN_FORK=true SIMULATION_SEED=${state.rng.getInitialSeed()} FORK_BLOCK_NUMBER=${forkBlock} npx hardhat test test/simulation/monte-carlo.test.ts`);
+      console.error(`[SIM] Invariant failure at epoch=${epoch} block=${state.currentBlock}`);
+      console.error(`[SIM] Failed invariants: ${JSON.stringify(failing, null, 2)}`);
+      console.error(coverage.formatReport(`[SIM] Coverage at failure seed=${state.rng.getInitialSeed()}`));
+      console.error(`[SIM] Replay tail (${replayLog.length} entries): ${replayLog.join(" | ")}`);
+      console.error(state.logger.formatRecent(25));
+    };
+
     console.log(`[SIM] Starting simulation at block ${state.startBlock}`);
     console.log(`[SIM] Target: ${TARGET_DAYS} days (${TARGET_BLOCKS} blocks)`);
+    {
+      const legacyTotal = [...state.clusterBook.values()].filter(
+        (c) => c.version === VERSION_SSV,
+      ).length;
+      const legacyActive = [...state.clusterBook.values()].filter(
+        (c) => c.version === VERSION_SSV && c.cluster.active,
+      ).length;
+      const ethTotal = [...state.clusterBook.values()].filter(
+        (c) => c.version === VERSION_ETH,
+      ).length;
+      console.log(
+        `[SIM] Initial clusters | ` +
+          `Legacy: ${legacyTotal} total / ${legacyActive} active | ` +
+          `ETH: ${ethTotal}`,
+      );
+    }
 
     while (true) {
-      const weights = getActionWeights(state.currentBlock, state.startBlock, BLOCKS_PER_DAY);
       for (let i = 0; i < ACTIONS_PER_EPOCH; i++) {
-        const actionName = selectAction(weights, state.rng.nextFloat());
-        const actionFn = ACTION_DISPATCH[actionName] ?? actionMineBlocks;
-        const result = await actionFn(state);
+        const preSnapshot = snapshotClusterBook(state.clusterBook);
+        const selected = selector.selectAction(state, state.currentBlock, state.startBlock);
+        const result = await selected.action(state);
         state.logger.record(state.currentBlock, result);
+        replayLog.push(
+          `${state.currentBlock}:${selected.name}:${result.success ? "ok" : "revert"}:${state.rng.getState()}`,
+        );
+        if (replayLog.length > 64) {
+          replayLog.shift();
+        }
+        await recordCoverageTransition(coverage, state, preSnapshot, result);
       }
       const blocksToMine = Number(state.rng.nextInRange(
         BigInt(BLOCKS_PER_EPOCH_MIN),
@@ -660,18 +916,30 @@ const RUN_FORK = process.env.RUN_FORK === "true";
 
       if (epoch % INVARIANT_CHECK_EVERY === 0) {
         const results = await runPeriodicInvariants(state, invCtx);
+        const failed = results.filter((result) => !result.passed);
+        if (failed.length > 0) {
+          printFailureContext(results);
+        }
 
         for (const r of results) {
           expect(r.passed, r.message).to.be.true;
         }
         const elapsed = state.currentBlock - state.startBlock;
         const pct = Math.floor((elapsed * 100) / TARGET_BLOCKS);
-        const ssvCount = [...state.clusterBook.values()].filter(
+        const legacyTotal = [...state.clusterBook.values()].filter(
+          (c) => c.version === VERSION_SSV,
+        ).length;
+        const legacyActive = [...state.clusterBook.values()].filter(
           (c) => c.version === VERSION_SSV && c.cluster.active,
+        ).length;
+        const ethTotal = [...state.clusterBook.values()].filter(
+          (c) => c.version === VERSION_ETH,
         ).length;
         console.log(
           `[SIM] Epoch ${epoch} | Block ${state.currentBlock} | ${pct}% | ` +
-            `Clusters: ${state.clusterBook.size} (${ssvCount} SSV) | Invariants: all passed`,
+            `Clusters: ${state.clusterBook.size} | ` +
+            `Legacy: ${legacyTotal} total / ${legacyActive} active | ` +
+            `ETH: ${ethTotal} | Invariants: all passed`,
         );
       }
       const elapsed = state.currentBlock - state.startBlock;
@@ -687,22 +955,34 @@ const RUN_FORK = process.env.RUN_FORK === "true";
         break;
       }
     }
-    console.log("[SIM] Running post-loop cleanup...");
-
-    console.log("[SIM]   Force-migrating remaining SSV clusters...");
-    await forceMigrateRemaining(state);
-
-    console.log("[SIM]   Exhausting pending fee declarations...");
-    await exhaustPendingFees(state);
-
-    console.log("[SIM]   Claiming all rewards...");
-    await claimAllRewards(state);
-    console.log("[SIM] Running final invariant checks...");
+    console.log("[SIM] Running final invariant checks at target...");
     const finals = await runFinalInvariants(state, invCtx);
+    const failedFinals = finals.filter((result) => !result.passed);
+    if (failedFinals.length > 0) {
+      printFailureContext(finals);
+    }
 
     for (const r of finals) {
       expect(r.passed, r.message).to.be.true;
     }
+
+    console.log(coverage.formatReport(`[SIM] Coverage seed=${state.rng.getInitialSeed()}`));
+    console.log(`[SIM] Replay tail (${replayLog.length} entries): ${replayLog.join(" | ")}`);
     console.log(state.logger.formatSummary());
+
+    console.log("[SIM] Running post-validation cleanup...");
+
+    console.log("[SIM]   Force-migrating remaining SSV clusters...");
+    await forceMigrateRemaining(state);
+
+    if (shouldExhaustPendingFees(state)) {
+      console.log("[SIM]   Exhausting pending fee declarations...");
+      await exhaustPendingFees(state);
+    } else {
+      console.log("[SIM]   Skipping fee-declaration exhaustion (no tracked fee declaration actions)");
+    }
+
+    console.log("[SIM]   Claiming all rewards...");
+    await claimAllRewards(state);
   });
 });
