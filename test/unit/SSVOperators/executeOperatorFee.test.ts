@@ -180,6 +180,14 @@ describe("SSVOperators function `executeOperatorFee()`", async () => {
       operators,
       Errors.FEE_TOO_LOW
     );
+
+    const request = await operators.getOperatorFeeChangeRequest(1);
+    expect(request.fee).to.equal(declaredFee / ETH_DEDUCTED_DIGITS);
+    expect(request.approvalBeginTime).to.not.equal(0n);
+    expect(request.approvalEndTime).to.not.equal(0n);
+
+    const operator = await operators.getOperator(1);
+    expect(operator.ethFee).to.equal(MINIMAL_OPERATOR_ETH_FEE / ETH_DEDUCTED_DIGITS);
   });
 
   it("[F-08] executeOperatorFee succeeds when declared fee equals newly raised minimum", async function () {
@@ -197,5 +205,9 @@ describe("SSVOperators function `executeOperatorFee()`", async () => {
 
     const operator = await operators.getOperator(1);
     expect(operator.ethFee).to.equal(declaredFee / ETH_DEDUCTED_DIGITS);
+
+    const request = await operators.getOperatorFeeChangeRequest(1);
+    expect(request.approvalBeginTime).to.equal(0n);
+    expect(request.approvalEndTime).to.equal(0n);
   });
 });
