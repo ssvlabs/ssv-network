@@ -48,6 +48,7 @@ export class ScenarioContext {
   private scenarioId: string;
   private stepIndex: number = 0;
   private activeCluster: ClusterRecord | null = null;
+  private stepResults: Array<{ step: string; outcome: string }> = [];
 
   constructor(params: {
     contracts: ScenarioContextContracts;
@@ -156,6 +157,7 @@ export class ScenarioContext {
         elapsed_ms,
         pre: compactSnapshot(pre),
       });
+      this.stepResults.push({ step: name, outcome: "EXPECTED_REVERT" });
       throw new StepReverted(name, reason);
     }
 
@@ -199,6 +201,7 @@ export class ScenarioContext {
         pre: compactPre,
         post: compactPost,
       });
+      this.stepResults.push({ step: name, outcome: "ASSERTION_FAIL" });
       throw new AssertionFailed(name, assertionDetail);
     }
 
@@ -229,7 +232,24 @@ export class ScenarioContext {
       elapsed_ms,
       diff,
     });
+    this.stepResults.push({ step: name, outcome: "PASS" });
     return result;
+  }
+
+  // --- Public accessors for ops JSONL ---
+
+  /** Return info about the active cluster, or null if none set. */
+  getActiveClusterInfo(): { owner: string; operatorIds: bigint[] } | null {
+    if (!this.activeCluster) return null;
+    return {
+      owner: this.activeCluster.owner,
+      operatorIds: this.activeCluster.operatorIds,
+    };
+  }
+
+  /** Return the step results accumulated during this scenario run. */
+  getStepResults(): Array<{ step: string; outcome: string }> {
+    return this.stepResults;
   }
 
   // --- Utilities ---
@@ -251,7 +271,18 @@ export class ScenarioContext {
 
   private async captureCurrentState(): Promise<StateSnapshot> {
     // Gather all operator IDs from the context
-    const operatorIds = [...this.actors.operators.keys()];
+    const operatorIdSet = new Set([...this.actors.operators.keys()]);
+
+    // Also include operators from the active cluster so their earnings
+    // appear in the snapshot (mainnet clusters use operator IDs that may
+    // not be in the simulation's operator pool)
+    if (this.activeCluster) {
+      for (const opId of this.activeCluster.operatorIds) {
+        operatorIdSet.add(opId);
+      }
+    }
+
+    const operatorIds = [...operatorIdSet];
 
     // Use the active cluster set by the scenario, falling back to first active
     let clusterInfo: any;

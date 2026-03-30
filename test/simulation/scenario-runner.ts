@@ -18,6 +18,14 @@ import { SeededRNG } from "./rng.ts";
 import { runPeriodicInvariants } from "./invariants.ts";
 import { generateReport, generateReportToFile } from "./report.ts";
 
+export interface ScenarioPickInfo {
+  owner: string;
+  clusterKey: string;
+  scenarioId: string;
+  outcome: string;
+  steps: Array<{ step: string; outcome: string }>;
+}
+
 export interface ScenarioRunnerConfig {
   /** Number of scenario picks to execute */
   totalPicks: number;
@@ -25,6 +33,8 @@ export interface ScenarioRunnerConfig {
   invariantEvery: number;
   /** Seed for deterministic replay */
   seed?: bigint;
+  /** Callback invoked after each scenario completes */
+  onScenarioPick?: (info: ScenarioPickInfo) => void;
 }
 
 const DEFAULT_CONFIG: ScenarioRunnerConfig = {
@@ -168,6 +178,20 @@ export class ScenarioRunner {
               scenarioId: scenario.id,
               step: "unknown",
               assertionDetail: err instanceof Error ? err.message : String(err),
+            });
+          }
+        }
+
+        // Invoke onScenarioPick callback if configured
+        if (this.config.onScenarioPick) {
+          const clusterInfo = ctx.getActiveClusterInfo();
+          if (clusterInfo) {
+            this.config.onScenarioPick({
+              owner: clusterInfo.owner,
+              clusterKey: `${clusterInfo.owner}:${clusterInfo.operatorIds.join(",")}`,
+              scenarioId: scenario.id,
+              outcome,
+              steps: ctx.getStepResults(),
             });
           }
         }
