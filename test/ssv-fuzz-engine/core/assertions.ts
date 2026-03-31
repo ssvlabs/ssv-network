@@ -1,6 +1,13 @@
 import { expect } from "chai";
 import type { FuzzContext, ClusterRecord, OperatorRecord } from "./types.ts";
-import { ETH_DEDUCTED_DIGITS, BPS_DENOMINATOR } from "../../common/constants.ts";
+import { Errors } from "../../common/errors.ts";
+import {
+  ETH_DEDUCTED_DIGITS,
+  BPS_DENOMINATOR,
+  CLUSTER_VERSION_SSV,
+  CLUSTER_VERSION_ETH,
+  DEFAULT_OPERATOR_ETH_FEE,
+} from "../../common/constants.ts";
 import { computeBurnRate, computeClusterBalance, computeClusterBalanceWithVUnits } from "./fuzz-helpers.ts";
 
 export async function getContractEthBalance(ctx: FuzzContext<any>): Promise<bigint> {
@@ -333,6 +340,108 @@ export async function assertOperatorValidatorCounts<S extends { cluster: Cluster
     const opData = await ctx.views.getOperatorById(op.id);
     expect(BigInt(opData.validatorCount)).to.equal(expectedCount);
   }
+}
+
+export async function assertLegacyVersionExclusivity<S extends {
+  cluster: ClusterRecord;
+  phase: "post-upgrade-legacy" | "migrated" | "post-migration-complete";
+}>(
+  ctx: FuzzContext<S>,
+): Promise<void> {
+  const { cluster, phase } = ctx.state;
+  const assetType = BigInt(await ctx.views.getClusterAssetType(cluster.owner.address, cluster.operatorIds));
+
+  if (phase === "post-upgrade-legacy") {
+    expect(assetType).to.equal(CLUSTER_VERSION_SSV);
+    expect(
+      BigInt(await ctx.views.getBalanceSSV(cluster.owner.address, cluster.operatorIds, cluster.cluster)),
+    ).to.be.greaterThan(0n);
+    await expect(
+      ctx.views.getBalance(cluster.owner.address, cluster.operatorIds, cluster.cluster),
+    ).to.be.revertedWithCustomError(ctx.views, Errors.INCORRECT_CLUSTER_VERSION);
+    return;
+  }
+
+  expect(assetType).to.equal(CLUSTER_VERSION_ETH);
+  await expect(
+    ctx.views.getBalanceSSV(cluster.owner.address, cluster.operatorIds, cluster.cluster),
+  ).to.be.revertedWithCustomError(ctx.views, Errors.INCORRECT_CLUSTER_VERSION);
+  expect(
+    BigInt(await ctx.views.getBalance(cluster.owner.address, cluster.operatorIds, cluster.cluster)),
+  ).to.equal(BigInt(cluster.cluster.balance));
+}
+
+export async function assertLegacyMigrationRefund<S extends {
+  phase: "post-upgrade-legacy" | "migrated" | "post-migration-complete";
+  expectedRefund?: bigint;
+  actualRefund?: bigint;
+}>(
+  ctx: FuzzContext<S>,
+): Promise<void> {
+  if (ctx.state.phase === "post-upgrade-legacy") return;
+  expect(ctx.state.expectedRefund).to.not.be.undefined;
+  expect(ctx.state.actualRefund).to.equal(ctx.state.expectedRefund);
+}
+
+export async function assertLegacyOperatorTrackingTransition<S extends {
+  cluster: ClusterRecord;
+  operators: OperatorRecord[];
+  phase: "post-upgrade-legacy" | "migrated" | "post-migration-complete";
+}>(
+  ctx: FuzzContext<S>,
+): Promise<void> {
+  const { cluster, operators, phase } = ctx.state;
+  const expectedCount = BigInt(cluster.cluster.validatorCount);
+
+  for (const op of operators) {
+    const opSSV = await ctx.views.getOperatorByIdSSV(op.id);
+    const opETH = await ctx.views.getOperatorById(op.id);
+
+    if (phase === "post-upgrade-legacy") {
+      expect(BigInt(opSSV.validatorCount)).to.equal(expectedCount);
+      expect(BigInt(opETH.validatorCount)).to.equal(0n);
+    } else {
+      expect(BigInt(opSSV.validatorCount)).to.equal(0n);
+      expect(BigInt(opETH.validatorCount)).to.equal(expectedCount);
+    }
+  }
+}
+
+export async function assertLegacyOperatorDefaults<S extends {
+  operators: OperatorRecord[];
+  phase: "post-upgrade-legacy" | "migrated" | "post-migration-complete";
+}>(
+  ctx: FuzzContext<S>,
+): Promise<void> {
+  if (ctx.state.phase === "post-upgrade-legacy") return;
+
+  for (const op of ctx.state.operators) {
+    const opETH = await ctx.views.getOperatorById(op.id);
+    expect(BigInt(opETH.fee)).to.equal(DEFAULT_OPERATOR_ETH_FEE);
+  }
+}
+
+export async function assertLegacyNetworkValidatorCountTransition<S extends {
+  cluster: ClusterRecord;
+  phase: "post-upgrade-legacy" | "migrated" | "post-migration-complete";
+}>(
+  ctx: FuzzContext<S>,
+): Promise<void> {
+  const expected = ctx.state.phase === "post-upgrade-legacy"
+    ? 0n
+    : BigInt(ctx.state.cluster.cluster.validatorCount);
+  expect(BigInt(await ctx.views.getNetworkValidatorsCount())).to.equal(expected);
+}
+
+export async function assertLegacyPostMigrationValidatorCount<S extends {
+  cluster: ClusterRecord;
+  phase: "post-upgrade-legacy" | "migrated" | "post-migration-complete";
+}>(
+  ctx: FuzzContext<S>,
+): Promise<void> {
+  if (ctx.state.phase !== "post-migration-complete") return;
+  expect(BigInt(ctx.state.cluster.cluster.validatorCount)).to.equal(3n);
+  expect(BigInt(await ctx.views.getNetworkValidatorsCount())).to.equal(3n);
 }
 
 function ebToVUnits(effectiveBalance: bigint): bigint {
