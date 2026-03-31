@@ -10,7 +10,7 @@ export { mineBlocks, getBlockNumber, mineToBlock, getTxBlock, setAccountBalance,
 export type { TrackedCluster } from "./invariants.ts";
 export { checkETHConservation, checkValidatorCountConsistency, checkCSSVSupplyConsistency, checkAccumulatorMonotonicity, checkOracleBlockMonotonicity, assertOperatorVUnits, } from "./invariants.ts";
 export { approveAndStake } from "./staking.ts";
-export { setupLegacyClusterAndUpgrade } from "./migration.ts";
+export { setupLegacyClusterAndUpgrade, setupLiquidatedLegacyClusterAndUpgrade } from "./migration.ts";
 export { defaultOperatorsFixture, defaultClustersFixture, defaultValidatorsFixture, defaultDAOFixture, defaultStakingFixture } from "./fixture-presets.ts";
 export type { TestContext } from "./context.ts";
 export { setupTestContext } from "./context.ts";
