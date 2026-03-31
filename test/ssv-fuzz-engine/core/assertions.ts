@@ -669,6 +669,45 @@ export async function assertAllOperatorsSkippedOnMigration<S extends {
   }
 }
 
+export async function assertZeroFeeOperatorsPostMigration<S extends {
+  migrationSnapshot: LegacyMigrationSnapshot;
+  cluster: ClusterRecord;
+  operators: OperatorRecord[];
+}>(
+  ctx: FuzzContext<S>,
+): Promise<void> {
+  const { migrateReceipt } = ctx.state.migrationSnapshot;
+  const expectedEthCount = BigInt(ctx.state.cluster.cluster.validatorCount);
+
+  const feeEvents: { operatorId: bigint }[] = [];
+  for (const log of migrateReceipt.logs ?? []) {
+    let parsed;
+    try {
+      parsed = ctx.network.interface.parseLog(log);
+    } catch {
+      continue;
+    }
+    if (parsed && parsed.name === Events.OPERATOR_FEE_EXECUTED) {
+      feeEvents.push({ operatorId: BigInt(parsed.args.operatorId) });
+    }
+  }
+
+  expect(feeEvents.length).to.equal(0, "No OperatorFeeExecuted events expected for zero-fee operators");
+
+  for (const op of ctx.state.operators) {
+    const opETH = await ctx.views.getOperatorById(op.id);
+    expect(opETH.isActive).to.equal(
+      true, `Zero-fee operator ${op.id} must be active after migration`,
+    );
+    expect(BigInt(opETH.validatorCount)).to.equal(
+      expectedEthCount, `Zero-fee operator ${op.id} must have ethValidatorCount == ${expectedEthCount}`,
+    );
+    expect(BigInt(opETH.fee)).to.equal(
+      0n, `Zero-fee operator ${op.id} must have ethFee == 0`,
+    );
+  }
+}
+
 export async function assertLegacyReactivationOnMigration<S extends { migrationSnapshot: LegacyMigrationSnapshot; cluster: ClusterRecord }>(
   ctx: FuzzContext<S>,
 ): Promise<void> {
