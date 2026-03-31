@@ -23,6 +23,7 @@ import {
   EMPTY_CLUSTER,
   TOKEN_REGISTER_AMOUNT,
   MINIMUM_BLOCKS_BEFORE_LIQUIDATION,
+  MINIMUM_LIQUIDATION_PERIOD_COLLATERAL,
   BPS_DENOMINATOR,
 } from "../../common/constants.ts";
 import { Errors } from "../../common/errors.ts";
@@ -373,6 +374,96 @@ describe("Migration Edge Cases", () => {
           { value: DEFAULT_ETH_REGISTER_VALUE },
         ),
       ).to.be.revertedWithCustomError(newNetwork, Errors.INVALID_OPERATOR_IDS_LENGTH);
+    });
+  });
+
+  describe("Migration of Cluster Where All Operators Were Removed", () => {
+    const deployLegacyClusterWithAllOperatorsRemovedFixture = async () =>
+      setupLegacyClusterAndUpgradeWithOptions(connection, clusterOwnerB, clusterOwner, {
+        preUpgradeBlocks: 50n,
+        removedOperatorIndices: [0, 1, 2, 3],
+      });
+
+    it("CAT-1-4 migrates a legacy cluster with all operators removed and burns only the network fee", async function () {
+      const {
+        newNetwork,
+        newViews,
+        ssvToken,
+        operatorIds,
+        cluster,
+        removedOperatorIds,
+      } = await networkHelpers.loadFixture(deployLegacyClusterWithAllOperatorsRemovedFixture);
+      const provider = connection.ethers.provider;
+
+      expect(await newViews.getClusterAssetType(clusterOwner.address, operatorIds)).to.equal(CLUSTER_VERSION_SSV);
+      expect(cluster.active).to.equal(true);
+      expect(BigInt(cluster.validatorCount)).to.equal(1n);
+      expect(BigInt(await newViews.getNetworkValidatorsCount())).to.equal(0n);
+
+      for (const operatorId of removedOperatorIds) {
+        const opSSV = await newViews.getOperatorByIdSSV(operatorId);
+        const opETH = await newViews.getOperatorById(operatorId);
+        expect(BigInt(opSSV.validatorCount)).to.equal(0n);
+        expect(BigInt(opETH.validatorCount)).to.equal(0n);
+        expect(BigInt(opETH.fee)).to.equal(0n);
+        expect(BigInt(await newViews.getOperatorEarnings(operatorId))).to.equal(0n);
+      }
+
+      const ssvBalanceBefore = await newViews.getBalanceSSV(clusterOwner.address, operatorIds, cluster);
+      const burnRateSSV = await newViews.getBurnRateSSV(clusterOwner.address, operatorIds, cluster);
+      const ownerSSVBefore = await ssvToken.balanceOf(clusterOwner.address);
+
+      const migrateTx = await newNetwork.connect(clusterOwner).migrateClusterToETH(
+        operatorIds,
+        cluster,
+        { value: MINIMUM_LIQUIDATION_PERIOD_COLLATERAL },
+      );
+      const migrateReceipt = await migrateTx.wait();
+      await expect(migrateTx).to.emit(newNetwork, Events.CLUSTER_MIGRATED_TO_ETH);
+
+      const migratedCluster = parseClusterFromEvent(newNetwork, migrateReceipt, Events.CLUSTER_MIGRATED_TO_ETH);
+      const migrateEventArgs = extractEventArgs(newNetwork, migrateReceipt, Events.CLUSTER_MIGRATED_TO_ETH);
+      const ownerSSVAfter = await ssvToken.balanceOf(clusterOwner.address);
+      const expectedRefund = ssvBalanceBefore - burnRateSSV;
+
+      expect(ownerSSVAfter - ownerSSVBefore).to.equal(expectedRefund);
+      expect(BigInt(migrateEventArgs.ssvRefunded)).to.equal(expectedRefund);
+      expect(BigInt(migrateEventArgs.ethDeposited)).to.equal(MINIMUM_LIQUIDATION_PERIOD_COLLATERAL);
+      expect(await newViews.getClusterAssetType(clusterOwner.address, operatorIds)).to.equal(CLUSTER_VERSION_ETH);
+      await expect(
+        newViews.getBalanceSSV(clusterOwner.address, operatorIds, migratedCluster),
+      ).to.be.revertedWithCustomError(newViews, Errors.INCORRECT_CLUSTER_VERSION);
+      expect(await newViews.getBalance(clusterOwner.address, operatorIds, migratedCluster)).to.equal(
+        MINIMUM_LIQUIDATION_PERIOD_COLLATERAL,
+      );
+      expect(migratedCluster.active).to.equal(true);
+      expect(BigInt(migratedCluster.validatorCount)).to.equal(1n);
+      expect(BigInt(await newViews.getNetworkValidatorsCount())).to.equal(1n);
+      expect(
+        await newViews.getBurnRate(clusterOwner.address, operatorIds, migratedCluster),
+      ).to.equal(NETWORK_FEE_ETH);
+
+      for (const operatorId of removedOperatorIds) {
+        const opSSV = await newViews.getOperatorByIdSSV(operatorId);
+        const opETH = await newViews.getOperatorById(operatorId);
+        expect(BigInt(opSSV.validatorCount)).to.equal(0n);
+        expect(BigInt(opETH.validatorCount)).to.equal(0n);
+        expect(BigInt(opETH.fee)).to.equal(0n);
+        expect(BigInt(await newViews.getOperatorEarnings(operatorId))).to.equal(0n);
+      }
+
+      await mineBlocks(provider, 1000);
+
+      expect(
+        await newViews.getBurnRate(clusterOwner.address, operatorIds, migratedCluster),
+      ).to.equal(NETWORK_FEE_ETH);
+      expect(
+        await newViews.getBalance(clusterOwner.address, operatorIds, migratedCluster),
+      ).to.equal(MINIMUM_LIQUIDATION_PERIOD_COLLATERAL - NETWORK_FEE_ETH * 1000n);
+      for (const operatorId of removedOperatorIds) {
+        expect(BigInt(await newViews.getOperatorEarnings(operatorId))).to.equal(0n);
+      }
+      expect(BigInt(await newViews.getNetworkEarnings())).to.equal(NETWORK_FEE_ETH * 1000n);
     });
   });
 

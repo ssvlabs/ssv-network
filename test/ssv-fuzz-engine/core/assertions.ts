@@ -328,6 +328,23 @@ export async function assertRemovedOperatorEarningsFrozen<S extends { removedOpe
   ctx.state.lastRemovedOperatorEarnings = current;
 }
 
+export async function assertRemovedOperatorsEarningsFrozen<S extends { removedOperators: OperatorRecord[]; lastRemovedOperatorsEarnings?: Map<number, bigint> }>(
+  ctx: FuzzContext<S>,
+): Promise<void> {
+  const currentEarnings = new Map<number, bigint>();
+  for (const op of ctx.state.removedOperators) {
+    currentEarnings.set(op.id, BigInt(await ctx.views.getOperatorEarnings(op.id)));
+  }
+
+  if (ctx.state.lastRemovedOperatorsEarnings !== undefined) {
+    for (const op of ctx.state.removedOperators) {
+      expect(currentEarnings.get(op.id)).to.equal(ctx.state.lastRemovedOperatorsEarnings.get(op.id) ?? 0n);
+    }
+  }
+
+  ctx.state.lastRemovedOperatorsEarnings = currentEarnings;
+}
+
 export interface RemovedOperatorClusterStateExpectations {
   clusterVersion: bigint;
   networkValidatorCount: bigint;
@@ -448,6 +465,101 @@ export async function assertRemovedOperatorRegistrationBlockedAfterMigration<S e
   ).to.be.revertedWithCustomError(ctx.network, Errors.INVALID_OPERATOR_IDS_LENGTH);
 
   ctx.state.checkedRegistrationBlocked = true;
+}
+
+export interface AllRemovedClusterStateExpectations {
+  clusterVersion: bigint;
+  networkValidatorCount: bigint;
+  clusterActive: boolean;
+  clusterValidatorCount: bigint;
+  clusterBalance: bigint;
+  operatorSSVValidatorCount: bigint;
+  operatorETHValidatorCount: bigint;
+  operatorETHFee: bigint;
+  expectSSVBalanceRevert?: boolean;
+  expectLiveBalanceEqualClusterBalance?: boolean;
+}
+
+export async function assertAllRemovedClusterState<S extends { cluster: ClusterRecord; removedOperators: OperatorRecord[] }>(
+  ctx: FuzzContext<S>,
+  expectations: AllRemovedClusterStateExpectations,
+): Promise<void> {
+  const { cluster, removedOperators } = ctx.state;
+  expect(await ctx.views.getClusterAssetType(cluster.owner.address, cluster.operatorIds)).to.equal(expectations.clusterVersion);
+  expect(cluster.cluster.active).to.equal(expectations.clusterActive);
+  expect(BigInt(cluster.cluster.validatorCount)).to.equal(expectations.clusterValidatorCount);
+  expect(BigInt(cluster.cluster.balance)).to.equal(expectations.clusterBalance);
+  expect(await ctx.views.getNetworkValidatorsCount()).to.equal(expectations.networkValidatorCount);
+
+  if (expectations.expectLiveBalanceEqualClusterBalance) {
+    expect(
+      await ctx.views.getBalance(cluster.owner.address, cluster.operatorIds, cluster.cluster),
+    ).to.equal(expectations.clusterBalance);
+  }
+
+  if (expectations.expectSSVBalanceRevert) {
+    await expect(
+      ctx.views.getBalanceSSV(cluster.owner.address, cluster.operatorIds, cluster.cluster),
+    ).to.be.revertedWithCustomError(ctx.views, Errors.INCORRECT_CLUSTER_VERSION);
+  }
+
+  for (const op of removedOperators) {
+    const opSSV = await ctx.views.getOperatorByIdSSV(op.id);
+    const opETH = await ctx.views.getOperatorById(op.id);
+    expect(BigInt(opSSV.validatorCount)).to.equal(expectations.operatorSSVValidatorCount);
+    expect(BigInt(opETH.validatorCount)).to.equal(expectations.operatorETHValidatorCount);
+    expect(BigInt(opETH.fee)).to.equal(expectations.operatorETHFee);
+  }
+}
+
+export async function assertPreMigrationAllRemovedLegacyClusterState<S extends { cluster: ClusterRecord; removedOperators: OperatorRecord[] }>(
+  ctx: FuzzContext<S>,
+): Promise<void> {
+  await assertAllRemovedClusterState(ctx, {
+    clusterVersion: CLUSTER_VERSION_SSV,
+    networkValidatorCount: 0n,
+    clusterActive: true,
+    clusterValidatorCount: BigInt(ctx.state.cluster.cluster.validatorCount),
+    clusterBalance: BigInt(ctx.state.cluster.cluster.balance),
+    operatorSSVValidatorCount: 0n,
+    operatorETHValidatorCount: 0n,
+    operatorETHFee: 0n,
+    expectLiveBalanceEqualClusterBalance: false,
+  });
+}
+
+export async function assertMigratedAllRemovedClusterState<S extends { cluster: ClusterRecord; removedOperators: OperatorRecord[] }>(
+  ctx: FuzzContext<S>,
+): Promise<void> {
+  await assertAllRemovedClusterState(ctx, {
+    clusterVersion: CLUSTER_VERSION_ETH,
+    networkValidatorCount: BigInt(ctx.state.cluster.cluster.validatorCount),
+    clusterActive: true,
+    clusterValidatorCount: BigInt(ctx.state.cluster.cluster.validatorCount),
+    clusterBalance: BigInt(ctx.state.cluster.cluster.balance),
+    operatorSSVValidatorCount: 0n,
+    operatorETHValidatorCount: 0n,
+    operatorETHFee: 0n,
+    expectSSVBalanceRevert: true,
+    expectLiveBalanceEqualClusterBalance: true,
+  });
+}
+
+export async function assertPostMigrationAllRemovedClusterState<S extends { cluster: ClusterRecord; removedOperators: OperatorRecord[] }>(
+  ctx: FuzzContext<S>,
+): Promise<void> {
+  await assertAllRemovedClusterState(ctx, {
+    clusterVersion: CLUSTER_VERSION_ETH,
+    networkValidatorCount: BigInt(ctx.state.cluster.cluster.validatorCount),
+    clusterActive: true,
+    clusterValidatorCount: BigInt(ctx.state.cluster.cluster.validatorCount),
+    clusterBalance: BigInt(ctx.state.cluster.cluster.balance),
+    operatorSSVValidatorCount: 0n,
+    operatorETHValidatorCount: 0n,
+    operatorETHFee: 0n,
+    expectSSVBalanceRevert: true,
+    expectLiveBalanceEqualClusterBalance: false,
+  });
 }
 
 export async function assertNetworkValidatorCount<S extends { cluster: ClusterRecord }>(
