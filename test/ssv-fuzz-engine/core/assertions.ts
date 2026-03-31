@@ -565,6 +565,28 @@ export async function assertLegacyOperatorDualTracking<S extends { cluster: Clus
   }
 }
 
+export async function assertLegacyReactivationOnMigration<S extends { migrationSnapshot: LegacyMigrationSnapshot; cluster: ClusterRecord }>(
+  ctx: FuzzContext<S>,
+): Promise<void> {
+  const { migrateReceipt } = ctx.state.migrationSnapshot;
+
+  let foundReactivation = false;
+  for (const log of migrateReceipt.logs ?? []) {
+    let parsed;
+    try {
+      parsed = ctx.network.interface.parseLog(log);
+    } catch {
+      continue;
+    }
+    if (parsed && parsed.name === Events.CLUSTER_REACTIVATED) {
+      foundReactivation = true;
+      break;
+    }
+  }
+  expect(foundReactivation, "ClusterReactivated event not emitted on liquidated cluster migration").to.equal(true);
+  expect(ctx.state.cluster.cluster.active).to.equal(true);
+}
+
 export async function assertEthConservation<S extends { cluster: ClusterRecord; operators: OperatorRecord[] }>(
   ctx: FuzzContext<S>,
 ): Promise<void> {
