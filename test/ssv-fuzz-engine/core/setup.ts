@@ -3,19 +3,26 @@ import type { Cluster } from "../../common/types.ts";
 import type { FuzzContext, OperatorRecord, ClusterRecord } from "./types.ts";
 import {
   MINIMAL_OPERATOR_ETH_FEE,
+  DEFAULT_OPERATOR_ETH_FEE,
   DEFAULT_ETH_REGISTER_VALUE,
   DEFAULT_SHARES,
   EMPTY_CLUSTER,
   ETH_DEDUCTED_DIGITS,
+  DEDUCTED_DIGITS,
   STAKE_AMOUNT,
 } from "../../common/constants.ts";
 import { makePublicKey, makeOperatorKey } from "../../helpers/keys.ts";
-import { parseClusterFromEvent } from "../../helpers/cluster.ts";
+import { getCurrentClusterState, parseClusterFromEvent } from "../../helpers/cluster.ts";
 import { Events } from "../../common/events.ts";
-import { setAccountBalance } from "../../helpers/blocks.ts";
+import { setAccountBalance, mineBlocks } from "../../helpers/blocks.ts";
+import { ssvNetworkFullPreUpgradeFixture, upgradeToStakingVersion } from "../../setup/fixtures.ts";
 
 export function alignFee(raw: bigint): bigint {
   return (raw / ETH_DEDUCTED_DIGITS) * ETH_DEDUCTED_DIGITS;
+}
+
+export function alignSSVFee(raw: bigint): bigint {
+  return (raw / DEDUCTED_DIGITS) * DEDUCTED_DIGITS;
 }
 
 export async function registerFuzzOperators(
@@ -67,4 +74,93 @@ export async function registerFuzzCluster(
   const cluster = parseClusterFromEvent(ctx.network, receipt, Events.VALIDATOR_ADDED);
 
   return { cluster, operatorIds, owner: clusterOwner, validatorKeys };
+}
+
+export interface LegacyMigrationSeedConfig {
+  operatorCount: number;
+  ssvFee: bigint;
+  validatorCount: number;
+  ssvDepositPerValidator: bigint;
+  preUpgradeBlocks: number;
+}
+
+export interface LegacyMigrationSeedResult {
+  operatorIds: number[];
+  operators: OperatorRecord[];
+  ssvFee: bigint;
+  totalSsvDeposit: bigint;
+  preUpgradeCluster: Cluster;
+  validatorKeys: string[];
+  clusterOwner: HardhatEthersSigner;
+  operatorOwner: HardhatEthersSigner;
+}
+
+export async function setupLegacyMigrationSeed(
+  ctx: FuzzContext<undefined>,
+  config: LegacyMigrationSeedConfig,
+): Promise<LegacyMigrationSeedResult> {
+  const { connection } = ctx;
+  const [, operatorOwner, clusterOwner] = ctx.signers;
+
+  const { network: legacyNetwork, views: legacyViews, ssvToken } =
+    await ssvNetworkFullPreUpgradeFixture(connection);
+
+  const operatorIds: number[] = [];
+  for (let i = 0; i < config.operatorCount; i++) {
+    const key = makeOperatorKey(1000 + i);
+    const id = await legacyNetwork.connect(operatorOwner)
+      .registerOperator.staticCall(key, config.ssvFee, false);
+    await legacyNetwork.connect(operatorOwner)
+      .registerOperator(key, config.ssvFee, false);
+    operatorIds.push(Number(id));
+  }
+
+  const totalSsvDeposit = config.ssvDepositPerValidator * BigInt(config.validatorCount);
+  await ssvToken.mint(clusterOwner.address, totalSsvDeposit);
+  await ssvToken.connect(clusterOwner).approve(
+    await legacyNetwork.getAddress(), totalSsvDeposit,
+  );
+
+  const validatorKeys: string[] = [];
+  let cluster: Cluster = EMPTY_CLUSTER;
+  for (let i = 0; i < config.validatorCount; i++) {
+    const key = makePublicKey(2000 + i);
+    validatorKeys.push(key);
+    await legacyNetwork.connect(clusterOwner).registerValidator(
+      key, operatorIds, DEFAULT_SHARES, config.ssvDepositPerValidator, cluster,
+    );
+    cluster = await getCurrentClusterState(
+      connection, legacyNetwork, clusterOwner.address, operatorIds,
+    );
+  }
+
+  const preUpgradeCluster = { ...cluster };
+
+  await mineBlocks(connection.ethers.provider, config.preUpgradeBlocks);
+
+  const { cssv, newNetwork, newViews } = await upgradeToStakingVersion(
+    connection, legacyNetwork, legacyViews,
+  );
+
+  (ctx as any).network = newNetwork;
+  (ctx as any).views = newViews;
+  (ctx as any).ssvToken = ssvToken;
+  (ctx as any).cssvToken = cssv;
+
+  const operators: OperatorRecord[] = operatorIds.map(id => ({
+    id,
+    fee: DEFAULT_OPERATOR_ETH_FEE,
+    owner: operatorOwner,
+  }));
+
+  return {
+    operatorIds,
+    operators,
+    ssvFee: config.ssvFee,
+    totalSsvDeposit,
+    preUpgradeCluster,
+    validatorKeys,
+    clusterOwner,
+    operatorOwner,
+  };
 }

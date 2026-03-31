@@ -1,6 +1,8 @@
 import { expect } from "chai";
 import type { FuzzContext, ClusterRecord, OperatorRecord } from "./types.ts";
-import { ETH_DEDUCTED_DIGITS, BPS_DENOMINATOR } from "../../common/constants.ts";
+import type { LegacyMigrationSnapshot } from "./steps.ts";
+import { ETH_DEDUCTED_DIGITS, BPS_DENOMINATOR, DEFAULT_OPERATOR_ETH_FEE } from "../../common/constants.ts";
+import { Events } from "../../common/events.ts";
 import { computeBurnRate, computeClusterBalance, computeClusterBalanceWithVUnits } from "./fuzz-helpers.ts";
 
 export async function getContractEthBalance(ctx: FuzzContext<any>): Promise<bigint> {
@@ -504,4 +506,85 @@ export interface Snapshot {
   networkEarnings: bigint;
   networkFee: bigint;
   networkValidatorCount: bigint;
+}
+
+export async function assertLegacyMigrationRefund<S extends { migrationSnapshot: LegacyMigrationSnapshot }>(
+  ctx: FuzzContext<S>,
+): Promise<void> {
+  const snap = ctx.state.migrationSnapshot;
+  const expectedRefund = snap.ssvBalanceBefore - snap.ssvBurnRate;
+  expect(snap.ssvRefund).to.equal(expectedRefund);
+
+  const tokenDelta = snap.ownerSSVAfter - snap.ownerSSVBefore;
+  expect(tokenDelta).to.equal(snap.ssvRefund);
+}
+
+export async function assertLegacyEnsureETHDefaultsTransition<S extends { migrationSnapshot: LegacyMigrationSnapshot; cluster: ClusterRecord }>(
+  ctx: FuzzContext<S>,
+): Promise<void> {
+  const { migrateReceipt } = ctx.state.migrationSnapshot;
+  const { operatorIds } = ctx.state.cluster;
+
+  const feeEvents: { operatorId: bigint; fee: bigint }[] = [];
+  for (const log of migrateReceipt.logs ?? []) {
+    let parsed;
+    try {
+      parsed = ctx.network.interface.parseLog(log);
+    } catch {
+      continue;
+    }
+    if (parsed && parsed.name === Events.OPERATOR_FEE_EXECUTED) {
+      feeEvents.push({
+        operatorId: BigInt(parsed.args.operatorId),
+        fee: BigInt(parsed.args.fee),
+      });
+    }
+  }
+
+  expect(feeEvents.length).to.equal(operatorIds.length);
+
+  for (const opId of operatorIds) {
+    const ev = feeEvents.find(e => e.operatorId === BigInt(opId));
+    expect(ev, `OperatorFeeExecuted missing for operator ${opId}`).to.not.be.undefined;
+    expect(ev!.fee).to.equal(BigInt(DEFAULT_OPERATOR_ETH_FEE));
+  }
+}
+
+export async function assertLegacyOperatorDualTracking<S extends { cluster: ClusterRecord; operators: OperatorRecord[] }>(
+  ctx: FuzzContext<S>,
+): Promise<void> {
+  const { cluster, operators } = ctx.state;
+  const expectedEthCount = BigInt(cluster.cluster.validatorCount);
+
+  for (const op of operators) {
+    const opSSV = await ctx.views.getOperatorByIdSSV(op.id);
+    expect(BigInt(opSSV.validatorCount)).to.equal(0n);
+
+    const opETH = await ctx.views.getOperatorById(op.id);
+    expect(BigInt(opETH.validatorCount)).to.equal(expectedEthCount);
+  }
+}
+
+export async function assertEthConservation<S extends { cluster: ClusterRecord; operators: OperatorRecord[] }>(
+  ctx: FuzzContext<S>,
+): Promise<void> {
+  const { cluster, operators } = ctx.state;
+
+  if (!cluster.cluster.active || BigInt(cluster.cluster.validatorCount) === 0n) return;
+
+  const clusterBalance = BigInt(
+    await ctx.views.getBalance(cluster.owner.address, cluster.operatorIds, cluster.cluster),
+  );
+
+  let totalOperatorEarnings = 0n;
+  for (const op of operators) {
+    totalOperatorEarnings += BigInt(await ctx.views.getOperatorEarnings(op.id));
+  }
+
+  const networkEarnings = BigInt(await ctx.views.getNetworkEarnings());
+
+  const contractAddress = await ctx.network.getAddress();
+  const contractBalance = BigInt(await ctx.provider.getBalance(contractAddress));
+
+  expect(clusterBalance + totalOperatorEarnings + networkEarnings).to.equal(contractBalance);
 }
