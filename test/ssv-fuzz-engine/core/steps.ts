@@ -11,6 +11,7 @@ import {
   BPS_DENOMINATOR,
   DEFAULT_SHARES,
   DEFAULT_ETH_REGISTER_VALUE,
+  DEFAULT_OPERATOR_ETH_FEE,
   SMALL_ETH_REGISTER_VALUE,
 } from "../../common/constants.ts";
 import {
@@ -368,11 +369,13 @@ export function assertRemovedValidatorReRegisterBlocked<S extends {
 
 export function migrateLegacyCluster<S extends {
   cluster: ClusterRecord;
-  phase: "post-upgrade-legacy" | "migrated" | "post-migration-complete";
+  phase: string;
   ssvToken: any;
   migrationEthDeposit: bigint;
   expectedRefund?: bigint;
   actualRefund?: bigint;
+  migrationBlockNumber?: bigint;
+  defaultFeeExecutedEvents?: Map<number, { owner: string; blockNumber: bigint; fee: bigint }>;
 }>(): StepFn<S> {
   return async function migrateLegacyCluster(ctx: FuzzContext<S>): Promise<void> {
     const { cluster, phase, ssvToken, migrationEthDeposit } = ctx.state;
@@ -397,6 +400,28 @@ export function migrateLegacyCluster<S extends {
       .migrateClusterToETH(cluster.operatorIds, cluster.cluster, { value: migrationEthDeposit });
     const receipt = await tx.wait();
     cluster.cluster = parseClusterFromEvent(ctx.network, receipt, Events.CLUSTER_MIGRATED_TO_ETH);
+    ctx.state.migrationBlockNumber = BigInt(receipt!.blockNumber);
+
+    const defaultFeeExecutedEvents = new Map<number, { owner: string; blockNumber: bigint; fee: bigint }>();
+    for (const log of receipt?.logs ?? []) {
+      let parsed;
+      try {
+        parsed = ctx.network.interface.parseLog(log);
+      } catch {
+        continue;
+      }
+      if (parsed?.name !== Events.OPERATOR_FEE_EXECUTED) continue;
+
+      const owner = String(parsed.args[0]);
+      const operatorId = Number(parsed.args[1]);
+      const blockNumber = BigInt(parsed.args[2]);
+      const fee = BigInt(parsed.args[3]);
+
+      if (fee === DEFAULT_OPERATOR_ETH_FEE) {
+        defaultFeeExecutedEvents.set(operatorId, { owner, blockNumber, fee });
+      }
+    }
+    ctx.state.defaultFeeExecutedEvents = defaultFeeExecutedEvents;
 
     const ownerSSVAfter = BigInt(await ssvToken.balanceOf(cluster.owner.address));
     ctx.state.expectedRefund = ssvBalanceBefore - burnRate;
@@ -405,9 +430,106 @@ export function migrateLegacyCluster<S extends {
   };
 }
 
+export function advanceLegacyPostMigrationWindow<S extends {
+  phase: string;
+  postMigrationBlocks: bigint;
+}>(): StepFn<S> {
+  return async function advanceLegacyPostMigrationWindow(ctx: FuzzContext<S>): Promise<void> {
+    if (ctx.state.phase !== "migrated") return;
+    await mineBlocks(ctx.provider, Number(ctx.state.postMigrationBlocks));
+    ctx.state.phase = "post-migration-accrued";
+  };
+}
+
+export function registerRemovedLegacyValidatorPostMigration<S extends {
+  cluster: ClusterRecord;
+  phase: string;
+  removedValidatorKey?: string;
+  tracker: DepositWithdrawTracker;
+}>(
+  registerDeposit: bigint = DEFAULT_ETH_REGISTER_VALUE,
+): StepFn<S> {
+  return async function registerRemovedLegacyValidatorPostMigration(ctx: FuzzContext<S>): Promise<void> {
+    const { cluster, phase, removedValidatorKey, tracker } = ctx.state;
+    if (phase !== "post-migration-accrued") return;
+    if (removedValidatorKey === undefined) {
+      throw new Error("Legacy migration flow expected a removed validator key before post-migration register");
+    }
+
+    await setAccountBalance(
+      ctx.provider,
+      cluster.owner.address,
+      registerDeposit + 10n ** 18n,
+    );
+
+    const registerTx = await ctx.network
+      .connect(cluster.owner)
+      .registerValidator(
+        removedValidatorKey,
+        cluster.operatorIds,
+        DEFAULT_SHARES,
+        cluster.cluster,
+        { value: registerDeposit },
+      );
+    const registerReceipt = await registerTx.wait();
+    cluster.cluster = parseClusterFromEvent(ctx.network, registerReceipt, Events.VALIDATOR_ADDED);
+    cluster.validatorKeys.push(removedValidatorKey);
+    tracker.totalDeposited += registerDeposit;
+    ctx.state.phase = "post-migration-registered";
+  };
+}
+
+export function depositToLegacyMigratedCluster<S extends {
+  cluster: ClusterRecord;
+  phase: string;
+  tracker: DepositWithdrawTracker;
+}>(
+  depositAmount: bigint = SMALL_ETH_REGISTER_VALUE,
+): StepFn<S> {
+  return async function depositToLegacyMigratedCluster(ctx: FuzzContext<S>): Promise<void> {
+    const { cluster, phase, tracker } = ctx.state;
+    if (phase !== "post-migration-registered") return;
+
+    await setAccountBalance(
+      ctx.provider,
+      cluster.owner.address,
+      depositAmount + 10n ** 18n,
+    );
+
+    const depositTx = await ctx.network
+      .connect(cluster.owner)
+      .deposit(cluster.owner.address, cluster.operatorIds, cluster.cluster, { value: depositAmount });
+    const depositReceipt = await depositTx.wait();
+    cluster.cluster = parseClusterFromEvent(ctx.network, depositReceipt, Events.CLUSTER_DEPOSITED);
+    tracker.totalDeposited += depositAmount;
+    ctx.state.phase = "post-migration-deposited";
+  };
+}
+
+export function withdrawFromLegacyMigratedCluster<S extends {
+  cluster: ClusterRecord;
+  phase: string;
+  tracker: DepositWithdrawTracker;
+}>(
+  withdrawAmount: bigint = 5n * 10n ** 17n,
+): StepFn<S> {
+  return async function withdrawFromLegacyMigratedCluster(ctx: FuzzContext<S>): Promise<void> {
+    const { cluster, phase, tracker } = ctx.state;
+    if (phase !== "post-migration-deposited") return;
+
+    const withdrawTx = await ctx.network
+      .connect(cluster.owner)
+      .withdraw(cluster.operatorIds, withdrawAmount, cluster.cluster);
+    const withdrawReceipt = await withdrawTx.wait();
+    cluster.cluster = parseClusterFromEvent(ctx.network, withdrawReceipt, Events.CLUSTER_WITHDRAWN);
+    tracker.totalWithdrawn += withdrawAmount;
+    ctx.state.phase = "post-migration-complete";
+  };
+}
+
 export function runPostMigrationEthLifecycle<S extends {
   cluster: ClusterRecord;
-  phase: "post-upgrade-legacy" | "migrated" | "post-migration-complete";
+  phase: string;
   removedValidatorKey?: string;
   postMigrationBlocks: bigint;
   tracker: DepositWithdrawTracker;

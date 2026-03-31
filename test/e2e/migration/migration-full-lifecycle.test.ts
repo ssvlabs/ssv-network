@@ -19,11 +19,21 @@ import {
   CLUSTER_VERSION_SSV,
   DEFAULT_OPERATOR_ETH_FEE,
   EMPTY_CLUSTER,
+  ETH_DEDUCTED_DIGITS,
   TOKEN_REGISTER_AMOUNT,
 } from "../../common/constants.ts";
 import { Events } from "../../common/events.ts";
 import { Errors } from "../../common/errors.ts";
-import { mineBlocks, registerOperatorsSSV, whitelistAddresses } from "../../helpers/index.ts";
+import {
+  mineBlocks,
+  registerOperatorsSSV,
+  whitelistAddresses,
+  calcClusterBurn,
+  calcOperatorFeeAccrual,
+  calcNetworkFeeAccrual,
+  defaultVUnits,
+  snapshotContractBalance,
+} from "../../helpers/index.ts";
 import { makeOperatorKey } from "../../helpers/index.ts";
 import { ethers } from "ethers";
 
@@ -224,14 +234,31 @@ describe("Full End-to-End — SSV Cluster Creation -> Fee Accrual -> Migration -
       const { network, views, ssvToken, operatorIds, cluster, validatorKeys, totalSsvDeposit } =
         await networkHelpers.loadFixture(deployCat11Fixture);
       const provider = connection.ethers.provider;
+      const networkAddress = await network.getAddress();
+      const operatorFeePacked = DEFAULT_OPERATOR_ETH_FEE / ETH_DEDUCTED_DIGITS;
+      const networkFeePacked = BigInt(await views.getNetworkFee()) / ETH_DEDUCTED_DIGITS;
 
       expect(await views.getClusterAssetType(clusterOwner.address, operatorIds)).to.equal(CLUSTER_VERSION_SSV);
-
-      const preMigrationBalance = await views.getBalanceSSV(
+      const postUpgradeBalanceSSV = BigInt(await views.getBalanceSSV(
         clusterOwner.address, operatorIds, cluster,
-      );
-      expect(preMigrationBalance).to.be.greaterThan(0n);
-      expect(preMigrationBalance).to.be.lessThan(totalSsvDeposit);
+      ));
+      const postUpgradeBurnRateSSV = BigInt(await views.getBurnRateSSV(
+        clusterOwner.address, operatorIds, cluster,
+      ));
+      const postUpgradeNetworkValidatorCount = BigInt(await views.getNetworkValidatorsCount());
+      const postUpgradeNetworkFee = BigInt(await views.getNetworkFee());
+      const postUpgradeLiquidationThreshold = BigInt(await views.getLiquidationThresholdPeriod());
+      const preMigrationEthFees = new Map<number, bigint>();
+
+      expect(postUpgradeNetworkValidatorCount).to.equal(0n);
+      for (const opId of operatorIds) {
+        const opSSV = await views.getOperatorByIdSSV(opId);
+        const opETH = await views.getOperatorById(opId);
+        expect(opSSV.validatorCount).to.equal(3);
+        expect(opETH.validatorCount).to.equal(0);
+        expect(BigInt(opETH.fee)).to.equal(DEFAULT_OPERATOR_ETH_FEE);
+        preMigrationEthFees.set(opId, BigInt(opETH.fee));
+      }
 
       await expect(
         network.connect(clusterOwner).registerValidator(
@@ -255,6 +282,23 @@ describe("Full End-to-End — SSV Cluster Creation -> Fee Accrual -> Migration -
       await expect(
         network.connect(clusterOwner).withdraw(operatorIds, SMALL_ETH_REGISTER_VALUE, cluster),
       ).to.be.revertedWithCustomError(network, Errors.INCORRECT_CLUSTER_VERSION);
+
+      expect(
+        BigInt(await views.getBalanceSSV(clusterOwner.address, operatorIds, cluster)),
+      ).to.equal(postUpgradeBalanceSSV);
+      expect(
+        BigInt(await views.getBurnRateSSV(clusterOwner.address, operatorIds, cluster)),
+      ).to.equal(postUpgradeBurnRateSSV);
+      expect(BigInt(await views.getNetworkValidatorsCount())).to.equal(postUpgradeNetworkValidatorCount);
+      expect(BigInt(await views.getNetworkFee())).to.equal(postUpgradeNetworkFee);
+      expect(BigInt(await views.getLiquidationThresholdPeriod())).to.equal(postUpgradeLiquidationThreshold);
+      for (const opId of operatorIds) {
+        const opSSV = await views.getOperatorByIdSSV(opId);
+        const opETH = await views.getOperatorById(opId);
+        expect(opSSV.validatorCount).to.equal(3);
+        expect(opETH.validatorCount).to.equal(0);
+        expect(BigInt(opETH.fee)).to.equal(preMigrationEthFees.get(opId));
+      }
 
       const removeTx = await network.connect(clusterOwner).removeValidator(
         validatorKeys[0], operatorIds, cluster,
@@ -300,20 +344,54 @@ describe("Full End-to-End — SSV Cluster Creation -> Fee Accrual -> Migration -
       const migratedCluster = parseClusterFromEvent(
         network, migrateReceipt, Events.CLUSTER_MIGRATED_TO_ETH,
       );
+      const feeExecutedEvents = migrateReceipt?.logs
+        .map(log => {
+          try {
+            return network.interface.parseLog(log);
+          } catch {
+            return null;
+          }
+        })
+        .filter(parsed => parsed?.name === Events.OPERATOR_FEE_EXECUTED);
       const ownerSSVAfter = await ssvToken.balanceOf(clusterOwner.address);
       const actualRefund = ownerSSVAfter - ownerSSVBefore;
       const expectedRefund = ssvBalanceBefore - ssvBurnRate;
 
       expect(actualRefund).to.equal(migrateEventArgs.ssvRefunded);
       expect(actualRefund).to.equal(expectedRefund);
+      const totalSsvFees = totalSsvDeposit - actualRefund;
+      expect(totalSsvFees % DEDUCTED_DIGITS).to.equal(0n);
+      expect(actualRefund + totalSsvFees).to.equal(totalSsvDeposit);
       expect(BigInt(migrateEventArgs.ethDeposited)).to.equal(DEFAULT_ETH_REGISTER_VALUE);
+      expect(feeExecutedEvents).to.have.length(operatorIds.length);
+      for (const opId of operatorIds) {
+        const feeExecuted = feeExecutedEvents.find(parsed => BigInt(parsed!.args[1]) === BigInt(opId));
+        expect(feeExecuted).to.not.be.undefined;
+        expect(String(feeExecuted!.args[0]).toLowerCase()).to.equal(operatorOwner.address.toLowerCase());
+        expect(BigInt(feeExecuted!.args[2])).to.equal(BigInt(migrateReceipt!.blockNumber));
+        expect(BigInt(feeExecuted!.args[3])).to.equal(DEFAULT_OPERATOR_ETH_FEE);
+      }
       expect(await views.getClusterAssetType(clusterOwner.address, operatorIds)).to.equal(CLUSTER_VERSION_ETH);
       await expect(
         views.getBalanceSSV(clusterOwner.address, operatorIds, migratedCluster),
       ).to.be.revertedWithCustomError(views, Errors.INCORRECT_CLUSTER_VERSION);
-      expect(await views.getBalance(clusterOwner.address, operatorIds, migratedCluster)).to.equal(DEFAULT_ETH_REGISTER_VALUE);
+      expect(BigInt(await views.getBalance(clusterOwner.address, operatorIds, migratedCluster))).to.equal(DEFAULT_ETH_REGISTER_VALUE);
       expect(migratedCluster.active).to.equal(true);
       expect(migratedCluster.validatorCount).to.equal(2n);
+      expect(await snapshotContractBalance(provider, networkAddress)).to.equal(DEFAULT_ETH_REGISTER_VALUE);
+
+      const postMigrationVUnits = defaultVUnits(2n);
+      const expectedPostMigrationBurnRate = calcClusterBurn({
+        blockDiff: 1n,
+        numOperators: 4n,
+        ethFee: operatorFeePacked,
+        networkFee: networkFeePacked,
+        effectiveVUnits: postMigrationVUnits,
+      });
+      expect(
+        BigInt(await views.getBurnRate(clusterOwner.address, operatorIds, migratedCluster)),
+      ).to.equal(expectedPostMigrationBurnRate);
+      expect(BigInt(await views.getNetworkEarnings())).to.equal(0n);
 
       for (const opId of operatorIds) {
         const opSSV = await views.getOperatorByIdSSV(opId);
@@ -321,11 +399,36 @@ describe("Full End-to-End — SSV Cluster Creation -> Fee Accrual -> Migration -
         expect(opSSV.validatorCount).to.equal(0);
         expect(opETH.validatorCount).to.equal(2);
         expect(BigInt(opETH.fee)).to.equal(DEFAULT_OPERATOR_ETH_FEE);
+        expect(BigInt(await views.getOperatorEarnings(opId))).to.equal(0n);
       }
 
       expect(await views.getNetworkValidatorsCount()).to.equal(2);
 
       await mineBlocks(provider, 50);
+
+      const expectedBalanceAfterAccrual = DEFAULT_ETH_REGISTER_VALUE - calcClusterBurn({
+        blockDiff: 50n,
+        numOperators: 4n,
+        ethFee: operatorFeePacked,
+        networkFee: networkFeePacked,
+        effectiveVUnits: postMigrationVUnits,
+      });
+      const expectedPerOperatorEarningsAfterAccrual =
+        calcOperatorFeeAccrual(50n, operatorFeePacked, postMigrationVUnits) * ETH_DEDUCTED_DIGITS;
+      const expectedNetworkEarningsAfterAccrual =
+        calcNetworkFeeAccrual(50n * networkFeePacked, postMigrationVUnits);
+
+      expect(
+        BigInt(await views.getBalance(clusterOwner.address, operatorIds, migratedCluster)),
+      ).to.equal(expectedBalanceAfterAccrual);
+      for (const opId of operatorIds) {
+        expect(BigInt(await views.getOperatorEarnings(opId))).to.equal(expectedPerOperatorEarningsAfterAccrual);
+      }
+      expect(BigInt(await views.getNetworkEarnings())).to.equal(expectedNetworkEarningsAfterAccrual);
+      expect(await snapshotContractBalance(provider, networkAddress)).to.equal(DEFAULT_ETH_REGISTER_VALUE);
+      expect(
+        expectedBalanceAfterAccrual + expectedPerOperatorEarningsAfterAccrual * 4n + expectedNetworkEarningsAfterAccrual,
+      ).to.equal(DEFAULT_ETH_REGISTER_VALUE);
 
       const registerTx = await network.connect(clusterOwner).registerValidator(
         validatorKeys[0],
@@ -338,11 +441,22 @@ describe("Full End-to-End — SSV Cluster Creation -> Fee Accrual -> Migration -
       const clusterAfterRegister = parseClusterFromEvent(
         network, registerReceipt, Events.VALIDATOR_ADDED,
       );
+      const contractBalanceAfterRegister = await snapshotContractBalance(provider, networkAddress);
       expect(clusterAfterRegister.validatorCount).to.equal(3n);
       expect(await views.getClusterAssetType(clusterOwner.address, operatorIds)).to.equal(CLUSTER_VERSION_ETH);
+      expect(contractBalanceAfterRegister).to.equal(DEFAULT_ETH_REGISTER_VALUE * 2n);
       await expect(
         views.getBalanceSSV(clusterOwner.address, operatorIds, clusterAfterRegister),
       ).to.be.revertedWithCustomError(views, Errors.INCORRECT_CLUSTER_VERSION);
+      expect(
+        BigInt(await views.getBurnRate(clusterOwner.address, operatorIds, clusterAfterRegister)),
+      ).to.equal(calcClusterBurn({
+        blockDiff: 1n,
+        numOperators: 4n,
+        ethFee: operatorFeePacked,
+        networkFee: networkFeePacked,
+        effectiveVUnits: defaultVUnits(3n),
+      }));
 
       for (const opId of operatorIds) {
         const opSSV = await views.getOperatorByIdSSV(opId);
@@ -363,8 +477,19 @@ describe("Full End-to-End — SSV Cluster Creation -> Fee Accrual -> Migration -
       const clusterAfterDeposit = parseClusterFromEvent(
         network, depositReceipt, Events.CLUSTER_DEPOSITED,
       );
+      const contractBalanceAfterDeposit = await snapshotContractBalance(provider, networkAddress);
       expect(clusterAfterDeposit.active).to.equal(true);
       expect(clusterAfterDeposit.validatorCount).to.equal(3n);
+      expect(contractBalanceAfterDeposit).to.equal(DEFAULT_ETH_REGISTER_VALUE * 2n + SMALL_ETH_REGISTER_VALUE);
+      expect(
+        BigInt(await views.getBurnRate(clusterOwner.address, operatorIds, clusterAfterDeposit)),
+      ).to.equal(calcClusterBurn({
+        blockDiff: 1n,
+        numOperators: 4n,
+        ethFee: operatorFeePacked,
+        networkFee: networkFeePacked,
+        effectiveVUnits: defaultVUnits(3n),
+      }));
 
       const partialWithdrawAmount = ethers.parseEther("0.5");
       const withdrawTx = await network.connect(clusterOwner).withdraw(
@@ -376,26 +501,43 @@ describe("Full End-to-End — SSV Cluster Creation -> Fee Accrual -> Migration -
       const clusterAfterWithdraw = parseClusterFromEvent(
         network, withdrawReceipt, Events.CLUSTER_WITHDRAWN,
       );
+      const contractBalanceAfterWithdraw = await snapshotContractBalance(provider, networkAddress);
 
       expect(await views.getClusterAssetType(clusterOwner.address, operatorIds)).to.equal(CLUSTER_VERSION_ETH);
       await expect(
         views.getBalanceSSV(clusterOwner.address, operatorIds, clusterAfterWithdraw),
       ).to.be.revertedWithCustomError(views, Errors.INCORRECT_CLUSTER_VERSION);
-      expect(await views.getBalance(clusterOwner.address, operatorIds, clusterAfterWithdraw)).to.equal(clusterAfterWithdraw.balance);
+      expect(BigInt(await views.getBalance(clusterOwner.address, operatorIds, clusterAfterWithdraw))).to.equal(clusterAfterWithdraw.balance);
       expect(clusterAfterWithdraw.active).to.equal(true);
       expect(clusterAfterWithdraw.validatorCount).to.equal(3n);
+      expect(contractBalanceAfterWithdraw).to.equal(
+        DEFAULT_ETH_REGISTER_VALUE * 2n + SMALL_ETH_REGISTER_VALUE - partialWithdrawAmount,
+      );
+      expect(
+        BigInt(await views.getBurnRate(clusterOwner.address, operatorIds, clusterAfterWithdraw)),
+      ).to.equal(calcClusterBurn({
+        blockDiff: 1n,
+        numOperators: 4n,
+        ethFee: operatorFeePacked,
+        networkFee: networkFeePacked,
+        effectiveVUnits: defaultVUnits(3n),
+      }));
 
+      let totalOperatorEarnings = 0n;
       for (const opId of operatorIds) {
         const opSSV = await views.getOperatorByIdSSV(opId);
         const opETH = await views.getOperatorById(opId);
         expect(opSSV.validatorCount).to.equal(0);
         expect(opETH.validatorCount).to.equal(3);
         expect(BigInt(opETH.fee)).to.equal(DEFAULT_OPERATOR_ETH_FEE);
+        totalOperatorEarnings += BigInt(await views.getOperatorEarnings(opId));
       }
 
       expect(await views.getNetworkValidatorsCount()).to.equal(3);
-      expect(clusterAfterWithdraw.balance).to.be.greaterThan(0n);
-      expect(clusterAfterWithdraw.balance).to.be.lessThan(DEFAULT_ETH_REGISTER_VALUE * 2n + SMALL_ETH_REGISTER_VALUE);
+      const finalNetworkEarnings = BigInt(await views.getNetworkEarnings());
+      const finalClusterBalance = BigInt(await views.getBalance(clusterOwner.address, operatorIds, clusterAfterWithdraw));
+      expect(finalClusterBalance).to.equal(clusterAfterWithdraw.balance);
+      expect(finalClusterBalance + totalOperatorEarnings + finalNetworkEarnings).to.equal(contractBalanceAfterWithdraw);
     });
   });
 });

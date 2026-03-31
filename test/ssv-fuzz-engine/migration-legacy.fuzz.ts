@@ -2,20 +2,31 @@ import { fuzz, generateSeeds } from "./core/runner.ts";
 import { setupLegacyMigrationSeed } from "./core/setup.ts";
 import type { ClusterRecord, OperatorRecord } from "./core/types.ts";
 import {
+  advanceLegacyPostMigrationWindow,
   assertBlockedEthOpsOnLegacyCluster,
   assertRemovedValidatorReRegisterBlocked,
+  depositToLegacyMigratedCluster,
   migrateLegacyCluster,
   removeLegacyValidator,
-  runPostMigrationEthLifecycle,
+  registerRemovedLegacyValidatorPostMigration,
   type DepositWithdrawTracker,
+  withdrawFromLegacyMigratedCluster,
 } from "./core/steps.ts";
 import {
+  assertLegacyEnsureETHDefaultsTransition,
   assertLegacyMigrationRefund,
   assertLegacyNetworkValidatorCountTransition,
   assertLegacyOperatorDefaults,
   assertLegacyOperatorTrackingTransition,
   assertLegacyPostMigrationValidatorCount,
+  assertLegacyPostUpgradeSnapshot,
+  assertLegacyQuantitativeInvariants,
   assertLegacyVersionExclusivity,
+  type LegacyPostUpgradeSnapshot,
+  type ClusterBalanceWithDeltasSnapshot,
+  type ContractBalanceWithDeltasSnapshot,
+  type NetworkEarningsSnapshot,
+  type OperatorEarningsSnapshot,
 } from "./core/assertions.ts";
 import {
   DEFAULT_ETH_REGISTER_VALUE,
@@ -26,6 +37,14 @@ import {
 } from "../common/constants.ts";
 import { calcLiquidationThreshold, defaultVUnits } from "../helpers/index.ts";
 
+type LegacyMigrationPhase =
+  | "post-upgrade-legacy"
+  | "migrated"
+  | "post-migration-accrued"
+  | "post-migration-registered"
+  | "post-migration-deposited"
+  | "post-migration-complete";
+
 interface LegacyMigrationState {
   operators: OperatorRecord[];
   cluster: ClusterRecord;
@@ -35,13 +54,21 @@ interface LegacyMigrationState {
   operatorOwner: OperatorRecord["owner"];
   ssvToken: any;
   tracker: DepositWithdrawTracker;
-  phase: "post-upgrade-legacy" | "migrated" | "post-migration-complete";
+  phase: LegacyMigrationPhase;
   preUpgradeBlocks: bigint;
   postMigrationBlocks: bigint;
   migrationEthDeposit: bigint;
+  totalSsvDeposit: bigint;
+  postUpgradeSnapshot: LegacyPostUpgradeSnapshot;
   removedValidatorKey?: string;
   expectedRefund?: bigint;
   actualRefund?: bigint;
+  migrationBlockNumber?: bigint;
+  defaultFeeExecutedEvents?: Map<number, { owner: string; blockNumber: bigint; fee: bigint }>;
+  lastContractBalanceWithDeltas?: ContractBalanceWithDeltasSnapshot;
+  lastClusterBalanceWithDeltas?: ClusterBalanceWithDeltasSnapshot;
+  lastOperatorEarnings?: OperatorEarningsSnapshot;
+  lastNetworkEarnings?: NetworkEarningsSnapshot;
 }
 
 const RUNS = 15;
@@ -83,6 +110,44 @@ describe("Fuzz: CAT-1-1 healthy legacy cluster migration lifecycle", function ()
             DEFAULT_ETH_REGISTER_VALUE,
           );
 
+          const operatorSSVValidatorCounts = new Map<number, bigint>();
+          const operatorETHValidatorCounts = new Map<number, bigint>();
+          const operatorETHFees = new Map<number, bigint>();
+          for (const op of seedState.operators) {
+            const opSSV = await ctx.views.getOperatorByIdSSV(op.id);
+            const opETH = await ctx.views.getOperatorById(op.id);
+            operatorSSVValidatorCounts.set(op.id, BigInt(opSSV.validatorCount));
+            operatorETHValidatorCounts.set(op.id, BigInt(opETH.validatorCount));
+            operatorETHFees.set(op.id, BigInt(opETH.fee));
+          }
+
+          const postUpgradeSnapshot: LegacyPostUpgradeSnapshot = {
+            balanceSSV: BigInt(
+              await ctx.views.getBalanceSSV(
+                seedState.cluster.owner.address,
+                seedState.cluster.operatorIds,
+                seedState.cluster.cluster,
+              ),
+            ),
+            burnRateSSV: BigInt(
+              await ctx.views.getBurnRateSSV(
+                seedState.cluster.owner.address,
+                seedState.cluster.operatorIds,
+                seedState.cluster.cluster,
+              ),
+            ),
+            networkValidatorCount: BigInt(await ctx.views.getNetworkValidatorsCount()),
+            networkFee: BigInt(await ctx.views.getNetworkFee()),
+            liquidationThresholdPeriod: BigInt(await ctx.views.getLiquidationThresholdPeriod()),
+            cssvTotalSupply: BigInt(await ctx.cssvToken.totalSupply()),
+            accEthPerShare: BigInt(await ctx.views.accEthPerShare()),
+            stakingEthPoolBalance: BigInt(await ctx.views.stakingEthPoolBalance()),
+            networkEarnings: BigInt(await ctx.views.getNetworkEarnings()),
+            operatorSSVValidatorCounts,
+            operatorETHValidatorCounts,
+            operatorETHFees,
+          };
+
           return {
             ...seedState,
             clusterOwner,
@@ -92,11 +157,15 @@ describe("Fuzz: CAT-1-1 healthy legacy cluster migration lifecycle", function ()
             preUpgradeBlocks,
             postMigrationBlocks,
             migrationEthDeposit,
+            totalSsvDeposit,
+            postUpgradeSnapshot,
           };
         },
 
         steps: [
+          assertLegacyPostUpgradeSnapshot,
           assertBlockedEthOpsOnLegacyCluster(),
+          assertLegacyPostUpgradeSnapshot,
           removeLegacyValidator(),
           assertLegacyVersionExclusivity,
           assertLegacyOperatorTrackingTransition,
@@ -105,15 +174,42 @@ describe("Fuzz: CAT-1-1 healthy legacy cluster migration lifecycle", function ()
           migrateLegacyCluster(),
           assertLegacyVersionExclusivity,
           assertLegacyMigrationRefund,
+          assertLegacyEnsureETHDefaultsTransition,
           assertLegacyOperatorDefaults,
           assertLegacyOperatorTrackingTransition,
           assertLegacyNetworkValidatorCountTransition,
-          runPostMigrationEthLifecycle(),
+          assertLegacyQuantitativeInvariants,
+          advanceLegacyPostMigrationWindow(),
+          assertLegacyMigrationRefund,
+          assertLegacyEnsureETHDefaultsTransition,
+          assertLegacyOperatorDefaults,
+          assertLegacyOperatorTrackingTransition,
+          assertLegacyNetworkValidatorCountTransition,
+          assertLegacyQuantitativeInvariants,
+          registerRemovedLegacyValidatorPostMigration(),
           assertLegacyVersionExclusivity,
           assertLegacyMigrationRefund,
+          assertLegacyEnsureETHDefaultsTransition,
           assertLegacyOperatorDefaults,
           assertLegacyOperatorTrackingTransition,
           assertLegacyNetworkValidatorCountTransition,
+          assertLegacyQuantitativeInvariants,
+          depositToLegacyMigratedCluster(),
+          assertLegacyVersionExclusivity,
+          assertLegacyMigrationRefund,
+          assertLegacyEnsureETHDefaultsTransition,
+          assertLegacyOperatorDefaults,
+          assertLegacyOperatorTrackingTransition,
+          assertLegacyNetworkValidatorCountTransition,
+          assertLegacyQuantitativeInvariants,
+          withdrawFromLegacyMigratedCluster(),
+          assertLegacyVersionExclusivity,
+          assertLegacyMigrationRefund,
+          assertLegacyEnsureETHDefaultsTransition,
+          assertLegacyOperatorDefaults,
+          assertLegacyOperatorTrackingTransition,
+          assertLegacyNetworkValidatorCountTransition,
+          assertLegacyQuantitativeInvariants,
           assertLegacyPostMigrationValidatorCount,
         ],
 
