@@ -23,10 +23,13 @@ describe("SSVNetwork full integration tests with performing an upgrade on a lega
     return ssvNetworkFullPreUpgradeFixture(connection);
   };
 
-  const loadLegacyCluster = () =>
+  const deployLegacyClusterFixture = async () =>
     setupLegacyClusterAndUpgrade(connection, operatorOwner, clusterOwner, () =>
       networkHelpers.loadFixture(deployFullSSVNetworkFixture),
     );
+
+  const loadLegacyCluster = () =>
+    networkHelpers.loadFixture(deployLegacyClusterFixture);
 
   describe("Legacy setup configuration", async function () {
     it("Configures SSVNetwork and SSVNetworkViews correctly", async function () {
