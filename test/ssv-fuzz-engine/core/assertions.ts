@@ -565,6 +565,61 @@ export async function assertLegacyOperatorDualTracking<S extends { cluster: Clus
   }
 }
 
+export async function assertRemovedOperatorMigrationSkip<S extends {
+  migrationSnapshot: LegacyMigrationSnapshot;
+  cluster: ClusterRecord;
+  removedOperator: OperatorRecord;
+  operators: OperatorRecord[];
+}>(
+  ctx: FuzzContext<S>,
+): Promise<void> {
+  const { migrateReceipt } = ctx.state.migrationSnapshot;
+  const { operatorIds } = ctx.state.cluster;
+  const removedId = ctx.state.removedOperator.id;
+  const activeIds = operatorIds.filter(id => id !== removedId);
+
+  const feeEvents: { operatorId: bigint; fee: bigint }[] = [];
+  for (const log of migrateReceipt.logs ?? []) {
+    let parsed;
+    try {
+      parsed = ctx.network.interface.parseLog(log);
+    } catch {
+      continue;
+    }
+    if (parsed && parsed.name === Events.OPERATOR_FEE_EXECUTED) {
+      feeEvents.push({
+        operatorId: BigInt(parsed.args.operatorId),
+        fee: BigInt(parsed.args.fee),
+      });
+    }
+  }
+
+  expect(feeEvents.length).to.equal(activeIds.length);
+
+  for (const opId of activeIds) {
+    const ev = feeEvents.find(e => e.operatorId === BigInt(opId));
+    expect(ev, `OperatorFeeExecuted missing for active operator ${opId}`).to.not.be.undefined;
+    expect(ev!.fee).to.equal(BigInt(DEFAULT_OPERATOR_ETH_FEE));
+  }
+
+  expect(
+    feeEvents.find(e => e.operatorId === BigInt(removedId)),
+    `OperatorFeeExecuted must NOT be emitted for removed operator ${removedId}`,
+  ).to.be.undefined;
+
+  const removedOpETH = await ctx.views.getOperatorById(removedId);
+  expect(BigInt(removedOpETH.validatorCount)).to.equal(
+    0n,
+    `Removed operator ${removedId} must have ethValidatorCount == 0`,
+  );
+
+  const removedOpSSV = await ctx.views.getOperatorByIdSSV(removedId);
+  expect(BigInt(removedOpSSV.validatorCount)).to.equal(
+    0n,
+    `Removed operator ${removedId} must have SSV validatorCount == 0`,
+  );
+}
+
 export async function assertLegacyReactivationOnMigration<S extends { migrationSnapshot: LegacyMigrationSnapshot; cluster: ClusterRecord }>(
   ctx: FuzzContext<S>,
 ): Promise<void> {
