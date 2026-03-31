@@ -4,6 +4,7 @@ import {
   createPocRoles,
   describeScenarioCase,
   getPocSeeds,
+  runRemovedOperatorLiquidationRegression,
   runScenarioCase,
   runSeededReactivationRegression,
   type ScenarioFamilyName,
@@ -72,4 +73,19 @@ describe("Hybrid ETH-Core Generative Testing PoC", () => {
       9001n,
     );
   });
+
+  for (const operatorSetSize of [4, 7, 10, 13] as const) {
+    it(`Removed-operator liquidation regression [ops=${operatorSetSize}]`, async function () {
+      await runRemovedOperatorLiquidationRegression(
+        {
+          connection: context.connection,
+          networkHelpers: context.networkHelpers,
+          roles,
+          tracker,
+        },
+        operatorSetSize,
+        21n + BigInt(operatorSetSize),
+      );
+    });
+  }
 });

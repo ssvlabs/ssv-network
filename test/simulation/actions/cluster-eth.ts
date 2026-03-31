@@ -50,7 +50,7 @@ async function avgOperatorFee(state: SimulationState, operatorIds: bigint[]): Pr
   for (const id of operatorIds) {
     const op = state.operatorPool.get(id);
     if (op) {
-      totalFee += op.fee / ETH_DEDUCTED_DIGITS;
+      totalFee += op.fee;
       count++;
       continue;
     }
@@ -63,18 +63,98 @@ async function avgOperatorFee(state: SimulationState, operatorIds: bigint[]): Pr
   return count > 0n ? totalFee / count : 0n;
 }
 
+async function protocolLiquidationInputs(state: SimulationState): Promise<{
+  minimumBlocksBeforeLiquidation: bigint;
+  networkFee: bigint;
+  minimumLiquidationCollateral: bigint;
+}> {
+  return {
+    minimumBlocksBeforeLiquidation: BigInt(await state.views.getLiquidationThresholdPeriod()),
+    networkFee: BigInt(await state.views.getNetworkFee()) / ETH_DEDUCTED_DIGITS,
+    minimumLiquidationCollateral: BigInt(await state.views.getMinimumLiquidationCollateral()),
+  };
+}
+
 /** Compute minimum deposit with safety buffer. */
-function minDeposit(numOperators: bigint, ethFee: bigint, vUnits: bigint): bigint {
+async function minDeposit(
+  state: SimulationState,
+  numOperators: bigint,
+  ethFee: bigint,
+  vUnits: bigint,
+): Promise<bigint> {
+  const protocol = await protocolLiquidationInputs(state);
   const threshold = calcLiquidationThreshold({
-    minimumBlocksBeforeLiquidation: 214800n,
+    minimumBlocksBeforeLiquidation: protocol.minimumBlocksBeforeLiquidation,
     numOperators,
     ethFee,
-    networkFee: 35509n,
+    networkFee: protocol.networkFee,
     effectiveVUnits: vUnits,
   });
-  const minCollateral = 1_000_000_000_000_000n;
-  const base = threshold > minCollateral ? threshold : minCollateral;
+  const base = threshold > protocol.minimumLiquidationCollateral
+    ? threshold
+    : protocol.minimumLiquidationCollateral;
   return base + base / 2n;
+}
+
+function alignUpToEthPrecision(amount: bigint): bigint {
+  if (amount <= 0n) {
+    return ETH_DEDUCTED_DIGITS;
+  }
+  return ((amount + ETH_DEDUCTED_DIGITS - 1n) / ETH_DEDUCTED_DIGITS) * ETH_DEDUCTED_DIGITS;
+}
+
+function isInsufficientBalanceError(err: unknown): boolean {
+  const message = err instanceof Error ? err.message : String(err);
+  return message.includes("InsufficientBalance");
+}
+
+async function findReactivateDeposit(
+  state: SimulationState,
+  cr: ClusterRecord,
+  initialGuess: bigint,
+): Promise<bigint> {
+  let low = 0n;
+  let high = alignUpToEthPrecision(initialGuess);
+  const maxHigh = ethers.parseEther("4096");
+
+  const canReactivateWith = async (amount: bigint): Promise<boolean> => {
+    try {
+      await state.network
+        .connect(cr.ownerSigner)
+        .reactivate.staticCall(cr.operatorIds, cr.cluster, { value: amount });
+      return true;
+    } catch (err) {
+      if (isInsufficientBalanceError(err)) {
+        return false;
+      }
+      throw err;
+    }
+  };
+
+  while (!(await canReactivateWith(high))) {
+    low = high;
+    if (high >= maxHigh) {
+      throw new Error(`reactivate deposit search exceeded cap ${maxHigh}`);
+    }
+    high = alignUpToEthPrecision(high * 2n);
+    if (high > maxHigh) {
+      high = maxHigh;
+    }
+  }
+
+  while (high - low > ETH_DEDUCTED_DIGITS) {
+    const mid = alignUpToEthPrecision((low + high) / 2n);
+    if (mid <= low) {
+      break;
+    }
+    if (await canReactivateWith(mid)) {
+      high = mid;
+    } else {
+      low = mid;
+    }
+  }
+
+  return high;
 }
 
 /**
@@ -83,13 +163,16 @@ function minDeposit(numOperators: bigint, ethFee: bigint, vUnits: bigint): bigin
  */
 export async function actionRegisterValidator(state: SimulationState): Promise<ActionResult> {
   const NAME = "ethRegisterValidator";
+  const supportedClusterSizes = [4, 7, 10, 13];
 
   const activeOps = [...state.operatorPool.values()].filter((op) => op.isActive);
   if (activeOps.length < 4) {
     return { name: NAME, success: false, revertReason: "SKIP: fewer than 4 active operators" };
   }
+  const eligibleClusterSizes = supportedClusterSizes.filter((size) => size <= activeOps.length);
+  const targetSize = eligibleClusterSizes.length > 0 ? state.rng.pick(eligibleClusterSizes) : 4;
   const shuffled = state.rng.shuffle([...activeOps]);
-  const selectedOps = shuffled.slice(0, 4).sort((a, b) => Number(a.id - b.id));
+  const selectedOps = shuffled.slice(0, targetSize).sort((a, b) => Number(a.id - b.id));
   const operatorIds = selectedOps.map((op) => op.id);
   const signerCandidates = [
     ...state.stakerPool.map((s) => s.signer),
@@ -107,7 +190,7 @@ export async function actionRegisterValidator(state: SimulationState): Promise<A
   const validatorCount = existing ? existing.cluster.validatorCount + 1n : 1n;
   const vUnits = defaultVUnits(validatorCount);
   const avgFee = await avgOperatorFee(state, operatorIds);
-  const depositAmount = minDeposit(BigInt(operatorIds.length), avgFee, vUnits);
+  const depositAmount = await minDeposit(state, BigInt(operatorIds.length), avgFee, vUnits);
 
   const clusterStruct = existing
     ? existing.cluster
@@ -167,23 +250,30 @@ export async function actionRemoveValidator(state: SimulationState): Promise<Act
     return { name: NAME, success: false, revertReason: "SKIP: no active ETH clusters" };
   }
 
-  const cr = state.rng.pick(clusters);
-  if (cr.validatorKeys.length === 0) {
+  const keyedClusters = clusters.filter((candidate) => candidate.validatorKeys.length > 0);
+  if (keyedClusters.length === 0) {
     return { name: NAME, success: false, revertReason: "SKIP: no tracked validator keys" };
   }
 
-  const validatorKey = cr.validatorKeys[cr.validatorKeys.length - 1];
-  const key = clusterKey(ethers, cr.owner, cr.operatorIds);
+  const terminalCandidates = keyedClusters.filter(
+    (candidate) => candidate.validatorKeys.length === 1 || candidate.cluster.validatorCount === 1n,
+  );
+  const targetPool = terminalCandidates.length > 0 && state.rng.nextFloat() < 0.7
+    ? terminalCandidates
+    : keyedClusters;
+  const target = state.rng.pick(targetPool);
+  const validatorKey = target.validatorKeys[target.validatorKeys.length - 1];
+  const key = clusterKey(ethers, target.owner, target.operatorIds);
 
   try {
     const tx = await state.network
-      .connect(cr.ownerSigner)
-      .removeValidator(validatorKey, cr.operatorIds, cr.cluster);
+      .connect(target.ownerSigner)
+      .removeValidator(validatorKey, target.operatorIds, target.cluster);
     const receipt = await tx.wait();
 
     const updatedCluster = parseClusterFromReceipt(state.network, receipt, "ValidatorRemoved");
-    if (updatedCluster) cr.cluster = updatedCluster;
-    cr.validatorKeys.pop();
+    if (updatedCluster) target.cluster = updatedCluster;
+    target.validatorKeys.pop();
 
     if (receipt) state.currentBlock = receipt.blockNumber;
 
@@ -252,11 +342,12 @@ export async function actionWithdrawEth(state: SimulationState): Promise<ActionR
 
   const vUnits = defaultVUnits(cr.cluster.validatorCount);
   const avgFee = await avgOperatorFee(state, cr.operatorIds);
+  const protocol = await protocolLiquidationInputs(state);
   const threshold = calcLiquidationThreshold({
-    minimumBlocksBeforeLiquidation: 214800n,
+    minimumBlocksBeforeLiquidation: protocol.minimumBlocksBeforeLiquidation,
     numOperators: BigInt(cr.operatorIds.length),
     ethFee: avgFee,
-    networkFee: 35509n,
+    networkFee: protocol.networkFee,
     effectiveVUnits: vUnits,
   });
 
@@ -344,9 +435,10 @@ export async function actionReactivateEth(state: SimulationState): Promise<Actio
   const validatorCount = cr.cluster.validatorCount > 0n ? cr.cluster.validatorCount : 1n;
   const vUnits = defaultVUnits(validatorCount);
   const avgFee = await avgOperatorFee(state, cr.operatorIds);
-  const deposit = minDeposit(BigInt(cr.operatorIds.length), avgFee, vUnits);
+  const seedDeposit = await minDeposit(state, BigInt(cr.operatorIds.length), avgFee, vUnits);
 
   try {
+    const deposit = await findReactivateDeposit(state, cr, seedDeposit);
     await state.provider.send("hardhat_setBalance", [
       cr.owner,
       "0x" + (deposit + 10n ** 18n).toString(16),

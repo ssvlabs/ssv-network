@@ -1,7 +1,7 @@
 import type { Cluster } from "../common/types.ts";
 
 export type ClusterSizeTag = "ops-4" | "ops-7" | "ops-10" | "ops-13";
-export type ValidatorBucketTag = "validators-1" | "validators-2" | "validators-4plus";
+export type ValidatorBucketTag = "validators-0" | "validators-1" | "validators-2" | "validators-4plus";
 export type EBModeTag = "implicit" | "explicit-32" | "explicit-high" | "explicit-max-safe";
 export type SolvencyTag = "healthy" | "threshold-edge" | "liquidatable" | "liquidated";
 export type FeePhaseTag = "flat" | "declared" | "executed";
@@ -30,7 +30,7 @@ export interface TransitionRecord extends TransitionInput {
 }
 
 const CLUSTER_SIZE_TAGS: ClusterSizeTag[] = ["ops-4", "ops-7", "ops-10", "ops-13"];
-const VALIDATOR_TAGS: ValidatorBucketTag[] = ["validators-1", "validators-2", "validators-4plus"];
+const VALIDATOR_TAGS: ValidatorBucketTag[] = ["validators-0", "validators-1", "validators-2", "validators-4plus"];
 const EB_MODE_TAGS: EBModeTag[] = ["implicit", "explicit-32", "explicit-high", "explicit-max-safe"];
 const SOLVENCY_TAGS: SolvencyTag[] = ["healthy", "threshold-edge", "liquidatable", "liquidated"];
 const FEE_PHASE_TAGS: FeePhaseTag[] = ["flat", "declared", "executed"];
@@ -59,6 +59,7 @@ export function clusterSizeTag(operatorCount: number): ClusterSizeTag {
 }
 
 export function validatorBucketTag(validatorCount: bigint): ValidatorBucketTag {
+  if (validatorCount === 0n) return "validators-0";
   if (validatorCount >= 4n) return "validators-4plus";
   if (validatorCount >= 2n) return "validators-2";
   return "validators-1";

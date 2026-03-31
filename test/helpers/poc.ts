@@ -64,7 +64,8 @@ const BPS_DENOMINATOR = 10_000n;
 export type ScenarioFamilyName =
   | "singleClusterLifecycle"
   | "sharedOperatorsTwoClusters"
-  | "liquidationWindow";
+  | "liquidationWindow"
+  | "removedOperatorLiquidationRegression";
 
 export interface PocRoles {
   operatorOwner: HardhatEthersSigner;
@@ -133,6 +134,18 @@ function normalizeBalanceMove(
   return balanceMove === "unsafe-withdraw" ? "deposit" : balanceMove;
 }
 
+function normalizeEBMode(
+  familyName: ScenarioFamilyName,
+  solvencyTarget: SolvencyTarget,
+  ebMode: EBMode,
+): EBMode {
+  const liquidationIntended = familyName === "liquidationWindow" || solvencyTarget !== "healthy";
+  if (liquidationIntended && ebMode === "explicit-max-safe") {
+    return "explicit-high";
+  }
+  return ebMode;
+}
+
 export function buildScenarioCase(familyName: ScenarioFamilyName, seed: bigint): ScenarioCase {
   const rng = new SeededRNG(seed);
   const topology = familyName === "sharedOperatorsTwoClusters"
@@ -140,11 +153,12 @@ export function buildScenarioCase(familyName: ScenarioFamilyName, seed: bigint):
     : genTopology(rng);
   const solvencyTarget = genSolvencyTarget(rng);
   const balanceMove = normalizeBalanceMove(familyName, solvencyTarget, genBalanceMove(rng));
+  const ebMode = normalizeEBMode(familyName, solvencyTarget, genEBMode(rng));
 
   const axes: ScenarioAxes = {
     operatorSetSize: genOperatorSetSize(rng),
     validatorCount: genValidatorBucket(rng),
-    ebMode: genEBMode(rng),
+    ebMode,
     solvencyTarget,
     feePhase: genFeePhase(rng),
     topology,
@@ -308,9 +322,10 @@ async function getClusterMath(
   }
   const totalOperatorFeeRaw = await getTotalOperatorFeeRaw(views, runtimeCluster.operatorIds);
   const networkFeeRaw = BigInt(await views.getNetworkFee()) / ETH_DEDUCTED_DIGITS;
+  const minimumBlocksBeforeLiquidation = BigInt(await views.getLiquidationThresholdPeriod());
   const burnPerBlock = (((totalOperatorFeeRaw + networkFeeRaw) * effectiveVUnits) / BPS_DENOMINATOR) * ETH_DEDUCTED_DIGITS;
   const blockBasedThreshold =
-    (((MINIMUM_BLOCKS_BEFORE_LIQUIDATION * (totalOperatorFeeRaw + networkFeeRaw)) * effectiveVUnits) / BPS_DENOMINATOR) *
+    (((minimumBlocksBeforeLiquidation * (totalOperatorFeeRaw + networkFeeRaw)) * effectiveVUnits) / BPS_DENOMINATOR) *
     ETH_DEDUCTED_DIGITS;
   const minimumCollateral = BigInt(await views.getMinimumLiquidationCollateral());
   const liquidationThreshold = blockBasedThreshold > minimumCollateral ? blockBasedThreshold : minimumCollateral;
@@ -436,6 +451,52 @@ async function applyExplicitEBUpdateWithOracles(
   runtimeCluster.ebMode = scenarioCase.axes.ebMode;
 }
 
+async function applyFixedExplicitEBUpdateWithOracles(
+  connection: NetworkConnection<"generic">,
+  fixture: FixtureState,
+  oracles: PocRoles["oracles"],
+  runtimeCluster: RuntimeClusterState,
+  effectiveBalance: bigint,
+  mode: EBModeTag,
+): Promise<void> {
+  const clusterId = computeClusterId(runtimeCluster.owner.address, runtimeCluster.operatorIds);
+  const { root, proofs } = generateMerkleForClusterEB(connection, [
+    {
+      clusterId,
+      effectiveBalance: Number(effectiveBalance),
+    },
+  ]);
+
+  await mineBlocks(fixture.provider, 1);
+  const blockNumber = await fixture.provider.getBlockNumber();
+  await commitEBRoot(fixture.network, root, blockNumber, oracles.slice(0, 3));
+
+  const tx = await fixture.network.connect(runtimeCluster.owner).updateClusterBalance(
+    blockNumber,
+    runtimeCluster.owner.address,
+    runtimeCluster.operatorIds,
+    runtimeCluster.cluster,
+    Number(effectiveBalance),
+    proofs[clusterId] ?? [],
+  );
+  const receipt = await tx.wait();
+  runtimeCluster.cluster = parseClusterFromEvent(
+    fixture.network,
+    receipt,
+    Events.CLUSTER_BALANCE_UPDATED,
+  );
+  runtimeCluster.ebMode = mode;
+}
+
+async function removeOperatorFromCluster(
+  fixture: FixtureState,
+  operatorOwner: HardhatEthersSigner,
+  operatorId: number,
+): Promise<void> {
+  const tx = await fixture.network.connect(operatorOwner).removeOperator(operatorId);
+  await tx.wait();
+}
+
 async function applyFeePhase(
   fixture: FixtureState,
   roles: PocRoles,
@@ -525,10 +586,6 @@ async function findMaxSafeWithdrawalAmount(
     }
   }
 
-  if (low <= 0n) {
-    throw new Error("failed to derive a safe withdrawal amount");
-  }
-
   return low;
 }
 
@@ -536,7 +593,20 @@ async function findBufferedSafeWithdrawalAmount(
   fixture: FixtureState,
   runtimeCluster: RuntimeClusterState,
 ): Promise<bigint> {
-  const maxSafeAmount = await findMaxSafeWithdrawalAmount(fixture, runtimeCluster);
+  let maxSafeAmount = await findMaxSafeWithdrawalAmount(fixture, runtimeCluster);
+  if (maxSafeAmount <= 0n) {
+    const math = await getClusterMath(fixture.views, runtimeCluster);
+    const liveBalance = await getLiveClusterBalance(fixture.views, runtimeCluster);
+    const targetBalance = math.liquidationThreshold + (math.burnPerBlock > 0n ? math.burnPerBlock * 8n : 1n);
+    const topUp = targetBalance > liveBalance ? targetBalance - liveBalance : 1n;
+    await depositToCluster(fixture, runtimeCluster, topUp);
+    maxSafeAmount = await findMaxSafeWithdrawalAmount(fixture, runtimeCluster);
+  }
+
+  if (maxSafeAmount <= 0n) {
+    throw new Error("failed to derive a safe withdrawal amount");
+  }
+
   const { burnPerBlock } = await getClusterMath(fixture.views, runtimeCluster);
   const buffer = burnPerBlock > 0n ? burnPerBlock : 1n;
 
@@ -619,7 +689,11 @@ async function mineUntilLiquidatable(
 
   await mineBlocks(fixture.provider, Math.max(1, blocksNeeded));
 
-  for (let i = 0; i < 128; i++) {
+  const extraBudget = Math.max(1_024, Math.min(Math.max(1, blocksNeeded) * 4, 200_000));
+  let minedExtra = 0;
+  let chunkSize = 256;
+
+  while (minedExtra <= extraBudget) {
     const liquidatable = await fixture.views.isLiquidatable(
       runtimeCluster.owner.address,
       runtimeCluster.operatorIds.map((id) => BigInt(id)),
@@ -628,7 +702,13 @@ async function mineUntilLiquidatable(
     if (Boolean(liquidatable)) {
       return;
     }
-    await mineBlocks(fixture.provider, 1);
+    const nextChunk = Math.min(chunkSize, extraBudget - minedExtra);
+    if (nextChunk <= 0) {
+      break;
+    }
+    await mineBlocks(fixture.provider, nextChunk);
+    minedExtra += nextChunk;
+    chunkSize = Math.min(chunkSize * 2, 8_192);
   }
 
   throw new Error("cluster did not become liquidatable within the bounded mining window");
@@ -1207,6 +1287,141 @@ export async function runSeededReactivationRegression(
   );
 
   await finalizeClusterAssertions(fixture, runtimeCluster, "healthy");
+}
+
+export async function runRemovedOperatorLiquidationRegression(
+  context: ScenarioContext,
+  operatorSetSize: 4 | 7 | 10 | 13,
+  seed: bigint = 21n,
+): Promise<void> {
+  const scenarioCase: ScenarioCase = {
+    familyName: "removedOperatorLiquidationRegression",
+    seed,
+    replay: `POC_SEEDS=${seed} regression=BUG-21 operatorSetSize=${operatorSetSize}`,
+    axes: {
+      operatorSetSize,
+      validatorCount: 1n,
+      ebMode: "explicit-high",
+      solvencyTarget: "liquidatable",
+      feePhase: "flat",
+      topology: "single-cluster",
+      balanceMove: "unsafe-withdraw",
+      timingPlan: genTimingPlan(new SeededRNG(seed), "same-block"),
+    },
+  };
+
+  const fixture = await deployPocFixture(
+    context.connection,
+    context.roles,
+    operatorSetSize,
+    "single-cluster",
+  );
+  const bootstrapCluster: RuntimeClusterState = {
+    owner: context.roles.clusterOwnerA,
+    cluster: {
+      ...EMPTY_CLUSTER,
+      validatorCount: 1n,
+    },
+    operatorIds: fixture.operatorIds,
+    validatorKeys: [],
+    ebMode: "implicit",
+  };
+  const bootstrapMath = await getClusterMath(fixture.views, bootstrapCluster);
+  const initialDeposit = bootstrapMath.liquidationThreshold + bootstrapMath.burnPerBlock * 8n;
+
+  const runtimeCluster = await registerCluster(
+    fixture.network,
+    context.roles.clusterOwnerA,
+    fixture.operatorIds,
+    1n,
+    initialDeposit,
+    Number(seed % 10_000n) + 30_001,
+  );
+
+  await fixture.network.updateNetworkFee(100_000n * ETH_DEDUCTED_DIGITS);
+  await fixture.network.updateLiquidationThresholdPeriod(MINIMAL_LIQUIDATION_THRESHOLD);
+  await fixture.network.updateMinimumLiquidationCollateral(0n);
+
+  await recordTransition(
+    context.tracker,
+    scenarioCase,
+    fixture.views,
+    runtimeCluster,
+    "flat",
+    "single-cluster",
+    "register",
+    async () => {},
+  );
+
+  await recordTransition(
+    context.tracker,
+    scenarioCase,
+    fixture.views,
+    runtimeCluster,
+    "flat",
+    "single-cluster",
+    "updateClusterBalance",
+    async () => {
+      await applyFixedExplicitEBUpdateWithOracles(
+        context.connection,
+        fixture,
+        context.roles.oracles,
+        runtimeCluster,
+        64n * runtimeCluster.cluster.validatorCount,
+        "explicit-high",
+      );
+    },
+  );
+
+  const removedOperatorId = fixture.operatorIds[0];
+  await recordTransition(
+    context.tracker,
+    scenarioCase,
+    fixture.views,
+    runtimeCluster,
+    "flat",
+    "single-cluster",
+    "removeOperator",
+    async () => {
+      await removeOperatorFromCluster(
+        fixture,
+        context.roles.operatorOwner,
+        removedOperatorId,
+      );
+    },
+  );
+
+  const removedOperator = await fixture.views.getOperatorById(BigInt(removedOperatorId));
+  expect(removedOperator[5]).to.equal(false, "removed operator should be inactive");
+  await mineUntilLiquidatable(fixture, runtimeCluster);
+  await finalizeClusterAssertions(fixture, runtimeCluster, "liquidatable");
+
+  await recordTransition(
+    context.tracker,
+    scenarioCase,
+    fixture.views,
+    runtimeCluster,
+    "flat",
+    "single-cluster",
+    "liquidate",
+    async () => {
+      await liquidateCluster(fixture, runtimeCluster, context.roles.liquidator);
+    },
+  );
+
+  await finalizeClusterAssertions(fixture, runtimeCluster, "liquidated");
+  await assertFinalClusterETHConservation({
+    networkAddress: fixture.networkAddress,
+    provider: fixture.provider,
+    views: fixture.views,
+    trackedClusters: [
+      {
+        owner: runtimeCluster.owner.address,
+        operatorIds: runtimeCluster.operatorIds.map((id) => BigInt(id)),
+        cluster: runtimeCluster.cluster,
+      },
+    ],
+  });
 }
 
 export async function runScenarioCase(

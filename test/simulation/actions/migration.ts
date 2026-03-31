@@ -17,6 +17,18 @@ import {
   trackEthFlow,
 } from "../bookkeeping.ts";
 
+async function protocolLiquidationInputs(state: SimulationState): Promise<{
+  minimumBlocksBeforeLiquidation: bigint;
+  networkFee: bigint;
+  minimumLiquidationCollateral: bigint;
+}> {
+  return {
+    minimumBlocksBeforeLiquidation: BigInt(await state.views.getLiquidationThresholdPeriod()),
+    networkFee: BigInt(await state.views.getNetworkFee()) / ETH_DEDUCTED_DIGITS,
+    minimumLiquidationCollateral: BigInt(await state.views.getMinimumLiquidationCollateral()),
+  };
+}
+
 /** Get all active SSV clusters eligible for migration. */
 function migratableClusters(state: SimulationState): ClusterRecord[] {
   return [...state.clusterBook.values()].filter(
@@ -49,7 +61,7 @@ export async function actionMigrateCluster(state: SimulationState): Promise<Acti
   for (const id of cr.operatorIds) {
     const op = state.operatorPool.get(id);
     if (op) {
-      avgFee += op.fee / ETH_DEDUCTED_DIGITS;
+      avgFee += op.fee;
       feeCount++;
       continue;
     }
@@ -61,16 +73,18 @@ export async function actionMigrateCluster(state: SimulationState): Promise<Acti
   }
   if (feeCount > 0n) avgFee = avgFee / feeCount;
 
+  const protocol = await protocolLiquidationInputs(state);
   const threshold = calcLiquidationThreshold({
-    minimumBlocksBeforeLiquidation: 214800n,
+    minimumBlocksBeforeLiquidation: protocol.minimumBlocksBeforeLiquidation,
     numOperators: BigInt(cr.operatorIds.length),
     ethFee: avgFee,
-    networkFee: 35509n,
+    networkFee: protocol.networkFee,
     effectiveVUnits: vUnits,
   });
 
-  const minCollateral = 1_000_000_000_000_000n;
-  const base = threshold > minCollateral ? threshold : minCollateral;
+  const base = threshold > protocol.minimumLiquidationCollateral
+    ? threshold
+    : protocol.minimumLiquidationCollateral;
   const ethDeposit = ((base + base / 2n) / ETH_DEDUCTED_DIGITS + 1n) * ETH_DEDUCTED_DIGITS;
 
   try {

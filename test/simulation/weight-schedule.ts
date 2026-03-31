@@ -2,9 +2,9 @@
  * Dynamic action weight schedule for the simulation.
  *
  * Action weights change over time to model realistic upgrade dynamics:
- * - Early days: mostly SSV operations, few migrations
+ * - Early days: mostly legacy SSV operations, few migrations
  * - Mid transition: increasing migration + ETH ops
- * - Late: mostly ETH operations, SSV operations taper to zero
+ * - Late: mostly ETH operations, legacy SSV operations taper to zero
  *
  * Based on SIMULATION-DESIGN.md action distribution table.
  */
@@ -57,13 +57,13 @@ export function getActionWeights(
   const ethOpsWeight = 15;
   const stakingWeight = 10;
   const oracleWeight = 10;
+  const operatorMgmtWeight = 2;
 
   return {
-    // SSV cluster operations (deposit, withdraw SSV clusters)
-    ssvDeposit: ssvOpsWeight * 0.4,
-    ssvWithdraw: ssvOpsWeight * 0.3,
-    ssvLiquidate: ssvOpsWeight * 0.15,
-    ssvRegisterValidator: ssvOpsWeight * 0.15,
+    // Legacy SSV cluster operations. Post-upgrade there is no SSV deposit path.
+    ssvWithdraw: ssvOpsWeight * 0.55,
+    ssvLiquidate: ssvOpsWeight * 0.225,
+    ssvRegisterValidator: ssvOpsWeight * 0.225,
 
     // Migration
     migrateClusterToETH: migrateWeight,
@@ -85,6 +85,11 @@ export function getActionWeights(
     requestUnstake: stakingWeight * 0.25,
     claimEthRewards: stakingWeight * 0.25,
     syncFees: stakingWeight * 0.15,
+
+    // Operator management
+    declareOperatorFee: operatorMgmtWeight * 0.4,
+    executeOperatorFee: operatorMgmtWeight * 0.4,
+    removeOperator: operatorMgmtWeight * 0.2,
 
     // Time advancement (no-op blocks)
     mineBlocks: 5,

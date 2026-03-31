@@ -132,7 +132,8 @@ async function registerSimOperators(
         id: BigInt(id),
         owner: owner.address,
         ownerSigner: owner,
-        fee: MINIMAL_OPERATOR_ETH_FEE,
+        fee: MINIMAL_OPERATOR_ETH_FEE / ETH_DEDUCTED_DIGITS,
+        initialFee: MINIMAL_OPERATOR_ETH_FEE / ETH_DEDUCTED_DIGITS,
         isActive: true,
       });
     } catch {
@@ -212,12 +213,42 @@ async function captureCoverageTag(
   actionName: string,
 ) {
   const threshold = await getClusterLiquidationThreshold(state, record);
+  let feePhase: "flat" | "declared" | "executed" = "flat";
+
+  for (const operatorId of record.operatorIds) {
+    try {
+      const declared = await state.views.getOperatorDeclaredFee(operatorId);
+      if (declared.isFeeDeclared) {
+        feePhase = "declared";
+        break;
+      }
+    } catch {
+    }
+  }
+
+  if (feePhase === "flat") {
+    for (const operatorId of record.operatorIds) {
+      const tracked = state.operatorPool.get(operatorId);
+      if (!tracked) {
+        continue;
+      }
+      try {
+        const currentFeeRaw = BigInt(await state.views.getOperatorFee(operatorId)) / ETH_DEDUCTED_DIGITS;
+        if (currentFeeRaw !== tracked.initialFee) {
+          feePhase = "executed";
+          break;
+        }
+      } catch {
+      }
+    }
+  }
+
   return buildStateTag({
     cluster: record.cluster,
     operatorCount: record.operatorIds.length,
     liquidationThreshold: threshold,
     ebMode: record.ebModeHint ?? "implicit",
-    feePhase: "flat",
+    feePhase,
     topology: inferTopology(clusterBook, record),
     lastAction: actionName,
   });
@@ -628,9 +659,11 @@ async function claimAllRewards(state: SimulationState): Promise<void> {
 }
 
 const RUN_FORK = process.env.RUN_FORK === "true";
+const DEFAULT_SIM_TIMEOUT_MS = 30 * 60 * 1000;
+const SIM_TIMEOUT_MS = Number(process.env.SIM_TIMEOUT_MS ?? DEFAULT_SIM_TIMEOUT_MS);
 
 (RUN_FORK ? describe : describe.skip)("Monte Carlo Upgrade Simulation", function () {
-  this.timeout(600_000);
+  this.timeout(SIM_TIMEOUT_MS);
 
   let state: SimulationState;
   let invCtx: InvariantContext;

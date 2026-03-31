@@ -30,10 +30,10 @@ import {
 
 // -- SSV cluster actions --
 import {
-  actionDepositSsv,
   actionLiquidateSsv,
   actionReactivateSsv,
 } from "./cluster-ssv.ts";
+import { VERSION_ETH, VERSION_SSV } from "../types.ts";
 
 // -- Migration --
 import { actionMigrateCluster } from "./migration.ts";
@@ -62,7 +62,6 @@ export type SimAction = (state: SimulationState) => Promise<ActionResult>;
  */
 export const ACTION_REGISTRY: Record<string, SimAction> = {
   // SSV cluster operations
-  ssvDeposit: actionDepositSsv,
   ssvWithdraw: async () => ({ name: "ssvWithdraw", success: true }), // SSV withdraw not implemented on fork
   ssvLiquidate: actionLiquidateSsv,
   ssvRegisterValidator: actionRegisterValidator, // reuses ETH register (will create ETH cluster)
@@ -101,6 +100,100 @@ export const ACTION_REGISTRY: Record<string, SimAction> = {
   ssvReactivate: actionReactivateSsv,
 };
 
+function dampenWeightsForState(
+  state: SimulationState,
+  baseWeights: ActionWeights,
+): ActionWeights {
+  const weights: ActionWeights = { ...baseWeights };
+  const clusters = [...state.clusterBook.values()];
+
+  const activeSsv = clusters.filter((c) => c.version === VERSION_SSV && c.cluster.active);
+  const liquidatedSsv = clusters.filter((c) => c.version === VERSION_SSV && !c.cluster.active);
+  const activeEthWithValidators = clusters.filter(
+    (c) => c.version === VERSION_ETH && c.cluster.active && c.cluster.validatorCount > 0n,
+  );
+  const liquidatedEth = clusters.filter((c) => c.version === VERSION_ETH && !c.cluster.active);
+  const ethWithTrackedKeys = activeEthWithValidators.filter((c) => c.validatorKeys.length > 0);
+  const terminalEthRemovals = ethWithTrackedKeys.filter(
+    (c) => c.validatorKeys.length === 1 || c.cluster.validatorCount === 1n,
+  );
+  const operatorsWithValidators = new Set<bigint>();
+  for (const cluster of clusters) {
+    if (cluster.cluster.validatorCount > 0n) {
+      for (const operatorId of cluster.operatorIds) {
+        operatorsWithValidators.add(operatorId);
+      }
+    }
+  }
+  const removableOperators = [...state.operatorPool.values()].filter(
+    (op) => op.isActive && !operatorsWithValidators.has(op.id),
+  );
+  const operatorsEligibleForFeeDeclaration = [...state.operatorPool.values()].filter(
+    (op) => op.isActive && operatorsWithValidators.has(op.id) && op.pendingDeclaredFee === undefined,
+  );
+  const operatorsWithPendingDeclarations = [...state.operatorPool.values()].filter(
+    (op) => op.isActive && op.pendingDeclaredFee !== undefined,
+  );
+  const hasCssvBalance = state.stakerPool.some((staker) => staker.cssvBalance > 0n);
+
+  if (activeSsv.length === 0) {
+    weights.migrateClusterToETH = 0;
+    weights.ssvWithdraw = 0;
+    weights.ssvLiquidate = 0;
+    weights.ssvRegisterValidator = 0;
+  }
+
+  if (liquidatedSsv.length === 0) {
+    weights.ssvReactivate = 0;
+  }
+
+  if (activeEthWithValidators.length === 0) {
+    weights.ethDeposit = 0;
+    weights.ethWithdraw = 0;
+    weights.ethLiquidate = 0;
+    weights.commitRoot = 0;
+    weights.updateClusterBalance = 0;
+  }
+
+  if (liquidatedEth.length === 0) {
+    weights.ethReactivate = 0;
+  }
+
+  if (ethWithTrackedKeys.length === 0) {
+    weights.ethRemoveValidator = 0;
+  } else {
+    weights.ethRemoveValidator = Math.max(weights.ethRemoveValidator ?? 0, 3);
+    if (terminalEthRemovals.length > 0) {
+      weights.ethRemoveValidator *= 2;
+    }
+  }
+
+  if (state.oracleSigners.length < 3) {
+    weights.commitRoot = 0;
+    weights.updateClusterBalance = 0;
+  }
+
+  if (!hasCssvBalance) {
+    weights.requestUnstake = 0;
+  }
+
+  if (removableOperators.length === 0) {
+    weights.removeOperator = 0;
+  } else {
+    weights.removeOperator = Math.max(weights.removeOperator ?? 0, 4);
+  }
+
+  if (operatorsEligibleForFeeDeclaration.length === 0) {
+    weights.declareOperatorFee = 0;
+  }
+
+  if (operatorsWithPendingDeclarations.length === 0) {
+    weights.executeOperatorFee = 0;
+  }
+
+  return weights;
+}
+
 // ---------- Selector class ----------
 
 /**
@@ -122,7 +215,10 @@ export class WeightedActionSelector {
     currentBlock: number,
     startBlock: number,
   ): { name: string; action: SimAction } {
-    const weights = getActionWeights(currentBlock, startBlock);
+    const weights = dampenWeightsForState(
+      state,
+      getActionWeights(currentBlock, startBlock),
+    );
     const actionName = selectAction(weights, state.rng.nextFloat());
 
     const action = ACTION_REGISTRY[actionName];
@@ -165,7 +261,6 @@ export {
 } from "./cluster-eth.ts";
 
 export {
-  actionDepositSsv,
   actionLiquidateSsv,
   actionReactivateSsv,
 } from "./cluster-ssv.ts";

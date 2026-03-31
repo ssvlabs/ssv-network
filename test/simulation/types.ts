@@ -52,10 +52,14 @@ export interface OperatorRecord {
   owner: string;
   /** Signer for the owner */
   ownerSigner: HardhatEthersSigner;
-  /** Current ETH fee (raw packed value, without ETH_DEDUCTED_DIGITS) */
+  /** Current ETH fee in raw packed units (fee / ETH_DEDUCTED_DIGITS) */
   fee: bigint;
+  /** Fee observed when the operator was first tracked, in raw packed units */
+  initialFee: bigint;
   /** Whether the operator is currently active (not removed) */
   isActive: boolean;
+  /** Locally tracked pending fee declaration, in raw packed units */
+  pendingDeclaredFee?: bigint;
 }
 
 /**

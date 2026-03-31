@@ -13,7 +13,9 @@ import {
   MAXIMUM_OPERATORS_FEE,
   ETH_DEDUCTED_DIGITS,
 } from "../../common/constants.ts";
+import { getOperatorFeeBounds } from "../../helpers/operator.ts";
 import type { SimulationState, ActionResult } from "../types.ts";
+import { VERSION_ETH } from "../types.ts";
 
 
 function makeOperatorKey(seed: bigint): string {
@@ -63,6 +65,7 @@ export async function actionRegisterOperator(state: SimulationState): Promise<Ac
       owner: addr,
       ownerSigner: signer,
       fee: feeRaw,
+      initialFee: feeRaw,
       isActive: true,
     });
 
@@ -103,6 +106,7 @@ export async function actionRemoveOperator(state: SimulationState): Promise<Acti
     const receipt = await tx.wait();
 
     op.isActive = false;
+    op.pendingDeclaredFee = undefined;
     if (receipt) state.currentBlock = receipt.blockNumber;
 
     return { name: NAME, success: true };
@@ -112,19 +116,34 @@ export async function actionRemoveOperator(state: SimulationState): Promise<Acti
 }
 
 /**
- * Declare a fee change for a random active operator (1-50% increase).
+ * Declare a fee change for a tracked operator that currently backs validators.
  */
 export async function actionDeclareOperatorFee(state: SimulationState): Promise<ActionResult> {
   const NAME = "declareOperatorFee";
+  const opsWithValidators = new Set<bigint>();
+  for (const cr of state.clusterBook.values()) {
+    if (cr.version !== VERSION_ETH || !cr.cluster.active || cr.cluster.validatorCount === 0n) {
+      continue;
+    }
+    for (const opId of cr.operatorIds) {
+      opsWithValidators.add(opId);
+    }
+  }
 
-  const ops = [...state.operatorPool.values()].filter((op) => op.isActive);
+  const ops = [...state.operatorPool.values()].filter(
+    (op) => op.isActive && opsWithValidators.has(op.id) && op.pendingDeclaredFee === undefined,
+  );
   if (ops.length === 0) {
-    return { name: NAME, success: false, revertReason: "SKIP: no active operators" };
+    return { name: NAME, success: false, revertReason: "SKIP: no eligible operators with active validators" };
   }
 
   const op = state.rng.pick(ops);
-  const increasePct = state.rng.nextInRange(1n, 50n);
-  const newFeeRaw = op.fee + (op.fee * increasePct) / 100n;
+  const { currentRaw, maxOperatorRaw, maxAllowedRaw } = await getOperatorFeeBounds(state.views, op.id);
+  const upperRaw = maxAllowedRaw < maxOperatorRaw ? maxAllowedRaw : maxOperatorRaw;
+  if (upperRaw <= currentRaw) {
+    return { name: NAME, success: false, revertReason: "SKIP: no valid fee increase" };
+  }
+  const newFeeRaw = state.rng.nextInRange(currentRaw + 1n, upperRaw);
   const newFee = newFeeRaw * ETH_DEDUCTED_DIGITS;
 
   try {
@@ -133,6 +152,7 @@ export async function actionDeclareOperatorFee(state: SimulationState): Promise<
       .declareOperatorFee(op.id, newFee);
     const receipt = await tx.wait();
 
+    op.pendingDeclaredFee = newFeeRaw;
     if (receipt) state.currentBlock = receipt.blockNumber;
 
     return { name: NAME, success: true };
@@ -148,18 +168,43 @@ export async function actionDeclareOperatorFee(state: SimulationState): Promise<
 export async function actionExecuteOperatorFee(state: SimulationState): Promise<ActionResult> {
   const NAME = "executeOperatorFee";
 
-  const ops = [...state.operatorPool.values()].filter((op) => op.isActive);
+  const ops = [...state.operatorPool.values()].filter(
+    (op) => op.isActive && op.pendingDeclaredFee !== undefined,
+  );
   if (ops.length === 0) {
-    return { name: NAME, success: false, revertReason: "SKIP: no active operators" };
+    return { name: NAME, success: false, revertReason: "SKIP: no pending fee declarations" };
   }
 
-  const op = state.rng.pick(ops);
+  const latestBlock = await state.provider.getBlock("latest");
+  const latestTimestamp = BigInt(latestBlock?.timestamp ?? 0);
+  const executableOps: typeof ops = [];
+  for (const op of ops) {
+    try {
+      const declared = await state.views.getOperatorDeclaredFee(op.id);
+      if (!declared.isFeeDeclared) {
+        op.pendingDeclaredFee = undefined;
+        continue;
+      }
+      const approvalBegin = BigInt(declared.approvalBeginTime);
+      const approvalEnd = BigInt(declared.approvalEndTime);
+      if (approvalBegin <= latestTimestamp && latestTimestamp <= approvalEnd) {
+        executableOps.push(op);
+      }
+    } catch {
+    }
+  }
+  if (executableOps.length === 0) {
+    return { name: NAME, success: false, revertReason: "SKIP: no executable fee declarations" };
+  }
+
+  const op = state.rng.pick(executableOps);
 
   try {
     const tx = await state.network.connect(op.ownerSigner).executeOperatorFee(op.id);
     const receipt = await tx.wait();
     const newFee = await state.views.getOperatorFee(op.id);
     op.fee = BigInt(newFee) / ETH_DEDUCTED_DIGITS;
+    op.pendingDeclaredFee = undefined;
 
     if (receipt) state.currentBlock = receipt.blockNumber;
 

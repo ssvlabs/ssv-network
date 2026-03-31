@@ -220,4 +220,7 @@ export const DEFAULT_POC_SEEDS: bigint[] = [
   521n,
   1069n,
   4099n,
+  5088n,
+  6709n,
+  7290n
 ];

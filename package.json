@@ -36,7 +36,7 @@
     "test:unit:gas": "npx hardhat test test/unit/**/*.test.ts --gas-stats",
     "test:integration": "npx hardhat test test/integration/*.test.ts",
     "test:e2e": "npx hardhat test test/e2e/**/*.test.ts",
-    "test:poc": "npx hardhat test test/e2e/poc/**/*.test.ts",
+    "test:poc": "npx hardhat test test/e2e/poc/eth-core-generative.test.ts",
     "test:poc:fork": "RUN_FORK=true npx hardhat test test/simulation/monte-carlo.test.ts",
     "test:integration:gas": "npx hardhat test test/integration/*.test.ts --gas-stats",
     "test-forked": "FORK_TESTING_ENABLED=true npx hardhat test test/forked/**/*.test.ts",

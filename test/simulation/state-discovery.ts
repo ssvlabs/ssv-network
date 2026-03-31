@@ -79,7 +79,8 @@ export async function discoverOperators(
         operators.set(operatorId, {
           id: operatorId,
           owner,
-          fee,
+          fee: fee / 100_000n,
+          initialFee: fee / 100_000n,
           isActive: true,
         });
       } else if (log.topics[0] === removedTopic) {
@@ -241,7 +242,8 @@ export async function sampleOperators(
         sampled.push({
           id: candidate.id,
           owner: opData[0] as string,
-          fee: BigInt(opData[1]),
+          fee: BigInt(opData[1]) / 100_000n,
+          initialFee: BigInt(opData[1]) / 100_000n,
           isActive: true,
         });
       }
