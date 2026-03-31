@@ -27,7 +27,7 @@ export async function setupLiquidatedLegacyClusterAndUpgrade(
   connection: NetworkConnection<"generic">,
   operatorOwner: HardhatEthersSigner,
   clusterOwner: HardhatEthersSigner,
-  blocksAfterLiquidationBeforeUpgrade: bigint = 0n,
+  blocksAfterUpgradeBeforeMigration: bigint = 0n,
 ) {
   const { network, views, ssvToken } = await ssvNetworkFullPreUpgradeFixture(connection);
   await ssvToken.mint(clusterOwner.address, TOKEN_REGISTER_AMOUNT);
@@ -41,14 +41,25 @@ export async function setupLiquidatedLegacyClusterAndUpgrade(
     validatorKey, operatorIds, DEFAULT_SHARES, TOKEN_REGISTER_AMOUNT, EMPTY_CLUSTER,
   );
 
-  let cluster = await getCurrentClusterState(connection, network, clusterOwner.address, operatorIds);
-  await network.connect(clusterOwner).liquidate(clusterOwner.address, operatorIds, cluster);
-  cluster = await getCurrentClusterState(connection, network, clusterOwner.address, operatorIds);
+  const registeredCluster = await getCurrentClusterState(connection, network, clusterOwner.address, operatorIds);
+  const balanceSSV = BigInt(await views.getBalance(clusterOwner.address, operatorIds, registeredCluster));
+  const burnRateSSV = BigInt(await views.getBurnRate(clusterOwner.address, operatorIds, registeredCluster));
+  const blocksUntilDepleted = burnRateSSV === 0n
+    ? 0n
+    : (balanceSSV + burnRateSSV - 1n) / burnRateSSV;
 
-  if (blocksAfterLiquidationBeforeUpgrade > 0n) {
-    await mineBlocks(connection.ethers.provider, Number(blocksAfterLiquidationBeforeUpgrade));
+  if (blocksUntilDepleted > 0n) {
+    await mineBlocks(connection.ethers.provider, Number(blocksUntilDepleted));
   }
 
+  await network.connect(clusterOwner).liquidate(clusterOwner.address, operatorIds, registeredCluster);
+  const cluster = await getCurrentClusterState(connection, network, clusterOwner.address, operatorIds);
+
   const { newNetwork, newViews } = await upgradeToStakingVersion(connection, network, views);
+
+  if (blocksAfterUpgradeBeforeMigration > 0n) {
+    await mineBlocks(connection.ethers.provider, Number(blocksAfterUpgradeBeforeMigration));
+  }
+
   return { network, newNetwork, newViews, ssvToken, operatorIds, cluster, validatorKey };
 }

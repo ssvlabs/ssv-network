@@ -1,6 +1,13 @@
 import { expect } from "chai";
 import type { FuzzContext, ClusterRecord, OperatorRecord } from "./types.ts";
-import { ETH_DEDUCTED_DIGITS, BPS_DENOMINATOR } from "../../common/constants.ts";
+import { Errors } from "../../common/errors.ts";
+import {
+  ETH_DEDUCTED_DIGITS,
+  BPS_DENOMINATOR,
+  CLUSTER_VERSION_ETH,
+  CLUSTER_VERSION_SSV,
+  DEFAULT_OPERATOR_ETH_FEE,
+} from "../../common/constants.ts";
 import { computeBurnRate, computeClusterBalance, computeClusterBalanceWithVUnits } from "./fuzz-helpers.ts";
 
 export async function getContractEthBalance(ctx: FuzzContext<any>): Promise<bigint> {
@@ -266,6 +273,21 @@ export async function assertNetworkEarnings<S extends { cluster: ClusterRecord; 
   ctx.state.lastNetworkEarnings = { block, earnings: currentEarnings, validatorCount: BigInt(cluster.cluster.validatorCount) };
 }
 
+export async function assertEthConservation<S extends { cluster: ClusterRecord; operators: OperatorRecord[] }>(
+  ctx: FuzzContext<S>,
+): Promise<void> {
+  const clusterBalance = BigInt(
+    await ctx.views.getBalance(ctx.state.cluster.owner.address, ctx.state.cluster.operatorIds, ctx.state.cluster.cluster),
+  );
+  let operatorEarnings = 0n;
+  for (const op of ctx.state.operators) {
+    operatorEarnings += BigInt(await ctx.views.getOperatorEarnings(op.id));
+  }
+  const networkEarnings = BigInt(await ctx.views.getNetworkEarnings());
+  const contractBalance = await getContractEthBalance(ctx);
+  expect(clusterBalance + operatorEarnings + networkEarnings).to.equal(contractBalance);
+}
+
 export interface PhaseAwareNetworkEarningsSnapshot {
   block: bigint;
   earnings: bigint;
@@ -333,6 +355,192 @@ export async function assertOperatorValidatorCounts<S extends { cluster: Cluster
     const opData = await ctx.views.getOperatorById(op.id);
     expect(BigInt(opData.validatorCount)).to.equal(expectedCount);
   }
+}
+
+export interface LiquidatedLegacyPostUpgradeSnapshot {
+  networkValidatorCount: bigint;
+  operatorSSVValidatorCounts: Map<number, bigint>;
+  operatorETHValidatorCounts: Map<number, bigint>;
+  operatorETHFees: Map<number, bigint>;
+}
+
+export async function assertLiquidatedLegacyPostUpgradeSnapshot<S extends {
+  cluster: ClusterRecord;
+  operators: OperatorRecord[];
+  phase: string;
+  postUpgradeSnapshot: LiquidatedLegacyPostUpgradeSnapshot;
+}>(
+  ctx: FuzzContext<S>,
+): Promise<void> {
+  if (ctx.state.phase !== "post-upgrade-liquidated-legacy") return;
+
+  const { cluster, operators, postUpgradeSnapshot } = ctx.state;
+  expect(await ctx.views.getClusterAssetType(cluster.owner.address, cluster.operatorIds)).to.equal(CLUSTER_VERSION_SSV);
+  expect(await ctx.views.isLiquidated(cluster.owner.address, cluster.operatorIds, cluster.cluster)).to.equal(true);
+  expect(cluster.cluster.active).to.equal(false);
+  expect(BigInt(cluster.cluster.balance)).to.equal(0n);
+  expect(BigInt(await ctx.views.getNetworkValidatorsCount())).to.equal(postUpgradeSnapshot.networkValidatorCount);
+
+  for (const op of operators) {
+    const opSSV = await ctx.views.getOperatorByIdSSV(op.id);
+    const opETH = await ctx.views.getOperatorById(op.id);
+    expect(BigInt(opSSV.validatorCount)).to.equal(postUpgradeSnapshot.operatorSSVValidatorCounts.get(op.id));
+    expect(BigInt(opETH.validatorCount)).to.equal(postUpgradeSnapshot.operatorETHValidatorCounts.get(op.id));
+    expect(BigInt(opETH.fee)).to.equal(postUpgradeSnapshot.operatorETHFees.get(op.id));
+  }
+}
+
+export async function assertLiquidatedLegacyVersionTransition<S extends {
+  cluster: ClusterRecord;
+  phase: string;
+}>(
+  ctx: FuzzContext<S>,
+): Promise<void> {
+  const { cluster, phase } = ctx.state;
+  const assetType = BigInt(await ctx.views.getClusterAssetType(cluster.owner.address, cluster.operatorIds));
+
+  if (phase === "post-upgrade-liquidated-legacy") {
+    expect(assetType).to.equal(CLUSTER_VERSION_SSV);
+    return;
+  }
+
+  expect(assetType).to.equal(CLUSTER_VERSION_ETH);
+  await expect(
+    ctx.views.getBalanceSSV(cluster.owner.address, cluster.operatorIds, cluster.cluster),
+  ).to.be.revertedWithCustomError(ctx.views, Errors.INCORRECT_CLUSTER_VERSION);
+  await ctx.views.getBalance(cluster.owner.address, cluster.operatorIds, cluster.cluster);
+}
+
+export async function assertLiquidatedLegacyMigrationRefund<S extends {
+  phase: string;
+  actualRefund?: bigint;
+  migrationEventRefund?: bigint;
+}>(
+  ctx: FuzzContext<S>,
+): Promise<void> {
+  if (ctx.state.phase === "post-upgrade-liquidated-legacy") return;
+  expect(ctx.state.actualRefund).to.equal(0n);
+  expect(ctx.state.migrationEventRefund).to.equal(0n);
+}
+
+export async function assertLiquidatedLegacyMigrationReactivated<S extends {
+  cluster: ClusterRecord;
+  phase: string;
+  migrationEthDeposit: bigint;
+  reactivatedEmitted?: boolean;
+  migrationEventEthDeposited?: bigint;
+}>(
+  ctx: FuzzContext<S>,
+): Promise<void> {
+  if (ctx.state.phase !== "migrated-reactivated") return;
+
+  const { cluster, migrationEthDeposit } = ctx.state;
+  expect(ctx.state.reactivatedEmitted).to.equal(true);
+  expect(ctx.state.migrationEventEthDeposited).to.equal(migrationEthDeposit);
+  expect(cluster.cluster.active).to.equal(true);
+  expect(BigInt(cluster.cluster.balance)).to.equal(migrationEthDeposit);
+  expect(BigInt(cluster.cluster.validatorCount)).to.equal(1n);
+  expect(await ctx.views.isLiquidated(cluster.owner.address, cluster.operatorIds, cluster.cluster)).to.equal(false);
+}
+
+export async function assertLiquidatedLegacyOperatorTrackingTransition<S extends {
+  cluster: ClusterRecord;
+  operators: OperatorRecord[];
+  phase: string;
+}>(
+  ctx: FuzzContext<S>,
+): Promise<void> {
+  const { cluster, operators, phase } = ctx.state;
+  const expectedETHCount = phase === "post-upgrade-liquidated-legacy"
+    ? 0n
+    : BigInt(cluster.cluster.validatorCount);
+
+  for (const op of operators) {
+    const opSSV = await ctx.views.getOperatorByIdSSV(op.id);
+    const opETH = await ctx.views.getOperatorById(op.id);
+    expect(BigInt(opSSV.validatorCount)).to.equal(0n);
+    expect(BigInt(opETH.validatorCount)).to.equal(expectedETHCount);
+  }
+}
+
+export async function assertLiquidatedLegacyEnsureETHDefaultsTransition<S extends {
+  operators: OperatorRecord[];
+  phase: string;
+  migrationBlockNumber?: bigint;
+  postUpgradeSnapshot: LiquidatedLegacyPostUpgradeSnapshot;
+  defaultFeeExecutedEvents?: Map<number, { owner: string; blockNumber: bigint; fee: bigint }>;
+}>(
+  ctx: FuzzContext<S>,
+): Promise<void> {
+  if (ctx.state.phase === "post-upgrade-liquidated-legacy") return;
+
+  expect(ctx.state.migrationBlockNumber).to.not.be.undefined;
+  expect(ctx.state.defaultFeeExecutedEvents).to.not.be.undefined;
+  expect(ctx.state.defaultFeeExecutedEvents!.size).to.equal(ctx.state.operators.length);
+
+  for (const op of ctx.state.operators) {
+    const preMigrationFeeEntry = Array.from(ctx.state.postUpgradeSnapshot.operatorETHFees.entries()).find(([operatorId]) =>
+      BigInt(operatorId) === BigInt(op.id)
+    );
+    expect(preMigrationFeeEntry).to.not.be.undefined;
+    expect(preMigrationFeeEntry![1]).to.equal(DEFAULT_OPERATOR_ETH_FEE);
+
+    const feeExecutedEntry = Array.from(ctx.state.defaultFeeExecutedEvents!.entries()).find(([operatorId]) =>
+      BigInt(operatorId) === BigInt(op.id)
+    );
+    expect(feeExecutedEntry).to.not.be.undefined;
+    const [, feeExecuted] = feeExecutedEntry!;
+    expect(feeExecuted.owner.toLowerCase()).to.equal(op.owner.address.toLowerCase());
+    expect(feeExecuted.blockNumber).to.equal(ctx.state.migrationBlockNumber);
+    expect(feeExecuted.fee).to.equal(DEFAULT_OPERATOR_ETH_FEE);
+
+    const opETH = await ctx.views.getOperatorById(op.id);
+    expect(BigInt(opETH.fee)).to.equal(DEFAULT_OPERATOR_ETH_FEE);
+  }
+}
+
+export async function assertLiquidatedLegacyNetworkValidatorCountTransition<S extends {
+  cluster: ClusterRecord;
+  phase: string;
+}>(
+  ctx: FuzzContext<S>,
+): Promise<void> {
+  const expected = ctx.state.phase === "post-upgrade-liquidated-legacy"
+    ? 0n
+    : BigInt(ctx.state.cluster.cluster.validatorCount);
+  expect(BigInt(await ctx.views.getNetworkValidatorsCount())).to.equal(expected);
+}
+
+export async function assertLiquidatedLegacyQuantitativeInvariants<S extends {
+  cluster: ClusterRecord;
+  operators: OperatorRecord[];
+  tracker: { totalDeposited: bigint; totalWithdrawn: bigint };
+  phase: string;
+  lastContractBalanceWithDeltas?: ContractBalanceWithDeltasSnapshot;
+  lastClusterBalanceWithDeltas?: ClusterBalanceWithDeltasSnapshot;
+  lastOperatorEarnings?: OperatorEarningsSnapshot;
+  lastNetworkEarnings?: NetworkEarningsSnapshot;
+}>(
+  ctx: FuzzContext<S>,
+): Promise<void> {
+  if (ctx.state.phase === "post-upgrade-liquidated-legacy") return;
+
+  await assertContractBalanceWithDeltas(ctx);
+  await assertClusterBalanceWithDeltas(ctx);
+  await assertOperatorEarnings(ctx);
+  await assertNetworkEarnings(ctx);
+  await assertEthConservation(ctx);
+}
+
+export async function assertLiquidatedLegacyPostMigrationValidatorCount<S extends {
+  cluster: ClusterRecord;
+  phase: string;
+}>(
+  ctx: FuzzContext<S>,
+): Promise<void> {
+  if (ctx.state.phase !== "post-migration-complete") return;
+  expect(BigInt(ctx.state.cluster.cluster.validatorCount)).to.equal(2n);
+  expect(BigInt(await ctx.views.getNetworkValidatorsCount())).to.equal(2n);
 }
 
 function ebToVUnits(effectiveBalance: bigint): bigint {

@@ -1,6 +1,21 @@
-import { expect } from "chai";
 import { fuzz, generateSeeds } from "./core/runner.ts";
 import type { ClusterRecord, FuzzContext, OperatorRecord, StepFn } from "./core/types.ts";
+import {
+  assertLiquidatedLegacyEnsureETHDefaultsTransition,
+  assertLiquidatedLegacyMigrationReactivated,
+  assertLiquidatedLegacyMigrationRefund,
+  assertLiquidatedLegacyNetworkValidatorCountTransition,
+  assertLiquidatedLegacyOperatorTrackingTransition,
+  assertLiquidatedLegacyPostMigrationValidatorCount,
+  assertLiquidatedLegacyPostUpgradeSnapshot,
+  assertLiquidatedLegacyQuantitativeInvariants,
+  assertLiquidatedLegacyVersionTransition,
+  type ClusterBalanceWithDeltasSnapshot,
+  type ContractBalanceWithDeltasSnapshot,
+  type LiquidatedLegacyPostUpgradeSnapshot,
+  type NetworkEarningsSnapshot,
+  type OperatorEarningsSnapshot,
+} from "./core/assertions.ts";
 import {
   calcLiquidationThreshold,
   defaultVUnits,
@@ -12,160 +27,125 @@ import {
   setupLiquidatedLegacyClusterAndUpgrade,
 } from "../helpers/index.ts";
 import {
-  CLUSTER_VERSION_ETH,
-  CLUSTER_VERSION_SSV,
   DEFAULT_ETH_REGISTER_VALUE,
   DEFAULT_OPERATOR_ETH_FEE,
   DEFAULT_SHARES,
   ETH_DEDUCTED_DIGITS,
 } from "../common/constants.ts";
 import { Events } from "../common/events.ts";
-import { Errors } from "../common/errors.ts";
 
-type Phase = "post-upgrade-liquidated-legacy" | "migrated-reactivated" | "post-migration-complete";
+type Phase =
+  | "post-upgrade-liquidated-legacy"
+  | "migrated-reactivated"
+  | "post-migration-accrued"
+  | "post-migration-complete";
 
 interface State {
   operators: OperatorRecord[];
   cluster: ClusterRecord;
   ssvToken: any;
+  tracker: { totalDeposited: bigint; totalWithdrawn: bigint };
   phase: Phase;
   migrationEthDeposit: bigint;
-  postLiquidationBlocks: bigint;
+  postUpgradeBlocks: bigint;
   postMigrationBlocks: bigint;
   nextKeyOffset: number;
+  postUpgradeSnapshot: LiquidatedLegacyPostUpgradeSnapshot;
+  actualRefund?: bigint;
+  migrationEventRefund?: bigint;
+  migrationEventEthDeposited?: bigint;
+  reactivatedEmitted?: boolean;
+  migrationBlockNumber?: bigint;
+  defaultFeeExecutedEvents?: Map<number, { owner: string; blockNumber: bigint; fee: bigint }>;
+  lastContractBalanceWithDeltas?: ContractBalanceWithDeltasSnapshot;
+  lastClusterBalanceWithDeltas?: ClusterBalanceWithDeltasSnapshot;
+  lastOperatorEarnings?: OperatorEarningsSnapshot;
+  lastNetworkEarnings?: NetworkEarningsSnapshot;
 }
 
 const RUNS = 15;
 const seeds = generateSeeds(RUNS);
 
-function assertPreMigrationLiquidatedLegacyState<S extends State>(): StepFn<S> {
-  return async function assertPreMigrationLiquidatedLegacyState(ctx: FuzzContext<S>): Promise<void> {
-    const { cluster, operators, phase } = ctx.state;
-    if (phase !== "post-upgrade-liquidated-legacy") return;
-
-    expect(await ctx.views.getClusterAssetType(cluster.owner.address, cluster.operatorIds)).to.equal(CLUSTER_VERSION_SSV);
-    expect(await ctx.views.isLiquidated(cluster.owner.address, cluster.operatorIds, cluster.cluster)).to.equal(true);
-    expect(cluster.cluster.active).to.equal(false);
-    expect(cluster.cluster.balance).to.equal(0n);
-    expect(await ctx.views.getNetworkValidatorsCount()).to.equal(0n);
-
-    for (const op of operators) {
-      const opSSV = await ctx.views.getOperatorByIdSSV(op.id);
-      const opETH = await ctx.views.getOperatorById(op.id);
-      expect(BigInt(opSSV.validatorCount)).to.equal(0n);
-      expect(BigInt(opETH.validatorCount)).to.equal(0n);
-    }
-  };
-}
-
 function migrateLiquidatedLegacyCluster<S extends State>(): StepFn<S> {
   return async function migrateLiquidatedLegacyCluster(ctx: FuzzContext<S>): Promise<void> {
-    const { cluster, operators, ssvToken, phase, migrationEthDeposit } = ctx.state;
+    const { cluster, ssvToken, phase, migrationEthDeposit, tracker } = ctx.state;
     if (phase !== "post-upgrade-liquidated-legacy") return;
 
     await setAccountBalance(ctx.provider, cluster.owner.address, migrationEthDeposit + 10n ** 18n);
 
-    const ownerSSVBefore = await ssvToken.balanceOf(cluster.owner.address);
-    const migrateTx = await ctx.network
+    const ownerSSVBefore = BigInt(await ssvToken.balanceOf(cluster.owner.address));
+    const tx = await ctx.network
       .connect(cluster.owner)
       .migrateClusterToETH(cluster.operatorIds, cluster.cluster, { value: migrationEthDeposit });
-    const migrateReceipt = await migrateTx.wait();
-    await expect(migrateTx).to.emit(ctx.network, Events.CLUSTER_MIGRATED_TO_ETH);
-    await expect(migrateTx).to.emit(ctx.network, Events.CLUSTER_REACTIVATED);
+    const receipt = await tx.wait();
 
-    const migrateEventArgs = extractEventArgs(ctx.network, migrateReceipt, Events.CLUSTER_MIGRATED_TO_ETH);
-    const migratedCluster = parseClusterFromEvent(ctx.network, migrateReceipt, Events.CLUSTER_MIGRATED_TO_ETH);
-    const ownerSSVAfter = await ssvToken.balanceOf(cluster.owner.address);
+    cluster.cluster = parseClusterFromEvent(ctx.network, receipt, Events.CLUSTER_MIGRATED_TO_ETH);
+    tracker.totalDeposited += migrationEthDeposit;
+    ctx.state.migrationBlockNumber = BigInt(receipt!.blockNumber);
 
-    expect(ownerSSVAfter - ownerSSVBefore).to.equal(0n);
-    expect(BigInt(migrateEventArgs.ssvRefunded)).to.equal(0n);
-    expect(BigInt(migrateEventArgs.ethDeposited)).to.equal(migrationEthDeposit);
+    const eventArgs = extractEventArgs(ctx.network, receipt, Events.CLUSTER_MIGRATED_TO_ETH);
+    const defaultFeeExecutedEvents = new Map<number, { owner: string; blockNumber: bigint; fee: bigint }>();
+    let reactivatedEmitted = false;
 
-    expect(await ctx.views.getClusterAssetType(cluster.owner.address, cluster.operatorIds)).to.equal(CLUSTER_VERSION_ETH);
-    expect(await ctx.views.isLiquidated(cluster.owner.address, cluster.operatorIds, migratedCluster)).to.equal(false);
-    await expect(
-      ctx.views.getBalanceSSV(cluster.owner.address, cluster.operatorIds, migratedCluster),
-    ).to.be.revertedWithCustomError(ctx.views, Errors.INCORRECT_CLUSTER_VERSION);
-    expect(await ctx.views.getBalance(cluster.owner.address, cluster.operatorIds, migratedCluster)).to.equal(migrationEthDeposit);
-    expect(migratedCluster.active).to.equal(true);
-    expect(migratedCluster.balance).to.equal(migrationEthDeposit);
-    expect(migratedCluster.validatorCount).to.equal(1n);
-    expect(await ctx.views.getNetworkValidatorsCount()).to.equal(1n);
+    for (const log of receipt?.logs ?? []) {
+      let parsed;
+      try {
+        parsed = ctx.network.interface.parseLog(log);
+      } catch {
+        continue;
+      }
 
-    for (const op of operators) {
-      const opSSV = await ctx.views.getOperatorByIdSSV(op.id);
-      const opETH = await ctx.views.getOperatorById(op.id);
-      expect(BigInt(opSSV.validatorCount)).to.equal(0n);
-      expect(BigInt(opETH.validatorCount)).to.equal(1n);
-      expect(BigInt(opETH.fee)).to.equal(DEFAULT_OPERATOR_ETH_FEE);
+      if (parsed?.name === Events.CLUSTER_REACTIVATED) {
+        reactivatedEmitted = true;
+        continue;
+      }
+
+      if (parsed?.name !== Events.OPERATOR_FEE_EXECUTED) continue;
+
+      defaultFeeExecutedEvents.set(Number(parsed.args[1]), {
+        owner: String(parsed.args[0]),
+        blockNumber: BigInt(parsed.args[2]),
+        fee: BigInt(parsed.args[3]),
+      });
     }
 
-    cluster.cluster = migratedCluster;
+    const ownerSSVAfter = BigInt(await ssvToken.balanceOf(cluster.owner.address));
+    ctx.state.actualRefund = ownerSSVAfter - ownerSSVBefore;
+    ctx.state.migrationEventRefund = BigInt(eventArgs.ssvRefunded);
+    ctx.state.migrationEventEthDeposited = BigInt(eventArgs.ethDeposited);
+    ctx.state.reactivatedEmitted = reactivatedEmitted;
+    ctx.state.defaultFeeExecutedEvents = defaultFeeExecutedEvents;
     ctx.state.phase = "migrated-reactivated";
   };
 }
 
-function runPostMigrationEthLifecycle<S extends State>(): StepFn<S> {
-  return async function runPostMigrationEthLifecycle(ctx: FuzzContext<S>): Promise<void> {
-    const { cluster, operators, phase, postMigrationBlocks, migrationEthDeposit, nextKeyOffset } = ctx.state;
-    if (phase !== "migrated-reactivated") return;
+function advanceLiquidatedLegacyPostMigrationWindow<S extends State>(): StepFn<S> {
+  return async function advanceLiquidatedLegacyPostMigrationWindow(ctx: FuzzContext<S>): Promise<void> {
+    if (ctx.state.phase !== "migrated-reactivated") return;
+    await mineBlocks(ctx.provider, Number(ctx.state.postMigrationBlocks));
+    ctx.state.phase = "post-migration-accrued";
+  };
+}
 
-    await mineBlocks(ctx.provider, Number(postMigrationBlocks));
+function registerLiquidatedLegacyValidatorPostMigration<S extends State>(): StepFn<S> {
+  return async function registerLiquidatedLegacyValidatorPostMigration(ctx: FuzzContext<S>): Promise<void> {
+    const { cluster, phase, nextKeyOffset, tracker } = ctx.state;
+    if (phase !== "post-migration-accrued") return;
 
-    const burnRate = BigInt(
-      await ctx.views.getBurnRate(cluster.owner.address, cluster.operatorIds, cluster.cluster),
-    );
-    const expectedLiveBalance = migrationEthDeposit - (burnRate * postMigrationBlocks);
-    expect(await ctx.views.getBalance(cluster.owner.address, cluster.operatorIds, cluster.cluster)).to.equal(expectedLiveBalance);
-
-    const networkFee = BigInt(await ctx.views.getNetworkFee());
-    expect(await ctx.views.getNetworkEarnings()).to.equal(networkFee * postMigrationBlocks);
-
-    for (const op of operators) {
-      expect(await ctx.views.getOperatorEarnings(op.id)).to.equal(DEFAULT_OPERATOR_ETH_FEE * postMigrationBlocks);
-    }
-
-    const preRegisterBlock = BigInt(await ctx.provider.getBlockNumber());
     await setAccountBalance(ctx.provider, cluster.owner.address, DEFAULT_ETH_REGISTER_VALUE + 10n ** 18n);
-
-    const registerTx = await ctx.network.connect(cluster.owner).registerValidator(
-      makePublicKey(nextKeyOffset),
+    const validatorKey = makePublicKey(nextKeyOffset);
+    const tx = await ctx.network.connect(cluster.owner).registerValidator(
+      validatorKey,
       cluster.operatorIds,
       DEFAULT_SHARES,
       cluster.cluster,
       { value: DEFAULT_ETH_REGISTER_VALUE },
     );
-    const registerReceipt = await registerTx.wait();
-    const clusterAfterRegister = parseClusterFromEvent(ctx.network, registerReceipt, Events.VALIDATOR_ADDED);
+    const receipt = await tx.wait();
 
-    const blocksAccruedForRegister = BigInt(registerReceipt!.blockNumber) - preRegisterBlock;
-    const expectedBalanceAtRegister =
-      migrationEthDeposit -
-      (burnRate * (postMigrationBlocks + blocksAccruedForRegister)) +
-      DEFAULT_ETH_REGISTER_VALUE;
-
-    expect(clusterAfterRegister.balance).to.equal(expectedBalanceAtRegister);
-    expect(clusterAfterRegister.active).to.equal(true);
-    expect(clusterAfterRegister.validatorCount).to.equal(2n);
-    expect(await ctx.views.getBalance(cluster.owner.address, cluster.operatorIds, clusterAfterRegister)).to.equal(expectedBalanceAtRegister);
-    expect(await ctx.views.getNetworkValidatorsCount()).to.equal(2n);
-    expect(await ctx.views.getNetworkEarnings()).to.equal(
-      networkFee * (postMigrationBlocks + blocksAccruedForRegister),
-    );
-
-    for (const op of operators) {
-      const opSSV = await ctx.views.getOperatorByIdSSV(op.id);
-      const opETH = await ctx.views.getOperatorById(op.id);
-      expect(BigInt(opSSV.validatorCount)).to.equal(0n);
-      expect(BigInt(opETH.validatorCount)).to.equal(2n);
-      expect(BigInt(opETH.fee)).to.equal(DEFAULT_OPERATOR_ETH_FEE);
-      expect(await ctx.views.getOperatorEarnings(op.id)).to.equal(
-        DEFAULT_OPERATOR_ETH_FEE * (postMigrationBlocks + blocksAccruedForRegister),
-      );
-    }
-
-    cluster.cluster = clusterAfterRegister;
-    cluster.validatorKeys.push(makePublicKey(nextKeyOffset));
+    cluster.cluster = parseClusterFromEvent(ctx.network, receipt, Events.VALIDATOR_ADDED);
+    cluster.validatorKeys.push(validatorKey);
+    tracker.totalDeposited += DEFAULT_ETH_REGISTER_VALUE;
     ctx.state.nextKeyOffset += 1;
     ctx.state.phase = "post-migration-complete";
   };
@@ -180,7 +160,7 @@ describe("Fuzz: CAT-1-2 liquidated legacy cluster migration lifecycle", function
 
         async setup(ctx) {
           const [, operatorOwner, clusterOwner] = ctx.signers;
-          const postLiquidationBlocks = ctx.rng.nextInRange(0n, 500n);
+          const postUpgradeBlocks = ctx.rng.nextInRange(0n, 500n);
 
           const {
             newNetwork,
@@ -193,7 +173,7 @@ describe("Fuzz: CAT-1-2 liquidated legacy cluster migration lifecycle", function
             ctx.connection,
             operatorOwner,
             clusterOwner,
-            postLiquidationBlocks,
+            postUpgradeBlocks,
           );
 
           ctx.network = newNetwork;
@@ -211,6 +191,24 @@ describe("Fuzz: CAT-1-2 liquidated legacy cluster migration lifecycle", function
           });
           const migrationEthDeposit = threshold + ctx.rng.nextInRange(0n, DEFAULT_ETH_REGISTER_VALUE);
 
+          const operatorSSVValidatorCounts = new Map<number, bigint>();
+          const operatorETHValidatorCounts = new Map<number, bigint>();
+          const operatorETHFees = new Map<number, bigint>();
+          for (const opId of operatorIds) {
+            const opSSV = await ctx.views.getOperatorByIdSSV(opId);
+            const opETH = await ctx.views.getOperatorById(opId);
+            operatorSSVValidatorCounts.set(opId, BigInt(opSSV.validatorCount));
+            operatorETHValidatorCounts.set(opId, BigInt(opETH.validatorCount));
+            operatorETHFees.set(opId, BigInt(opETH.fee));
+          }
+
+          const postUpgradeSnapshot: LiquidatedLegacyPostUpgradeSnapshot = {
+            networkValidatorCount: BigInt(await ctx.views.getNetworkValidatorsCount()),
+            operatorSSVValidatorCounts,
+            operatorETHValidatorCounts,
+            operatorETHFees,
+          };
+
           return {
             operators: operatorIds.map((id) => ({ id, fee: DEFAULT_OPERATOR_ETH_FEE, owner: operatorOwner })),
             cluster: {
@@ -220,18 +218,44 @@ describe("Fuzz: CAT-1-2 liquidated legacy cluster migration lifecycle", function
               validatorKeys: [validatorKey],
             },
             ssvToken,
+            tracker: { totalDeposited: 0n, totalWithdrawn: 0n },
             phase: "post-upgrade-liquidated-legacy" as const,
             migrationEthDeposit,
-            postLiquidationBlocks,
+            postUpgradeBlocks,
             postMigrationBlocks: 100n,
             nextKeyOffset: 124,
+            postUpgradeSnapshot,
           };
         },
 
         steps: [
-          assertPreMigrationLiquidatedLegacyState(),
+          assertLiquidatedLegacyPostUpgradeSnapshot,
+          assertLiquidatedLegacyVersionTransition,
+          assertLiquidatedLegacyOperatorTrackingTransition,
+          assertLiquidatedLegacyNetworkValidatorCountTransition,
           migrateLiquidatedLegacyCluster(),
-          runPostMigrationEthLifecycle(),
+          assertLiquidatedLegacyVersionTransition,
+          assertLiquidatedLegacyMigrationRefund,
+          assertLiquidatedLegacyMigrationReactivated,
+          assertLiquidatedLegacyEnsureETHDefaultsTransition,
+          assertLiquidatedLegacyOperatorTrackingTransition,
+          assertLiquidatedLegacyNetworkValidatorCountTransition,
+          assertLiquidatedLegacyQuantitativeInvariants,
+          advanceLiquidatedLegacyPostMigrationWindow(),
+          assertLiquidatedLegacyVersionTransition,
+          assertLiquidatedLegacyMigrationRefund,
+          assertLiquidatedLegacyEnsureETHDefaultsTransition,
+          assertLiquidatedLegacyOperatorTrackingTransition,
+          assertLiquidatedLegacyNetworkValidatorCountTransition,
+          assertLiquidatedLegacyQuantitativeInvariants,
+          registerLiquidatedLegacyValidatorPostMigration(),
+          assertLiquidatedLegacyVersionTransition,
+          assertLiquidatedLegacyMigrationRefund,
+          assertLiquidatedLegacyEnsureETHDefaultsTransition,
+          assertLiquidatedLegacyOperatorTrackingTransition,
+          assertLiquidatedLegacyNetworkValidatorCountTransition,
+          assertLiquidatedLegacyQuantitativeInvariants,
+          assertLiquidatedLegacyPostMigrationValidatorCount,
         ],
 
         expectedPhase: "post-migration-complete",
