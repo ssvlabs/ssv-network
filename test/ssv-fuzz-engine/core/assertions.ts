@@ -624,6 +624,55 @@ export async function assertRemovedOperatorMigrationSkip<S extends {
   );
 }
 
+export async function assertAllOperatorsSkippedOnMigration<S extends {
+  migrationSnapshot: LegacyMigrationSnapshot;
+  cluster: ClusterRecord;
+  removedOperators: OperatorRecord[];
+}>(
+  ctx: FuzzContext<S>,
+): Promise<void> {
+  const { migrateReceipt } = ctx.state.migrationSnapshot;
+
+  const feeEvents: { operatorId: bigint; fee: bigint }[] = [];
+  for (const log of migrateReceipt.logs ?? []) {
+    let parsed;
+    try {
+      parsed = ctx.network.interface.parseLog(log);
+    } catch {
+      continue;
+    }
+    if (parsed && parsed.name === Events.OPERATOR_FEE_EXECUTED) {
+      feeEvents.push({
+        operatorId: BigInt(parsed.args.operatorId),
+        fee: BigInt(parsed.args.fee),
+      });
+    }
+  }
+
+  expect(feeEvents.length).to.equal(0, "No OperatorFeeExecuted events expected when all operators are removed");
+
+  for (const op of ctx.state.removedOperators) {
+    const opETH = await ctx.views.getOperatorById(op.id);
+    expect(BigInt(opETH.validatorCount)).to.equal(
+      0n, `Removed operator ${op.id} must have ethValidatorCount == 0`,
+    );
+
+    const opSSV = await ctx.views.getOperatorByIdSSV(op.id);
+    expect(BigInt(opSSV.validatorCount)).to.equal(
+      0n, `Removed operator ${op.id} must have SSV validatorCount == 0`,
+    );
+
+    expect(opETH.isActive).to.equal(
+      false, `Removed operator ${op.id} must remain uninitialized (isActive == false)`,
+    );
+
+    const earnings = BigInt(await ctx.views.getOperatorEarnings(op.id));
+    expect(earnings).to.equal(
+      0n, `Removed operator ${op.id} must have zero ETH earnings`,
+    );
+  }
+}
+
 export async function assertLegacyReactivationOnMigration<S extends { migrationSnapshot: LegacyMigrationSnapshot; cluster: ClusterRecord }>(
   ctx: FuzzContext<S>,
 ): Promise<void> {
