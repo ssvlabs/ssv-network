@@ -317,6 +317,48 @@ export async function assertBlockedEthOpsOnLegacyCluster<S extends BlockedOpsSta
   ctx.state.phase = "blocked-ops-verified";
 }
 
+export async function assertPostUpgradeLiquidatedState<S extends BlockedOpsState & { operators: OperatorRecord[] }>(
+  ctx: FuzzContext<S>,
+): Promise<void> {
+  const { cluster, operators } = ctx.state;
+
+  expect(cluster.cluster.active).to.equal(false, "Cluster must still be liquidated after upgrade");
+
+  await expect(
+    ctx.network.connect(cluster.owner).registerValidator(
+      makePublicKey(9000), cluster.operatorIds, DEFAULT_SHARES, cluster.cluster, { value: 0n },
+    ),
+  ).to.be.revertedWithCustomError(ctx.network, Errors.INCORRECT_CLUSTER_VERSION);
+
+  await expect(
+    ctx.network.connect(cluster.owner).deposit(
+      cluster.owner.address, cluster.operatorIds, cluster.cluster, { value: 1n },
+    ),
+  ).to.be.revertedWithCustomError(ctx.network, Errors.INCORRECT_CLUSTER_VERSION);
+
+  await expect(
+    ctx.network.connect(cluster.owner).withdraw(
+      cluster.operatorIds, 1n, cluster.cluster,
+    ),
+  ).to.be.revertedWithCustomError(ctx.network, Errors.INCORRECT_CLUSTER_VERSION);
+
+  await expect(
+    ctx.network.connect(cluster.owner).reactivate(
+      cluster.operatorIds, cluster.cluster, { value: DEFAULT_ETH_REGISTER_VALUE },
+    ),
+  ).to.be.revertedWithCustomError(ctx.network, Errors.INCORRECT_CLUSTER_VERSION);
+
+  for (const op of operators) {
+    const opSSV = await ctx.views.getOperatorByIdSSV(op.id);
+    expect(BigInt(opSSV.validatorCount)).to.equal(
+      0n,
+      `SSV validatorCount for operator ${op.id} must be 0 (decremented at liquidation)`,
+    );
+  }
+
+  ctx.state.phase = "post-upgrade-liquidated-verified";
+}
+
 interface MigrateLegacyState {
   cluster: ClusterRecord;
   phase: string;
@@ -332,12 +374,16 @@ export function migrateLegacyCluster<S extends MigrateLegacyState>(
     const { cluster } = ctx.state;
     const ethDeposit = ctx.rng.nextInRange(ethDepositMin, ethDepositMax);
 
-    const ssvBalanceBefore = BigInt(
-      await ctx.views.getBalanceSSV(cluster.owner.address, cluster.operatorIds, cluster.cluster),
-    );
-    const ssvBurnRate = BigInt(
-      await ctx.views.getBurnRateSSV(cluster.owner.address, cluster.operatorIds, cluster.cluster),
-    );
+    let ssvBalanceBefore = 0n;
+    let ssvBurnRate = 0n;
+    if (cluster.cluster.active) {
+      ssvBalanceBefore = BigInt(
+        await ctx.views.getBalanceSSV(cluster.owner.address, cluster.operatorIds, cluster.cluster),
+      );
+      ssvBurnRate = BigInt(
+        await ctx.views.getBurnRateSSV(cluster.owner.address, cluster.operatorIds, cluster.cluster),
+      );
+    }
     const ownerSSVBefore = BigInt(await ctx.ssvToken.balanceOf(cluster.owner.address));
 
     await setAccountBalance(ctx.provider, cluster.owner.address, ethDeposit + 10n ** 18n);
