@@ -664,6 +664,10 @@ export async function assertRemovedOperatorMigrationSkip<S extends {
     0n,
     `Removed operator ${removedId} must have ethValidatorCount == 0`,
   );
+  expect(BigInt(removedOpETH.fee)).to.equal(
+    0n,
+    `Removed operator ${removedId} must have ethFee == 0 (ensureETHDefaults must not execute)`,
+  );
 
   const removedOpSSV = await ctx.views.getOperatorByIdSSV(removedId);
   expect(BigInt(removedOpSSV.validatorCount)).to.equal(
