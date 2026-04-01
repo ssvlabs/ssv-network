@@ -30,8 +30,9 @@
 | BUG-17 | ~~`commitRoot` quorum can become unreachable due to truncation in per-oracle weight math~~ | Critical Bug Fix | P0 | ✅ Fixed |
 | BUG-18 | ~~Staking Rewards Accumulator Precision Loss~~ | High Bug Fix | P1 | ✅ Closed (accepted as part of the accumulator model) |
 | BUG-19 | ~~Aggregate vs per-cluster rounding causes conservation law violation~~ | Medium Bug Fix | P1 | ✅ Closed (accepted as a known precision limitation) |
-| BUG-20 | Dust permanently trapped on reward claim with zero cSSV balance | Low Bug Fix | P1 | ✅ Closed (Fixed on SEC-16b) |
-| BUG-21 | `removeOperator` deletes `operatorEthVUnits` causing underflow in cluster operations | Critical Bug Fix | P0 | ✅ Fixed |
+| BUG-20 | ~~Dust permanently trapped on reward claim with zero cSSV balance~~ | Low Bug Fix | P1 | ✅ Closed (Fixed on SEC-16b) |
+| BUG-21 | ~~`removeOperator` deletes `operatorEthVUnits` causing underflow in cluster operations~~ | Critical Bug Fix | P0 | ✅ Fixed |
+| BUG-22 | ~~`updateClusterOperatorsMigration` skips removed operator's frozen ETH index — one-time cluster overcharge~~ | Medium Bug Fix | P1 | ✅ Fixed (refactored) |
 | SEC-1 | ~~`updateQuorumBps(0)` allows zero-threshold oracle commits~~ | Security Hardening | P2 | ✅ Mitigated (owner-only) |
 | SEC-2 | ~~`quorumBps` not initialized during upgrade — zero by default~~ | Security Hardening | P0 | ✅ Fixed — `initializeSSVStaking` now takes `quorumBps` param and validates `!= 0 && <= 10_000` |
 | SEC-3 | ~~`replaceOracle` doesn't invalidate pending votes~~ | Security Hardening | ~~P1~~ P2 | ✅ Mitigated (owner-only + coordinated oracles) |
@@ -699,6 +700,93 @@ The `daoTotalEthVUnits` adjustment is per-cluster (not per-operator) and continu
 
 **Test Coverage:**
 `test/sanity/removed-operator-with-deviated-cluster.test.ts` — 9 test cases × 4 operator counts (4, 7, 10, 13) = 36 tests covering all mutation sites with full state assertions.
+
+---
+
+### [BUG-22] `updateClusterOperatorsMigration` skips removed operator's frozen ETH index — one-time cluster overcharge
+- **Type:** Medium Bug Fix
+- **Priority:** P1
+- **Status:** ✅ Fixed (refactored)
+- **Owner:** N/A
+- **Timeline:** 2026-04-01
+- **Github Link:** N/A (branch `test/monte-carlo-v2`)
+
+**Requirement:**
+When an SSV cluster migrates to ETH via `migrateClusterToETH`, the new `cluster.index` must include the frozen `ethSnapshot.index` of every operator — including removed operators — so that subsequent cluster operations compute a zero delta for the removed operator's contribution.
+
+**Context:**
+In `OperatorLib.sol:updateClusterOperatorsMigration`, removed operators (both `snapshot.block == 0` and `ethSnapshot.block == 0`) hit a `continue` at line 363-364, which skips all ETH processing including `cumulativeIndexETH` accumulation. This is inconsistent with `updateClusterOperators` (line 260), `updateClusterOperatorsOnReactivation` (line 328), and `withdraw` (SSVClusters.sol:221-224), all of which unconditionally accumulate the operator's `ethSnapshot.index`.
+
+The frozen `ethSnapshot.index` is intentionally preserved by `_resetOperatorState` (FLOWS.md §4.2) so that the delta model can settle pending operator fees on the next cluster operation. The invariant is:
+
+```
+fees_from_removed_operator = (cumulativeIndex_now - cluster.index_last) for that operator
+```
+
+- First operation after removal: delta = `frozen_index - index_at_last_settlement` = pending fees (correct charge)
+- All subsequent operations: delta = `frozen_index - frozen_index` = 0 (no charge)
+
+When `updateClusterOperatorsMigration` excludes the frozen index from `cumulativeIndexETH`, the migrated cluster's `cluster.index` is set too low. On the first subsequent cluster operation, `updateClusterOperators` includes the frozen value, producing a phantom delta equal to the full frozen `ethSnapshot.index`. This results in a **one-time overcharge** on the cluster.
+
+**Trigger conditions:**
+1. An operator serves both SSV and ETH clusters simultaneously (multi-cluster)
+2. The operator is removed (freezing a non-zero `ethSnapshot.index`)
+3. A cluster containing that operator migrates from SSV to ETH
+
+**Fix — Refactor for structural consistency:**
+
+The original code used a three-way branch (`continue` / `ensureETHDefaults` / `updateSnapshotSt`) with `cumulativeIndexETH` accumulated only inside the `else` branch. This was refactored to match the established pattern in `updateClusterOperators` and `updateClusterOperatorsOnReactivation`: state mutations are guarded, but index accumulation is unconditional at the end.
+
+Before (buggy):
+```solidity
+cumulativeIndexSSV += operator.snapshot.index;
+
+if (operator.snapshot.block == 0 && operator.ethSnapshot.block == 0) {
+    continue;  // BUG: skips cumulativeIndexETH
+}
+if (operator.ethSnapshot.block == 0) {
+    ensureETHDefaults(operator, operatorId);
+} else {
+    updateSnapshotSt(operator, operatorId);
+    cumulativeIndexETH += operator.ethSnapshot.index;  // only here
+}
+// ... ethValidatorCount, cumulativeFeeETH
+```
+
+After (refactored):
+```solidity
+cumulativeIndexSSV += operator.snapshot.index;
+
+// Removed operators (both blocks == 0) contribute their frozen index
+// but are not mutated (no validator count or fee changes)
+if (operator.snapshot.block != 0 || operator.ethSnapshot.block != 0) {
+    if (operator.ethSnapshot.block == 0) {
+        ensureETHDefaults(operator, operatorId);
+    } else {
+        updateSnapshotSt(operator, operatorId);
+    }
+    // ... ethValidatorCount, cumulativeFeeETH
+}
+cumulativeIndexETH += operator.ethSnapshot.index;  // ALWAYS
+```
+
+**Refactor equivalence proof:**
+
+The refactored version is precisely equivalent to the minimal fix (`cumulativeIndexETH += operator.ethSnapshot.index` before the `continue`) across all three reachable operator states:
+
+| State | `snapshot.block` | `ethSnapshot.block` | Minimal fix | Refactored |
+|-------|-----------------|---------------------|-------------|------------|
+| A: SSV-only | `!= 0` | `== 0` | Skips `continue`, enters `ensureETHDefaults`, index not accumulated (= 0, no-op) | Guard TRUE, `ensureETHDefaults`, then `+= index` (= 0, no-op) |
+| B: Dual | `!= 0` | `!= 0` | Skips `continue`, enters `else`, `+= index` (updated) | Guard TRUE, `updateSnapshotSt`, then `+= index` (updated) |
+| C: Removed | `== 0` | `== 0` | `+= index` (frozen) before `continue` | Guard FALSE (skip mutations), then `+= index` (frozen) |
+
+The hypothetical state `snapshot.block > 0 && ethSnapshot.block == 0 && ethSnapshot.index > 0` is the only case where the two differ (minimal fix would not accumulate; refactored would). This state is **provably unreachable**: `ethSnapshot.index` can only grow when `ethSnapshot.block != 0` (all three writers guard on this), and the only code that zeroes `ethSnapshot.block` is `_resetOperatorState`, which atomically zeroes `snapshot.block` too — making `snapshot.block > 0` impossible after the index was frozen.
+
+**Acceptance Criteria:**
+- [ ] `migrateClusterToETH` for a cluster containing a removed operator (that previously had ETH data) does not cause overcharge on subsequent operations
+- [ ] `cluster.index` after migration includes the removed operator's frozen `ethSnapshot.index`
+- [ ] Multi-cluster scenario: operator serves ETH cluster A and SSV cluster B, operator is removed, cluster B migrates — both clusters settle correctly
+- [ ] Refactored `updateClusterOperatorsMigration` produces identical `cumulativeIndexSSV`, `cumulativeIndexETH`, and `cumulativeFeeETH` as the original for all active operator states
 
 ---
 
