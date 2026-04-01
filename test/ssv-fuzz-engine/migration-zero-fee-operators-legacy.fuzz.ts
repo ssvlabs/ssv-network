@@ -1,5 +1,5 @@
 import { fuzz, generateSeeds } from "./core/runner.ts";
-import { setupAllRemovedOperatorsLegacyMigrationSeed, alignSSVFee } from "./core/setup.ts";
+import { setupLegacyMigrationSeed } from "./core/setup.ts";
 import type { OperatorRecord, ClusterRecord } from "./core/types.ts";
 import {
   migrateLegacyCluster,
@@ -8,12 +8,15 @@ import {
 } from "./core/steps.ts";
 import {
   assertLegacyMigrationRefund,
-  assertAllOperatorsSkippedOnMigration,
+  assertZeroFeeOperatorsPostMigration,
+  assertLegacyOperatorDualTracking,
   assertEthConservation,
   assertNetworkValidatorCount,
+  assertPhaseAwareOperatorEarnings,
   assertPhaseAwareClusterBalance,
   assertPhaseAwareNetworkEarnings,
   assertContractBalanceWithDeltas,
+  type PhaseAwareOperatorEarningsSnapshot,
   type PhaseAwareClusterBalanceSnapshot,
   type PhaseAwareNetworkEarningsSnapshot,
   type ContractBalanceWithDeltasSnapshot,
@@ -25,7 +28,6 @@ import { Events } from "../common/events.ts";
 import { Errors } from "../common/errors.ts";
 import { expect } from "chai";
 import {
-  MINIMAL_OPERATOR_FEE_SSV,
   TOKEN_REGISTER_AMOUNT,
   DEFAULT_ETH_REGISTER_VALUE,
   DEFAULT_SHARES,
@@ -39,7 +41,6 @@ import {
 interface State {
   cluster: ClusterRecord;
   operators: OperatorRecord[];
-  removedOperators: OperatorRecord[];
   phase: string;
 
   ssvFee: bigint;
@@ -48,6 +49,7 @@ interface State {
 
   tracker: DepositWithdrawTracker;
 
+  lastPhaseAwareOperatorEarnings?: PhaseAwareOperatorEarningsSnapshot;
   lastPhaseAwareClusterBalance?: PhaseAwareClusterBalanceSnapshot;
   lastPhaseAwareNetworkEarnings?: PhaseAwareNetworkEarningsSnapshot;
   lastContractBalanceWithDeltas?: ContractBalanceWithDeltasSnapshot;
@@ -56,29 +58,32 @@ interface State {
 const RUNS = 10;
 const seeds = generateSeeds(RUNS);
 
-describe("Fuzz: CAT-1-4 — all operators removed, migration skips all ops", function () {
+describe("Fuzz: CAT-1-5 — zero-fee operators cluster, migration preserves zero fee", function () {
   for (const seed of seeds) {
-    it(`Validates all-removed-operators legacy migration lifecycle with seed=${seed}`, async function () {
+    it(`Validates zero-fee operators legacy migration lifecycle with seed=${seed}`, async function () {
       await fuzz<State>({
         ticks: 1,
         blocksPerTick: { min: 0n, max: 0n },
 
         async setup(ctx) {
-          const ssvFee = alignSSVFee(
-            ctx.rng.nextInRange(MINIMAL_OPERATOR_FEE_SSV, MINIMAL_OPERATOR_FEE_SSV * 5n),
-          );
           const ssvDepositPerValidator = ctx.rng.nextInRange(
             TOKEN_REGISTER_AMOUNT / 2n,
             TOKEN_REGISTER_AMOUNT,
           );
           const validatorCount = Number(ctx.rng.nextInRange(2n, 3n));
 
-          const seed = await setupAllRemovedOperatorsLegacyMigrationSeed(ctx, {
+          const seed = await setupLegacyMigrationSeed(ctx, {
             operatorCount: 4,
-            ssvFee,
+            ssvFee: 0n,
             validatorCount,
             ssvDepositPerValidator,
+            preUpgradeBlocks: 0,
           });
+
+          const zeroFeeOperators = seed.operators.map(op => ({
+            ...op,
+            fee: 0n,
+          }));
 
           return {
             cluster: {
@@ -87,10 +92,9 @@ describe("Fuzz: CAT-1-4 — all operators removed, migration skips all ops", fun
               owner: seed.clusterOwner,
               validatorKeys: [...seed.validatorKeys],
             },
-            operators: [],
-            removedOperators: seed.removedOperators,
-            phase: "post-upgrade-all-removed",
-            ssvFee: seed.ssvFee,
+            operators: zeroFeeOperators,
+            phase: "post-upgrade-legacy",
+            ssvFee: 0n,
             totalSsvDeposit: seed.totalSsvDeposit,
             tracker: { totalDeposited: 0n, totalWithdrawn: 0n },
           };
@@ -98,9 +102,8 @@ describe("Fuzz: CAT-1-4 — all operators removed, migration skips all ops", fun
 
         steps: [
           {
-            name: "allRemovedOperatorsMigrationLifecycle",
+            name: "zeroFeeOperatorsMigrationLifecycle",
             fn: async (ctx) => {
-              // Phase 2: SSV cluster still active, ETH ops blocked
               expect(ctx.state.cluster.cluster.active).to.equal(true);
               await expect(
                 ctx.network.connect(ctx.state.cluster.owner).deposit(
@@ -113,7 +116,6 @@ describe("Fuzz: CAT-1-4 — all operators removed, migration skips all ops", fun
                 ),
               ).to.be.revertedWithCustomError(ctx.network, Errors.INCORRECT_CLUSTER_VERSION);
 
-              // minViable: 0 active operators → burnRate == 0, threshold from network fee only
               const valCount = BigInt(ctx.state.cluster.cluster.validatorCount);
               const packedNetFee = NETWORK_FEE_ETH / ETH_DEDUCTED_DIGITS;
               const vUnits = valCount * BPS_DENOMINATOR;
@@ -134,37 +136,48 @@ describe("Fuzz: CAT-1-4 — all operators removed, migration skips all ops", fun
                 ).to.be.revertedWithCustomError(ctx.network, Errors.INSUFFICIENT_BALANCE);
               }
 
-              // Phase 3: migrate
               const ethDepositMax = DEFAULT_ETH_REGISTER_VALUE * 2n;
               const migrateStep = migrateLegacyCluster<State>(minViable, ethDepositMax);
               await migrateStep(ctx);
 
-              await assertAllOperatorsSkippedOnMigration(ctx);
+              await assertZeroFeeOperatorsPostMigration(ctx);
               await assertLegacyMigrationRefund(ctx as any);
+              await assertLegacyOperatorDualTracking(ctx);
               await assertNetworkValidatorCount(ctx);
 
+              await assertPhaseAwareOperatorEarnings(ctx);
               await assertPhaseAwareClusterBalance(ctx);
               await assertPhaseAwareNetworkEarnings(ctx);
               await assertContractBalanceWithDeltas(ctx);
 
-              // Phase 4: post-migration lifecycle
-              const postMigrationBlocks = 1000;
-              await mineBlocks(ctx.provider, postMigrationBlocks);
+              // Phase 4: verify zero operator fees persist
+              await mineBlocks(ctx.provider, Number(ctx.rng.nextInRange(200n, 500n)));
 
+              await assertPhaseAwareOperatorEarnings(ctx);
               await assertPhaseAwareClusterBalance(ctx);
               await assertPhaseAwareNetworkEarnings(ctx);
 
-              let regReverted = false;
-              try {
-                const tx = await ctx.network.connect(ctx.state.cluster.owner).registerValidator(
-                  makePublicKey(5000), ctx.state.cluster.operatorIds, DEFAULT_SHARES, ctx.state.cluster.cluster,
-                  { value: 0n },
-                );
-                await tx.wait();
-              } catch {
-                regReverted = true;
+              for (const op of ctx.state.operators) {
+                await expect(
+                  ctx.network.connect(op.owner).withdrawAllOperatorEarnings(op.id),
+                ).to.be.revertedWithCustomError(ctx.network, Errors.INSUFFICIENT_BALANCE);
               }
-              expect(regReverted, "registerValidator must revert with all operators removed").to.equal(true);
+
+              const newKey = makePublicKey(5000);
+              const regTx = await ctx.network.connect(ctx.state.cluster.owner).registerValidator(
+                newKey, ctx.state.cluster.operatorIds, DEFAULT_SHARES, ctx.state.cluster.cluster,
+                { value: 0n },
+              );
+              const regReceipt = await regTx.wait();
+              ctx.state.cluster.cluster = parseClusterFromEvent(ctx.network, regReceipt, Events.VALIDATOR_ADDED);
+              ctx.state.cluster.validatorKeys.push(newKey);
+
+              ctx.state.lastPhaseAwareOperatorEarnings = undefined;
+              ctx.state.lastPhaseAwareClusterBalance = undefined;
+              ctx.state.lastPhaseAwareNetworkEarnings = undefined;
+              await assertPhaseAwareOperatorEarnings(ctx);
+              await assertPhaseAwareClusterBalance(ctx);
+              await assertPhaseAwareNetworkEarnings(ctx);
 
               const clusterBalance = BigInt(
                 await ctx.views.getBalance(
@@ -194,18 +207,24 @@ describe("Fuzz: CAT-1-4 — all operators removed, migration skips all ops", fun
               ctx.state.cluster.cluster = parseClusterFromEvent(ctx.network, depReceipt, Events.CLUSTER_DEPOSITED);
               ctx.state.tracker.totalDeposited += depositAmount;
 
+              ctx.state.lastPhaseAwareOperatorEarnings = undefined;
               ctx.state.lastPhaseAwareClusterBalance = undefined;
               ctx.state.lastPhaseAwareNetworkEarnings = undefined;
+              await assertPhaseAwareOperatorEarnings(ctx);
               await assertPhaseAwareClusterBalance(ctx);
               await assertPhaseAwareNetworkEarnings(ctx);
 
-              for (const op of ctx.state.removedOperators) {
+              await assertLegacyOperatorDualTracking(ctx);
+              await assertNetworkValidatorCount(ctx);
+
+              for (const op of ctx.state.operators) {
                 const earnings = BigInt(await ctx.views.getOperatorEarnings(op.id));
-                expect(earnings).to.equal(0n, `Removed operator ${op.id} must have zero ETH earnings`);
+                expect(earnings).to.equal(0n, `Zero-fee operator ${op.id} must have zero ETH earnings`);
               }
 
               ctx.state.phase = "post-migration-complete";
 
+              await assertContractBalanceWithDeltas(ctx);
               await assertEthConservation(ctx);
             },
           },
