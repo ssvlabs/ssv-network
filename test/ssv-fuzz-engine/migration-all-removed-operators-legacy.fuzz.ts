@@ -148,7 +148,7 @@ describe("Fuzz: CAT-1-4 — all operators removed, migration skips all ops", fun
               await assertContractBalanceWithDeltas(ctx);
 
               // Phase 4: post-migration lifecycle
-              const postMigrationBlocks = 1000;
+              const postMigrationBlocks = Number(ctx.rng.nextInRange(500n, 1000n));
               await mineBlocks(ctx.provider, postMigrationBlocks);
 
               await assertPhaseAwareClusterBalance(ctx);
