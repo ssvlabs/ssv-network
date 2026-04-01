@@ -782,6 +782,73 @@ export async function assertLegacyReactivationOnMigration<S extends { migrationS
   expect(ctx.state.cluster.cluster.active).to.equal(true);
 }
 
+export async function assertLargeClusterMigrationEvents<S extends {
+  migrationSnapshot: LegacyMigrationSnapshot;
+  cluster: ClusterRecord;
+  ssvFees: bigint[];
+  removedOperatorIds: number[];
+}>(
+  ctx: FuzzContext<S>,
+): Promise<void> {
+  const { migrateReceipt } = ctx.state.migrationSnapshot;
+  const { operatorIds } = ctx.state.cluster;
+  const { ssvFees, removedOperatorIds } = ctx.state;
+
+  const feeEvents: { operatorId: bigint; fee: bigint }[] = [];
+  for (const log of migrateReceipt.logs ?? []) {
+    let parsed;
+    try {
+      parsed = ctx.network.interface.parseLog(log);
+    } catch {
+      continue;
+    }
+    if (parsed && parsed.name === Events.OPERATOR_FEE_EXECUTED) {
+      feeEvents.push({
+        operatorId: BigInt(parsed.args.operatorId),
+        fee: BigInt(parsed.args.fee),
+      });
+    }
+  }
+
+  const expectedEventCount = operatorIds.filter((id, i) =>
+    ssvFees[i] !== 0n && !removedOperatorIds.includes(id),
+  ).length;
+  expect(feeEvents.length).to.equal(
+    expectedEventCount,
+    `Expected ${expectedEventCount} OperatorFeeExecuted events (non-zero fee, non-removed)`,
+  );
+
+  for (let i = 0; i < operatorIds.length; i++) {
+    const opId = operatorIds[i];
+    const ssvFee = ssvFees[i];
+    const isRemoved = removedOperatorIds.includes(opId);
+
+    if (isRemoved) {
+      const ev = feeEvents.find(e => e.operatorId === BigInt(opId));
+      expect(ev, `Removed operator ${opId} must NOT have OperatorFeeExecuted`).to.be.undefined;
+
+      const opETH = await ctx.views.getOperatorById(opId);
+      expect(BigInt(opETH.validatorCount)).to.equal(
+        0n, `Removed operator ${opId} must have ethValidatorCount == 0`,
+      );
+      const opSSV = await ctx.views.getOperatorByIdSSV(opId);
+      expect(BigInt(opSSV.validatorCount)).to.equal(
+        0n, `Removed operator ${opId} must have SSV validatorCount == 0`,
+      );
+    } else if (ssvFee === 0n) {
+      const ev = feeEvents.find(e => e.operatorId === BigInt(opId));
+      expect(ev, `Zero-fee operator ${opId} must NOT have OperatorFeeExecuted`).to.be.undefined;
+
+      const opETH = await ctx.views.getOperatorById(opId);
+      expect(BigInt(opETH.fee)).to.equal(0n, `Zero-fee operator ${opId} must have ethFee == 0`);
+    } else {
+      const ev = feeEvents.find(e => e.operatorId === BigInt(opId));
+      expect(ev, `Normal operator ${opId} must have OperatorFeeExecuted`).to.not.be.undefined;
+      expect(ev!.fee).to.equal(BigInt(DEFAULT_OPERATOR_ETH_FEE));
+    }
+  }
+}
+
 export async function assertEthConservation<S extends { cluster: ClusterRecord; operators: OperatorRecord[] }>(
   ctx: FuzzContext<S>,
 ): Promise<void> {
