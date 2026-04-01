@@ -748,6 +748,8 @@ export interface LargeClusterLegacyMigrationSeedConfig {
 export interface LargeClusterLegacyMigrationSeedResult extends LegacyMigrationSeedResult {
   removedOperator: OperatorRecord;
   ssvFees: bigint[];
+  ssvBalanceAfterRemoval: bigint;
+  blockAfterRemoval: bigint;
 }
 
 export async function setupLargeClusterLegacyMigrationSeed(
@@ -792,6 +794,11 @@ export async function setupLargeClusterLegacyMigrationSeed(
   const removedId = operatorIds[config.removedOperatorIndex];
   await legacyNetwork.connect(operatorOwner).removeOperator(removedId);
 
+  const ssvBalanceAfterRemoval = BigInt(
+    await legacyViews.getBalance(clusterOwner.address, operatorIds, cluster),
+  );
+  const blockAfterRemoval = BigInt(await connection.ethers.provider.getBlockNumber());
+
   const preUpgradeCluster = { ...cluster };
 
   await mineBlocks(connection.ethers.provider, 200);
@@ -829,6 +836,8 @@ export async function setupLargeClusterLegacyMigrationSeed(
     removedOperator,
     ssvFee: config.ssvFees.find(f => f !== 0n) ?? 0n,
     ssvFees: config.ssvFees,
+    ssvBalanceAfterRemoval,
+    blockAfterRemoval,
     totalSsvDeposit,
     preUpgradeCluster,
     validatorKeys,

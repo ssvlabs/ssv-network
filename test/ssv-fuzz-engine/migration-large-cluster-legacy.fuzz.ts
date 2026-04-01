@@ -32,7 +32,9 @@ import {
   TOKEN_REGISTER_AMOUNT,
   DEFAULT_OPERATOR_ETH_FEE,
   NETWORK_FEE_ETH,
+  NETWORK_FEE,
   ETH_DEDUCTED_DIGITS,
+  DEDUCTED_DIGITS,
   BPS_DENOMINATOR,
   MINIMUM_BLOCKS_BEFORE_LIQUIDATION,
   MINIMUM_LIQUIDATION_PERIOD_COLLATERAL,
@@ -49,6 +51,8 @@ interface State {
   phase: string;
 
   totalSsvDeposit: bigint;
+  ssvBalanceAfterRemoval: bigint;
+  blockAfterRemoval: bigint;
   migrationSnapshot?: LegacyMigrationSnapshot;
 
   tracker: DepositWithdrawTracker;
@@ -112,6 +116,8 @@ describe("Fuzz: CAT-1-10 — large cluster (13 ops: 10 normal + 2 zero-fee + 1 r
             ssvFees: seed.ssvFees,
             phase: "post-upgrade-large-cluster",
             totalSsvDeposit: seed.totalSsvDeposit,
+            ssvBalanceAfterRemoval: seed.ssvBalanceAfterRemoval,
+            blockAfterRemoval: seed.blockAfterRemoval,
             tracker: { totalDeposited: 0n, totalWithdrawn: 0n },
           };
         },
@@ -167,13 +173,34 @@ describe("Fuzz: CAT-1-10 — large cluster (13 ops: 10 normal + 2 zero-fee + 1 r
               }
 
               // Phase 3: migration
-              const ethDepositMax = DEFAULT_ETH_REGISTER_VALUE * 2n;
+              const ethDepositMax = minViable + DEFAULT_ETH_REGISTER_VALUE;
               const migrateStep = migrateLegacyCluster<State>(minViable, ethDepositMax);
               await migrateStep(ctx);
 
               // Post-migration assertions
               await assertLargeClusterMigrationEvents(ctx as any);
               await assertLegacyMigrationRefund(ctx as any);
+
+              const snap = ctx.state.migrationSnapshot!;
+              const activeSsvFees = ctx.state.ssvFees.filter(
+                (_, i) => !ctx.state.removedOperatorIds.includes(cluster.operatorIds[i]),
+              );
+              const packedSsvFeeSum = activeSsvFees.reduce((sum, f) => sum + f / DEDUCTED_DIGITS, 0n);
+              const packedSsvNetFee = NETWORK_FEE / DEDUCTED_DIGITS;
+              const expectedSsvBurnRate = (packedSsvFeeSum + packedSsvNetFee) * valCount * DEDUCTED_DIGITS;
+              expect(snap.ssvBurnRate).to.equal(
+                expectedSsvBurnRate,
+                "SSV burn rate must match first-principles (12 active ops × fees + network fee)",
+              );
+
+              const currentBlock = BigInt(await ctx.provider.getBlockNumber());
+              const blocksSinceRemoval = currentBlock - 1n - ctx.state.blockAfterRemoval;
+              const expectedSsvBalance = ctx.state.ssvBalanceAfterRemoval - expectedSsvBurnRate * blocksSinceRemoval;
+              expect(snap.ssvBalanceBefore).to.equal(
+                expectedSsvBalance,
+                "SSV balance must equal post-removal balance minus burn over actual elapsed blocks",
+              );
+
               await assertLegacyOperatorDualTracking(ctx);
               await assertNetworkValidatorCount(ctx);
 
