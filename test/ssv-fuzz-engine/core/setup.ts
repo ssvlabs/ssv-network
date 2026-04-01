@@ -845,3 +845,90 @@ export async function setupLargeClusterLegacyMigrationSeed(
     operatorOwner,
   };
 }
+
+export interface PrivateOperatorsLegacyMigrationSeedConfig {
+  ssvFee: bigint;
+  validatorCount: number;
+  ssvDepositPerValidator: bigint;
+  privateCount: number;
+}
+
+export interface PrivateOperatorsLegacyMigrationSeedResult extends LegacyMigrationSeedResult {
+  privateCount: number;
+  firstPrivateOperatorId: number;
+}
+
+export async function setupPrivateOperatorsLegacyMigrationSeed(
+  ctx: FuzzContext<undefined>,
+  config: PrivateOperatorsLegacyMigrationSeedConfig,
+): Promise<PrivateOperatorsLegacyMigrationSeedResult> {
+  const { connection } = ctx;
+  const [, operatorOwner, clusterOwner] = ctx.signers;
+
+  const { network: legacyNetwork, views: legacyViews, ssvToken } =
+    await ssvNetworkFullPreUpgradeFixture(connection);
+
+  const operatorIds: number[] = [];
+  for (let i = 0; i < 4; i++) {
+    const isPrivate = i < config.privateCount;
+    const key = makeOperatorKey(1000 + i);
+    const id = await legacyNetwork.connect(operatorOwner)
+      .registerOperator.staticCall(key, config.ssvFee, isPrivate);
+    await legacyNetwork.connect(operatorOwner)
+      .registerOperator(key, config.ssvFee, isPrivate);
+    operatorIds.push(Number(id));
+  }
+
+  const privateOperatorIds = operatorIds.slice(0, config.privateCount);
+  await legacyNetwork.connect(operatorOwner)
+    .setOperatorsWhitelists(privateOperatorIds, [clusterOwner.address]);
+
+  const totalSsvDeposit = config.ssvDepositPerValidator * BigInt(config.validatorCount);
+  await ssvToken.mint(clusterOwner.address, totalSsvDeposit);
+  await ssvToken.connect(clusterOwner).approve(
+    await legacyNetwork.getAddress(), totalSsvDeposit,
+  );
+
+  const validatorKeys: string[] = [];
+  let cluster: Cluster = EMPTY_CLUSTER;
+  for (let i = 0; i < config.validatorCount; i++) {
+    const key = makePublicKey(2000 + i);
+    validatorKeys.push(key);
+    await legacyNetwork.connect(clusterOwner).registerValidator(
+      key, operatorIds, DEFAULT_SHARES, config.ssvDepositPerValidator, cluster,
+    );
+    cluster = await getCurrentClusterState(
+      connection, legacyNetwork, clusterOwner.address, operatorIds,
+    );
+  }
+
+  const preUpgradeCluster = { ...cluster };
+
+  const { cssv, newNetwork, newViews } = await upgradeToStakingVersion(
+    connection, legacyNetwork, legacyViews,
+  );
+
+  (ctx as any).network = newNetwork;
+  (ctx as any).views = newViews;
+  (ctx as any).ssvToken = ssvToken;
+  (ctx as any).cssvToken = cssv;
+
+  const operators: OperatorRecord[] = operatorIds.map(id => ({
+    id,
+    fee: DEFAULT_OPERATOR_ETH_FEE,
+    owner: operatorOwner,
+  }));
+
+  return {
+    operatorIds,
+    operators,
+    ssvFee: config.ssvFee,
+    totalSsvDeposit,
+    preUpgradeCluster,
+    validatorKeys,
+    clusterOwner,
+    operatorOwner,
+    privateCount: config.privateCount,
+    firstPrivateOperatorId: privateOperatorIds[0],
+  };
+}
