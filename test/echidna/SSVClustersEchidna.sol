@@ -1074,7 +1074,6 @@ contract SSVClustersEchidna is SSVClusters, SSVOperators(0), SSVStaking(address(
             ClusterRecord storage record = clusters[clusterIds[i]];
             if (!record.exists) return false;
             if (!record.cluster.active) {
-                if (record.cluster.balance != 0) return false;
                 if (record.cluster.index != 0) return false;
                 if (record.cluster.networkFeeIndex != 0) return false;
             }
