@@ -32,13 +32,14 @@ export async function registerFuzzOperators(
   owner: HardhatEthersSigner,
   count: number,
   fees: bigint[],
+  setPrivate: boolean = true,
 ): Promise<OperatorRecord[]> {
   const records: OperatorRecord[] = [];
   for (let i = 0; i < count; i++) {
     const fee = fees[i] ?? MINIMAL_OPERATOR_ETH_FEE;
     const key = makeOperatorKey(1000 + i);
-    const id = await ctx.network.connect(owner).registerOperator.staticCall(key, fee, true);
-    await ctx.network.connect(owner).registerOperator(key, fee, true);
+    const id = await ctx.network.connect(owner).registerOperator.staticCall(key, fee, setPrivate);
+    await ctx.network.connect(owner).registerOperator(key, fee, setPrivate);
     records.push({ id: Number(id), fee, owner });
   }
   return records;
