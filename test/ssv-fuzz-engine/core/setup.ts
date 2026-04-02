@@ -1020,3 +1020,114 @@ export async function setupPendingFeeLegacyMigrationSeed(
     pendingOperatorIds,
   };
 }
+
+export interface SharedOperatorPhantomFeeSeedConfig {
+  ssvFee: bigint;
+  removedOperatorIndex: number;
+  foreignEthBlocks: number;
+}
+
+export interface SharedOperatorPhantomFeeSeedResult extends LegacyMigrationSeedResult {
+  removedOperator: OperatorRecord;
+  removedOperatorId: number;
+  frozenEthIndex: bigint;
+  ethInitBlock: number;
+  removeBlock: number;
+}
+
+export async function setupSharedOperatorPhantomFeeSeed(
+  ctx: FuzzContext<undefined>,
+  config: SharedOperatorPhantomFeeSeedConfig,
+): Promise<SharedOperatorPhantomFeeSeedResult> {
+  const { connection } = ctx;
+  const [, operatorOwner, clusterOwner] = ctx.signers;
+  const owner2 = ctx.signers[3];
+
+  const { network: legacyNetwork, views: legacyViews, ssvToken } =
+    await ssvNetworkFullPreUpgradeFixture(connection);
+
+  const operatorIds: number[] = [];
+  for (let i = 0; i < 4; i++) {
+    const key = makeOperatorKey(1000 + i);
+    const id = await legacyNetwork.connect(operatorOwner)
+      .registerOperator.staticCall(key, config.ssvFee, false);
+    await legacyNetwork.connect(operatorOwner)
+      .registerOperator(key, config.ssvFee, false);
+    operatorIds.push(Number(id));
+  }
+
+  const ssvDeposit = DEFAULT_ETH_REGISTER_VALUE;
+  await ssvToken.mint(clusterOwner.address, ssvDeposit);
+  await ssvToken.connect(clusterOwner).approve(
+    await legacyNetwork.getAddress(), ssvDeposit,
+  );
+
+  const validatorKeys: string[] = [];
+  const key0 = makePublicKey(2000);
+  validatorKeys.push(key0);
+  await legacyNetwork.connect(clusterOwner).registerValidator(
+    key0, operatorIds, DEFAULT_SHARES, ssvDeposit, EMPTY_CLUSTER,
+  );
+  let cluster = await getCurrentClusterState(
+    connection, legacyNetwork, clusterOwner.address, operatorIds,
+  );
+  const preUpgradeCluster = { ...cluster };
+
+  const { cssv, newNetwork, newViews } = await upgradeToStakingVersion(
+    connection, legacyNetwork, legacyViews,
+  );
+  (ctx as any).network = newNetwork;
+  (ctx as any).views = newViews;
+  (ctx as any).ssvToken = ssvToken;
+  (ctx as any).cssvToken = cssv;
+
+  await setAccountBalance(ctx.provider, owner2.address, DEFAULT_ETH_REGISTER_VALUE * 4n);
+  const regTx1 = await newNetwork.connect(owner2).registerValidator(
+    makePublicKey(3000), operatorIds, DEFAULT_SHARES, EMPTY_CLUSTER,
+    { value: DEFAULT_ETH_REGISTER_VALUE },
+  );
+  const regReceipt1 = await regTx1.wait();
+  const ethInitBlock = regReceipt1!.blockNumber;
+
+  await mineBlocks(connection.ethers.provider, config.foreignEthBlocks);
+
+  await newNetwork.connect(owner2).registerValidator(
+    makePublicKey(3001), operatorIds, DEFAULT_SHARES,
+    parseClusterFromEvent(newNetwork, regReceipt1, Events.VALIDATOR_ADDED),
+    { value: DEFAULT_ETH_REGISTER_VALUE },
+  );
+
+  const removedId = operatorIds[config.removedOperatorIndex];
+  const removeTx = await newNetwork.connect(operatorOwner).removeOperator(removedId);
+  const removeReceipt = await removeTx.wait();
+  const removeBlock = removeReceipt!.blockNumber;
+
+  const packedDefault = DEFAULT_OPERATOR_ETH_FEE / ETH_DEDUCTED_DIGITS;
+  const frozenEthIndex = BigInt(removeBlock - ethInitBlock) * packedDefault;
+
+  const removedOperator: OperatorRecord = {
+    id: removedId,
+    fee: 0n,
+    owner: operatorOwner,
+  };
+
+  const activeOperators: OperatorRecord[] = operatorIds
+    .filter(id => id !== removedId)
+    .map(id => ({ id, fee: DEFAULT_OPERATOR_ETH_FEE, owner: operatorOwner }));
+
+  return {
+    operatorIds,
+    operators: activeOperators,
+    removedOperator,
+    removedOperatorId: removedId,
+    frozenEthIndex,
+    ethInitBlock,
+    removeBlock,
+    ssvFee: config.ssvFee,
+    totalSsvDeposit: ssvDeposit,
+    preUpgradeCluster,
+    validatorKeys,
+    clusterOwner,
+    operatorOwner,
+  };
+}
