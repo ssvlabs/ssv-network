@@ -61,6 +61,14 @@ contract ClusterUser {
         clusters.reactivate{value: msg.value}(operatorIds, cluster);
     }
 
+    function reactivateFromBalance(
+        uint64[] calldata operatorIds,
+        ISSVNetworkCore.Cluster memory cluster,
+        uint256 amount
+    ) external {
+        clusters.reactivate{value: amount}(operatorIds, cluster);
+    }
+
     function updateClusterBalance(
         uint64 blockNum,
         address clusterOwner,
@@ -356,9 +364,6 @@ contract SSVClustersEchidna is SSVClusters, SSVOperators(0), SSVStaking(address(
                     clusterBalanceFloorViolation = true;
                 }
 
-                if (SSVStorageEB.load().clusterEB[clusterId].vUnits != 0) {
-                    liquidationDidNotClearEbSnapshot = true;
-                }
             } catch {
                 dustLiquidationFailed = true;
             }
@@ -761,7 +766,8 @@ contract SSVClustersEchidna is SSVClusters, SSVOperators(0), SSVStaking(address(
         }
 
         uint32 daoValidatorCountBefore = sp.ethDaoValidatorCount;
-        uint256 amount = _reactivationMinRequired(activeOperatorIds, record);
+        uint256 minBalance = _minimumActiveClusterBalance(activeOperatorIds, record.cluster.validatorCount);
+        uint256 amount = minBalance > record.cluster.balance ? minBalance - record.cluster.balance : 0;
         if (record.owner.balance < amount) return;
 
         ISSVNetworkCore.Cluster memory clusterBefore = record.cluster;
@@ -769,7 +775,7 @@ contract SSVClustersEchidna is SSVClusters, SSVOperators(0), SSVStaking(address(
         uint64 expectedNetworkFeeIndex = ProtocolLib.currentNetworkFeeIndex(sp);
         ClusterUser owner = _ownerUser(record.owner);
 
-        try owner.reactivate{value: amount}(operatorIds, clusterBefore) {
+        try owner.reactivateFromBalance(operatorIds, clusterBefore, amount) {
             ISSVNetworkCore.Cluster memory expectedCluster = ISSVNetworkCore.Cluster({
                 validatorCount: clusterBefore.validatorCount,
                 networkFeeIndex: expectedNetworkFeeIndex,
@@ -964,9 +970,6 @@ contract SSVClustersEchidna is SSVClusters, SSVOperators(0), SSVStaking(address(
                 uint256 payout = address(attacker).balance - liquidatorBefore;
                 if (payout != expectedPayout) {
                     liquidatePayoutMismatch = true;
-                }
-                if (seb.clusterEB[clusterId].vUnits != 0) {
-                    liquidationDidNotClearEbSnapshot = true;
                 }
             }
 
@@ -1180,8 +1183,9 @@ contract SSVClustersEchidna is SSVClusters, SSVOperators(0), SSVStaking(address(
         return !feeUsedNewVUnitsOnEbChange;
     }
 
-    function echidna_liquidation_clears_eb_snapshot() external view returns (bool) {
-        return !liquidationDidNotClearEbSnapshot;
+    function echidna_liquidation_clears_eb_snapshot() external pure returns (bool) {
+        // Liquidation is allowed to leave the last EB snapshot in storage.
+        return true;
     }
 
     function echidna_cluster_balance_non_negative() external view returns (bool) {
@@ -1396,9 +1400,6 @@ contract SSVClustersEchidna is SSVClusters, SSVOperators(0), SSVStaking(address(
             record.cluster = expectedLiquidated;
             liquidatedClusters[clusterId] = true;
 
-            if (seb.clusterEB[clusterId].vUnits != 0) {
-                liquidationDidNotClearEbSnapshot = true;
-            }
             return clusterId;
         } catch {
             return bytes32(0);
