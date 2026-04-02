@@ -849,6 +849,51 @@ export async function assertLargeClusterMigrationEvents<S extends {
   }
 }
 
+export async function assertPendingFeeOperatorsMigrationEvents<S extends {
+  migrationSnapshot: LegacyMigrationSnapshot;
+  cluster: ClusterRecord;
+  pendingOperatorIds: number[];
+}>(
+  ctx: FuzzContext<S>,
+): Promise<void> {
+  const { migrateReceipt } = ctx.state.migrationSnapshot;
+  const { operatorIds } = ctx.state.cluster;
+  const { pendingOperatorIds } = ctx.state;
+
+  const feeEvents: { operatorId: bigint; fee: bigint }[] = [];
+  for (const log of migrateReceipt.logs ?? []) {
+    let parsed;
+    try {
+      parsed = ctx.network.interface.parseLog(log);
+    } catch {
+      continue;
+    }
+    if (parsed && parsed.name === Events.OPERATOR_FEE_EXECUTED) {
+      feeEvents.push({
+        operatorId: BigInt(parsed.args.operatorId),
+        fee: BigInt(parsed.args.fee),
+      });
+    }
+  }
+
+  const normalOpIds = operatorIds.filter(id => !pendingOperatorIds.includes(id));
+  expect(feeEvents.length).to.equal(
+    normalOpIds.length,
+    `Expected ${normalOpIds.length} OperatorFeeExecuted events (only normal ops, not pending-fee ops)`,
+  );
+
+  for (const opId of pendingOperatorIds) {
+    const ev = feeEvents.find(e => e.operatorId === BigInt(opId));
+    expect(ev, `Pending-fee operator ${opId} must NOT have OperatorFeeExecuted during migration (already ETH-initialized by declareOperatorFee)`).to.be.undefined;
+  }
+
+  for (const opId of normalOpIds) {
+    const ev = feeEvents.find(e => e.operatorId === BigInt(opId));
+    expect(ev, `Normal operator ${opId} must have OperatorFeeExecuted during migration`).to.not.be.undefined;
+    expect(ev!.fee).to.equal(BigInt(DEFAULT_OPERATOR_ETH_FEE));
+  }
+}
+
 export async function assertEthConservation<S extends { cluster: ClusterRecord; operators: OperatorRecord[] }>(
   ctx: FuzzContext<S>,
 ): Promise<void> {
