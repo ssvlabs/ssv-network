@@ -414,13 +414,25 @@ export interface EBClusterBalanceSnapshot {
   vUnits: bigint;
 }
 
+const DISCONTINUOUS_EB_SNAPSHOT_VUNITS = -1n;
+
 export async function assertClusterBalanceWithEB<S extends { cluster: ClusterRecord; operators: OperatorRecord[]; lastEBClusterBalance?: EBClusterBalanceSnapshot; tickDepositDelta: bigint }>(
   ctx: FuzzContext<S>,
 ): Promise<void> {
   const block = BigInt(await ctx.provider.getBlockNumber());
   const { cluster, operators } = ctx.state;
 
-  if (!cluster.cluster.active || BigInt(cluster.cluster.validatorCount) === 0n) return;
+  if (!cluster.cluster.active || BigInt(cluster.cluster.validatorCount) === 0n) {
+    // This is a test-local continuity marker, not a protocol statement about
+    // on-chain EB. Explicit cluster vUnits can survive liquidation, but balance
+    // burn is suspended while inactive and when validatorCount is zero.
+    ctx.state.lastEBClusterBalance = {
+      block,
+      balance: BigInt(cluster.cluster.balance),
+      vUnits: DISCONTINUOUS_EB_SNAPSHOT_VUNITS,
+    };
+    return;
+  }
 
   const eb = BigInt(await ctx.views.getEffectiveBalance(cluster.owner.address, cluster.operatorIds, cluster.cluster));
   const currentVUnits = ebToVUnits(eb);
