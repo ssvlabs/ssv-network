@@ -3,19 +3,26 @@ import type { Cluster } from "../../common/types.ts";
 import type { FuzzContext, OperatorRecord, ClusterRecord } from "./types.ts";
 import {
   MINIMAL_OPERATOR_ETH_FEE,
+  DEFAULT_OPERATOR_ETH_FEE,
   DEFAULT_ETH_REGISTER_VALUE,
   DEFAULT_SHARES,
   EMPTY_CLUSTER,
   ETH_DEDUCTED_DIGITS,
+  DEDUCTED_DIGITS,
   STAKE_AMOUNT,
 } from "../../common/constants.ts";
 import { makePublicKey, makeOperatorKey } from "../../helpers/keys.ts";
-import { parseClusterFromEvent } from "../../helpers/cluster.ts";
+import { getCurrentClusterState, parseClusterFromEvent } from "../../helpers/cluster.ts";
 import { Events } from "../../common/events.ts";
-import { setAccountBalance } from "../../helpers/blocks.ts";
+import { setAccountBalance, mineBlocks } from "../../helpers/blocks.ts";
+import { ssvNetworkFullPreUpgradeFixture, upgradeToStakingVersion } from "../../setup/fixtures.ts";
 
 export function alignFee(raw: bigint): bigint {
   return (raw / ETH_DEDUCTED_DIGITS) * ETH_DEDUCTED_DIGITS;
+}
+
+export function alignSSVFee(raw: bigint): bigint {
+  return (raw / DEDUCTED_DIGITS) * DEDUCTED_DIGITS;
 }
 
 export async function registerFuzzOperators(
@@ -67,4 +74,372 @@ export async function registerFuzzCluster(
   const cluster = parseClusterFromEvent(ctx.network, receipt, Events.VALIDATOR_ADDED);
 
   return { cluster, operatorIds, owner: clusterOwner, validatorKeys };
+}
+
+export interface LegacyMigrationSeedConfig {
+  operatorCount: number;
+  ssvFee: bigint;
+  validatorCount: number;
+  ssvDepositPerValidator: bigint;
+  preUpgradeBlocks: number;
+}
+
+export interface LegacyMigrationSeedResult {
+  operatorIds: number[];
+  operators: OperatorRecord[];
+  ssvFee: bigint;
+  totalSsvDeposit: bigint;
+  preUpgradeCluster: Cluster;
+  validatorKeys: string[];
+  clusterOwner: HardhatEthersSigner;
+  operatorOwner: HardhatEthersSigner;
+}
+
+export async function setupLegacyMigrationSeed(
+  ctx: FuzzContext<undefined>,
+  config: LegacyMigrationSeedConfig,
+): Promise<LegacyMigrationSeedResult> {
+  const { connection } = ctx;
+  const [, operatorOwner, clusterOwner] = ctx.signers;
+
+  const { network: legacyNetwork, views: legacyViews, ssvToken } =
+    await ssvNetworkFullPreUpgradeFixture(connection);
+
+  const operatorIds: number[] = [];
+  for (let i = 0; i < config.operatorCount; i++) {
+    const key = makeOperatorKey(1000 + i);
+    const id = await legacyNetwork.connect(operatorOwner)
+      .registerOperator.staticCall(key, config.ssvFee, false);
+    await legacyNetwork.connect(operatorOwner)
+      .registerOperator(key, config.ssvFee, false);
+    operatorIds.push(Number(id));
+  }
+
+  const totalSsvDeposit = config.ssvDepositPerValidator * BigInt(config.validatorCount);
+  await ssvToken.mint(clusterOwner.address, totalSsvDeposit);
+  await ssvToken.connect(clusterOwner).approve(
+    await legacyNetwork.getAddress(), totalSsvDeposit,
+  );
+
+  const validatorKeys: string[] = [];
+  let cluster: Cluster = EMPTY_CLUSTER;
+  for (let i = 0; i < config.validatorCount; i++) {
+    const key = makePublicKey(2000 + i);
+    validatorKeys.push(key);
+    await legacyNetwork.connect(clusterOwner).registerValidator(
+      key, operatorIds, DEFAULT_SHARES, config.ssvDepositPerValidator, cluster,
+    );
+    cluster = await getCurrentClusterState(
+      connection, legacyNetwork, clusterOwner.address, operatorIds,
+    );
+  }
+
+  const preUpgradeCluster = { ...cluster };
+
+  await mineBlocks(connection.ethers.provider, config.preUpgradeBlocks);
+
+  const { cssv, newNetwork, newViews } = await upgradeToStakingVersion(
+    connection, legacyNetwork, legacyViews,
+  );
+
+  (ctx as any).network = newNetwork;
+  (ctx as any).views = newViews;
+  (ctx as any).ssvToken = ssvToken;
+  (ctx as any).cssvToken = cssv;
+
+  const operators: OperatorRecord[] = operatorIds.map(id => ({
+    id,
+    fee: DEFAULT_OPERATOR_ETH_FEE,
+    owner: operatorOwner,
+  }));
+
+  return {
+    operatorIds,
+    operators,
+    ssvFee: config.ssvFee,
+    totalSsvDeposit,
+    preUpgradeCluster,
+    validatorKeys,
+    clusterOwner,
+    operatorOwner,
+  };
+}
+
+export interface RemovedOperatorLegacyMigrationSeedConfig {
+  operatorCount: number;
+  ssvFee: bigint;
+  validatorCount: number;
+  ssvDepositPerValidator: bigint;
+  removedOperatorIndex: number;
+}
+
+export interface RemovedOperatorLegacyMigrationSeedResult extends LegacyMigrationSeedResult {
+  removedOperator: OperatorRecord;
+  removedOperatorId: number;
+}
+
+export async function setupRemovedOperatorLegacyMigrationSeed(
+  ctx: FuzzContext<undefined>,
+  config: RemovedOperatorLegacyMigrationSeedConfig,
+): Promise<RemovedOperatorLegacyMigrationSeedResult> {
+  const { connection } = ctx;
+  const [, operatorOwner, clusterOwner] = ctx.signers;
+
+  const { network: legacyNetwork, views: legacyViews, ssvToken } =
+    await ssvNetworkFullPreUpgradeFixture(connection);
+
+  const operatorIds: number[] = [];
+  for (let i = 0; i < config.operatorCount; i++) {
+    const key = makeOperatorKey(1000 + i);
+    const id = await legacyNetwork.connect(operatorOwner)
+      .registerOperator.staticCall(key, config.ssvFee, false);
+    await legacyNetwork.connect(operatorOwner)
+      .registerOperator(key, config.ssvFee, false);
+    operatorIds.push(Number(id));
+  }
+
+  const totalSsvDeposit = config.ssvDepositPerValidator * BigInt(config.validatorCount);
+  await ssvToken.mint(clusterOwner.address, totalSsvDeposit);
+  await ssvToken.connect(clusterOwner).approve(
+    await legacyNetwork.getAddress(), totalSsvDeposit,
+  );
+
+  const validatorKeys: string[] = [];
+  let cluster: Cluster = EMPTY_CLUSTER;
+  for (let i = 0; i < config.validatorCount; i++) {
+    const key = makePublicKey(2000 + i);
+    validatorKeys.push(key);
+    await legacyNetwork.connect(clusterOwner).registerValidator(
+      key, operatorIds, DEFAULT_SHARES, config.ssvDepositPerValidator, cluster,
+    );
+    cluster = await getCurrentClusterState(
+      connection, legacyNetwork, clusterOwner.address, operatorIds,
+    );
+  }
+
+  const removedId = operatorIds[config.removedOperatorIndex];
+  await legacyNetwork.connect(operatorOwner).removeOperator(removedId);
+
+  const preUpgradeCluster = { ...cluster };
+
+  await mineBlocks(connection.ethers.provider, 50);
+
+  const { cssv, newNetwork, newViews } = await upgradeToStakingVersion(
+    connection, legacyNetwork, legacyViews,
+  );
+
+  (ctx as any).network = newNetwork;
+  (ctx as any).views = newViews;
+  (ctx as any).ssvToken = ssvToken;
+  (ctx as any).cssvToken = cssv;
+
+  const removedOperator: OperatorRecord = {
+    id: removedId,
+    fee: 0n,
+    owner: operatorOwner,
+  };
+
+  const activeOperators: OperatorRecord[] = operatorIds
+    .filter(id => id !== removedId)
+    .map(id => ({ id, fee: DEFAULT_OPERATOR_ETH_FEE, owner: operatorOwner }));
+
+  return {
+    operatorIds,
+    operators: activeOperators,
+    removedOperator,
+    removedOperatorId: removedId,
+    ssvFee: config.ssvFee,
+    totalSsvDeposit,
+    preUpgradeCluster,
+    validatorKeys,
+    clusterOwner,
+    operatorOwner,
+  };
+}
+
+export interface AllRemovedOperatorsLegacyMigrationSeedConfig {
+  operatorCount: number;
+  ssvFee: bigint;
+  validatorCount: number;
+  ssvDepositPerValidator: bigint;
+}
+
+export interface AllRemovedOperatorsLegacyMigrationSeedResult extends LegacyMigrationSeedResult {
+  removedOperators: OperatorRecord[];
+}
+
+export async function setupAllRemovedOperatorsLegacyMigrationSeed(
+  ctx: FuzzContext<undefined>,
+  config: AllRemovedOperatorsLegacyMigrationSeedConfig,
+): Promise<AllRemovedOperatorsLegacyMigrationSeedResult> {
+  const { connection } = ctx;
+  const [, operatorOwner, clusterOwner] = ctx.signers;
+
+  const { network: legacyNetwork, views: legacyViews, ssvToken } =
+    await ssvNetworkFullPreUpgradeFixture(connection);
+
+  const operatorIds: number[] = [];
+  for (let i = 0; i < config.operatorCount; i++) {
+    const key = makeOperatorKey(1000 + i);
+    const id = await legacyNetwork.connect(operatorOwner)
+      .registerOperator.staticCall(key, config.ssvFee, false);
+    await legacyNetwork.connect(operatorOwner)
+      .registerOperator(key, config.ssvFee, false);
+    operatorIds.push(Number(id));
+  }
+
+  const totalSsvDeposit = config.ssvDepositPerValidator * BigInt(config.validatorCount);
+  await ssvToken.mint(clusterOwner.address, totalSsvDeposit);
+  await ssvToken.connect(clusterOwner).approve(
+    await legacyNetwork.getAddress(), totalSsvDeposit,
+  );
+
+  const validatorKeys: string[] = [];
+  let cluster: Cluster = EMPTY_CLUSTER;
+  for (let i = 0; i < config.validatorCount; i++) {
+    const key = makePublicKey(2000 + i);
+    validatorKeys.push(key);
+    await legacyNetwork.connect(clusterOwner).registerValidator(
+      key, operatorIds, DEFAULT_SHARES, config.ssvDepositPerValidator, cluster,
+    );
+    cluster = await getCurrentClusterState(
+      connection, legacyNetwork, clusterOwner.address, operatorIds,
+    );
+  }
+
+  for (const opId of operatorIds) {
+    await legacyNetwork.connect(operatorOwner).removeOperator(opId);
+  }
+
+  const preUpgradeCluster = { ...cluster };
+
+  await mineBlocks(connection.ethers.provider, 50);
+
+  const { cssv, newNetwork, newViews } = await upgradeToStakingVersion(
+    connection, legacyNetwork, legacyViews,
+  );
+
+  (ctx as any).network = newNetwork;
+  (ctx as any).views = newViews;
+  (ctx as any).ssvToken = ssvToken;
+  (ctx as any).cssvToken = cssv;
+
+  const removedOperators: OperatorRecord[] = operatorIds.map(id => ({
+    id,
+    fee: 0n,
+    owner: operatorOwner,
+  }));
+
+  return {
+    operatorIds,
+    operators: [],
+    removedOperators,
+    ssvFee: config.ssvFee,
+    totalSsvDeposit,
+    preUpgradeCluster,
+    validatorKeys,
+    clusterOwner,
+    operatorOwner,
+  };
+}
+
+export interface LiquidatedLegacyMigrationSeedConfig {
+  operatorCount: number;
+  ssvFee: bigint;
+  validatorCount: number;
+  ssvDepositPerValidator: bigint;
+  postLiquidationBlocks: number;
+}
+
+export async function setupLiquidatedLegacyMigrationSeed(
+  ctx: FuzzContext<undefined>,
+  config: LiquidatedLegacyMigrationSeedConfig,
+): Promise<LegacyMigrationSeedResult> {
+  const { connection } = ctx;
+  const [, operatorOwner, clusterOwner] = ctx.signers;
+
+  const { network: legacyNetwork, views: legacyViews, ssvToken } =
+    await ssvNetworkFullPreUpgradeFixture(connection);
+
+  const operatorIds: number[] = [];
+  for (let i = 0; i < config.operatorCount; i++) {
+    const key = makeOperatorKey(1000 + i);
+    const id = await legacyNetwork.connect(operatorOwner)
+      .registerOperator.staticCall(key, config.ssvFee, false);
+    await legacyNetwork.connect(operatorOwner)
+      .registerOperator(key, config.ssvFee, false);
+    operatorIds.push(Number(id));
+  }
+
+  const totalSsvDeposit = config.ssvDepositPerValidator * BigInt(config.validatorCount);
+  await ssvToken.mint(clusterOwner.address, totalSsvDeposit);
+  await ssvToken.connect(clusterOwner).approve(
+    await legacyNetwork.getAddress(), totalSsvDeposit,
+  );
+
+  const validatorKeys: string[] = [];
+  let cluster: Cluster = EMPTY_CLUSTER;
+  for (let i = 0; i < config.validatorCount; i++) {
+    const key = makePublicKey(2000 + i);
+    validatorKeys.push(key);
+    await legacyNetwork.connect(clusterOwner).registerValidator(
+      key, operatorIds, DEFAULT_SHARES, config.ssvDepositPerValidator, cluster,
+    );
+    cluster = await getCurrentClusterState(
+      connection, legacyNetwork, clusterOwner.address, operatorIds,
+    );
+  }
+
+  const balance = BigInt(
+    await legacyViews.getBalance(clusterOwner.address, operatorIds, cluster),
+  );
+  const burnRate = BigInt(
+    await legacyViews.getBurnRate(clusterOwner.address, operatorIds, cluster),
+  );
+  const blocksToDeplete = burnRate > 0n
+    ? Number((balance + burnRate - 1n) / burnRate)
+    : 0;
+  if (blocksToDeplete > 0) {
+    await mineBlocks(connection.ethers.provider, blocksToDeplete);
+  }
+
+  const liqTx = await legacyNetwork.connect(clusterOwner).liquidate(
+    clusterOwner.address, operatorIds, cluster,
+  );
+  await liqTx.wait();
+  cluster = await getCurrentClusterState(
+    connection, legacyNetwork, clusterOwner.address, operatorIds,
+  );
+
+  const liquidatedCluster = { ...cluster };
+
+  if (config.postLiquidationBlocks > 0) {
+    await mineBlocks(connection.ethers.provider, config.postLiquidationBlocks);
+  }
+
+  const { cssv, newNetwork, newViews } = await upgradeToStakingVersion(
+    connection, legacyNetwork, legacyViews,
+  );
+
+  (ctx as any).network = newNetwork;
+  (ctx as any).views = newViews;
+  (ctx as any).ssvToken = ssvToken;
+  (ctx as any).cssvToken = cssv;
+
+  const operators: OperatorRecord[] = operatorIds.map(id => ({
+    id,
+    fee: DEFAULT_OPERATOR_ETH_FEE,
+    owner: operatorOwner,
+  }));
+
+  return {
+    operatorIds,
+    operators,
+    ssvFee: config.ssvFee,
+    totalSsvDeposit,
+    preUpgradeCluster: liquidatedCluster,
+    validatorKeys,
+    clusterOwner,
+    operatorOwner,
+  };
 }

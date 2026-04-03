@@ -1,10 +1,13 @@
+import { expect } from "chai";
 import type { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/types";
 import type { FuzzContext, ClusterRecord, OperatorRecord, StepFn } from "./types.ts";
-import { parseClusterFromEvent } from "../../helpers/cluster.ts";
+import type { Cluster } from "../../common/types.ts";
+import { parseClusterFromEvent, extractEventArgs } from "../../helpers/cluster.ts";
 import { Events } from "../../common/events.ts";
+import { Errors } from "../../common/errors.ts";
 import { setAccountBalance } from "../../helpers/blocks.ts";
 import { makePublicKey } from "../../helpers/keys.ts";
-import { ETH_DEDUCTED_DIGITS, BPS_DENOMINATOR, DEFAULT_SHARES, DEFAULT_ETH_REGISTER_VALUE } from "../../common/constants.ts";
+import { ETH_DEDUCTED_DIGITS, BPS_DENOMINATOR, DEFAULT_SHARES, DEFAULT_ETH_REGISTER_VALUE, DEFAULT_OPERATOR_ETH_FEE } from "../../common/constants.ts";
 import {
   computeClusterId,
   computeEBRoot,
@@ -250,5 +253,183 @@ export function ebValidatorLifecycle<S extends { cluster: ClusterRecord; operato
       cluster.validatorKeys.push(...keys);
       ctx.state.tickDepositDelta = deposit;
     }
+  };
+}
+
+export interface LegacyMigrationSnapshot {
+  ssvBalanceBefore: bigint;
+  ssvBurnRate: bigint;
+  ownerSSVBefore: bigint;
+  ownerSSVAfter: bigint;
+  ssvRefund: bigint;
+  ethDeposited: bigint;
+  migrateReceipt: any;
+}
+
+interface BlockedOpsState {
+  cluster: ClusterRecord;
+  phase: string;
+}
+
+export async function assertBlockedEthOpsOnLegacyCluster<S extends BlockedOpsState>(
+  ctx: FuzzContext<S>,
+): Promise<void> {
+  const { cluster } = ctx.state;
+
+  await expect(
+    ctx.network.connect(cluster.owner).registerValidator(
+      makePublicKey(9000), cluster.operatorIds, DEFAULT_SHARES, cluster.cluster, { value: 0n },
+    ),
+  ).to.be.revertedWithCustomError(ctx.network, Errors.INCORRECT_CLUSTER_VERSION);
+
+  await expect(
+    ctx.network.connect(cluster.owner).deposit(
+      cluster.owner.address, cluster.operatorIds, cluster.cluster, { value: 1n },
+    ),
+  ).to.be.revertedWithCustomError(ctx.network, Errors.INCORRECT_CLUSTER_VERSION);
+
+  await expect(
+    ctx.network.connect(cluster.owner).reactivate(
+      cluster.operatorIds, cluster.cluster, { value: DEFAULT_ETH_REGISTER_VALUE },
+    ),
+  ).to.be.revertedWithCustomError(ctx.network, Errors.INCORRECT_CLUSTER_VERSION);
+
+  await expect(
+    ctx.network.connect(cluster.owner).withdraw(
+      cluster.operatorIds, 1n, cluster.cluster,
+    ),
+  ).to.be.revertedWithCustomError(ctx.network, Errors.INCORRECT_CLUSTER_VERSION);
+
+  const keyToRemove = cluster.validatorKeys[0];
+  const removeTx = await ctx.network.connect(cluster.owner).removeValidator(
+    keyToRemove, cluster.operatorIds, cluster.cluster,
+  );
+  const removeReceipt = await removeTx.wait();
+  cluster.cluster = parseClusterFromEvent(ctx.network, removeReceipt, Events.VALIDATOR_REMOVED);
+  cluster.validatorKeys.splice(0, 1);
+
+  await expect(
+    ctx.network.connect(cluster.owner).registerValidator(
+      keyToRemove, cluster.operatorIds, DEFAULT_SHARES, cluster.cluster, { value: 0n },
+    ),
+  ).to.be.revertedWithCustomError(ctx.network, Errors.INCORRECT_CLUSTER_VERSION);
+
+  ctx.state.phase = "blocked-ops-verified";
+}
+
+export async function assertPostUpgradeLiquidatedState<S extends BlockedOpsState & { operators: OperatorRecord[] }>(
+  ctx: FuzzContext<S>,
+): Promise<void> {
+  const { cluster, operators } = ctx.state;
+
+  expect(cluster.cluster.active).to.equal(false, "Cluster must still be liquidated after upgrade");
+
+  await expect(
+    ctx.network.connect(cluster.owner).registerValidator(
+      makePublicKey(9000), cluster.operatorIds, DEFAULT_SHARES, cluster.cluster, { value: 0n },
+    ),
+  ).to.be.revertedWithCustomError(ctx.network, Errors.INCORRECT_CLUSTER_VERSION);
+
+  await expect(
+    ctx.network.connect(cluster.owner).deposit(
+      cluster.owner.address, cluster.operatorIds, cluster.cluster, { value: 1n },
+    ),
+  ).to.be.revertedWithCustomError(ctx.network, Errors.INCORRECT_CLUSTER_VERSION);
+
+  await expect(
+    ctx.network.connect(cluster.owner).withdraw(
+      cluster.operatorIds, 1n, cluster.cluster,
+    ),
+  ).to.be.revertedWithCustomError(ctx.network, Errors.INCORRECT_CLUSTER_VERSION);
+
+  await expect(
+    ctx.network.connect(cluster.owner).reactivate(
+      cluster.operatorIds, cluster.cluster, { value: DEFAULT_ETH_REGISTER_VALUE },
+    ),
+  ).to.be.revertedWithCustomError(ctx.network, Errors.INCORRECT_CLUSTER_VERSION);
+
+  for (const op of operators) {
+    const opSSV = await ctx.views.getOperatorByIdSSV(op.id);
+    expect(BigInt(opSSV.validatorCount)).to.equal(
+      0n,
+      `SSV validatorCount for operator ${op.id} must be 0 (decremented at liquidation)`,
+    );
+  }
+
+  ctx.state.phase = "post-upgrade-liquidated-verified";
+}
+
+interface MigrateLegacyState {
+  cluster: ClusterRecord;
+  phase: string;
+  migrationSnapshot?: LegacyMigrationSnapshot;
+  tracker: DepositWithdrawTracker;
+}
+
+export function migrateLegacyCluster<S extends MigrateLegacyState>(
+  ethDepositMin: bigint,
+  ethDepositMax: bigint,
+): StepFn<S> {
+  return async function migrateLegacyCluster(ctx: FuzzContext<S>): Promise<void> {
+    const { cluster } = ctx.state;
+    const ethDeposit = ctx.rng.nextInRange(ethDepositMin, ethDepositMax);
+
+    let ssvBalanceBefore = 0n;
+    let ssvBurnRate = 0n;
+    if (cluster.cluster.active) {
+      ssvBalanceBefore = BigInt(
+        await ctx.views.getBalanceSSV(cluster.owner.address, cluster.operatorIds, cluster.cluster),
+      );
+      ssvBurnRate = BigInt(
+        await ctx.views.getBurnRateSSV(cluster.owner.address, cluster.operatorIds, cluster.cluster),
+      );
+    }
+    const ownerSSVBefore = BigInt(await ctx.ssvToken.balanceOf(cluster.owner.address));
+
+    await setAccountBalance(ctx.provider, cluster.owner.address, ethDeposit + 10n ** 18n);
+
+    const migrateTx = await ctx.network.connect(cluster.owner).migrateClusterToETH(
+      cluster.operatorIds, cluster.cluster,
+      { value: ethDeposit },
+    );
+    const migrateReceipt = await migrateTx.wait();
+
+    const eventArgs = extractEventArgs(ctx.network, migrateReceipt, Events.CLUSTER_MIGRATED_TO_ETH);
+    const ssvRefund = BigInt(eventArgs.ssvRefunded);
+    const ownerSSVAfter = BigInt(await ctx.ssvToken.balanceOf(cluster.owner.address));
+
+    cluster.cluster = parseClusterFromEvent(ctx.network, migrateReceipt, Events.CLUSTER_MIGRATED_TO_ETH);
+
+    ctx.state.migrationSnapshot = {
+      ssvBalanceBefore,
+      ssvBurnRate,
+      ownerSSVBefore,
+      ownerSSVAfter,
+      ssvRefund,
+      ethDeposited: ethDeposit,
+      migrateReceipt,
+    };
+
+    ctx.state.tracker.totalDeposited += ethDeposit;
+    ctx.state.phase = "migrated";
+  };
+}
+
+export function removeLegacyValidator<S extends { cluster: ClusterRecord }>(
+  keyIndex: number = 0,
+): StepFn<S> {
+  return async function removeLegacyValidator(ctx: FuzzContext<S>): Promise<void> {
+    const { cluster } = ctx.state;
+    if (cluster.validatorKeys.length === 0) return;
+
+    const idx = Math.min(keyIndex, cluster.validatorKeys.length - 1);
+    const key = cluster.validatorKeys[idx];
+
+    const tx = await ctx.network.connect(cluster.owner).removeValidator(
+      key, cluster.operatorIds, cluster.cluster,
+    );
+    const receipt = await tx.wait();
+    cluster.cluster = parseClusterFromEvent(ctx.network, receipt, Events.VALIDATOR_REMOVED);
+    cluster.validatorKeys.splice(idx, 1);
   };
 }
