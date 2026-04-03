@@ -25,15 +25,17 @@ jobs:
           HOODI_RPC_URL: ${{ secrets.hoodi_rpc_url }}
 
       - name: Run tests with gas tracking
-        run: >
-          npx hardhat test
-          test/unit
-          test/integration
-          test/sanity
-          test/e2e
-          test/forked
-          test/test-forked
-          test/simulation
+        shell: bash
+        run: |
+          shopt -s globstar nullglob
+          npx hardhat test \
+            test/unit/**/*.ts \
+            test/integration/**/*.ts \
+            test/sanity/**/*.ts \
+            test/e2e/**/*.ts \
+            test/forked/**/*.ts \
+            test/test-forked/**/*.ts \
+            test/simulation/**/*.ts
         env:
           REPORT_GAS: 'true'
           NO_GAS_ENFORCE: '1'
@@ -150,7 +152,10 @@ jobs:
           HOODI_RPC_URL: ${{ secrets.hoodi_rpc_url }}
 
       - name: Run fuzz tests
-        run: npx hardhat test test/ssv-fuzz-engine/*.fuzz.ts
+        shell: bash
+        run: |
+          shopt -s nullglob
+          npx hardhat test test/ssv-fuzz-engine/*.fuzz.ts
         env:
           FORK_BLOCK_NUMBER: ${{ secrets.fork_block_number }}
           HOODI_RPC_URL: ${{ secrets.hoodi_rpc_url }}
