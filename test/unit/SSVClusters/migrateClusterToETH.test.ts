@@ -3,7 +3,7 @@ import type { NetworkConnection } from "hardhat/types/network";
 import type { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/types";
 import { defaultClustersFixture } from "../../helpers/fixture-presets.ts";
 import type { NetworkHelpersType } from "../../common/types.ts";
-import { setupTestContext, computeClusterId, extractEventArgs, getCurrentClusterState, makePublicKey, parseClusterFromEvent } from '../../common/helpers.ts';
+import { setupTestContext, computeClusterId, computeEBRoot, extractEventArgs, getCurrentClusterState, makePublicKey, parseClusterFromEvent } from '../../common/helpers.ts';
 import { DEFAULT_ETH_REGISTER_VALUE, DEFAULT_OPERATOR_ETH_FEE, DEFAULT_SHARES, EMPTY_CLUSTER, BPS_DENOMINATOR, DEDUCTED_DIGITS } from "../../common/constants.ts";
 import { Errors } from "../../common/errors.ts";
 import { Events } from "../../common/events.ts";
@@ -555,7 +555,7 @@ describe("SSVClusters function `migrateClusterToETH()`", async () => {
         
         mixedStatesBefore.push({
           operatorId,
-          wasEthOperator: ethSnapshot.block > 0,
+          wasEthOperator: ethSnapshot.blockNumber > 0,
           ethValidatorCount: ethValidatorCount || 0n,
           ssvValidatorCount: ssvValidatorCount || 0n,
           ssvIndex: ssvSnapshot.index,
@@ -580,7 +580,7 @@ describe("SSVClusters function `migrateClusterToETH()`", async () => {
           const ethValidatorCountAfter = await clusters.getOperatorEthValidatorCount(stateBefore.operatorId);
           expect(ethValidatorCountAfter).to.equal(stateBefore.ethValidatorCount + validatorCount);
         } else {
-          const ethSnapshotAfterBlock = ethSnapshotAfter.block || 0;
+          const ethSnapshotAfterBlock = ethSnapshotAfter.blockNumber || 0;
           expect(ethSnapshotAfterBlock).to.be.greaterThanOrEqual(0);
           const ethValidatorCountAfter = await clusters.getOperatorEthValidatorCount(stateBefore.operatorId);
           if (stateBefore.ethValidatorCount === 0n) {
@@ -1243,6 +1243,128 @@ describe("SSVClusters function `migrateClusterToETH()`", async () => {
     });
   });
 
+  describe("Post-migration EB updates", async function () {
+    it("first ETH-side updateClusterBalance after migration applies explicit EB", async function () {
+      const { clusters, operatorIds } =
+        await networkHelpers.loadFixture(deploySSVClustersAndPrepareOperatorsFixture);
+
+      const ssvCluster = {
+        validatorCount: 1n,
+        networkFeeIndex: 0n,
+        index: 0n,
+        balance: 0n,
+        active: true,
+      };
+
+      await clusters.mockRegisterSSVValidator(makePublicKey(7001), operatorIds, clusterOwner.address, ssvCluster);
+
+      const migrateTx = await clusters.migrateClusterToETH(
+        operatorIds,
+        ssvCluster,
+        { value: DEFAULT_ETH_REGISTER_VALUE }
+      );
+      const migratedCluster = parseClusterFromEvent(clusters, await migrateTx.wait(), Events.CLUSTER_MIGRATED_TO_ETH);
+      const clusterId = computeClusterId(clusterOwner.address, operatorIds);
+
+      await clusters.mockSetEBRoot(1, computeEBRoot(clusterId, 64));
+
+      const updateTx = await clusters.updateClusterBalance(
+        1,
+        clusterOwner.address,
+        operatorIds,
+        migratedCluster,
+        64,
+        []
+      );
+      const updatedCluster = parseClusterFromEvent(clusters, await updateTx.wait(), Events.CLUSTER_BALANCE_UPDATED);
+
+      expect(updatedCluster.active).to.equal(true);
+      expect(await clusters.getClusterVUnits(clusterId)).to.equal(20000n);
+      expect(await clusters.getDaoTotalEthVUnits()).to.equal(20000n);
+      for (const operatorId of operatorIds) {
+        expect(await clusters.getOperatorEthVUnits(operatorId)).to.equal(10000n);
+        expect(await clusters.getEffectiveOperatorVUnits(operatorId)).to.equal(20000n);
+      }
+    });
+
+    it("removed operator remains skipped in first post-migration EB update", async function () {
+      const { clusters, operatorIds } =
+        await networkHelpers.loadFixture(deploySSVClustersAndPrepareOperatorsFixture);
+
+      const ssvCluster = {
+        validatorCount: 1n,
+        networkFeeIndex: 0n,
+        index: 0n,
+        balance: 0n,
+        active: true,
+      };
+
+      await clusters.mockRegisterSSVValidator(makePublicKey(7002), operatorIds, clusterOwner.address, ssvCluster);
+
+      const migrateTx = await clusters.migrateClusterToETH(
+        operatorIds,
+        ssvCluster,
+        { value: DEFAULT_ETH_REGISTER_VALUE }
+      );
+      const migratedCluster = parseClusterFromEvent(clusters, await migrateTx.wait(), Events.CLUSTER_MIGRATED_TO_ETH);
+      const clusterId = computeClusterId(clusterOwner.address, operatorIds);
+
+      const removedOperator = operatorIds[0];
+      await clusters.mockRemoveOperator(removedOperator);
+      expect(await clusters.getOperatorEthVUnits(removedOperator)).to.equal(0n);
+
+      await clusters.mockSetEBRoot(1, computeEBRoot(clusterId, 64));
+      const updateTx = await clusters.updateClusterBalance(
+        1,
+        clusterOwner.address,
+        operatorIds,
+        migratedCluster,
+        64,
+        []
+      );
+      const updatedCluster = parseClusterFromEvent(clusters, await updateTx.wait(), Events.CLUSTER_BALANCE_UPDATED);
+
+      expect(updatedCluster.active).to.equal(true);
+      expect(await clusters.getClusterVUnits(clusterId)).to.equal(20000n);
+      expect(await clusters.getOperatorEthVUnits(removedOperator)).to.equal(0n);
+      for (const operatorId of operatorIds.slice(1)) {
+        expect(await clusters.getOperatorEthVUnits(operatorId)).to.equal(10000n);
+      }
+    });
+
+    it("migrateClusterToETH rejects stale caller-supplied SSV cluster state", async function () {
+      const { clusters, operatorIds } =
+        await networkHelpers.loadFixture(deploySSVClustersAndPrepareOperatorsFixture);
+
+      const staleCluster = {
+        validatorCount: 1n,
+        networkFeeIndex: 0n,
+        index: 0n,
+        balance: 0n,
+        active: true,
+      };
+
+      await clusters.mockRegisterSSVValidator(makePublicKey(7010), operatorIds, clusterOwner.address, staleCluster);
+
+      const freshCluster = {
+        validatorCount: 2n,
+        networkFeeIndex: 0n,
+        index: 0n,
+        balance: 0n,
+        active: true,
+      };
+      await clusters.mockRegisterSSVValidator(makePublicKey(7011), operatorIds, clusterOwner.address, freshCluster);
+
+      await expect(
+        clusters.migrateClusterToETH(operatorIds, staleCluster, { value: DEFAULT_ETH_REGISTER_VALUE })
+      ).to.be.revertedWithCustomError(clusters, Errors.INCORRECT_CLUSTER_STATE);
+
+      await expect(
+        clusters.migrateClusterToETH(operatorIds, freshCluster, { value: DEFAULT_ETH_REGISTER_VALUE })
+      ).to.emit(clusters, Events.CLUSTER_MIGRATED_TO_ETH);
+    });
+  });
+
   describe("Removed Operators Security Check", async () => {
     it("Skips removed operators during migration without reviving them", async function () {
       const { clusters, operatorIds } =
@@ -1308,7 +1430,7 @@ describe("SSVClusters function `migrateClusterToETH()`", async () => {
           expect(ethValidatorCount).to.equal(0n);
         }
       } catch (error) {
-        expect(error.message).to.include("revert");
+        expect((error as Error).message).to.include("revert");
       }
     });
 
