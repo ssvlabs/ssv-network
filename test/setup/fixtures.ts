@@ -613,7 +613,7 @@ export async function upgradeToStakingVersion(
     await deployContract(connection.ethers, "CSSVToken", [networkAddress]);
 
   const latestBlock = await connection.ethers.provider.getBlock("latest");
-  const upgradeBlockNum = latestBlock.number;
+  const upgradeTimestamp = BigInt(latestBlock!.timestamp);
 
   const { address: upgradeImplAddr } =
     await deployContract(connection.ethers, "SSVNetworkSSVStakingUpgrade");
@@ -640,7 +640,7 @@ export async function upgradeToStakingVersion(
   const moduleAddresses: Record<string, string> = {};
 
   const { address: ssvOperatorsAddr } =
-    await deployContract(connection.ethers, "SSVOperators", [upgradeBlockNum]);
+    await deployContract(connection.ethers, "SSVOperators", [upgradeTimestamp]);
   moduleAddresses["SSVOperators"] = ssvOperatorsAddr;
 
   const { address: ssvDaoAddr } =
