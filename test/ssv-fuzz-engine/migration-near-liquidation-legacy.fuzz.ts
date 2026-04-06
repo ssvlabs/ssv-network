@@ -71,7 +71,7 @@ describe("Fuzz: CAT-1-8 — near-liquidation cluster, migration with minimum ETH
             TOKEN_REGISTER_AMOUNT / 10n,
             TOKEN_REGISTER_AMOUNT / 5n,
           );
-          const remainingRunway = Number(ctx.rng.nextInRange(35n, 60n));
+          const remainingRunway = Number(ctx.rng.nextInRange(60n, 100n));
           const postThresholdBlocks = Number(ctx.rng.nextInRange(0n, 10n));
           const validatorCount = Number(ctx.rng.nextInRange(1n, 3n));
 

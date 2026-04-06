@@ -12,6 +12,7 @@ import {
   STAKE_AMOUNT,
   MINIMUM_BLOCKS_BEFORE_LIQUIDATION,
   MINIMUM_LIQUIDATION_PERIOD_COLLATERAL,
+  DECLARE_OPERATOR_FEE_PERIOD,
 } from "../../common/constants.ts";
 import { makePublicKey, makeOperatorKey } from "../../helpers/keys.ts";
 import { getCurrentClusterState, parseClusterFromEvent } from "../../helpers/cluster.ts";
@@ -935,5 +936,98 @@ export async function setupPrivateOperatorsLegacyMigrationSeed(
     operatorOwner,
     privateCount: config.privateCount,
     firstPrivateOperatorId: privateOperatorIds[0],
+  };
+}
+
+export interface PendingFeeLegacyMigrationSeedConfig {
+  ssvFee: bigint;
+  declaredSsvFee: bigint;
+  validatorCount: number;
+  ssvDepositPerValidator: bigint;
+}
+
+export interface PendingFeeLegacyMigrationSeedResult extends LegacyMigrationSeedResult {
+  declaredSsvFee: bigint;
+  pendingOperatorIds: number[];
+}
+
+export async function setupPendingFeeLegacyMigrationSeed(
+  ctx: FuzzContext<undefined>,
+  config: PendingFeeLegacyMigrationSeedConfig,
+): Promise<PendingFeeLegacyMigrationSeedResult> {
+  const { connection } = ctx;
+  const [, operatorOwner, clusterOwner] = ctx.signers;
+
+  const { network: legacyNetwork, views: legacyViews, ssvToken } =
+    await ssvNetworkFullPreUpgradeFixture(connection);
+
+  const operatorIds: number[] = [];
+  for (let i = 0; i < 4; i++) {
+    const key = makeOperatorKey(1000 + i);
+    const id = await legacyNetwork.connect(operatorOwner)
+      .registerOperator.staticCall(key, config.ssvFee, false);
+    await legacyNetwork.connect(operatorOwner)
+      .registerOperator(key, config.ssvFee, false);
+    operatorIds.push(Number(id));
+  }
+
+  const pendingOperatorIds = operatorIds.slice(0, 2);
+  for (const opId of pendingOperatorIds) {
+    await legacyNetwork.connect(operatorOwner)
+      .declareOperatorFee(opId, config.declaredSsvFee);
+  }
+
+  const totalSsvDeposit = config.ssvDepositPerValidator * BigInt(config.validatorCount);
+  await ssvToken.mint(clusterOwner.address, totalSsvDeposit);
+  await ssvToken.connect(clusterOwner).approve(
+    await legacyNetwork.getAddress(), totalSsvDeposit,
+  );
+
+  const validatorKeys: string[] = [];
+  let cluster: Cluster = EMPTY_CLUSTER;
+  for (let i = 0; i < config.validatorCount; i++) {
+    const key = makePublicKey(2000 + i);
+    validatorKeys.push(key);
+    await legacyNetwork.connect(clusterOwner).registerValidator(
+      key, operatorIds, DEFAULT_SHARES, config.ssvDepositPerValidator, cluster,
+    );
+    cluster = await getCurrentClusterState(
+      connection, legacyNetwork, clusterOwner.address, operatorIds,
+    );
+  }
+
+  const preUpgradeCluster = { ...cluster };
+
+  // Advance time past declareOperatorFeePeriod so approvalBeginTime <= upgradeTimestamp,
+  // ensuring the UPGRADE_TIMESTAMP guard fires on executeOperatorFee post-upgrade.
+  await connection.ethers.provider.send("evm_increaseTime", [Number(DECLARE_OPERATOR_FEE_PERIOD) + 1]);
+  await mineBlocks(connection.ethers.provider, 1);
+
+  const { cssv, newNetwork, newViews } = await upgradeToStakingVersion(
+    connection, legacyNetwork, legacyViews,
+  );
+
+  (ctx as any).network = newNetwork;
+  (ctx as any).views = newViews;
+  (ctx as any).ssvToken = ssvToken;
+  (ctx as any).cssvToken = cssv;
+
+  const operators: OperatorRecord[] = operatorIds.map(id => ({
+    id,
+    fee: DEFAULT_OPERATOR_ETH_FEE,
+    owner: operatorOwner,
+  }));
+
+  return {
+    operatorIds,
+    operators,
+    ssvFee: config.ssvFee,
+    totalSsvDeposit,
+    preUpgradeCluster,
+    validatorKeys,
+    clusterOwner,
+    operatorOwner,
+    declaredSsvFee: config.declaredSsvFee,
+    pendingOperatorIds,
   };
 }
