@@ -3,7 +3,7 @@
   "chainId": "560048",
   "network": "hoodi",
   "deployedAt": "2026-03-17T10:15:01.803Z",
-  "blockNumber": 2434222,
+  "blockNumber": 1773756095,
   "implementations": {
     "SSVNetworkSSVStakingUpgrade": "0x6749B3Ade59FbA80f4e5c4066A993181843E1c00",
     "SSVNetworkViews": "0x4c6f92E6d13748a83E96dF2AA5D3839a9Ed2b607"
