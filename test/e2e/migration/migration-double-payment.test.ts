@@ -9,6 +9,7 @@ import { createCluster, makePublicKey, parseClusterFromEvent } from "../../commo
 import {
   DEDUCTED_DIGITS,
   DEFAULT_ETH_REGISTER_VALUE,
+  DEFAULT_SHARES,
   DEFAULT_OPERATOR_ETH_FEE,
   ETH_DEDUCTED_DIGITS,
 } from "../../common/constants.ts";
@@ -51,10 +52,11 @@ describe("Migration Regression: removed operator SSV settlement", () => {
   let connection: NetworkConnection<"generic">;
   let networkHelpers: NetworkHelpersType;
   let clusterOwner: HardhatEthersSigner;
+  let ethClusterOwner: HardhatEthersSigner;
 
   before(async function () {
     ({ connection, networkHelpers } = await getTestConnection());
-    [clusterOwner] = await connection.ethers.getSigners();
+    [clusterOwner, ethClusterOwner] = await connection.ethers.getSigners();
   });
 
   const deployFixture = async () => {
@@ -473,6 +475,109 @@ describe("Migration Regression: removed operator SSV settlement", () => {
 
     const ownerAfter = await mockToken.balanceOf(clusterOwner.address);
     expect(ownerAfter - ownerBefore).to.equal(correctRefund);
+  });
+
+  it("Removed operator frozen ETH index is not charged again on first post-migration settlement", async function () {
+    const { clusters, operatorIds } = await networkHelpers.loadFixture(deployFixture);
+    const provider = connection.ethers.provider;
+
+    const ethFeeRaw = 10_000_000_000n;
+    const validatorCount = 1n;
+
+    await clusters.mockEthNetworkFee(0n);
+    await clusters.mockCurrentNetworkFeeIndex(0n);
+
+    for (const operatorId of operatorIds) {
+      await clusters.mockSetOperatorFee(operatorId, ethFeeRaw);
+    }
+
+    const ethRegisterTx = await clusters.connect(ethClusterOwner).registerValidator(
+      makePublicKey(7),
+      operatorIds,
+      DEFAULT_SHARES,
+      createCluster(),
+      { value: DEFAULT_ETH_REGISTER_VALUE }
+    );
+    const ethCluster = parseClusterFromEvent(clusters, await ethRegisterTx.wait(), Events.VALIDATOR_ADDED);
+
+    await mineBlocks(provider, 120);
+
+    const ethRegister2Tx = await clusters.connect(ethClusterOwner).registerValidator(
+      makePublicKey(8),
+      operatorIds,
+      DEFAULT_SHARES,
+      ethCluster,
+      { value: DEFAULT_ETH_REGISTER_VALUE }
+    );
+    await ethRegister2Tx.wait();
+
+    const ssvCluster: Cluster = createCluster({
+      validatorCount,
+      networkFeeIndex: 0n,
+      index: 0n,
+      balance: 0n,
+      active: true,
+    });
+    await clusters.mockRegisterSSVValidator(
+      makePublicKey(9),
+      operatorIds,
+      clusterOwner.address,
+      ssvCluster
+    );
+
+    const removedOperatorId = operatorIds[0];
+    await mineBlocks(provider, 40);
+    await (clusters as any).mockRemoveOperatorAndPayout(removedOperatorId, clusterOwner.address);
+
+    const removedEthSnapshot = await clusters.getOperatorEthSnapshot(removedOperatorId);
+    const removedFrozenIndex = BigInt(removedEthSnapshot.index);
+    expect(BigInt(removedEthSnapshot.blockNumber)).to.equal(0n);
+    expect(removedFrozenIndex).to.be.greaterThan(0n);
+
+    const migrateTx = await clusters.migrateClusterToETH(
+      operatorIds,
+      ssvCluster,
+      { value: DEFAULT_ETH_REGISTER_VALUE }
+    );
+    const migrateReceipt = await migrateTx.wait();
+    const migratedCluster = parseClusterFromEvent(clusters, migrateReceipt, Events.CLUSTER_MIGRATED_TO_ETH);
+
+    let expectedMigratedIndex = 0n;
+    const postMigrationEthState: Array<{ index: bigint; blockNumber: bigint; fee: bigint }> = [];
+    for (const operatorId of operatorIds) {
+      const ethSnapshot = await clusters.getOperatorEthSnapshot(operatorId);
+      const feePacked = BigInt(await clusters.getOperatorEthFee(operatorId));
+
+      expectedMigratedIndex += BigInt(ethSnapshot.index);
+      postMigrationEthState.push({
+        index: BigInt(ethSnapshot.index),
+        blockNumber: BigInt(ethSnapshot.blockNumber),
+        fee: feePacked,
+      });
+    }
+
+    expect(migratedCluster.index).to.equal(expectedMigratedIndex);
+
+    await mineBlocks(provider, 50);
+
+    const withdrawTx = await clusters.withdraw(operatorIds, 1n, migratedCluster);
+    const withdrawReceipt = await withdrawTx.wait();
+    const clusterAfterWithdraw = parseClusterFromEvent(clusters, withdrawReceipt, Events.CLUSTER_WITHDRAWN);
+    const withdrawBlock = BigInt(withdrawReceipt!.blockNumber);
+
+    let expectedCurrentClusterIndex = 0n;
+    for (const operator of postMigrationEthState) {
+      expectedCurrentClusterIndex += operator.index + (withdrawBlock - operator.blockNumber) * operator.fee;
+    }
+
+    const expectedOperatorUsageWei =
+      (expectedCurrentClusterIndex - BigInt(migratedCluster.index)) * validatorCount * ETH_DEDUCTED_DIGITS;
+    const expectedBalance = DEFAULT_ETH_REGISTER_VALUE - expectedOperatorUsageWei - 1n;
+
+    expect(clusterAfterWithdraw.balance).to.equal(expectedBalance);
+
+    const phantomChargeWei = removedFrozenIndex * validatorCount * ETH_DEDUCTED_DIGITS;
+    expect(clusterAfterWithdraw.balance).to.not.equal(expectedBalance - phantomChargeWei);
   });
 
   it("Assigns default ETH fee on migration when legacy operator had ethFee explicitly reset to zero", async function () {

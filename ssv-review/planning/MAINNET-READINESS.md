@@ -30,8 +30,9 @@
 | BUG-17 | ~~`commitRoot` quorum can become unreachable due to truncation in per-oracle weight math~~ | Critical Bug Fix | P0 | ✅ Fixed |
 | BUG-18 | ~~Staking Rewards Accumulator Precision Loss~~ | High Bug Fix | P1 | ✅ Closed (accepted as part of the accumulator model) |
 | BUG-19 | ~~Aggregate vs per-cluster rounding causes conservation law violation~~ | Medium Bug Fix | P1 | ✅ Closed (accepted as a known precision limitation) |
-| BUG-20 | Dust permanently trapped on reward claim with zero cSSV balance | Low Bug Fix | P1 | ✅ Closed (Fixed on SEC-16b) |
-| BUG-21 | `removeOperator` deletes `operatorEthVUnits` causing underflow in cluster operations | Critical Bug Fix | P0 | ✅ Fixed |
+| BUG-20 | ~~Dust permanently trapped on reward claim with zero cSSV balance~~ | Low Bug Fix | P1 | ✅ Closed (Fixed on SEC-16b) |
+| BUG-21 | ~~`removeOperator` deletes `operatorEthVUnits` causing underflow in cluster operations~~ | Critical Bug Fix | P0 | ✅ Fixed |
+| BUG-22 | ~~`updateClusterOperatorsMigration` skips removed operator's frozen ETH index — one-time cluster overcharge~~ | Medium Bug Fix | P1 | ✅ Fixed (refactored) |
 | SEC-1 | ~~`updateQuorumBps(0)` allows zero-threshold oracle commits~~ | Security Hardening | P2 | ✅ Mitigated (owner-only) |
 | SEC-2 | ~~`quorumBps` not initialized during upgrade — zero by default~~ | Security Hardening | P0 | ✅ Fixed — `initializeSSVStaking` now takes `quorumBps` param and validates `!= 0 && <= 10_000` |
 | SEC-3 | ~~`replaceOracle` doesn't invalidate pending votes~~ | Security Hardening | ~~P1~~ P2 | ✅ Mitigated (owner-only + coordinated oracles) |
@@ -88,10 +89,10 @@
 | TEST-32 | ~~Add access control tests for DAO governance functions~~ | Unit Test Completeness | P1 | ✅ Closed (covered by unit tests) |
 | TEST-33 | Mainnet governance config validation & edge-case tests | Unit Test Completeness | P1 | M |
 | TEST-34 | ~~Staking solvency invariant: cSSV supply must not exceed SSV held by staking contract~~ | Unit Test Completeness | P1 | ✅ Done |
-| TEST-35 | Cluster-size variant coverage: fee accrual and EB lifecycle across 4/7/10/13 operators (CS-01–CS-34) | Unit Test Completeness | P2 | Open |
-| TEST-36 | Multi-cluster shared-operator vUnit propagation (MC-01–MC-10, CS-30–CS-32) | Unit Test Completeness | P1 | Open |
-| TEST-37 | Accounting invariants: DAO vUnits, operator fees, explicit EB edges (D-*, F-*, EC-*, P-*, S-*) | Unit Test Completeness | P2 | Open |
-| TEST-38 | State-transition coverage: migration, stale snapshots, and remaining lifecycle (M-*, ST-*, R-09, L-05–L-07) | Unit Test Completeness | P2 | Open |
+| TEST-35 | ~~Cluster-size variant coverage: fee accrual and EB lifecycle across 4/7/10/13 operators (CS-01–CS-34)~~ | Unit Test Completeness | P2 | ✅ Done |
+| TEST-36 | ~~Multi-cluster shared-operator vUnit propagation (MC-01–MC-10, CS-30–CS-32)~~ | Unit Test Completeness | P1 | ✅ Done |
+| TEST-37 | ~~Accounting invariants: DAO vUnits, operator fees, explicit EB edges (D-*, F-*, EC-*, P-*, S-*)~~ | Unit Test Completeness | P2 | ✅ Done |
+| TEST-38 | ~~State-transition coverage: migration, stale snapshots, and remaining lifecycle (M-*, ST-*, R-09, L-05–L-07)~~ | Unit Test Completeness | P2 | ✅ Done |
 | ITEST-1 | ~~`commitRoot` → `updateClusterBalance` E2E flow~~ | Integration / E2E Tests | P1 | ✅ Closed |
 | ITEST-2 | ~~Migration with multiple EB updates E2E~~ | Integration / E2E Tests | P1 | ✅ Closed |
 | DEPLOY-1 | ~~Fix `deploy-all.ts` broken signature and constructor args~~ | Deployment & Scripts | P0 | ✅ Fixed — `deploy-all.ts` replaced by `deploy-fresh.ts` + `upgrade.ts` with correct `initializeSSVStaking(uint64,uint32[4],uint16)` signature |
@@ -699,6 +700,93 @@ The `daoTotalEthVUnits` adjustment is per-cluster (not per-operator) and continu
 
 **Test Coverage:**
 `test/sanity/removed-operator-with-deviated-cluster.test.ts` — 9 test cases × 4 operator counts (4, 7, 10, 13) = 36 tests covering all mutation sites with full state assertions.
+
+---
+
+### [BUG-22] `updateClusterOperatorsMigration` skips removed operator's frozen ETH index — one-time cluster overcharge
+- **Type:** Medium Bug Fix
+- **Priority:** P1
+- **Status:** ✅ Fixed (refactored)
+- **Owner:** N/A
+- **Timeline:** 2026-04-01
+- **Github Link:** N/A (branch `test/monte-carlo-v2`)
+
+**Requirement:**
+When an SSV cluster migrates to ETH via `migrateClusterToETH`, the new `cluster.index` must include the frozen `ethSnapshot.index` of every operator — including removed operators — so that subsequent cluster operations compute a zero delta for the removed operator's contribution.
+
+**Context:**
+In `OperatorLib.sol:updateClusterOperatorsMigration`, removed operators (both `snapshot.block == 0` and `ethSnapshot.block == 0`) hit a `continue` at line 363-364, which skips all ETH processing including `cumulativeIndexETH` accumulation. This is inconsistent with `updateClusterOperators` (line 260), `updateClusterOperatorsOnReactivation` (line 328), and `withdraw` (SSVClusters.sol:221-224), all of which unconditionally accumulate the operator's `ethSnapshot.index`.
+
+The frozen `ethSnapshot.index` is intentionally preserved by `_resetOperatorState` (FLOWS.md §4.2) so that the delta model can settle pending operator fees on the next cluster operation. The invariant is:
+
+```
+fees_from_removed_operator = (cumulativeIndex_now - cluster.index_last) for that operator
+```
+
+- First operation after removal: delta = `frozen_index - index_at_last_settlement` = pending fees (correct charge)
+- All subsequent operations: delta = `frozen_index - frozen_index` = 0 (no charge)
+
+When `updateClusterOperatorsMigration` excludes the frozen index from `cumulativeIndexETH`, the migrated cluster's `cluster.index` is set too low. On the first subsequent cluster operation, `updateClusterOperators` includes the frozen value, producing a phantom delta equal to the full frozen `ethSnapshot.index`. This results in a **one-time overcharge** on the cluster.
+
+**Trigger conditions:**
+1. An operator serves both SSV and ETH clusters simultaneously (multi-cluster)
+2. The operator is removed (freezing a non-zero `ethSnapshot.index`)
+3. A cluster containing that operator migrates from SSV to ETH
+
+**Fix — Refactor for structural consistency:**
+
+The original code used a three-way branch (`continue` / `ensureETHDefaults` / `updateSnapshotSt`) with `cumulativeIndexETH` accumulated only inside the `else` branch. This was refactored to match the established pattern in `updateClusterOperators` and `updateClusterOperatorsOnReactivation`: state mutations are guarded, but index accumulation is unconditional at the end.
+
+Before (buggy):
+```solidity
+cumulativeIndexSSV += operator.snapshot.index;
+
+if (operator.snapshot.block == 0 && operator.ethSnapshot.block == 0) {
+    continue;  // BUG: skips cumulativeIndexETH
+}
+if (operator.ethSnapshot.block == 0) {
+    ensureETHDefaults(operator, operatorId);
+} else {
+    updateSnapshotSt(operator, operatorId);
+    cumulativeIndexETH += operator.ethSnapshot.index;  // only here
+}
+// ... ethValidatorCount, cumulativeFeeETH
+```
+
+After (refactored):
+```solidity
+cumulativeIndexSSV += operator.snapshot.index;
+
+// Removed operators (both blocks == 0) contribute their frozen index
+// but are not mutated (no validator count or fee changes)
+if (operator.snapshot.block != 0 || operator.ethSnapshot.block != 0) {
+    if (operator.ethSnapshot.block == 0) {
+        ensureETHDefaults(operator, operatorId);
+    } else {
+        updateSnapshotSt(operator, operatorId);
+    }
+    // ... ethValidatorCount, cumulativeFeeETH
+}
+cumulativeIndexETH += operator.ethSnapshot.index;  // ALWAYS
+```
+
+**Refactor equivalence proof:**
+
+The refactored version is precisely equivalent to the minimal fix (`cumulativeIndexETH += operator.ethSnapshot.index` before the `continue`) across all three reachable operator states:
+
+| State | `snapshot.block` | `ethSnapshot.block` | Minimal fix | Refactored |
+|-------|-----------------|---------------------|-------------|------------|
+| A: SSV-only | `!= 0` | `== 0` | Skips `continue`, enters `ensureETHDefaults`, index not accumulated (= 0, no-op) | Guard TRUE, `ensureETHDefaults`, then `+= index` (= 0, no-op) |
+| B: Dual | `!= 0` | `!= 0` | Skips `continue`, enters `else`, `+= index` (updated) | Guard TRUE, `updateSnapshotSt`, then `+= index` (updated) |
+| C: Removed | `== 0` | `== 0` | `+= index` (frozen) before `continue` | Guard FALSE (skip mutations), then `+= index` (frozen) |
+
+The hypothetical state `snapshot.block > 0 && ethSnapshot.block == 0 && ethSnapshot.index > 0` is the only case where the two differ (minimal fix would not accumulate; refactored would). This state is **provably unreachable**: `ethSnapshot.index` can only grow when `ethSnapshot.block != 0` (all three writers guard on this), and the only code that zeroes `ethSnapshot.block` is `_resetOperatorState`, which atomically zeroes `snapshot.block` too — making `snapshot.block > 0` impossible after the index was frozen.
+
+**Acceptance Criteria:**
+- [ ] `migrateClusterToETH` for a cluster containing a removed operator (that previously had ETH data) does not cause overcharge on subsequent operations
+- [ ] `cluster.index` after migration includes the removed operator's frozen `ethSnapshot.index`
+- [ ] Multi-cluster scenario: operator serves ETH cluster A and SSV cluster B, operator is removed, cluster B migrates — both clusters settle correctly
+- [ ] Refactored `updateClusterOperatorsMigration` produces identical `cumulativeIndexSSV`, `cumulativeIndexETH`, and `cumulativeFeeETH` as the original for all active operator states
 
 ---
 
@@ -2786,7 +2874,7 @@ Added explicit Echidna invariant `echidna_cssv_supply_lte_ssv_backing()` in `tes
 ### [TEST-35] Cluster-size variant coverage: fee accrual and EB lifecycle across 4/7/10/13 operators
 - **Type:** Unit Test Completeness
 - **Priority:** P2
-- **Status:** Open
+- **Status:** ✅ Done
 - **Owner:** (unassigned)
 - **Timeline:**
 - **Github Link:**
@@ -2801,22 +2889,22 @@ The vUnit model applies deviations per-operator across every operator in a clust
 
 | Gap | Status | Flow |
 |-----|--------|------|
-| CS-01 | ❌ | register validator [7 ops] → advance blocks → assert exact cluster balance decrease |
-| CS-02 | ❌ | register validator [10 ops] → advance blocks → assert exact cluster balance decrease |
-| CS-03 | ❌ | register validator [13 ops] → advance blocks → assert exact cluster balance decrease |
-| CS-04 | ⚠️ | register validator [13 ops] → assert per-operator `ethValidatorCount == 1` for all 13 |
-| CS-05 | ❌ | register validator [7 ops] (EB=64) → assert `operatorEthVUnits[i].deviation` for all 7 |
-| CS-06 | ⚠️ | register validator [13 ops] (EB=64) → assert `operatorEthVUnits[i].deviation` for all 13 |
-| CS-07 | ❌ | register validator [7 ops] (EB=64) → updateClusterBalance (EB=32) → assert all 7 deviations cleared |
-| CS-08 | ⚠️ | register validator [13 ops] (EB=64) → updateClusterBalance (EB=128) → assert all 13 deviations increased |
-| CS-20 | ⚠️ | register validator [7 ops] (EB=64) → liquidate → reactivate → assert deviation restored |
-| CS-21 | ⚠️ | register validator [13 ops] (EB=64) → liquidate → reactivate → assert deviation restored |
-| CS-22 | ❌ | register validator [7 ops] (EB=64) → liquidate → remove 2 ops → reactivate → assert 5 survivors get deviation |
-| CS-23 | ❌ | register validator [13 ops] (EB=64) → liquidate → remove 6 ops → reactivate → assert 7 survivors get deviation |
-| CS-26 | ❌ | legacy SSV cluster [7 ops] → updateClusterBalance (EB=64) → migrateClusterToETH |
-| CS-27 | ❌ | legacy SSV cluster [13 ops] → updateClusterBalance (EB=64) → migrateClusterToETH |
-| CS-33 | ❌ | clusters of sizes 4/7/10/13 all at EB=64 → liquidate all → assert `daoTotalEthVUnits == 0` |
-| CS-34 | ❌ | clusters of sizes 4/7/10/13 all at EB=64 → remove 1 op each → liquidate all → assert `daoTotalEthVUnits == 0` |
+| CS-01 | ✅ | register validator [7 ops] → advance blocks → assert exact cluster balance decrease |
+| CS-02 | ✅ | register validator [10 ops] → advance blocks → assert exact cluster balance decrease |
+| CS-03 | ✅ | register validator [13 ops] → advance blocks → assert exact cluster balance decrease |
+| CS-04 | ✅ | register validator [13 ops] → assert per-operator `ethValidatorCount == 1` for all 13 |
+| CS-05 | ✅ | register validator [7 ops] (EB=64) → assert `operatorEthVUnits[i].deviation` for all 7 |
+| CS-06 | ✅ | register validator [13 ops] (EB=64) → assert `operatorEthVUnits[i].deviation` for all 13 |
+| CS-07 | ✅ | register validator [7 ops] (EB=64) → updateClusterBalance (EB=32) → assert all 7 deviations cleared |
+| CS-08 | ✅ | register validator [13 ops] (EB=64) → updateClusterBalance (EB=128) → assert all 13 deviations increased |
+| CS-20 | ✅ | register validator [7 ops] (EB=64) → liquidate → reactivate → assert deviation restored |
+| CS-21 | ✅ | register validator [13 ops] (EB=64) → liquidate → reactivate → assert deviation restored |
+| CS-22 | ✅ | register validator [7 ops] (EB=64) → liquidate → remove 2 ops → reactivate → assert 5 survivors get deviation |
+| CS-23 | ✅ | register validator [13 ops] (EB=64) → liquidate → remove 6 ops → reactivate → assert 7 survivors get deviation |
+| CS-26 | ✅ | legacy SSV cluster [7 ops] → updateClusterBalance (EB=64) → migrateClusterToETH |
+| CS-27 | ✅ | legacy SSV cluster [13 ops] → updateClusterBalance (EB=64) → migrateClusterToETH |
+| CS-33 | ✅ | clusters of sizes 4/7/10/13 all at EB=64 → liquidate all → assert `daoTotalEthVUnits == 0` |
+| CS-34 | ✅ | clusters of sizes 4/7/10/13 all at EB=64 → remove 1 op each → liquidate all → assert `daoTotalEthVUnits == 0` |
 
 **Expected outcomes per group:**
 
@@ -2836,15 +2924,18 @@ SSV balance refunded, ETH deposit credited; migrated cluster retains stored EB s
 *Global DAO invariant (CS-33–CS-34):*
 `daoTotalEthVUnits == 0` after all four clusters (4/7/10/13 ops, all EB=64) are liquidated. CS-34 adds one removed operator per cluster before liquidation — invariant must still hold.
 
+**Resolution:**
+Added deterministic matrix coverage in `test/sanity/vunits-cluster-size-matrix.test.ts` for CS-01/02/03, CS-04/05/06/07/08, CS-20/21/22/23, CS-26/27, and CS-33/34. Validation run: `npx hardhat test test/sanity/vunits-cluster-size-matrix.test.ts` (8 passing).
+
 **Acceptance Criteria:**
-- [ ] CS-01/02/03: For each of 7, 10, 13 operators — advance blocks and assert `cluster.balance` decreased by the exact fee formula
-- [ ] CS-04: 13-operator registration — all 13 `operator.ethValidatorCount == 1`
-- [ ] CS-05/06: EB=64 update on 7- and 13-operator clusters — every operator's `operatorEthVUnits.deviation` matches expected value
-- [ ] CS-07/08: EB decrease (7 ops) and increase (13 ops) — all operator deviations updated correctly; fees settled at pre-update rate
-- [ ] CS-20/21: Full liquidation + reactivation at EB=64 for 7- and 13-operator clusters
-- [ ] CS-22/23: Post-liquidation operator removal + reactivation — removed operators skipped, survivors correctly restored
-- [ ] CS-26/27: Migration with EB=64 deviation on 7- and 13-operator clusters
-- [ ] CS-33/34: Global `daoTotalEthVUnits == 0` after all clusters liquidated
+- [x] CS-01/02/03: For each of 7, 10, 13 operators — advance blocks and assert `cluster.balance` decreased by the exact fee formula
+- [x] CS-04: 13-operator registration — all 13 `operator.ethValidatorCount == 1`
+- [x] CS-05/06: EB=64 update on 7- and 13-operator clusters — every operator's `operatorEthVUnits.deviation` matches expected value
+- [x] CS-07/08: EB decrease (7 ops) and increase (13 ops) — all operator deviations updated correctly; fees settled at pre-update rate
+- [x] CS-20/21: Full liquidation + reactivation at EB=64 for 7- and 13-operator clusters
+- [x] CS-22/23: Post-liquidation operator removal + reactivation — removed operators skipped, survivors correctly restored
+- [x] CS-26/27: Migration with EB=64 deviation on 7- and 13-operator clusters
+- [x] CS-33/34: Global `daoTotalEthVUnits == 0` after all clusters liquidated
 
 **Agent Instructions:**
 1. Reuse `ssvClustersHarnessFixture(connection, N)` — accepts N ∈ {4, 7, 10, 13} already.
@@ -2855,18 +2946,18 @@ SSV balance refunded, ETH deposit credited; migrated cluster retains stored EB s
 6. Suggested file: `test/e2e/effective-balance/vunits-cluster-sizes.test.ts` (new) or extend `test/sanity/removed-operator-with-deviated-cluster.test.ts`.
 
 #### Sub-items:
-- [ ] Sub-task 1: Fee accrual across sizes (CS-01, CS-02, CS-03)
-- [ ] Sub-task 2: EB distribution across sizes (CS-04, CS-05, CS-06, CS-07, CS-08)
-- [ ] Sub-task 3: Liquidation + reactivation with/without operator removal (CS-20, CS-21, CS-22, CS-23)
-- [ ] Sub-task 4: Migration with deviation across sizes (CS-26, CS-27)
-- [ ] Sub-task 5: Global DAO invariant across all sizes (CS-33, CS-34)
+- [x] Sub-task 1: Fee accrual across sizes (CS-01, CS-02, CS-03)
+- [x] Sub-task 2: EB distribution across sizes (CS-04, CS-05, CS-06, CS-07, CS-08)
+- [x] Sub-task 3: Liquidation + reactivation with/without operator removal (CS-20, CS-21, CS-22, CS-23)
+- [x] Sub-task 4: Migration with deviation across sizes (CS-26, CS-27)
+- [x] Sub-task 5: Global DAO invariant across all sizes (CS-33, CS-34)
 
 ---
 
 ### [TEST-36] Multi-cluster shared-operator vUnit propagation
 - **Type:** Unit Test Completeness
 - **Priority:** P1
-- **Status:** Open
+- **Status:** ✅ Done
 - **Owner:** (unassigned)
 - **Timeline:**
 - **Github Link:**
@@ -2881,18 +2972,18 @@ When multiple clusters share operators, each EB update on any cluster modifies t
 
 | Gap | Status | Flow |
 |-----|--------|------|
-| MC-01 | ⚠️ | 2 clusters sharing 4 ops → updateClusterBalance (EB=64) on both → assert `operatorEthVUnits == 2 × deviation` |
-| MC-02 | ❌ | same → remove shared operator → assert slot cleared; both clusters still settle fees |
-| MC-03 | ⚠️ | 2 clusters (EB=64) → liquidate cluster A → assert cluster A's deviation removed, cluster B's intact |
-| MC-04 | ⚠️ | 2 clusters (EB=64) → liquidate both → assert `daoTotalEthVUnits == 0` |
-| MC-05 | ⚠️ | 2 clusters sharing 4 ops → EB=64 on A → EB=128 on B → assert per-operator deviation sums |
-| MC-06 | ❌ | cluster A (EB=64) + cluster B (implicit) sharing op → remove op → liquidate A |
-| MC-07 | ❌ | 2 clusters (EB=64) → remove shared op → updateClusterBalance (EB=32) on cluster A |
-| MC-08 | ❌ | 2 clusters (EB=64) → remove shared op → remove last validator on cluster B |
-| MC-10 | ❌ | 2 clusters (EB=64/128) → remove shared op → EB increase on A + EB decrease on B |
-| CS-30 | ❌ | cluster A [4 ops] + cluster B [13 ops] sharing 4 ops → EB=64 on both → remove shared op |
-| CS-31 | ⚠️ | cluster A [4 ops] (EB=64) + cluster B [7 ops] (EB=128) → liquidate A → assert B's operator vUnits untouched |
-| CS-32 | ❌ | cluster A [7 ops] + cluster B [13 ops] sharing ops → remove shared op → liquidate both |
+| MC-01 | ✅ | 2 clusters sharing 4 ops → updateClusterBalance (EB=64) on both → assert `operatorEthVUnits == 2 × deviation` |
+| MC-02 | ✅ | same → remove shared operator → assert slot cleared; both clusters still settle fees |
+| MC-03 | ✅ | 2 clusters (EB=64) → liquidate cluster A → assert cluster A's deviation removed, cluster B's intact |
+| MC-04 | ✅ | 2 clusters (EB=64) → liquidate both → assert `daoTotalEthVUnits == 0` |
+| MC-05 | ✅ | 2 clusters sharing 4 ops → EB=64 on A → EB=128 on B → assert per-operator deviation sums |
+| MC-06 | ✅ | cluster A (EB=64) + cluster B (implicit) sharing op → remove op → liquidate A |
+| MC-07 | ✅ | 2 clusters (EB=64) → remove shared op → updateClusterBalance (EB=32) on cluster A |
+| MC-08 | ✅ | 2 clusters (EB=64) → remove shared op → remove last validator on cluster B |
+| MC-10 | ✅ | 2 clusters (EB=64/128) → remove shared op → EB increase on A + EB decrease on B |
+| CS-30 | ✅ | cluster A [4 ops] + cluster B [13 ops] sharing 4 ops → EB=64 on both → remove shared op |
+| CS-31 | ✅ | cluster A [4 ops] (EB=64) + cluster B [7 ops] (EB=128) → liquidate A → assert B's operator vUnits untouched |
+| CS-32 | ✅ | cluster A [7 ops] + cluster B [13 ops] sharing ops → remove shared op → liquidate both |
 
 **Expected outcomes per gap:**
 
@@ -2916,17 +3007,20 @@ When multiple clusters share operators, each EB update on any cluster modifies t
 - CS-30: Removing a shared operator from a (4-op, 13-op) pair leaves the 4-op cluster with 3 active operators and the 13-op cluster with 12 active operators; no vUnit corruption.
 - CS-32: After removing shared op from a (7-op, 13-op) pair, liquidating both succeeds and `daoTotalEthVUnits == 0`.
 
+**Resolution:**
+Added deterministic multi-cluster coverage in `test/sanity/removed-operator-with-deviated-cluster.test.ts` for MC-01/02/03/04/05/06/07/08/10 and in `test/sanity/vunits-cluster-size-matrix.test.ts` for CS-30/31/32. Validation run: `npx hardhat test "test/sanity/removed-operator-with-deviated-cluster.test.ts" "test/sanity/vunits-cluster-size-matrix.test.ts"`.
+
 **Acceptance Criteria:**
-- [ ] MC-01: Two clusters at EB=64 accumulate `2 × deviation` in each shared operator's vUnits
-- [ ] MC-02: Operator removal after multi-cluster EB=64 clears the slot globally; both clusters still settle fees
-- [ ] MC-03: Liquidating one cluster decrements DAO total by exactly that cluster's deviation; surviving cluster unaffected
-- [ ] MC-04: Liquidating both clusters: `daoTotalEthVUnits == 0`
-- [ ] MC-05: Different EB values per cluster accumulate correctly per shared operator
-- [ ] MC-06: Explicit EB + implicit cluster share operator; removal + liquidation on explicit cluster succeeds
-- [ ] MC-07: Removed shared op + `updateClusterBalance(EB=32)` on one cluster skips removed op correctly
-- [ ] MC-08: Removed shared op + last validator removal on other cluster succeeds without underflow
-- [ ] MC-10: Removed shared op + mixed EB direction writes (increase on A, decrease on B) both succeed
-- [ ] CS-30/31/32: Mixed cluster-size shared-operator scenarios produce correct vUnit accounting
+- [x] MC-01: Two clusters at EB=64 accumulate `2 × deviation` in each shared operator's vUnits
+- [x] MC-02: Operator removal after multi-cluster EB=64 clears the slot globally; both clusters still settle fees
+- [x] MC-03: Liquidating one cluster decrements DAO total by exactly that cluster's deviation; surviving cluster unaffected
+- [x] MC-04: Liquidating both clusters: `daoTotalEthVUnits == 0`
+- [x] MC-05: Different EB values per cluster accumulate correctly per shared operator
+- [x] MC-06: Explicit EB + implicit cluster share operator; removal + liquidation on explicit cluster succeeds
+- [x] MC-07: Removed shared op + `updateClusterBalance(EB=32)` on one cluster skips removed op correctly
+- [x] MC-08: Removed shared op + last validator removal on other cluster succeeds without underflow
+- [x] MC-10: Removed shared op + mixed EB direction writes (increase on A, decrease on B) both succeed
+- [x] CS-30/31/32: Mixed cluster-size shared-operator scenarios produce correct vUnit accounting
 
 **Agent Instructions:**
 1. Use `ssvNetworkFullFixture` + `setupOracles` + `registerDefaultClusters` from `test/helpers/operator.ts` to create N clusters sharing the same operator set.
@@ -2936,23 +3030,23 @@ When multiple clusters share operators, each EB update on any cluster modifies t
 5. Suggested file: `test/e2e/effective-balance/vunits-multi-cluster.test.ts` (new) or extend `test/e2e/effective-balance/eb-operator-vunits.test.ts`.
 
 #### Sub-items:
-- [ ] Sub-task 1: Multi-cluster vUnit accumulation (MC-01, MC-05)
-- [ ] Sub-task 2: Shared-operator removal propagation (MC-02, MC-06, MC-07, MC-08, MC-10)
-- [ ] Sub-task 3: Partial and full liquidation across shared clusters (MC-03, MC-04, CS-31)
-- [ ] Sub-task 4: Mixed cluster-size shared-operator scenarios (CS-30, CS-32)
+- [x] Sub-task 1: Multi-cluster vUnit accumulation (MC-01, MC-05)
+- [x] Sub-task 2: Shared-operator removal propagation (MC-02, MC-06, MC-07, MC-08, MC-10)
+- [x] Sub-task 3: Partial and full liquidation across shared clusters (MC-03, MC-04, CS-31)
+- [x] Sub-task 4: Mixed cluster-size shared-operator scenarios (CS-30, CS-32)
 
 ---
 
 ### [TEST-37] Accounting invariants: DAO vUnits, operator fees, explicit EB edges
 - **Type:** Unit Test Completeness
 - **Priority:** P2
-- **Status:** Open
+- **Status:** ✅ Done
 - **Owner:** (unassigned)
 - **Timeline:**
 - **Github Link:**
 
 **Requirement:**
-Close the accounting-correctness gaps across DAO vUnit tracking, operator fee lifecycle, explicit EB edge cases, precision, and staking revenue scaling. Most are ⚠️ partial gaps where the two halves of a scenario exist in separate tests but have never been combined. The four ❌ critical gaps are: D-06 (design-intent assertion: DAO unchanged on `removeOperator`), F-07/F-08 (execute-time minimum fee re-check), EC-01 (explicit 32 ETH + removed operator + liquidation), and EC-10 (max EB decrease after operator removal).
+Close the accounting-correctness gaps across DAO vUnit tracking, operator fee lifecycle, explicit EB edge cases, precision, and staking revenue scaling. Most are ⚠️ partial gaps where the two halves of a scenario exist in separate tests but have never been combined. The originally identified ❌ critical gaps included: D-06 (design-intent assertion: DAO unchanged on `removeOperator`), F-07/F-08 (execute-time minimum fee re-check), EC-01 (explicit 32 ETH + removed operator + liquidation), and EC-10 (max EB decrease after operator removal).
 
 **Gaps covered:**
 
@@ -2960,51 +3054,51 @@ Close the accounting-correctness gaps across DAO vUnit tracking, operator fee li
 
 | Gap | Status | Flow |
 |-----|--------|------|
-| D-02 | ⚠️ | register validator (EB=64) → liquidate → assert `daoTotalEthVUnits` decremented by deviation |
-| D-03 | ⚠️ | register validator (EB=64) → liquidate → reactivate → assert `daoTotalEthVUnits` restored |
-| D-04 | ⚠️ | register validator (EB=64) → remove non-final validator → assert `daoTotalEthVUnits` reduced by baseline (deviation unchanged) |
-| D-05 | ⚠️ | register validator (EB=64) → remove last validator → assert `daoTotalEthVUnits == 0` |
-| D-06 | ❌ | register validator (EB=64) → remove operator → assert `daoTotalEthVUnits` unchanged (design intent) |
-| D-07 | ⚠️ | multiple explicit-EB clusters with different EBs → liquidate all → assert `daoTotalEthVUnits == 0` |
+| D-02 | ✅ | register validator (EB=64) → liquidate → assert `daoTotalEthVUnits` decremented by deviation |
+| D-03 | ✅ | register validator (EB=64) → liquidate → reactivate → assert `daoTotalEthVUnits` restored |
+| D-04 | ✅ | register validator (EB=64) → remove non-final validator → assert `daoTotalEthVUnits` reduced by baseline (deviation unchanged) |
+| D-05 | ✅ | register validator (EB=64) → remove last validator → assert `daoTotalEthVUnits == 0` |
+| D-06 | ✅ | register validator (EB=64) → remove operator → assert `daoTotalEthVUnits` unchanged (design intent) |
+| D-07 | ✅ | multiple explicit-EB clusters with different EBs → liquidate all → assert `daoTotalEthVUnits == 0` |
 
 *Operator fee lifecycle with explicit EB* (reference: [VUNITS-SCENARIOS.md §8 Operator Fee Changes](ssv-review/planning/VUNITS-SCENARIOS.md)):
 
 | Gap | Status | Flow |
 |-----|--------|------|
-| F-02 | ⚠️ | register validator (EB=64) → declareOperatorFee → updateClusterBalance (EB=128) → executeOperatorFee |
-| F-03 | ⚠️ | register validator (EB=64) → declareOperatorFee → removeOperator → executeOperatorFee (revert) |
-| F-04 | ⚠️ | register validator (EB=64) → advance blocks → withdrawOperatorEarnings → assert exact ETH received |
-| F-05 | ⚠️ | register validator (EB=64) → removeOperator → withdrawOperatorEarnings (revert or frozen) |
-| F-06 | ⚠️ | register validator (EB=64) → updateClusterBalance (EB=128) → withdrawOperatorEarnings → assert EB-weighted ETH |
-| F-07 | ❌ | register validator (EB=64) → declareOperatorFee at current min → governance raises min above declared → executeOperatorFee (revert `FeeTooLow`) |
-| F-08 | ❌ | register validator (EB=64) → declareOperatorFee above old min → governance raises min to exact declared value → executeOperatorFee (success, boundary) |
+| F-02 | ✅ | register validator (EB=64) → declareOperatorFee → updateClusterBalance (EB=128) → executeOperatorFee |
+| F-03 | ✅ | register validator (EB=64) → declareOperatorFee → removeOperator → executeOperatorFee (revert) |
+| F-04 | ✅ | register validator (EB=64) → advance blocks → withdrawOperatorEarnings → assert exact ETH received |
+| F-05 | ✅ | register validator (EB=64) → removeOperator → withdrawOperatorEarnings (revert or frozen) |
+| F-06 | ✅ | register validator (EB=64) → updateClusterBalance (EB=128) → withdrawOperatorEarnings → assert EB-weighted ETH |
+| F-07 | ✅ | register validator (EB=64) → declareOperatorFee at current min → governance raises min above declared → executeOperatorFee (revert `FeeTooLow`) |
+| F-08 | ✅ | register validator (EB=64) → declareOperatorFee above old min → governance raises min to exact declared value → executeOperatorFee (success, boundary) |
 
 *Explicit EB edges and boundaries* (reference: [VUNITS-SCENARIOS.md §10 Edge Cases](ssv-review/planning/VUNITS-SCENARIOS.md)):
 
 | Gap | Status | Flow |
 |-----|--------|------|
-| EC-01 | ❌ | register validator (EB=32, explicit) → removeOperator → liquidate (zero deviation, must not underflow) |
-| EC-02 | ⚠️ | register validator (EB=33) → full lifecycle (fees, EB update, removal) |
-| EC-04 | ⚠️ | register validator → updateClusterBalance (EB=64) → updateClusterBalance (EB=64 again) → assert vUnit delta == 0 |
-| EC-07 | ⚠️ | register validator (EB=64) → updateNetworkFee → assert `isLiquidatable` threshold uses EB-weighted burn rate |
-| EC-08 | ⚠️ | register validator (EB=64) → updateMinimumLiquidationCollateral → assert floor check applies to EB=64 cluster |
-| EC-09 | ⚠️ | register validator (EB=64) → updateLiquidationThresholdPeriod → assert block-based threshold uses new period × EB-weighted rate |
-| EC-10 | ❌ | register 1 validator (EB=2048) → removeOperator → updateClusterBalance (EB=32) → assert removed op skipped, survivors cleared |
+| EC-01 | ✅ | register validator (EB=32, explicit) → removeOperator → liquidate (zero deviation, must not underflow) |
+| EC-02 | ✅ | register validator (EB=33) → full lifecycle (fees, EB update, removal) |
+| EC-04 | ✅ | register validator → updateClusterBalance (EB=64) → updateClusterBalance (EB=64 again) → assert vUnit delta == 0 |
+| EC-07 | ✅ | register validator (EB=64) → updateNetworkFee → assert `isLiquidatable` threshold uses EB-weighted burn rate |
+| EC-08 | ✅ | register validator (EB=64) → updateMinimumLiquidationCollateral → assert floor check applies to EB=64 cluster |
+| EC-09 | ✅ | register validator (EB=64) → updateLiquidationThresholdPeriod → assert block-based threshold uses new period × EB-weighted rate |
+| EC-10 | ✅ | register 1 validator (EB=2048) → removeOperator → updateClusterBalance (EB=32) → assert removed op skipped, survivors cleared |
 
 *Precision and rounding* (reference: [VUNITS-SCENARIOS.md §11 Precision](ssv-review/planning/VUNITS-SCENARIOS.md)):
 
 | Gap | Status | Flow |
 |-----|--------|------|
-| P-02 | ⚠️ | register validator (EB=33) → updateClusterBalance (EB=65) → assert fee accrual uses `vUnits(33)` then `vUnits(65)` |
-| P-03 | ❌ | register 7 validators (total EB=225) → assert per-operator deviation with ceiling rounding |
-| P-05 | ⚠️ | register validator → updateClusterBalance (EB=64) → withdraw exact max → assert residual dust ≥ 0 |
+| P-02 | ✅ | register validator (EB=33) → updateClusterBalance (EB=65) → assert fee accrual uses `vUnits(33)` then `vUnits(65)` |
+| P-03 | ✅ | register 7 validators (total EB=225) → assert per-operator deviation with ceiling rounding |
+| P-05 | ✅ | register validator → updateClusterBalance (EB=64) → withdraw exact max → assert residual dust ≥ 0 |
 
 *Staking revenue scaling* (reference: [VUNITS-SCENARIOS.md §12 Staking Integration](ssv-review/planning/VUNITS-SCENARIOS.md)):
 
 | Gap | Status | Flow |
 |-----|--------|------|
-| S-02 | ⚠️ | register validator (EB=64) → liquidate → assert `accEthPerShare` accrual rate decreases |
-| S-04 | ⚠️ | register validator (EB=64) → updateClusterBalance (EB=128) → assert `accEthPerShare` delta per block doubles |
+| S-02 | ✅ | register validator (EB=64) → liquidate → assert `accEthPerShare` accrual rate decreases |
+| S-04 | ✅ | register validator (EB=64) → updateClusterBalance (EB=128) → assert `accEthPerShare` delta per block doubles |
 
 **Expected outcomes:**
 
@@ -3041,15 +3135,19 @@ Close the accounting-correctness gaps across DAO vUnit tracking, operator fee li
 - S-02: After liquidating an EB=64 cluster: `accEthPerShare` per-block increment decreases by the EB=64 contribution.
 - S-04: After EB=64→128 update: per-block `accEthPerShare` delta doubles; staker pending rewards reflect the uplift.
 
+**Resolution:**
+Added deterministic coverage for D/F/EC/P/S gaps across `test/unit/SSVClusters/reactivate.test.ts`, `test/unit/SSVValidator/removeValidator.test.ts`, `test/e2e/cross-cutting/multi-step-flows.test.ts`, `test/integration/SSVNetwork/ebOperatorEarnings.test.ts`, `test/sanity/precision-governance-boundaries.test.ts`, `test/integration/SSVNetwork/staking.test.ts`, and `test/sanity/removed-operator-with-deviated-cluster.test.ts`. Validation run:
+`npx hardhat test "test/unit/SSVOperators/executeOperatorFee.test.ts" "test/unit/SSVClusters/reactivate.test.ts" "test/unit/SSVValidator/removeValidator.test.ts" "test/e2e/cross-cutting/multi-step-flows.test.ts" "test/integration/SSVNetwork/ebOperatorEarnings.test.ts" "test/sanity/precision-governance-boundaries.test.ts" "test/integration/SSVNetwork/staking.test.ts" "test/sanity/removed-operator-with-deviated-cluster.test.ts"`.
+
 **Acceptance Criteria:**
-- [ ] D-02 through D-07: All DAO vUnit tracking assertions pass, including D-06 design-intent assertion
-- [ ] F-02 through F-06: Fee lifecycle with explicit EB — settlement and withdrawal math correct
-- [ ] F-07/F-08: Execute-time minimum fee re-check — revert on stale-min (F-07), succeed at boundary (F-08)
-- [ ] EC-01: Explicit EB=32 + removed operator + liquidation does not revert
-- [ ] EC-10: Max EB=2048 + removed operator + EB decrease to 32 skips removed op correctly
-- [ ] EC-02/04/07/08/09: Combined scenario tests close the partial gaps
-- [ ] P-02/P-03/P-05: Precision edge cases verified with exact arithmetic
-- [ ] S-02/S-04: Staking revenue correctly reflects EB-weighted DAO accrual changes
+- [x] D-02 through D-07: All DAO vUnit tracking assertions pass, including D-06 design-intent assertion
+- [x] F-02 through F-06: Fee lifecycle with explicit EB — settlement and withdrawal math correct
+- [x] F-07/F-08: Execute-time minimum fee re-check — revert on stale-min (F-07), succeed at boundary (F-08)
+- [x] EC-01: Explicit EB=32 + removed operator + liquidation does not revert
+- [x] EC-10: Max EB=2048 + removed operator + EB decrease to 32 skips removed op correctly
+- [x] EC-02/04/07/08/09: Combined scenario tests close the partial gaps
+- [x] P-02/P-03/P-05: Precision edge cases verified with exact arithmetic
+- [x] S-02/S-04: Staking revenue correctly reflects EB-weighted DAO accrual changes
 
 **Agent Instructions:**
 1. For D-* tests: use `ssvClustersHarnessFixture` (unit) or full network; read `daoTotalEthVUnits` via `views.getDaoTotalEthVUnits()` or direct storage read after each operation.
@@ -3059,19 +3157,19 @@ Close the accounting-correctness gaps across DAO vUnit tracking, operator fee li
 5. Suggested files: extend `test/unit/SSVClusters/`, `test/unit/SSVOperators/`, and `test/e2e/effective-balance/vunits-explicit-eb-scenarios.test.ts`.
 
 #### Sub-items:
-- [ ] Sub-task 1: DAO vUnit tracking (D-02 to D-07)
-- [ ] Sub-task 2: Fee lifecycle with explicit EB (F-02 to F-06)
-- [ ] Sub-task 3: Execute-time minimum fee boundary (F-07, F-08) — critical ❌
-- [ ] Sub-task 4: Explicit EB edges and boundaries (EC-01, EC-02, EC-04, EC-07, EC-08, EC-09, EC-10)
-- [ ] Sub-task 5: Precision and dust (P-02, P-03, P-05)
-- [ ] Sub-task 6: Staking revenue scaling (S-02, S-04)
+- [x] Sub-task 1: DAO vUnit tracking (D-02 to D-07)
+- [x] Sub-task 2: Fee lifecycle with explicit EB (F-02 to F-06)
+- [x] Sub-task 3: Execute-time minimum fee boundary (F-07, F-08)
+- [x] Sub-task 4: Explicit EB edges and boundaries (EC-01, EC-02, EC-04, EC-07, EC-08, EC-09, EC-10)
+- [x] Sub-task 5: Precision and dust (P-02, P-03, P-05)
+- [x] Sub-task 6: Staking revenue scaling (S-02, S-04)
 
 ---
 
 ### [TEST-38] State-transition coverage: migration, stale snapshots, and remaining lifecycle
 - **Type:** Unit Test Completeness
 - **Priority:** P2
-- **Status:** Open
+- **Status:** ✅ Done
 - **Owner:** (unassigned)
 - **Timeline:**
 - **Github Link:**
@@ -3088,34 +3186,34 @@ The migration gaps (M-06, M-07) test the first oracle `updateClusterBalance` aft
 
 | Gap | Status | Flow |
 |-----|--------|------|
-| M-06 | ❌ | legacy SSV cluster → migrateClusterToETH → updateClusterBalance (EB=64) |
-| M-07 | ❌ | legacy SSV cluster → migrateClusterToETH → removeOperator → updateClusterBalance (EB=64) |
+| M-06 | ✅ | legacy SSV cluster → migrateClusterToETH → updateClusterBalance (EB=64) |
+| M-07 | ✅ | legacy SSV cluster → migrateClusterToETH → removeOperator → updateClusterBalance (EB=64) |
 
 *Stale-snapshot rejection* (reference: [VUNITS-SCENARIOS.md §14 Stale Snapshots](ssv-review/planning/VUNITS-SCENARIOS.md)):
 
 | Gap | Status | Flow |
 |-----|--------|------|
-| ST-02 | ⚠️ | capture cluster A → oracle update → updateClusterBalance using stale A → revert |
-| ST-03 | ⚠️ | (EB=64) capture cluster A → deposit → liquidate using stale pre-deposit cluster A → revert |
-| ST-04 | ⚠️ | capture cluster A → removeValidator (fresh) → removeValidator using stale A → revert |
-| ST-05 | ⚠️ | (EB=64) capture active cluster A → liquidate → reactivate using stale pre-liquidation A → revert |
-| ST-06 | ❌ | legacy SSV cluster → capture A → deposit (mutate balance) → migrateClusterToETH using stale A → revert |
-| ST-07 | ⚠️ | (EB=64) capture cluster at EB=64 → updateClusterBalance (EB=128) → removeValidator using stale EB=64 cluster → revert |
-| ST-08 | ⚠️ | capture cluster A → liquidate (fresh) → liquidate using stale pre-liquidation A → revert |
+| ST-02 | ✅ | capture cluster A → oracle update → updateClusterBalance using stale A → revert |
+| ST-03 | ✅ | (EB=64) capture cluster A → deposit → liquidate using stale pre-deposit cluster A → revert |
+| ST-04 | ✅ | capture cluster A → removeValidator (fresh) → removeValidator using stale A → revert |
+| ST-05 | ✅ | (EB=64) capture active cluster A → liquidate → reactivate using stale pre-liquidation A → revert |
+| ST-06 | ✅ | legacy SSV cluster → capture A → deposit (mutate balance) → migrateClusterToETH using stale A → revert |
+| ST-07 | ✅ | (EB=64) capture cluster at EB=64 → updateClusterBalance (EB=128) → removeValidator using stale EB=64 cluster → revert |
+| ST-08 | ✅ | capture cluster A → liquidate (fresh) → liquidate using stale pre-liquidation A → revert |
 
 *Deposit after operator removal* (reference: [VUNITS-SCENARIOS.md §3 R-09](ssv-review/planning/VUNITS-SCENARIOS.md)):
 
 | Gap | Status | Flow |
 |-----|--------|------|
-| R-09 | ⚠️ | register validator (EB=64) → removeOperator → deposit |
+| R-09 | ✅ | register validator (EB=64) → removeOperator → deposit |
 
 *Lifecycle with explicit EB* (reference: [VUNITS-SCENARIOS.md §5 Liquidation + Reactivation](ssv-review/planning/VUNITS-SCENARIOS.md)):
 
 | Gap | Status | Flow |
 |-----|--------|------|
-| L-05 | ⚠️ | register validator (EB=64) → liquidate → reactivate → updateClusterBalance (EB=128) |
-| L-06 | ⚠️ | register validator (EB=64) → liquidate → reactivate → removeValidator |
-| L-07 | ⚠️ | register validator (EB=64) → liquidate → deposit → reactivate |
+| L-05 | ✅ | register validator (EB=64) → liquidate → reactivate → updateClusterBalance (EB=128) |
+| L-06 | ✅ | register validator (EB=64) → liquidate → reactivate → removeValidator |
+| L-07 | ✅ | register validator (EB=64) → liquidate → deposit → reactivate |
 
 **Expected outcomes:**
 
@@ -3142,13 +3240,17 @@ All ST-* revert paths must leave state completely unmodified (no partial mutatio
 - L-06: After reactivation of EB=64 cluster, `removeValidator` decreases `ethValidatorCount` by 1 and reduces cluster vUnits by `BPS_DENOMINATOR`; explicit EB snapshot preserved.
 - L-07: `deposit()` into a liquidated EB=64 cluster increases balance; subsequent `reactivate()` uses the deposited balance and restores EB=64 deviation across operators.
 
+**Resolution:**
+Added deterministic state-transition coverage in `test/unit/SSVClusters/migrateClusterToETH.test.ts` (M-06, M-07, ST-06), `test/sanity/stale-snapshot-replay-matrix.test.ts` (ST-02/03/04/05/07/08), `test/sanity/removed-operator-with-deviated-cluster.test.ts` (R-09), and `test/unit/SSVClusters/reactivate.test.ts` (L-05/L-06/L-07). Validation run:
+`npx hardhat test "test/unit/SSVClusters/migrateClusterToETH.test.ts" "test/sanity/stale-snapshot-replay-matrix.test.ts" "test/sanity/removed-operator-with-deviated-cluster.test.ts" "test/unit/SSVClusters/reactivate.test.ts"`.
+
 **Acceptance Criteria:**
-- [ ] M-06: First `updateClusterBalance` on a migrated cluster writes correct EB=64 vUnits to all operators
-- [ ] M-07: Same as M-06 with one operator removed post-migration; removed operator correctly skipped
-- [ ] ST-02 through ST-08: Each stale-snapshot path reverts with the correct error; no partial state mutation
-- [ ] ST-06: Stale SSV cluster struct rejected by `migrateClusterToETH`
-- [ ] R-09: Deposit after operator removal on active EB=64 cluster succeeds; `operatorEthVUnits` unchanged
-- [ ] L-05/L-06/L-07: Full explicit-EB lifecycle sequences with liquidation and reactivation
+- [x] M-06: First `updateClusterBalance` on a migrated cluster writes correct EB=64 vUnits to all operators
+- [x] M-07: Same as M-06 with one operator removed post-migration; removed operator correctly skipped
+- [x] ST-02 through ST-08: Each stale-snapshot path reverts with the correct error; no partial state mutation
+- [x] ST-06: Stale SSV cluster struct rejected by `migrateClusterToETH`
+- [x] R-09: Deposit after operator removal on active EB=64 cluster succeeds; `operatorEthVUnits` unchanged
+- [x] L-05/L-06/L-07: Full explicit-EB lifecycle sequences with liquidation and reactivation
 
 **Agent Instructions:**
 1. For M-06/M-07: use `ssvNetworkFullPreUpgradeFixture` + `upgradeToStakingVersion` + `migrateClusterToETH` (same as `test/e2e/migration/migration-basic.test.ts`). After migration, call `setupOracles`, `commitEBRoot`, `updateClusterBalance`.
@@ -3158,12 +3260,12 @@ All ST-* revert paths must leave state completely unmodified (no partial mutatio
 5. Suggested files: extend `test/e2e/migration/migration-edge.test.ts` for M-06, M-07, ST-06; new `test/e2e/effective-balance/vunits-stale-snapshots.test.ts` for ST-02 to ST-08; extend `test/e2e/effective-balance/vunits-explicit-eb-scenarios.test.ts` for R-09, L-05, L-06, L-07.
 
 #### Sub-items:
-- [ ] Sub-task 1: Post-migration first EB update (M-06, M-07)
-- [ ] Sub-task 2: Stale SSV cluster rejection in migration (ST-06)
-- [ ] Sub-task 3: Stale snapshot rejection on EB update and validator removal (ST-02, ST-04, ST-07)
-- [ ] Sub-task 4: Stale snapshot rejection on liquidation and reactivation (ST-03, ST-05, ST-08)
-- [ ] Sub-task 5: Deposit after operator removal on explicit EB cluster (R-09)
-- [ ] Sub-task 6: Lifecycle sequences with explicit EB (L-05, L-06, L-07)
+- [x] Sub-task 1: Post-migration first EB update (M-06, M-07)
+- [x] Sub-task 2: Stale SSV cluster rejection in migration (ST-06)
+- [x] Sub-task 3: Stale snapshot rejection on EB update and validator removal (ST-02, ST-04, ST-07)
+- [x] Sub-task 4: Stale snapshot rejection on liquidation and reactivation (ST-03, ST-05, ST-08)
+- [x] Sub-task 5: Deposit after operator removal on explicit EB cluster (R-09)
+- [x] Sub-task 6: Lifecycle sequences with explicit EB (L-05, L-06, L-07)
 
 ---
 

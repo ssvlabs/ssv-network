@@ -360,26 +360,25 @@ library OperatorLib {
             }
             cumulativeIndexSSV += operator.snapshot.index;
 
-            if (operator.snapshot.block == 0 && operator.ethSnapshot.block == 0) {
-                continue;
+            // Removed operators (both blocks == 0) contribute their frozen index
+            // but are not mutated (no validator count or fee changes)
+            if (operator.snapshot.block != 0 || operator.ethSnapshot.block != 0) {
+                if (operator.ethSnapshot.block == 0) {
+                    // first-time ETH usage or migration
+                    ensureETHDefaults(operator, operatorId);
+                } else {
+                    // already ETH operator
+                    updateSnapshotSt(operator, operatorId);
+                }
+
+                // update ETH validator count for both new ETH-initialized and existing ETH-initialized operators
+                if ((operator.ethValidatorCount += validatorCount) > sp.validatorsPerOperatorLimit) {
+                    revert ISSVNetworkCore.ExceedValidatorLimitWithData(operatorId);
+                }
+
+                cumulativeFeeETH += PackedETH.unwrap(operator.ethFee);
             }
-            if (operator.ethSnapshot.block == 0) {
-                // first-time ETH usage or migration
-                ensureETHDefaults(operator, operatorId);
-
-            } else {
-                // already ETH operator
-                updateSnapshotSt(operator, operatorId);
-
-                cumulativeIndexETH += operator.ethSnapshot.index;
-            }
-
-            // update ETH validator count for both new ETH-initialized and existing ETH-initialized operators
-            if ((operator.ethValidatorCount += validatorCount) > sp.validatorsPerOperatorLimit) {
-                revert ISSVNetworkCore.ExceedValidatorLimitWithData(operatorId);
-            }
-
-            cumulativeFeeETH += PackedETH.unwrap(operator.ethFee);
+            cumulativeIndexETH += operator.ethSnapshot.index;
         }
     }
 
