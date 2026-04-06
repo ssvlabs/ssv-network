@@ -71,7 +71,8 @@ describe("Fuzz: CAT-1-8 — near-liquidation cluster, migration with minimum ETH
             TOKEN_REGISTER_AMOUNT / 10n,
             TOKEN_REGISTER_AMOUNT / 5n,
           );
-          const remainingRunway = Number(ctx.rng.nextInRange(35n, 60n));
+          const remainingRunway = Number(ctx.rng.nextInRange(60n, 100n));
+          const postThresholdBlocks = Number(ctx.rng.nextInRange(0n, 10n));
           const validatorCount = Number(ctx.rng.nextInRange(1n, 3n));
 
           const seed = await setupNearLiquidationLegacyMigrationSeed(ctx, {
@@ -80,6 +81,7 @@ describe("Fuzz: CAT-1-8 — near-liquidation cluster, migration with minimum ETH
             validatorCount,
             ssvDepositPerValidator,
             remainingRunway,
+            postThresholdBlocks,
           });
 
           return {
@@ -163,9 +165,19 @@ describe("Fuzz: CAT-1-8 — near-liquidation cluster, migration with minimum ETH
                 ).to.be.revertedWithCustomError(ctx.network, Errors.INSUFFICIENT_BALANCE);
               }
 
-              // Phase 3: migrate at exact minimum viable ETH
-              const migrateStep = migrateLegacyCluster<State>(minViable, minViable);
+              // Phase 3: migrate with ETH in [minViable, 2×minViable] to cover both exact-minimum
+              // and moderately-above-minimum deposits (spec: fuzz "around the minimum threshold")
+              const migrateStep = migrateLegacyCluster<State>(minViable, minViable * 2n);
               await migrateStep(ctx);
+
+              // Verify ETH cluster is solvent immediately post-migration
+              const isLiqPostMigration = await ctx.views.isLiquidatable(
+                cluster.owner.address, cluster.operatorIds, ctx.state.cluster.cluster,
+              );
+              expect(isLiqPostMigration).to.equal(
+                false,
+                "Cluster must NOT be ETH-liquidatable immediately after migration with minViable deposit",
+              );
 
               // Post-migration assertions
               await assertLegacyEnsureETHDefaultsTransition(ctx as any);

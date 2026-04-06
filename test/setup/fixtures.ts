@@ -612,9 +612,6 @@ export async function upgradeToStakingVersion(
   const { contract: cssv, address: cssvTokenAddress } =
     await deployContract(connection.ethers, "CSSVToken", [networkAddress]);
 
-  const latestBlock = await connection.ethers.provider.getBlock("latest");
-  const upgradeBlockNum = latestBlock.number;
-
   const { address: upgradeImplAddr } =
     await deployContract(connection.ethers, "SSVNetworkSSVStakingUpgrade");
 
@@ -628,6 +625,9 @@ export async function upgradeToStakingVersion(
     [DEFAULT_UNSTAKE_COOLDOWN, DEFAULT_ORACLE_IDS, QUORUM_BPS]
   );
 
+  const upgradeBlock = await connection.ethers.provider.getBlock("latest");
+  const upgradeTimestamp = BigInt(upgradeBlock!.timestamp);
+
   const networkFactory =
     await connection.ethers.getContractFactory("SSVNetwork");
   const upgradedNetwork = networkFactory.attach(networkAddress);
@@ -640,7 +640,7 @@ export async function upgradeToStakingVersion(
   const moduleAddresses: Record<string, string> = {};
 
   const { address: ssvOperatorsAddr } =
-    await deployContract(connection.ethers, "SSVOperators", [upgradeBlockNum]);
+    await deployContract(connection.ethers, "SSVOperators", [upgradeTimestamp]);
   moduleAddresses["SSVOperators"] = ssvOperatorsAddr;
 
   const { address: ssvDaoAddr } =

@@ -205,6 +205,8 @@ describe("Fuzz: ETH reactivation with removed operators (CAT-2-5)", function () 
 
               expect(cluster.cluster.active).to.equal(true);
 
+              await assertOperatorValidatorCounts(ctx);
+
               for (const op of operators) {
                 const opData = await ctx.views.getOperatorById(op.id);
                 expect(BigInt(opData.validatorCount)).to.equal(
@@ -249,7 +251,7 @@ describe("Fuzz: ETH reactivation with removed operators (CAT-2-5)", function () 
           {
             name: "phase4-operate-reduced",
             async fn(ctx) {
-              const { cluster, removedOperators, removedEarningsBaseline } = ctx.state;
+              const { cluster, removedOperators, removedEarningsBaseline, tracker } = ctx.state;
 
               const operateBlocks = Number(ctx.rng.nextInRange(50n, 200n));
               await mineBlocks(ctx.provider, operateBlocks);
@@ -266,12 +268,28 @@ describe("Fuzz: ETH reactivation with removed operators (CAT-2-5)", function () 
                 );
               }
 
-              const key = makePublicKey(9000);
+              const keyFail = makePublicKey(9000);
               await expect(
                 ctx.network.connect(cluster.owner).registerValidator(
-                  key, cluster.operatorIds, DEFAULT_SHARES, cluster.cluster, { value: DEFAULT_ETH_REGISTER_VALUE },
+                  keyFail, cluster.operatorIds, DEFAULT_SHARES, cluster.cluster, { value: DEFAULT_ETH_REGISTER_VALUE },
                 ),
               ).to.be.revertedWithCustomError(ctx.network, Errors.OPERATOR_DOES_NOT_EXIST);
+
+              // Positive path: deposit confirms the cluster is still operational with reduced operator set.
+              // registerValidator with the full operator set (including removed IDs) is not possible because
+              // the contract reverts with OperatorDoesNotExist, and a subset of < 4 operators is invalid.
+              const depositAmount = DEFAULT_ETH_REGISTER_VALUE / 2n;
+              await setAccountBalance(ctx.provider, cluster.owner.address, depositAmount + 10n ** 18n);
+              const depositTx = await ctx.network.connect(cluster.owner).deposit(
+                cluster.owner.address, cluster.operatorIds, cluster.cluster, { value: depositAmount },
+              );
+              const depositReceipt = await depositTx.wait();
+              cluster.cluster = parseClusterFromEvent(ctx.network, depositReceipt, Events.CLUSTER_DEPOSITED);
+              tracker.totalDeposited += depositAmount;
+
+              expect(cluster.cluster.active).to.equal(true);
+
+              await assertNetworkValidatorCount(ctx);
 
               ctx.state.phase = "operated";
             },
