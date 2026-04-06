@@ -172,7 +172,13 @@ contract SSVMigrationEchidna is SSVClusters, SSVOperators(0), SSVDAO {
         uint64 currentNfiSSV = sp.currentNetworkFeeIndexSSV();
 
         ISSVNetworkCore.Cluster memory clusterBefore = ssvRecord.cluster;
-        ISSVNetworkCore.Cluster memory expected = clusterBefore;
+        ISSVNetworkCore.Cluster memory expected = ISSVNetworkCore.Cluster({
+            validatorCount: clusterBefore.validatorCount,
+            networkFeeIndex: clusterBefore.networkFeeIndex,
+            index: clusterBefore.index,
+            active: clusterBefore.active,
+            balance: clusterBefore.balance
+        });
         expected.updateBalanceSSV(clusterIndexSSV, currentNfiSSV);
         uint256 expectedRefund = expected.balance;
 
@@ -380,7 +386,12 @@ contract SSVMigrationEchidna is SSVClusters, SSVOperators(0), SSVDAO {
         StorageData storage s = SSVStorage.load();
         uint64 clusterIndex;
         for (uint256 i; i < operatorIds.length; ++i) {
-            clusterIndex += s.operators[operatorIds[i]].snapshot.index;
+            ISSVNetworkCore.Operator storage op = s.operators[operatorIds[i]];
+            uint64 index = op.snapshot.index;
+            if (op.snapshot.block != 0) {
+                index += uint64(uint32(block.number) - op.snapshot.block) * PackedSSV.unwrap(op.fee);
+            }
+            clusterIndex += index;
         }
         return clusterIndex;
     }
@@ -418,7 +429,7 @@ contract SSVMigrationEchidna is SSVClusters, SSVOperators(0), SSVDAO {
         StorageProtocol storage sp = SSVStorageProtocol.load();
 
         uint64 clusterIndex = _currentClusterIndexSsv();
-        uint64 networkFeeIndex = sp.networkFeeIndex;
+        uint64 networkFeeIndex = sp.currentNetworkFeeIndexSSV();
 
         ISSVNetworkCore.Cluster memory cluster = ssvRecord.cluster;
         cluster.updateBalanceSSV(clusterIndex, networkFeeIndex);
