@@ -28,22 +28,22 @@ export const STRESS_MIN_OPERATOR_ETH_FEE = 1_654_200_000n;  // wei/block (~7% be
 
 // ─── Single control knob ──────────────────────────────────────────────────
 // Everything else autoscales from this value.
-export const STRESS_TARGET_WRITE_TXS = 10000;     // total write TXs across the run
+export const STRESS_TARGET_WRITE_TXS = 1000;      // total write TXs across the run
 
 // ─── Autoscaled simulation scale ──────────────────────────────────────────
 // All counts derived from STRESS_TARGET_WRITE_TXS so changing that one constant
 // proportionally scales the entire simulation.
-export const STRESS_OPERATORS_PRE_UPGRADE         = Math.max(4,  Math.floor(STRESS_TARGET_WRITE_TXS * 0.050));
+export const STRESS_OPERATORS_PRE_UPGRADE         = Math.max(4,  Math.floor(STRESS_TARGET_WRITE_TXS * 0.025));
 export const STRESS_OPERATORS_REMOVED_PRE_UPGRADE = Math.floor(STRESS_OPERATORS_PRE_UPGRADE * 0.15);
-export const STRESS_SSV_CLUSTERS                  = Math.max(4,  Math.floor(STRESS_TARGET_WRITE_TXS * 0.080));
+export const STRESS_SSV_CLUSTERS                  = Math.max(4,  Math.floor(STRESS_TARGET_WRITE_TXS * 0.040));
 export const STRESS_SSV_OWNERS                    = Math.max(2,  Math.floor(STRESS_SSV_CLUSTERS / 5));
 export const STRESS_SSV_CLUSTERS_LIQUIDATED       = Math.max(0,  Math.floor(STRESS_SSV_CLUSTERS * 0.20));
-export const STRESS_OPERATORS_POST_UPGRADE        = Math.max(4,  Math.floor(STRESS_TARGET_WRITE_TXS * 0.005));
-export const STRESS_ETH_CLUSTERS                  = Math.max(2,  Math.floor(STRESS_TARGET_WRITE_TXS * 0.020));
-export const STRESS_STAKERS_EOA                   = Math.max(2,  Math.floor(STRESS_TARGET_WRITE_TXS * 0.016));
-export const STRESS_STAKERS_CONTRACT              = Math.max(1,  Math.floor(STRESS_TARGET_WRITE_TXS * 0.004));
-export const STRESS_SAC_CLUSTERS                  = Math.max(3,  Math.floor(STRESS_TARGET_WRITE_TXS * 0.002));
-export const STRESS_SSV_CLUSTERS_SHORTRUN         = Math.max(2,  Math.floor(STRESS_TARGET_WRITE_TXS * 0.002));
+export const STRESS_OPERATORS_POST_UPGRADE        = Math.max(4,  Math.floor(STRESS_TARGET_WRITE_TXS * 0.0025));
+export const STRESS_ETH_CLUSTERS                  = Math.max(2,  Math.floor(STRESS_TARGET_WRITE_TXS * 0.010));
+export const STRESS_STAKERS_EOA                   = Math.max(2,  Math.floor(STRESS_TARGET_WRITE_TXS * 0.008));
+export const STRESS_STAKERS_CONTRACT              = Math.max(1,  Math.floor(STRESS_TARGET_WRITE_TXS * 0.002));
+export const STRESS_SAC_CLUSTERS                  = Math.max(3,  Math.floor(STRESS_TARGET_WRITE_TXS * 0.001));
+export const STRESS_SSV_CLUSTERS_SHORTRUN         = Math.max(2,  Math.floor(STRESS_TARGET_WRITE_TXS * 0.001));
 
 // ─── Signer layout (all indices derived from scaled constants) ────────────
 // 0             = deployer
