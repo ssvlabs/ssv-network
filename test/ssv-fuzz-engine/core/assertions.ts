@@ -562,6 +562,58 @@ export async function assertLegacyEnsureETHDefaultsTransition<S extends { migrat
   }
 }
 
+export async function assertMixedFeeEnsureETHDefaultsTransition<S extends {
+  migrationSnapshot: LegacyMigrationSnapshot;
+  cluster: ClusterRecord;
+  operators: OperatorRecord[];
+  ssvFees: bigint[];
+}>(
+  ctx: FuzzContext<S>,
+): Promise<void> {
+  const { migrateReceipt } = ctx.state.migrationSnapshot;
+  const { operatorIds } = ctx.state.cluster;
+  const { ssvFees } = ctx.state;
+
+  const feeEvents: { operatorId: bigint; fee: bigint }[] = [];
+  for (const log of migrateReceipt.logs ?? []) {
+    let parsed;
+    try {
+      parsed = ctx.network.interface.parseLog(log);
+    } catch {
+      continue;
+    }
+    if (parsed && parsed.name === Events.OPERATOR_FEE_EXECUTED) {
+      feeEvents.push({
+        operatorId: BigInt(parsed.args.operatorId),
+        fee: BigInt(parsed.args.fee),
+      });
+    }
+  }
+
+  const expectedEventCount = ssvFees.filter(f => f !== 0n).length;
+  expect(feeEvents.length).to.equal(
+    expectedEventCount,
+    `Expected ${expectedEventCount} OperatorFeeExecuted events for non-zero SSV fee operators`,
+  );
+
+  for (let i = 0; i < operatorIds.length; i++) {
+    const opId = operatorIds[i];
+    const ssvFee = ssvFees[i];
+
+    if (ssvFee === 0n) {
+      const ev = feeEvents.find(e => e.operatorId === BigInt(opId));
+      expect(ev, `Zero-fee operator ${opId} must NOT have OperatorFeeExecuted event`).to.be.undefined;
+
+      const opETH = await ctx.views.getOperatorById(opId);
+      expect(BigInt(opETH.fee)).to.equal(0n, `Zero-fee operator ${opId} must have ethFee == 0`);
+    } else {
+      const ev = feeEvents.find(e => e.operatorId === BigInt(opId));
+      expect(ev, `Non-zero-fee operator ${opId} must have OperatorFeeExecuted event`).to.not.be.undefined;
+      expect(ev!.fee).to.equal(BigInt(DEFAULT_OPERATOR_ETH_FEE));
+    }
+  }
+}
+
 export async function assertLegacyOperatorDualTracking<S extends { cluster: ClusterRecord; operators: OperatorRecord[] }>(
   ctx: FuzzContext<S>,
 ): Promise<void> {
