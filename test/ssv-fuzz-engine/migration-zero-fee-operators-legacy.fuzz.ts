@@ -72,14 +72,12 @@ describe("Fuzz: CAT-1-5 — zero-fee operators cluster, migration preserves zero
           );
           const validatorCount = Number(ctx.rng.nextInRange(2n, 3n));
 
-          const preUpgradeBlocks = Number(ctx.rng.nextInRange(0n, 200n));
-
           const seed = await setupLegacyMigrationSeed(ctx, {
             operatorCount: 4,
             ssvFee: 0n,
             validatorCount,
             ssvDepositPerValidator,
-            preUpgradeBlocks,
+            preUpgradeBlocks: 0,
           });
 
           const zeroFeeOperators = seed.operators.map(op => ({

@@ -14,7 +14,14 @@ jobs:
       - run: npm ci
         env:
           GH_TOKEN: ${{ secrets.github_token }}
-      - run: npx hardhat test --coverage
+      - shell: bash
+        run: |
+          shopt -s globstar nullglob
+          npx hardhat test --coverage \
+            test/unit/**/*.ts \
+            test/integration/**/*.ts \
+            test/sanity/**/*.ts \
+            test/e2e/**/*.ts
         env:
           NO_GAS_ENFORCE: '1'
           COVERAGE: 'true'
