@@ -164,4 +164,50 @@ describe("SSVOperators function `executeOperatorFee()`", async () => {
       Errors.LEGACY_OPERATOR_FEE_DECLARATION_INVALID
     );
   });
+
+  it("executeOperatorFee reverts when governance minimum rises above declared fee", async function () {
+    const { operators } = await networkHelpers.loadFixture(deployOperatorsFixture);
+    const declaredFee = MINIMAL_OPERATOR_ETH_FEE + ETH_DEDUCTED_DIGITS;
+    const raisedMinimum = declaredFee + ETH_DEDUCTED_DIGITS;
+
+    await operators.registerOperator(makeOperatorKey(1), Number(MINIMAL_OPERATOR_ETH_FEE), false);
+    await operators.declareOperatorFee(1, declaredFee);
+    await operators.mockSetMinimumOperatorEthFee(Number(raisedMinimum));
+
+    await networkHelpers.mine(DECLARE_OPERATOR_FEE_PERIOD + 1n);
+
+    await expect(operators.executeOperatorFee(1)).to.be.revertedWithCustomError(
+      operators,
+      Errors.FEE_TOO_LOW
+    );
+
+    const request = await operators.getOperatorFeeChangeRequest(1);
+    expect(request.fee).to.equal(declaredFee / ETH_DEDUCTED_DIGITS);
+    expect(request.approvalBeginTime).to.not.equal(0n);
+    expect(request.approvalEndTime).to.not.equal(0n);
+
+    const operator = await operators.getOperator(1);
+    expect(operator.ethFee).to.equal(MINIMAL_OPERATOR_ETH_FEE / ETH_DEDUCTED_DIGITS);
+  });
+
+  it("[F-08] executeOperatorFee succeeds when declared fee equals newly raised minimum", async function () {
+    const { operators } = await networkHelpers.loadFixture(deployOperatorsFixture);
+    const declaredFee = MINIMAL_OPERATOR_ETH_FEE + ETH_DEDUCTED_DIGITS * 3n;
+
+    await operators.registerOperator(makeOperatorKey(1), Number(MINIMAL_OPERATOR_ETH_FEE), false);
+    await operators.declareOperatorFee(1, declaredFee);
+    await operators.mockSetMinimumOperatorEthFee(Number(declaredFee));
+
+    await networkHelpers.mine(DECLARE_OPERATOR_FEE_PERIOD + 1n);
+
+    await expect(operators.executeOperatorFee(1))
+      .to.emit(operators, Events.OPERATOR_FEE_EXECUTED);
+
+    const operator = await operators.getOperator(1);
+    expect(operator.ethFee).to.equal(declaredFee / ETH_DEDUCTED_DIGITS);
+
+    const request = await operators.getOperatorFeeChangeRequest(1);
+    expect(request.approvalBeginTime).to.equal(0n);
+    expect(request.approvalEndTime).to.equal(0n);
+  });
 });

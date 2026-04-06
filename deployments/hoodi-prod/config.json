@@ -8,7 +8,7 @@
   "ssvToken": "0x9F5d4Ec84fC4785788aB44F9de973cF34F7A038e",
   "cssvToken": "0x6e1a5d27361c666f681af06535c8Ac773E571d4d",
   "cooldownDuration": 604800,
-  "upgradeTimestamp": 2219200,
+  "upgradeTimestamp": 1771497638,
   "quorumBps": 7500,
   "defaultOracleIds": [1, 2, 3, 4],
   "protocolParams": {

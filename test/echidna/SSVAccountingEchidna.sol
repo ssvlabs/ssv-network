@@ -821,7 +821,13 @@ contract SSVAccountingEchidna is SSVClusters, SSVOperators(0), SSVDAO, SSVValida
 
         uint256 ownerSsvBefore = token.balanceOf(record.owner);
         try clusterOwner.migrate{value: amount}(operatorIdsLocal, cluster) {
-            ISSVNetworkCore.Cluster memory migratedCluster = cluster;
+            ISSVNetworkCore.Cluster memory migratedCluster = ISSVNetworkCore.Cluster({
+                validatorCount: cluster.validatorCount,
+                networkFeeIndex: cluster.networkFeeIndex,
+                index: cluster.index,
+                active: cluster.active,
+                balance: cluster.balance
+            });
             migratedCluster.balance = amount;
             migratedCluster.active = true;
             migratedCluster.index = _currentClusterIndexEth(operatorIdsLocal);
