@@ -917,4 +917,261 @@ describe("'removeOperator()' deletes operatorEthVUnits and does not affect clust
       runTestSuite(operatorCount);
     });
   }
+
+  describe("Cross-cluster removed-operator propagation (4 operators)", function () {
+    const loadFixtureFor4 = () => networkHelpers.loadFixture(deploy4);
+
+    async function registerSingleValidatorCluster(
+      clusters: any,
+      owner: HardhatEthersSigner,
+      operatorIds: bigint[],
+      publicKeySeed: number,
+      depositValue = 5_000_000_000_000n,
+    ) {
+      const registerTx = await clusters.connect(owner).registerValidator(
+        makePublicKey(publicKeySeed),
+        operatorIds,
+        DEFAULT_SHARES,
+        createCluster(),
+        { value: depositValue },
+      );
+      return parseClusterFromEvent(clusters, await registerTx.wait(), Events.VALIDATOR_ADDED);
+    }
+
+    async function updateClusterEB(
+      clusters: any,
+      owner: HardhatEthersSigner,
+      operatorIds: bigint[],
+      cluster: any,
+      blockNum: number,
+      effectiveBalance: number,
+    ) {
+      const clusterId = computeClusterId(owner.address, operatorIds);
+      await clusters.mockSetEBRoot(blockNum, computeEBRoot(clusterId, effectiveBalance));
+      const updateTx = await clusters.connect(owner).updateClusterBalance(
+        blockNum,
+        owner.address,
+        operatorIds,
+        cluster,
+        effectiveBalance,
+        [],
+      );
+      return parseClusterFromEvent(clusters, await updateTx.wait(), Events.CLUSTER_BALANCE_UPDATED);
+    }
+
+    it("shared operator removal does not corrupt multi-cluster explicit-EB totals", async function () {
+      const { clusters, operatorIds } = await loadFixtureFor4();
+      await clusters.mockEthNetworkFee(0n);
+      await clusters.mockMinimumBlocksBeforeLiquidation(1n);
+      await clusters.mockMinimumLiquidationCollateral(0n);
+
+      const clusterA = await registerSingleValidatorCluster(clusters, clusterOwner, operatorIds, 8101);
+      const clusterB = await registerSingleValidatorCluster(clusters, liquidator, operatorIds, 8102);
+
+      await updateClusterEB(clusters, clusterOwner, operatorIds, clusterA, 1, 64);
+      await updateClusterEB(clusters, liquidator, operatorIds, clusterB, 2, 64);
+
+      const removedOperator = operatorIds[0];
+      const expectedDeviationPerLiveOperator = 20000n;
+      expect(await clusters.getDaoTotalEthVUnits()).to.equal(40000n);
+      await clusters.mockRemoveOperator(removedOperator);
+
+      expect(await clusters.getOperatorEthVUnits(removedOperator)).to.equal(0n);
+      for (const operatorId of operatorIds.slice(1)) {
+        expect(await clusters.getOperatorEthVUnits(operatorId)).to.equal(expectedDeviationPerLiveOperator);
+      }
+      expect(await clusters.getDaoTotalEthVUnits()).to.equal(40000n);
+    });
+
+    it("liquidating explicit cluster after shared removal preserves implicit-only accounting", async function () {
+      const { clusters, operatorIds } = await loadFixtureFor4();
+      await clusters.mockEthNetworkFee(0n);
+      await clusters.mockMinimumBlocksBeforeLiquidation(1n);
+      await clusters.mockMinimumLiquidationCollateral(0n);
+
+      const clusterA = await registerSingleValidatorCluster(clusters, clusterOwner, operatorIds, 8201);
+      const clusterBImplicit = await registerSingleValidatorCluster(clusters, liquidator, operatorIds, 8202);
+      const clusterAAfterEB64 = await updateClusterEB(clusters, clusterOwner, operatorIds, clusterA, 1, 64);
+
+      const removedOperator = operatorIds[0];
+      await clusters.mockRemoveOperator(removedOperator);
+      await clusters.liquidate(clusterOwner.address, operatorIds, clusterAAfterEB64);
+
+      expect(clusterBImplicit.active).to.equal(true);
+      expect(await clusters.getOperatorEthVUnits(removedOperator)).to.equal(0n);
+      for (const operatorId of operatorIds.slice(1)) {
+        expect(await clusters.getOperatorEthVUnits(operatorId)).to.equal(0n);
+      }
+      expect(await clusters.getDaoTotalEthVUnits()).to.equal(BPS_DENOMINATOR);
+    });
+
+    it("EB decrease on one explicit cluster after shared removal updates only surviving operator slots", async function () {
+      const { clusters, operatorIds } = await loadFixtureFor4();
+      await clusters.mockEthNetworkFee(0n);
+      await clusters.mockMinimumBlocksBeforeLiquidation(1n);
+      await clusters.mockMinimumLiquidationCollateral(0n);
+
+      const clusterA = await registerSingleValidatorCluster(clusters, clusterOwner, operatorIds, 8301);
+      const clusterB = await registerSingleValidatorCluster(clusters, liquidator, operatorIds, 8302);
+      const clusterAAfterEB64 = await updateClusterEB(clusters, clusterOwner, operatorIds, clusterA, 1, 64);
+      await updateClusterEB(clusters, liquidator, operatorIds, clusterB, 2, 64);
+
+      const removedOperator = operatorIds[0];
+      await clusters.mockRemoveOperator(removedOperator);
+
+      await updateClusterEB(clusters, clusterOwner, operatorIds, clusterAAfterEB64, 3, 32);
+
+      expect(await clusters.getOperatorEthVUnits(removedOperator)).to.equal(0n);
+      for (const operatorId of operatorIds.slice(1)) {
+        expect(await clusters.getOperatorEthVUnits(operatorId)).to.equal(10000n);
+      }
+      expect(await clusters.getDaoTotalEthVUnits()).to.equal(30000n);
+    });
+
+    it("removing the last validator on second explicit cluster after shared removal cleans only that cluster", async function () {
+      const { clusters, operatorIds } = await loadFixtureFor4();
+      await clusters.mockEthNetworkFee(0n);
+      await clusters.mockMinimumBlocksBeforeLiquidation(1n);
+      await clusters.mockMinimumLiquidationCollateral(0n);
+
+      const clusterA = await registerSingleValidatorCluster(clusters, clusterOwner, operatorIds, 8401);
+      const clusterB = await registerSingleValidatorCluster(clusters, liquidator, operatorIds, 8402);
+      await updateClusterEB(clusters, clusterOwner, operatorIds, clusterA, 1, 64);
+      const clusterBAfterEB64 = await updateClusterEB(clusters, liquidator, operatorIds, clusterB, 2, 64);
+
+      const removedOperator = operatorIds[0];
+      await clusters.mockRemoveOperator(removedOperator);
+
+      await clusters.connect(liquidator).removeValidator(
+        makePublicKey(8402),
+        operatorIds,
+        clusterBAfterEB64,
+      );
+
+      expect(await clusters.getOperatorEthVUnits(removedOperator)).to.equal(0n);
+      for (const operatorId of operatorIds.slice(1)) {
+        expect(await clusters.getOperatorEthVUnits(operatorId)).to.equal(10000n);
+      }
+      expect(await clusters.getDaoTotalEthVUnits()).to.equal(20000n);
+    });
+
+    it("mixed EB increase/decrease after one shared-operator removal keeps per-operator totals exact", async function () {
+      const { clusters, operatorIds } = await loadFixtureFor4();
+      await clusters.mockEthNetworkFee(0n);
+      await clusters.mockMinimumBlocksBeforeLiquidation(1n);
+      await clusters.mockMinimumLiquidationCollateral(0n);
+
+      const clusterA = await registerSingleValidatorCluster(clusters, clusterOwner, operatorIds, 8501);
+      const clusterB = await registerSingleValidatorCluster(clusters, liquidator, operatorIds, 8502);
+      const clusterAAfterEB64 = await updateClusterEB(clusters, clusterOwner, operatorIds, clusterA, 1, 64);
+      const clusterBAfterEB128 = await updateClusterEB(clusters, liquidator, operatorIds, clusterB, 2, 128);
+
+      const removedOperator = operatorIds[0];
+      await clusters.mockRemoveOperator(removedOperator);
+
+      await updateClusterEB(clusters, clusterOwner, operatorIds, clusterAAfterEB64, 3, 128);
+      await updateClusterEB(clusters, liquidator, operatorIds, clusterBAfterEB128, 4, 32);
+
+      expect(await clusters.getOperatorEthVUnits(removedOperator)).to.equal(0n);
+      for (const operatorId of operatorIds.slice(1)) {
+        expect(await clusters.getOperatorEthVUnits(operatorId)).to.equal(30000n);
+      }
+      expect(await clusters.getDaoTotalEthVUnits()).to.equal(50000n);
+    });
+
+    it("multiple explicit-EB clusters liquidated end at daoTotalEthVUnits == 0", async function () {
+      const { clusters, operatorIds } = await loadFixtureFor4();
+      await clusters.mockEthNetworkFee(0n);
+      await clusters.mockMinimumBlocksBeforeLiquidation(1n);
+      await clusters.mockMinimumLiquidationCollateral(0n);
+
+      const clusterA = await registerSingleValidatorCluster(clusters, clusterOwner, operatorIds, 8601);
+      const clusterB = await registerSingleValidatorCluster(clusters, liquidator, operatorIds, 8602);
+      const clusterAAfterEB64 = await updateClusterEB(clusters, clusterOwner, operatorIds, clusterA, 1, 64);
+      const clusterBAfterEB128 = await updateClusterEB(clusters, liquidator, operatorIds, clusterB, 2, 128);
+
+      expect(await clusters.getDaoTotalEthVUnits()).to.equal(60000n);
+      for (const operatorId of operatorIds) {
+        expect(await clusters.getOperatorEthVUnits(operatorId)).to.equal(40000n);
+      }
+
+      await clusters.liquidate(clusterOwner.address, operatorIds, clusterAAfterEB64);
+      await clusters.connect(liquidator).liquidate(liquidator.address, operatorIds, clusterBAfterEB128);
+
+      for (const operatorId of operatorIds) {
+        expect(await clusters.getOperatorEthVUnits(operatorId)).to.equal(0n);
+      }
+      expect(await clusters.getDaoTotalEthVUnits()).to.equal(0n);
+    });
+
+    it("shared operators across explicit clusters accumulate and clean exactly", async function () {
+      const { clusters, operatorIds } = await loadFixtureFor4();
+      await clusters.mockEthNetworkFee(0n);
+      await clusters.mockMinimumBlocksBeforeLiquidation(1n);
+      await clusters.mockMinimumLiquidationCollateral(0n);
+
+      const clusterA = await registerSingleValidatorCluster(clusters, clusterOwner, operatorIds, 8701);
+      const clusterB = await registerSingleValidatorCluster(clusters, liquidator, operatorIds, 8702);
+      const clusterAAfter64 = await updateClusterEB(clusters, clusterOwner, operatorIds, clusterA, 1, 64);
+      const clusterBAfter64 = await updateClusterEB(clusters, liquidator, operatorIds, clusterB, 2, 64);
+
+      for (const operatorId of operatorIds) {
+        expect(await clusters.getOperatorEthVUnits(operatorId)).to.equal(20000n);
+      }
+      expect(await clusters.getDaoTotalEthVUnits()).to.equal(40000n);
+
+      const clusterB64to128 = await updateClusterEB(clusters, liquidator, operatorIds, clusterBAfter64, 3, 128);
+      for (const operatorId of operatorIds) {
+        expect(await clusters.getOperatorEthVUnits(operatorId)).to.equal(40000n);
+      }
+      expect(await clusters.getDaoTotalEthVUnits()).to.equal(60000n);
+
+      await clusters.connect(clusterOwner).liquidate(clusterOwner.address, operatorIds, clusterAAfter64);
+      for (const operatorId of operatorIds) {
+        expect(await clusters.getOperatorEthVUnits(operatorId)).to.equal(30000n);
+      }
+      expect(await clusters.getDaoTotalEthVUnits()).to.equal(40000n);
+
+      await clusters.connect(liquidator).liquidate(liquidator.address, operatorIds, clusterB64to128);
+      for (const operatorId of operatorIds) {
+        expect(await clusters.getOperatorEthVUnits(operatorId)).to.equal(0n);
+      }
+      expect(await clusters.getDaoTotalEthVUnits()).to.equal(0n);
+    });
+
+    it("removeOperator clears operator slot but leaves DAO total unchanged through deposit", async function () {
+      const { clusters, operatorIds } = await loadFixtureFor4();
+      await clusters.mockEthNetworkFee(0n);
+      await clusters.mockMinimumBlocksBeforeLiquidation(1n);
+      await clusters.mockMinimumLiquidationCollateral(0n);
+
+      const cluster = await registerSingleValidatorCluster(clusters, clusterOwner, operatorIds, 8801);
+      const clusterAfter64 = await updateClusterEB(clusters, clusterOwner, operatorIds, cluster, 1, 64);
+
+      expect(await clusters.getDaoTotalEthVUnits()).to.equal(20000n);
+      for (const operatorId of operatorIds) {
+        expect(await clusters.getOperatorEthVUnits(operatorId)).to.equal(10000n);
+      }
+
+      const removedOperator = operatorIds[0];
+      await clusters.mockRemoveOperator(removedOperator);
+      expect(await clusters.getOperatorEthVUnits(removedOperator)).to.equal(0n);
+      expect(await clusters.getDaoTotalEthVUnits()).to.equal(20000n);
+
+      const depositAmount = DEFAULT_ETH_REGISTER_VALUE / 2n;
+      const depositTx = await clusters.deposit(
+        clusterOwner.address,
+        operatorIds,
+        clusterAfter64,
+        { value: depositAmount }
+      );
+      parseClusterFromEvent(clusters, await depositTx.wait(), Events.CLUSTER_DEPOSITED);
+
+      expect(await clusters.getOperatorEthVUnits(removedOperator)).to.equal(0n);
+      for (const operatorId of operatorIds.slice(1)) {
+        expect(await clusters.getOperatorEthVUnits(operatorId)).to.equal(10000n);
+      }
+      expect(await clusters.getDaoTotalEthVUnits()).to.equal(20000n);
+    });
+  });
 });

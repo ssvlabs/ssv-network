@@ -540,6 +540,7 @@ export interface NearLiquidationLegacyMigrationSeedConfig {
   validatorCount: number;
   ssvDepositPerValidator: bigint;
   remainingRunway: number;
+  postThresholdBlocks: number;
 }
 
 export interface NearLiquidationLegacyMigrationSeedResult extends LegacyMigrationSeedResult {
@@ -604,6 +605,10 @@ export async function setupNearLiquidationLegacyMigrationSeed(
 
   if (blocksToMine > 0) {
     await mineBlocks(connection.ethers.provider, blocksToMine);
+  }
+
+  if (config.postThresholdBlocks > 0) {
+    await mineBlocks(connection.ethers.provider, config.postThresholdBlocks);
   }
 
   const ssvBalanceAtMigration = BigInt(

@@ -67,10 +67,9 @@ jobs:
         with:
           files: test/echidna/${{ matrix.contract }}.sol
           contract: ${{ matrix.contract }}
-          config: test/echidna/echidna.yaml
+          config: test/echidna/echidna-ci.yaml
           crytic-args: --compile-force-framework foundry
           test-mode: property
-          test-limit: 50000
 
       - name: Upload corpus
         uses: actions/upload-artifact@v4
