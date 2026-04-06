@@ -17,6 +17,7 @@ import {
   BPS_DENOMINATOR,
   STAKE_AMOUNT,
 } from '../../common/constants.ts';
+import { Errors } from "../../common/errors.ts";
 
 const BLOCKS_TO_MINE = 100;
 
@@ -178,5 +179,94 @@ describe("SSVNetwork Integration tests - EB-Weighted Operator Earnings", async (
 
     expect(await views.getOperatorEarnings(operatorIds[0])).to.equal(0n);
     expect(withdrawn).to.be.gte(BigInt(BLOCKS_TO_MINE) * MINIMAL_OPERATOR_ETH_FEE * 2n);
+  });
+
+  it("withdrawOperatorEarnings on EB=64 cluster uses explicit-EB weighted accrual", async function () {
+    const { network, views, ssvToken } = await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+    const oracles = await setupOracles(network, ssvToken);
+
+    const { cluster, operatorIds } = await registerDefaultCluster(
+      connection, network, views, operatorOwner, clusterOwner
+    );
+    const operatorId = operatorIds[0];
+    const clusterId = computeClusterId(clusterOwner.address, operatorIds);
+    const { root, proofs } = generateMerkleForClusterEB(connection, [{ clusterId, effectiveBalance: 64 }]);
+    const blockNum = (await connection.ethers.provider.getBlock("latest"))!.number;
+    await commitRoot(network, oracles, root, blockNum);
+    await network.updateClusterBalance(
+      blockNum,
+      clusterOwner.address,
+      operatorIds.map(BigInt),
+      toClusterArg(cluster),
+      64,
+      proofs[clusterId]
+    );
+
+    await networkHelpers.mine(BLOCKS_TO_MINE);
+    const earningsBeforeWithdraw = await views.getOperatorEarnings(operatorId);
+
+    await network.connect(operatorOwner).withdrawOperatorEarnings(operatorId, earningsBeforeWithdraw);
+
+    const remainingAfterWithdraw = await views.getOperatorEarnings(operatorId);
+    const oneBlockAtEb64 = MINIMAL_OPERATOR_ETH_FEE * 2n;
+    expect(remainingAfterWithdraw).to.equal(oneBlockAtEb64);
+  });
+
+  it("withdrawOperatorEarnings reverts after removing operator from explicit-EB cluster", async function () {
+    const { network, views, ssvToken } = await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+    const oracles = await setupOracles(network, ssvToken);
+
+    const { cluster, operatorIds } = await registerDefaultCluster(
+      connection, network, views, operatorOwner, clusterOwner
+    );
+    const operatorId = operatorIds[0];
+    const clusterId = computeClusterId(clusterOwner.address, operatorIds);
+    const { root, proofs } = generateMerkleForClusterEB(connection, [{ clusterId, effectiveBalance: 64 }]);
+    const blockNum = (await connection.ethers.provider.getBlock("latest"))!.number;
+    await commitRoot(network, oracles, root, blockNum);
+    await network.updateClusterBalance(
+      blockNum,
+      clusterOwner.address,
+      operatorIds.map(BigInt),
+      toClusterArg(cluster),
+      64,
+      proofs[clusterId]
+    );
+
+    await network.connect(operatorOwner).removeOperator(operatorId);
+    await expect(
+      network.connect(operatorOwner).withdrawOperatorEarnings(operatorId, ETH_DEDUCTED_DIGITS)
+    ).to.be.revertedWithCustomError(network, Errors.OPERATOR_DOES_NOT_EXIST);
+  });
+
+  it("withdrawOperatorEarnings reflects higher post-update accrual at EB=128", async function () {
+    const { network, views, ssvToken } = await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+    const oracles = await setupOracles(network, ssvToken);
+
+    const { cluster, operatorIds } = await registerDefaultCluster(
+      connection, network, views, operatorOwner, clusterOwner
+    );
+    const operatorId = operatorIds[0];
+    const clusterId = computeClusterId(clusterOwner.address, operatorIds);
+    const { root, proofs } = generateMerkleForClusterEB(connection, [{ clusterId, effectiveBalance: 128 }]);
+    const blockNum = (await connection.ethers.provider.getBlock("latest"))!.number;
+    await commitRoot(network, oracles, root, blockNum);
+    await network.updateClusterBalance(
+      blockNum,
+      clusterOwner.address,
+      operatorIds.map(BigInt),
+      toClusterArg(cluster),
+      128,
+      proofs[clusterId]
+    );
+
+    await networkHelpers.mine(BLOCKS_TO_MINE);
+    const earningsBeforeWithdraw = await views.getOperatorEarnings(operatorId);
+
+    await network.connect(operatorOwner).withdrawOperatorEarnings(operatorId, earningsBeforeWithdraw);
+
+    const remainingAfterWithdraw = await views.getOperatorEarnings(operatorId);
+    const oneBlockAtEb128 = MINIMAL_OPERATOR_ETH_FEE * 4n;
+    expect(remainingAfterWithdraw).to.equal(oneBlockAtEb128);
   });
 });

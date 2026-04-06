@@ -142,12 +142,16 @@ describe("Fuzz: CAT-1-7 — mixed-fee operators cluster, migration assigns per-o
                     ctx.network.connect(op.owner).withdrawAllOperatorEarnings(op.id),
                   ).to.be.revertedWithCustomError(ctx.network, Errors.INSUFFICIENT_BALANCE);
                 } else {
-                  const earningsBefore = BigInt(await ctx.views.getOperatorEarnings(op.id));
-                  expect(earningsBefore).to.be.greaterThan(
-                    0n, `Operator ${op.id} must have accrued earnings before withdraw`,
-                  );
-
                   const oneBlockAccrual = (op.fee / ETH_DEDUCTED_DIGITS) * vCount * ETH_DEDUCTED_DIGITS;
+                  const currentBlock = BigInt(await ctx.provider.getBlockNumber());
+                  const migrationBlock = BigInt(ctx.state.migrationSnapshot!.migrateReceipt.blockNumber);
+                  const expectedEarningsBefore = (currentBlock - migrationBlock) * oneBlockAccrual;
+
+                  const earningsBefore = BigInt(await ctx.views.getOperatorEarnings(op.id));
+                  expect(earningsBefore).to.equal(
+                    expectedEarningsBefore,
+                    `Operator ${op.id} earnings must equal (blocks since migration) * per-block accrual`,
+                  );
                   const expectedWithdrawn = earningsBefore + oneBlockAccrual;
 
                   const ownerBalBefore = BigInt(await ctx.provider.getBalance(op.owner.address));
