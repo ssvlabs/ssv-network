@@ -58,6 +58,15 @@ function computeOperatorEarningsDelta(
   return deltaPacked * ETH_DEDUCTED_DIGITS;
 }
 
+function computeDAOEarningsDelta(
+  blocks: bigint,
+  packedNetworkFee: bigint,
+  expectedDaoTotalEthVUnits: bigint,
+): bigint {
+  const deltaPacked = (blocks * packedNetworkFee * expectedDaoTotalEthVUnits) / BPS_DENOMINATOR;
+  return deltaPacked * ETH_DEDUCTED_DIGITS;
+}
+
 const RUNS = 10;
 const seeds = generateSeeds(RUNS);
 
@@ -181,6 +190,7 @@ describe("Fuzz: Multiple clusters with different EBs sharing operators (CAT-3-10
             async fn(ctx) {
               const { operators } = ctx.state;
 
+              const daoEarningsBefore = BigInt(await ctx.views.getNetworkEarnings());
               const earningsBefore = new Map<number, bigint>();
               for (let i = 0; i < 5; i++) {
                 earningsBefore.set(i, BigInt(await ctx.views.getOperatorEarnings(operators[i].id)));
@@ -190,6 +200,16 @@ describe("Fuzz: Multiple clusters with different EBs sharing operators (CAT-3-10
               await mineBlocks(ctx.provider, Number(probeBlocks));
 
               const deviationA = ebToVUnits(BigInt(ctx.state.ebA)) - BigInt(ctx.state.validatorCountA) * BPS_DENOMINATOR;
+
+              const daoEarningsAfter = BigInt(await ctx.views.getNetworkEarnings());
+              const packedNetworkFee = BigInt(await ctx.views.getNetworkFee()) / ETH_DEDUCTED_DIGITS;
+              const expectedDaoVUnits = BigInt(ctx.state.validatorCountA + ctx.state.validatorCountB) * BPS_DENOMINATOR + deviationA;
+              const expectedDaoDelta = computeDAOEarningsDelta(probeBlocks, packedNetworkFee, expectedDaoVUnits);
+              expect(daoEarningsAfter - daoEarningsBefore).to.equal(
+                expectedDaoDelta,
+                "DAO earnings delta must match expected daoTotalEthVUnits after A's EB update",
+              );
+
               const sharedEffective = deviationA + BigInt(ctx.state.validatorCountA + ctx.state.validatorCountB) * BPS_DENOMINATOR;
               const op4Effective = deviationA + BigInt(ctx.state.validatorCountA) * BPS_DENOMINATOR;
               const op5Effective = BigInt(ctx.state.validatorCountB) * BPS_DENOMINATOR;
@@ -335,6 +355,7 @@ describe("Fuzz: Multiple clusters with different EBs sharing operators (CAT-3-10
             async fn(ctx) {
               const { operators } = ctx.state;
 
+              const daoEarningsBefore = BigInt(await ctx.views.getNetworkEarnings());
               const earningsBefore = new Map<number, bigint>();
               for (let i = 0; i < 5; i++) {
                 earningsBefore.set(i, BigInt(await ctx.views.getOperatorEarnings(operators[i].id)));
@@ -342,6 +363,17 @@ describe("Fuzz: Multiple clusters with different EBs sharing operators (CAT-3-10
 
               const probeBlocks = 20n;
               await mineBlocks(ctx.provider, Number(probeBlocks));
+
+              const deviationB = ebToVUnits(BigInt(ctx.state.ebB)) - BigInt(ctx.state.validatorCountB) * BPS_DENOMINATOR;
+
+              const daoEarningsAfter = BigInt(await ctx.views.getNetworkEarnings());
+              const packedNetworkFee = BigInt(await ctx.views.getNetworkFee()) / ETH_DEDUCTED_DIGITS;
+              const expectedDaoVUnits = BigInt(ctx.state.validatorCountB) * BPS_DENOMINATOR + deviationB;
+              const expectedDaoDelta = computeDAOEarningsDelta(probeBlocks, packedNetworkFee, expectedDaoVUnits);
+              expect(daoEarningsAfter - daoEarningsBefore).to.equal(
+                expectedDaoDelta,
+                "DAO earnings delta must match expected daoTotalEthVUnits after A's liquidation cleanup",
+              );
 
               const sharedPostLiq = BigInt(ctx.state.validatorCountB) * BPS_DENOMINATOR;
               const op4PostLiq = 0n;
