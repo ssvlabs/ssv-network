@@ -5,10 +5,12 @@ import { setupFuzzOracles, type OracleState } from "./core/steps.ts";
 import type { OperatorRecord, ClusterRecord } from "./core/types.ts";
 import {
   assertDaoVUnitsMatchCluster,
+  assertOperatorValidatorCounts,
   assertOperatorEarningsWithEB,
+  assertNetworkEarningsWithEB,
   assertClusterBalanceWithEB,
   assertEthConservation,
-  getContractEthBalance,
+  type EBNetworkEarningsSnapshot,
 } from "./core/assertions.ts";
 import { computeClusterId, computeEBRoot, commitEBRoot } from "../helpers/oracle.ts";
 import { parseClusterFromEvent } from "../helpers/cluster.ts";
@@ -30,6 +32,7 @@ interface State {
   maxEB: number;
   maxVUnits: bigint;
   maxBurnRate: bigint;
+  lastEBNetworkEarnings?: EBNetworkEarningsSnapshot;
   tickDepositDelta: bigint;
 }
 
@@ -124,9 +127,12 @@ describe("Fuzz: Max EB (2048 ETH/validator) — high burn rate accrual (CAT-3-4)
               const { cluster } = ctx.state;
 
               await assertDaoVUnitsMatchCluster(ctx);
+              await assertOperatorValidatorCounts(ctx);
 
               await assertOperatorEarningsWithEB(ctx);
               await assertClusterBalanceWithEB(ctx);
+              await assertNetworkEarningsWithEB(ctx);
+              await assertEthConservation(ctx);
 
               const isLiq = await ctx.views.isLiquidatable(
                 cluster.owner.address, cluster.operatorIds, cluster.cluster,
@@ -145,8 +151,10 @@ describe("Fuzz: Max EB (2048 ETH/validator) — high burn rate accrual (CAT-3-4)
               await mineBlocks(ctx.provider, 50);
 
               await assertDaoVUnitsMatchCluster(ctx);
+              await assertOperatorValidatorCounts(ctx);
               await assertOperatorEarningsWithEB(ctx);
               await assertClusterBalanceWithEB(ctx);
+              await assertNetworkEarningsWithEB(ctx);
               await assertEthConservation(ctx);
 
               const eb = BigInt(
@@ -163,10 +171,7 @@ describe("Fuzz: Max EB (2048 ETH/validator) — high burn rate accrual (CAT-3-4)
             },
           },
         ],
-
-        async after(ctx) {
-          expect(ctx.state.phase).to.equal("high-burn-verified");
-        },
+        expectedPhase: "high-burn-verified",
       }, seed);
     });
   }
