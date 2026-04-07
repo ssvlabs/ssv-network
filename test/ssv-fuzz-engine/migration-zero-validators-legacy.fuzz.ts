@@ -1,4 +1,3 @@
-
 import { fuzz, generateSeeds } from "./core/runner.ts";
 import { setupZeroValidatorLegacyMigrationSeed, alignSSVFee } from "./core/setup.ts";
 import type { OperatorRecord, ClusterRecord } from "./core/types.ts";
