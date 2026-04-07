@@ -5,6 +5,8 @@ import type { OperatorRecord, ClusterRecord } from "./core/types.ts";
 import {
   assertOperatorValidatorCounts,
   assertNetworkValidatorCount,
+  assertClusterBalance,
+  type ClusterBalanceSnapshot,
 } from "./core/assertions.ts";
 import { parseClusterFromEvent } from "../helpers/cluster.ts";
 import { makePublicKey } from "../helpers/keys.ts";
@@ -23,6 +25,7 @@ interface State {
   cluster: ClusterRecord;
   operators: OperatorRecord[];
   phase: string;
+  lastClusterBalance?: ClusterBalanceSnapshot;
 }
 
 const RUNS = 10;
@@ -117,6 +120,7 @@ describe("Fuzz: ETH register validator insufficient balance (CAT-2-6)", function
 
               await assertOperatorValidatorCounts(ctx);
               await assertNetworkValidatorCount(ctx);
+              await assertClusterBalance(ctx);
 
               ctx.state.phase = "registered";
             },
