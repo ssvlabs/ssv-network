@@ -3,7 +3,7 @@ import { fuzz, generateSeeds } from "./core/runner.ts";
 import { registerFuzzOperators, registerFuzzCluster, alignFee } from "./core/setup.ts";
 import { setupFuzzOracles, type OracleState } from "./core/steps.ts";
 import type { OperatorRecord, ClusterRecord } from "./core/types.ts";
-import { assertDaoVUnitsMatchCluster } from "./core/assertions.ts";
+import { assertDaoVUnitsMatchCluster, assertEthConservation } from "./core/assertions.ts";
 import { computeClusterId, computeEBRoot, commitEBRoot } from "../helpers/oracle.ts";
 import { parseClusterFromEvent } from "../helpers/cluster.ts";
 import { Events } from "../common/events.ts";
@@ -95,6 +95,12 @@ describe("Fuzz: Stale root rejection — must use latest root (CAT-3-7)", functi
               ctx.state.rootBEB = rootBEB;
               oracle.lastCommittedBlock = BigInt(blockNum2);
 
+              const storedRootA = await ctx.views.getCommittedRoot(blockNum1);
+              expect(storedRootA).to.equal(rootA);
+
+              const storedRootB = await ctx.views.getCommittedRoot(blockNum2);
+              expect(storedRootB).to.equal(rootB);
+
               ctx.state.phase = "two-roots-committed";
             },
           },
@@ -132,6 +138,7 @@ describe("Fuzz: Stale root rejection — must use latest root (CAT-3-7)", functi
               expect(eb).to.equal(BigInt(rootBEB));
 
               await assertDaoVUnitsMatchCluster(ctx);
+              await assertEthConservation(ctx);
 
               const isLiq = await ctx.views.isLiquidatable(
                 cluster.owner.address, cluster.operatorIds, cluster.cluster,
