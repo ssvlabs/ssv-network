@@ -151,7 +151,7 @@ describe("Fuzz: CAT-1-5 — zero-fee operators cluster, migration preserves zero
               await assertContractBalanceWithDeltas(ctx);
 
               // Phase 4: verify zero operator fees persist
-              await mineBlocks(ctx.provider, 500);
+              await mineBlocks(ctx.provider, Number(ctx.rng.nextInRange(200n, 500n)));
 
               await assertPhaseAwareOperatorEarnings(ctx);
               await assertPhaseAwareClusterBalance(ctx);

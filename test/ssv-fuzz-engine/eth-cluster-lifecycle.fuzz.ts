@@ -250,6 +250,10 @@ describe("Fuzz: ETH cluster full lifecycle (CAT-2-1)", function () {
 
               await assertOperatorValidatorCounts(ctx);
               await assertNetworkValidatorCount(ctx);
+              await assertPhaseAwareOperatorEarnings(ctx);
+              await assertPhaseAwareClusterBalance(ctx);
+              await assertPhaseAwareNetworkEarnings(ctx);
+              await assertContractBalanceWithDeltas(ctx);
 
               ctx.state.phase = "shrunk";
             },
@@ -259,7 +263,7 @@ describe("Fuzz: ETH cluster full lifecycle (CAT-2-1)", function () {
           {
             name: "phase5-liquidation",
             async fn(ctx) {
-              const { cluster, operators } = ctx.state;
+              const { cluster, operators, tracker } = ctx.state;
               const liquidator = ctx.signers[4];
 
               const balance = BigInt(
@@ -280,6 +284,10 @@ describe("Fuzz: ETH cluster full lifecycle (CAT-2-1)", function () {
               );
               expect(isLiq).to.equal(true, "Cluster must be liquidatable after draining balance");
 
+              const contractAddress = await ctx.network.getAddress();
+              const contractEthBefore = BigInt(await ctx.provider.getBalance(contractAddress));
+              const liquidatorEthBefore = BigInt(await ctx.provider.getBalance(liquidator.address));
+
               const liqTx = await ctx.network.connect(liquidator).liquidate(
                 cluster.owner.address, cluster.operatorIds, cluster.cluster,
               );
@@ -288,6 +296,17 @@ describe("Fuzz: ETH cluster full lifecycle (CAT-2-1)", function () {
 
               expect(cluster.cluster.active).to.equal(false);
               expect(BigInt(cluster.cluster.balance)).to.equal(0n);
+
+              const contractEthAfter = BigInt(await ctx.provider.getBalance(contractAddress));
+              const bounty = contractEthBefore - contractEthAfter;
+              const liquidatorEthAfter = BigInt(await ctx.provider.getBalance(liquidator.address));
+              const gasCost = liqReceipt!.gasUsed * liqReceipt!.gasPrice;
+              expect(liquidatorEthAfter).to.equal(
+                liquidatorEthBefore + bounty - gasCost,
+                "Liquidator must receive full cluster balance as bounty",
+              );
+
+              tracker.totalWithdrawn += bounty;
 
               await assertOperatorValidatorCounts(ctx);
               await assertNetworkValidatorCount(ctx);
@@ -338,6 +357,7 @@ describe("Fuzz: ETH cluster full lifecycle (CAT-2-1)", function () {
               await assertPhaseAwareOperatorEarnings(ctx);
               await assertPhaseAwareClusterBalance(ctx);
               await assertPhaseAwareNetworkEarnings(ctx);
+              await assertContractBalanceWithDeltas(ctx);
             },
           },
         ],

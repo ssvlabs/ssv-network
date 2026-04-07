@@ -167,18 +167,21 @@ describe("Fuzz: ETH third-party liquidation boundary (CAT-2-4)", function () {
               const thirdParty = ctx.signers[4];
 
               const thirdPartyEthBefore = BigInt(await ctx.provider.getBalance(thirdParty.address));
+              const contractEthBefore = BigInt(await ctx.provider.getBalance(await ctx.network.getAddress()));
 
               const liqTx = await ctx.network.connect(thirdParty).liquidate(
                 cluster.owner.address, cluster.operatorIds, cluster.cluster,
               );
               const liqReceipt = await liqTx.wait();
-              cluster.cluster = parseClusterFromEvent(ctx.network, liqReceipt, Events.CLUSTER_LIQUIDATED);
+              cluster.cluster = parseClusterFromEvent(ctx.network, liqReceipt!, Events.CLUSTER_LIQUIDATED);
 
               const thirdPartyEthAfter = BigInt(await ctx.provider.getBalance(thirdParty.address));
-              const gasCost = BigInt(liqReceipt.gasUsed) * BigInt(liqReceipt.gasPrice);
+              const contractEthAfter = BigInt(await ctx.provider.getBalance(await ctx.network.getAddress()));
+              const gasCost = BigInt(liqReceipt!.gasUsed) * BigInt(liqReceipt!.gasPrice);
               const bounty = thirdPartyEthAfter - thirdPartyEthBefore + gasCost;
 
               expect(bounty).to.be.greaterThan(0n, "Bounty must be positive (transferred to third-party)");
+              expect(contractEthBefore - contractEthAfter).to.equal(bounty, "Contract ETH balance must decrease by exactly the bounty");
               expect(cluster.cluster.active).to.equal(false);
               expect(BigInt(cluster.cluster.balance)).to.equal(0n);
 

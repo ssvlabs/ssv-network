@@ -22,6 +22,7 @@ import {
   type ContractBalanceWithDeltasSnapshot,
 } from "./core/assertions.ts";
 import { mineBlocks } from "../helpers/blocks.ts";
+import { makePublicKey } from "../helpers/keys.ts";
 import { Events } from "../common/events.ts";
 import { Errors } from "../common/errors.ts";
 import { expect } from "chai";
@@ -30,6 +31,7 @@ import {
   TOKEN_REGISTER_AMOUNT,
   DEFAULT_ETH_REGISTER_VALUE,
   DEFAULT_OPERATOR_ETH_FEE,
+  DEFAULT_SHARES,
   DECLARE_OPERATOR_FEE_PERIOD,
 } from "../common/constants.ts";
 
@@ -96,8 +98,18 @@ describe("Fuzz: CAT-1-6 — max-fee operators cluster, migration assigns default
             fn: async (ctx) => {
               expect(ctx.state.cluster.cluster.active).to.equal(true);
               await expect(
+                ctx.network.connect(ctx.state.cluster.owner).registerValidator(
+                  makePublicKey(9000), ctx.state.cluster.operatorIds, DEFAULT_SHARES, ctx.state.cluster.cluster, { value: 0n },
+                ),
+              ).to.be.revertedWithCustomError(ctx.network, Errors.INCORRECT_CLUSTER_VERSION);
+              await expect(
                 ctx.network.connect(ctx.state.cluster.owner).deposit(
                   ctx.state.cluster.owner.address, ctx.state.cluster.operatorIds, ctx.state.cluster.cluster, { value: 1n },
+                ),
+              ).to.be.revertedWithCustomError(ctx.network, Errors.INCORRECT_CLUSTER_VERSION);
+              await expect(
+                ctx.network.connect(ctx.state.cluster.owner).reactivate(
+                  ctx.state.cluster.operatorIds, ctx.state.cluster.cluster, { value: DEFAULT_ETH_REGISTER_VALUE },
                 ),
               ).to.be.revertedWithCustomError(ctx.network, Errors.INCORRECT_CLUSTER_VERSION);
               await expect(
@@ -158,6 +170,29 @@ describe("Fuzz: CAT-1-6 — max-fee operators cluster, migration assigns default
                 }
               }
               expect(foundFeeExec, "OperatorFeeExecuted event must be emitted for fee increase").to.equal(true);
+
+              // Update state to reflect the new fee and reset snapshots
+              targetOp.fee = newFee;
+              ctx.state.lastPhaseAwareOperatorEarnings = undefined;
+              ctx.state.lastPhaseAwareClusterBalance = undefined;
+              ctx.state.lastPhaseAwareNetworkEarnings = undefined;
+              ctx.state.lastContractBalanceWithDeltas = undefined;
+
+              // Baseline snapshots at the new fee rate
+              await assertPhaseAwareOperatorEarnings(ctx);
+              await assertPhaseAwareClusterBalance(ctx);
+              await assertPhaseAwareNetworkEarnings(ctx);
+              await assertContractBalanceWithDeltas(ctx);
+
+              // Mine blocks and verify burn rate reflects the increased fee
+              const postFeeBlocks = Number(ctx.rng.nextInRange(50n, 200n));
+              await mineBlocks(ctx.provider, postFeeBlocks);
+
+              await assertPhaseAwareOperatorEarnings(ctx);
+              await assertPhaseAwareClusterBalance(ctx);
+              await assertPhaseAwareNetworkEarnings(ctx);
+              await assertContractBalanceWithDeltas(ctx);
+              await assertEthConservation(ctx);
 
               ctx.state.phase = "post-migration-complete";
             },

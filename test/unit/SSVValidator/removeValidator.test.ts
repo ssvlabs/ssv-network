@@ -672,4 +672,90 @@ describe("SSVClusters function `removeValidator()`", async () => {
       expect(await clusters.getOperatorEthVUnits(operatorId)).to.equal(0n);
     }
   });
+
+  it("removing one validator keeps deviation but decrements DAO baseline exactly", async function () {
+    const { clusters, operatorIds } =
+      await networkHelpers.loadFixture(deploySSVClustersAndPrepareOperatorsFixture);
+
+    const firstPubKey = makePublicKey(101);
+    const secondPubKey = makePublicKey(102);
+
+    const regTx1 = await clusters.connect(clusterOwner).registerValidator(
+      firstPubKey,
+      operatorIds,
+      DEFAULT_SHARES,
+      createCluster(),
+      { value: DEFAULT_ETH_REGISTER_VALUE }
+    );
+    const clusterAfterReg1 = parseClusterFromEvent(clusters, await regTx1.wait(), Events.VALIDATOR_ADDED);
+
+    const regTx2 = await clusters.connect(clusterOwner).registerValidator(
+      secondPubKey,
+      operatorIds,
+      DEFAULT_SHARES,
+      clusterAfterReg1,
+      { value: DEFAULT_ETH_REGISTER_VALUE }
+    );
+    const clusterAfterReg2 = parseClusterFromEvent(clusters, await regTx2.wait(), Events.VALIDATOR_ADDED);
+
+    const clusterId = computeClusterId(await clusterOwner.getAddress(), operatorIds);
+    const explicitEb = 160;
+    await setValidSingleLeafRoot(clusters, clusterId, 1, explicitEb);
+
+    const updateTx = await clusters.updateClusterBalance(
+      1,
+      await clusterOwner.getAddress(),
+      operatorIds,
+      clusterAfterReg2,
+      explicitEb,
+      []
+    );
+    const clusterAfterUpdate = parseClusterFromEvent(clusters, await updateTx.wait(), Events.CLUSTER_BALANCE_UPDATED);
+
+    expect(await clusters.getClusterVUnits(clusterId)).to.equal(50000n);
+    expect(await clusters.getDaoTotalEthVUnits()).to.equal(50000n);
+
+    const removeTx = await clusters.connect(clusterOwner).removeValidator(firstPubKey, operatorIds, clusterAfterUpdate);
+    const clusterAfterRemove = parseClusterFromEvent(clusters, await removeTx.wait(), Events.VALIDATOR_REMOVED);
+
+    expect(clusterAfterRemove.validatorCount).to.equal(1n);
+    expect(await clusters.getClusterVUnits(clusterId)).to.equal(40000n);
+    expect(await clusters.getDaoTotalEthVUnits()).to.equal(40000n);
+  });
+
+  it("removing the last validator clears DAO deviation for explicit-EB cluster", async function () {
+    const { clusters, operatorIds } =
+      await networkHelpers.loadFixture(deploySSVClustersAndPrepareOperatorsFixture);
+
+    const publicKey = makePublicKey(103);
+    const registerTx = await clusters.connect(clusterOwner).registerValidator(
+      publicKey,
+      operatorIds,
+      DEFAULT_SHARES,
+      createCluster(),
+      { value: DEFAULT_ETH_REGISTER_VALUE }
+    );
+    const clusterAfterRegister = parseClusterFromEvent(clusters, await registerTx.wait(), Events.VALIDATOR_ADDED);
+
+    const clusterId = computeClusterId(await clusterOwner.getAddress(), operatorIds);
+    await setValidSingleLeafRoot(clusters, clusterId, 1, 64);
+
+    const updateTx = await clusters.updateClusterBalance(
+      1,
+      await clusterOwner.getAddress(),
+      operatorIds,
+      clusterAfterRegister,
+      64,
+      []
+    );
+    const clusterAfterUpdate = parseClusterFromEvent(clusters, await updateTx.wait(), Events.CLUSTER_BALANCE_UPDATED);
+    expect(await clusters.getDaoTotalEthVUnits()).to.equal(20000n);
+
+    const removeTx = await clusters.connect(clusterOwner).removeValidator(publicKey, operatorIds, clusterAfterUpdate);
+    const clusterAfterRemove = parseClusterFromEvent(clusters, await removeTx.wait(), Events.VALIDATOR_REMOVED);
+
+    expect(clusterAfterRemove.validatorCount).to.equal(0n);
+    expect(await clusters.getClusterVUnits(clusterId)).to.equal(0n);
+    expect(await clusters.getDaoTotalEthVUnits()).to.equal(0n);
+  });
 });

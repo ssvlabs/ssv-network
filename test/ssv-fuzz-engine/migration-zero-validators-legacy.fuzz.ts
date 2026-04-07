@@ -1,3 +1,4 @@
+
 import { fuzz, generateSeeds } from "./core/runner.ts";
 import { setupZeroValidatorLegacyMigrationSeed, alignSSVFee } from "./core/setup.ts";
 import type { OperatorRecord, ClusterRecord } from "./core/types.ts";
@@ -144,8 +145,11 @@ describe("Fuzz: CAT-1-9 — zero-validator cluster, migration + post-migration r
                 ),
               ).to.be.revertedWithCustomError(ctx.network, Errors.INCORRECT_CLUSTER_VERSION);
 
-              // Phase 3: migrate with minimumLiquidationCollateral
-              const ethDepositAmount = MINIMUM_LIQUIDATION_PERIOD_COLLATERAL;
+              // Phase 3: migrate with fuzzed ETH deposit (min..3× minimum)
+              const ethDepositAmount = ctx.rng.nextInRange(
+                MINIMUM_LIQUIDATION_PERIOD_COLLATERAL,
+                MINIMUM_LIQUIDATION_PERIOD_COLLATERAL * 3n,
+              );
               const migrateStep = migrateLegacyCluster<State>(ethDepositAmount, ethDepositAmount);
               await migrateStep(ctx);
 

@@ -26,10 +26,18 @@ import { parseClusterFromEvent } from "../helpers/cluster.ts";
 import { mineBlocks, setAccountBalance } from "../helpers/blocks.ts";
 import { makePublicKey } from "../helpers/keys.ts";
 import { Events } from "../common/events.ts";
+import { Errors } from "../common/errors.ts";
+import { expect } from "chai";
 import {
   MINIMAL_OPERATOR_FEE_SSV,
   TOKEN_REGISTER_AMOUNT,
   DEFAULT_ETH_REGISTER_VALUE,
+  DEFAULT_OPERATOR_ETH_FEE,
+  NETWORK_FEE_ETH,
+  ETH_DEDUCTED_DIGITS,
+  BPS_DENOMINATOR,
+  MINIMUM_BLOCKS_BEFORE_LIQUIDATION,
+  MINIMUM_LIQUIDATION_PERIOD_COLLATERAL,
   DEFAULT_SHARES,
 } from "../common/constants.ts";
 
@@ -99,9 +107,31 @@ describe("Fuzz: CAT-1-1 — healthy cluster, normal operators — full migration
             fn: async (ctx) => {
               await assertBlockedEthOpsOnLegacyCluster(ctx);
 
-              const ethDepositMin = DEFAULT_ETH_REGISTER_VALUE / 2n;
+              // After assertBlockedEthOpsOnLegacyCluster removes one validator, validatorCount is 2.
+              const valCount = BigInt(ctx.state.cluster.cluster.validatorCount);
+              const packedOpFee = DEFAULT_OPERATOR_ETH_FEE / ETH_DEDUCTED_DIGITS;
+              const packedNetFee = NETWORK_FEE_ETH / ETH_DEDUCTED_DIGITS;
+              const packedOpBurnRate = BigInt(ctx.state.cluster.operatorIds.length) * packedOpFee;
+              const vUnits = valCount * BPS_DENOMINATOR;
+              const thresholdUnits = (MINIMUM_BLOCKS_BEFORE_LIQUIDATION * (packedOpBurnRate + packedNetFee) * vUnits) / BPS_DENOMINATOR;
+              const liquidationThreshold = thresholdUnits * ETH_DEDUCTED_DIGITS;
+              const minViable = liquidationThreshold > MINIMUM_LIQUIDATION_PERIOD_COLLATERAL
+                ? liquidationThreshold
+                : MINIMUM_LIQUIDATION_PERIOD_COLLATERAL;
+
+              if (minViable > 0n) {
+                const underfunded = minViable - 1n;
+                await setAccountBalance(ctx.provider, ctx.state.cluster.owner.address, underfunded + 10n ** 18n);
+                await expect(
+                  ctx.network.connect(ctx.state.cluster.owner).migrateClusterToETH(
+                    ctx.state.cluster.operatorIds, ctx.state.cluster.cluster,
+                    { value: underfunded },
+                  ),
+                ).to.be.revertedWithCustomError(ctx.network, Errors.INSUFFICIENT_BALANCE);
+              }
+
               const ethDepositMax = DEFAULT_ETH_REGISTER_VALUE * 2n;
-              const migrateStep = migrateLegacyCluster<State>(ethDepositMin, ethDepositMax);
+              const migrateStep = migrateLegacyCluster<State>(minViable, ethDepositMax);
               await migrateStep(ctx);
 
               await assertLegacyMigrationRefund(ctx as any);

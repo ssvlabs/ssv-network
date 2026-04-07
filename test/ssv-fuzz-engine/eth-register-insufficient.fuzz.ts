@@ -5,6 +5,8 @@ import type { OperatorRecord, ClusterRecord } from "./core/types.ts";
 import {
   assertOperatorValidatorCounts,
   assertNetworkValidatorCount,
+  assertClusterBalance,
+  type ClusterBalanceSnapshot,
 } from "./core/assertions.ts";
 import { parseClusterFromEvent } from "../helpers/cluster.ts";
 import { makePublicKey } from "../helpers/keys.ts";
@@ -17,14 +19,13 @@ import {
   EMPTY_CLUSTER,
   ETH_DEDUCTED_DIGITS,
   BPS_DENOMINATOR,
-  MINIMAL_LIQUIDATION_THRESHOLD,
-  MINIMUM_LIQUIDATION_PERIOD_COLLATERAL,
 } from "../common/constants.ts";
 
 interface State {
   cluster: ClusterRecord;
   operators: OperatorRecord[];
   phase: string;
+  lastClusterBalance?: ClusterBalanceSnapshot;
 }
 
 const RUNS = 10;
@@ -83,11 +84,13 @@ describe("Fuzz: ETH register validator insufficient balance (CAT-2-6)", function
               const networkFeeRaw = networkFee / ETH_DEDUCTED_DIGITS;
               const rate = burnRateRaw + networkFeeRaw;
               const vUnits = BPS_DENOMINATOR;
-              const thresholdUnits = (MINIMAL_LIQUIDATION_THRESHOLD * rate * vUnits) / BPS_DENOMINATOR;
+              const minimumBlocksBeforeLiquidation = BigInt(await ctx.views.getLiquidationThresholdPeriod());
+              const minimumLiquidationCollateral = BigInt(await ctx.views.getMinimumLiquidationCollateral());
+              const thresholdUnits = (minimumBlocksBeforeLiquidation * rate * vUnits) / BPS_DENOMINATOR;
               const timeThreshold = thresholdUnits * ETH_DEDUCTED_DIGITS;
-              const threshold = timeThreshold > MINIMUM_LIQUIDATION_PERIOD_COLLATERAL
+              const threshold = timeThreshold > minimumLiquidationCollateral
                 ? timeThreshold
-                : MINIMUM_LIQUIDATION_PERIOD_COLLATERAL;
+                : minimumLiquidationCollateral;
 
               // Sub-step 2: below threshold -> revert
               const maxDelta = threshold / 100n;
@@ -117,6 +120,7 @@ describe("Fuzz: ETH register validator insufficient balance (CAT-2-6)", function
 
               await assertOperatorValidatorCounts(ctx);
               await assertNetworkValidatorCount(ctx);
+              await assertClusterBalance(ctx);
 
               ctx.state.phase = "registered";
             },
