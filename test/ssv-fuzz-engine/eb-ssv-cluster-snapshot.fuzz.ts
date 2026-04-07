@@ -13,7 +13,11 @@ import {
   assertLegacyMigrationRefund,
   assertLegacyEnsureETHDefaultsTransition,
   assertDaoVUnitsMatchCluster,
+  assertOperatorEarningsWithEB,
+  assertNetworkEarningsWithEB,
   getContractEthBalance,
+  type EBOperatorEarningsSnapshot,
+  type EBNetworkEarningsSnapshot,
 } from "./core/assertions.ts";
 import { computeClusterId, computeEBRoot, commitEBRoot } from "../helpers/oracle.ts";
 import { parseClusterFromEvent, extractEventArgs } from "../helpers/cluster.ts";
@@ -40,6 +44,8 @@ interface State {
   migrationSnapshot?: LegacyMigrationSnapshot;
   tracker: DepositWithdrawTracker;
   tickDepositDelta: bigint;
+  lastEBOperatorEarnings?: EBOperatorEarningsSnapshot;
+  lastEBNetworkEarnings?: EBNetworkEarningsSnapshot;
 }
 
 function ebToVUnits(effectiveBalance: bigint): bigint {
@@ -110,6 +116,19 @@ describe("Fuzz: EB update on SSV cluster — stores snapshot only (CAT-3-5)", fu
           );
           expect(eb).to.equal(BigInt(storedEB));
 
+          for (const opId of seed.operatorIds) {
+            const opData = await ctx.views.getOperatorById(opId);
+            expect(BigInt(opData.validatorCount)).to.equal(0n);
+          }
+
+          await mineBlocks(ctx.provider, 1);
+
+          expect(BigInt(await ctx.views.getNetworkEarnings())).to.equal(0n);
+
+          for (const opId of seed.operatorIds) {
+            expect(BigInt(await ctx.views.getOperatorEarnings(opId))).to.equal(0n);
+          }
+
           return {
             cluster: {
               cluster: clusterAfterEB,
@@ -178,6 +197,9 @@ describe("Fuzz: EB update on SSV cluster — stores snapshot only (CAT-3-5)", fu
               );
               expect(isLiq).to.equal(false);
 
+              await assertOperatorEarningsWithEB(ctx);
+              await assertNetworkEarningsWithEB(ctx);
+
               ctx.state.phase = "migrated";
             },
           },
@@ -191,6 +213,9 @@ describe("Fuzz: EB update on SSV cluster — stores snapshot only (CAT-3-5)", fu
               await mineBlocks(ctx.provider, postBlocks);
 
               await assertDaoVUnitsMatchCluster(ctx);
+
+              await assertOperatorEarningsWithEB(ctx);
+              await assertNetworkEarningsWithEB(ctx);
 
               const eb = BigInt(
                 await ctx.views.getEffectiveBalance(cluster.owner.address, cluster.operatorIds, cluster.cluster),
