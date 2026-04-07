@@ -4,8 +4,8 @@ import type { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/types"
 import { ssvClustersHarnessFixture } from "../../setup/fixtures.ts";
 import { defaultClustersFixture } from "../../helpers/fixture-presets.ts";
 import type { NetworkHelpersType } from "../../common/types.ts";
-import { setupTestContext, computeClusterId, makePublicKey, parseClusterFromEvent, registerAndParseCluster, registerAndLiquidate, assertOperatorVUnits, calcLiquidationThreshold } from "../../common/helpers.ts";
-import { DEFAULT_ETH_REGISTER_VALUE, BPS_DENOMINATOR, ETH_DEDUCTED_DIGITS } from "../../common/constants.ts";
+import { setupTestContext, computeClusterId, createCluster, makePublicKey, parseClusterFromEvent, registerAndParseCluster, registerAndLiquidate, assertOperatorVUnits, calcLiquidationThreshold } from "../../common/helpers.ts";
+import { DEFAULT_ETH_REGISTER_VALUE, DEFAULT_SHARES, BPS_DENOMINATOR, ETH_DEDUCTED_DIGITS } from "../../common/constants.ts";
 import { Events } from "../../common/events.ts";
 import { Errors } from "../../common/errors.ts";
 import { trackGasFromReceipt, GasGroup } from "../../helpers/gas-usage.ts";
@@ -502,5 +502,155 @@ describe("SSVClusters function `reactivate()`", async () => {
     await reactivateTx2.wait();
     const earningsAfterReactivation2 = await getOperatorEthEarnings(clusters, trackedOperator);
     expect(earningsAfterReactivation2).to.equal(earningsAfterLiquidation2);
+  });
+
+  it("EB=64 liquidate/reactivate then EB=128 update uses reactivated snapshot safely", async function () {
+    const { clusters, operatorIds } =
+      await networkHelpers.loadFixture(deploySSVClustersAndPrepareOperatorsFixture);
+
+    await clusters.mockEthNetworkFee(0n);
+    await clusters.mockMinimumBlocksBeforeLiquidation(1n);
+    await clusters.mockMinimumLiquidationCollateral(0n);
+
+    const clusterAfterRegister = await registerAndParseCluster(clusters, operatorIds);
+    const clusterId = computeClusterId(clusterOwner.address, operatorIds);
+    const { cluster: clusterAfterEB64 } = await mockEBAndUpdate(
+      clusters, clusterOwner.address, operatorIds, clusterAfterRegister, 64, 1
+    );
+
+    const liquidateTx = await clusters.liquidate(clusterOwner.address, operatorIds, clusterAfterEB64);
+    const clusterAfterLiquidation = parseClusterFromEvent(clusters, await liquidateTx.wait(), Events.CLUSTER_LIQUIDATED);
+
+    const reactivateTx = await clusters.reactivate(
+      operatorIds,
+      clusterAfterLiquidation,
+      { value: DEFAULT_ETH_REGISTER_VALUE }
+    );
+    const clusterAfterReactivation = parseClusterFromEvent(clusters, await reactivateTx.wait(), Events.CLUSTER_REACTIVATED);
+
+    const { cluster: clusterAfterEB128 } = await mockEBAndUpdate(
+      clusters, clusterOwner.address, operatorIds, clusterAfterReactivation, 128, 2
+    );
+
+    expect(clusterAfterEB128.active).to.equal(true);
+    expect(await clusters.getClusterVUnits(clusterId)).to.equal(40000n);
+    expect(await clusters.getDaoTotalEthVUnits()).to.equal(40000n);
+    for (const operatorId of operatorIds) {
+      expect(await clusters.getOperatorEthVUnits(operatorId)).to.equal(30000n);
+    }
+  });
+
+  it("validator removal works after EB=64 liquidate/reactivate cycle", async function () {
+    const { clusters, operatorIds } =
+      await networkHelpers.loadFixture(deploySSVClustersAndPrepareOperatorsFixture);
+
+    await clusters.mockEthNetworkFee(0n);
+    await clusters.mockMinimumBlocksBeforeLiquidation(1n);
+    await clusters.mockMinimumLiquidationCollateral(0n);
+
+    const validatorPublicKey = makePublicKey(9001);
+    const registerTx = await clusters.registerValidator(
+      validatorPublicKey,
+      operatorIds,
+      DEFAULT_SHARES,
+      createCluster(),
+      { value: DEFAULT_ETH_REGISTER_VALUE }
+    );
+    const clusterAfterRegister = parseClusterFromEvent(clusters, await registerTx.wait(), Events.VALIDATOR_ADDED);
+    const clusterId = computeClusterId(clusterOwner.address, operatorIds);
+
+    const { cluster: clusterAfterEB64 } = await mockEBAndUpdate(
+      clusters, clusterOwner.address, operatorIds, clusterAfterRegister, 64, 1
+    );
+    const liquidateTx = await clusters.liquidate(clusterOwner.address, operatorIds, clusterAfterEB64);
+    const clusterAfterLiquidation = parseClusterFromEvent(clusters, await liquidateTx.wait(), Events.CLUSTER_LIQUIDATED);
+    const reactivateTx = await clusters.reactivate(
+      operatorIds,
+      clusterAfterLiquidation,
+      { value: DEFAULT_ETH_REGISTER_VALUE }
+    );
+    const clusterAfterReactivation = parseClusterFromEvent(clusters, await reactivateTx.wait(), Events.CLUSTER_REACTIVATED);
+
+    const removeTx = await clusters.removeValidator(validatorPublicKey, operatorIds, clusterAfterReactivation);
+    const clusterAfterRemove = parseClusterFromEvent(clusters, await removeTx.wait(), Events.VALIDATOR_REMOVED);
+
+    expect(clusterAfterRemove.validatorCount).to.equal(0n);
+    expect(await clusters.getClusterVUnits(clusterId)).to.equal(0n);
+    expect(await clusters.getDaoTotalEthVUnits()).to.equal(0n);
+  });
+
+  it("deposit before reactivation on explicit-EB cluster preserves deposited balance", async function () {
+    const { clusters, operatorIds } =
+      await networkHelpers.loadFixture(deploySSVClustersAndPrepareOperatorsFixture);
+
+    await clusters.mockEthNetworkFee(0n);
+    await clusters.mockMinimumBlocksBeforeLiquidation(1n);
+    await clusters.mockMinimumLiquidationCollateral(0n);
+
+    const clusterAfterRegister = await registerAndParseCluster(clusters, operatorIds);
+    const { cluster: clusterAfterEB64 } = await mockEBAndUpdate(
+      clusters, clusterOwner.address, operatorIds, clusterAfterRegister, 64, 1
+    );
+
+    const liquidateTx = await clusters.liquidate(clusterOwner.address, operatorIds, clusterAfterEB64);
+    const clusterAfterLiquidation = parseClusterFromEvent(clusters, await liquidateTx.wait(), Events.CLUSTER_LIQUIDATED);
+
+    const preReactivateDeposit = ethers.parseEther("2");
+    const depositTx = await clusters.deposit(
+      clusterOwner.address,
+      operatorIds,
+      clusterAfterLiquidation,
+      { value: preReactivateDeposit }
+    );
+    const clusterAfterDeposit = parseClusterFromEvent(clusters, await depositTx.wait(), Events.CLUSTER_DEPOSITED);
+
+    const reactivateValue = DEFAULT_ETH_REGISTER_VALUE;
+    const reactivateTx = await clusters.reactivate(
+      operatorIds,
+      clusterAfterDeposit,
+      { value: reactivateValue }
+    );
+    const clusterAfterReactivation = parseClusterFromEvent(clusters, await reactivateTx.wait(), Events.CLUSTER_REACTIVATED);
+
+    expect(clusterAfterReactivation.active).to.equal(true);
+    expect(clusterAfterReactivation.balance).to.equal(clusterAfterDeposit.balance + reactivateValue);
+  });
+
+  it("daoTotalEthVUnits is decremented exactly on explicit-EB liquidation", async function () {
+    const { clusters, operatorIds } =
+      await networkHelpers.loadFixture(deploySSVClustersAndPrepareOperatorsFixture);
+
+    await clusters.mockEthNetworkFee(0n);
+    await clusters.mockMinimumBlocksBeforeLiquidation(1n);
+    await clusters.mockMinimumLiquidationCollateral(0n);
+
+    const clusterAfterRegister = await registerAndParseCluster(clusters, operatorIds);
+    const { cluster: clusterAfterEB64 } = await mockEBAndUpdate(
+      clusters, clusterOwner.address, operatorIds, clusterAfterRegister, 64, 1
+    );
+
+    expect(await clusters.getDaoTotalEthVUnits()).to.equal(20000n);
+    await clusters.liquidate(clusterOwner.address, operatorIds, clusterAfterEB64);
+    expect(await clusters.getDaoTotalEthVUnits()).to.equal(0n);
+  });
+
+  it("daoTotalEthVUnits is restored exactly on explicit-EB reactivation", async function () {
+    const { clusters, operatorIds } =
+      await networkHelpers.loadFixture(deploySSVClustersAndPrepareOperatorsFixture);
+
+    await clusters.mockEthNetworkFee(0n);
+    await clusters.mockMinimumBlocksBeforeLiquidation(1n);
+    await clusters.mockMinimumLiquidationCollateral(0n);
+
+    const clusterAfterRegister = await registerAndParseCluster(clusters, operatorIds);
+    const { cluster: clusterAfterEB64 } = await mockEBAndUpdate(
+      clusters, clusterOwner.address, operatorIds, clusterAfterRegister, 64, 1
+    );
+    const liquidateTx = await clusters.liquidate(clusterOwner.address, operatorIds, clusterAfterEB64);
+    const clusterAfterLiquidation = parseClusterFromEvent(clusters, await liquidateTx.wait(), Events.CLUSTER_LIQUIDATED);
+
+    expect(await clusters.getDaoTotalEthVUnits()).to.equal(0n);
+    await clusters.reactivate(operatorIds, clusterAfterLiquidation, { value: DEFAULT_ETH_REGISTER_VALUE });
+    expect(await clusters.getDaoTotalEthVUnits()).to.equal(20000n);
   });
 });
