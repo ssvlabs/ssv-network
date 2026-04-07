@@ -129,7 +129,7 @@ describe("Fuzz: Oracle quorum — partial votes, failed quorum, re-voting (CAT-3
           },
 
           {
-            name: "phase2-revote-prevention",
+            name: "phase2-duplicate-vote-prevention",
             async fn(ctx) {
               const { allOracles, shuffledIndices, rootAEB, rootABlockNum, cluster } = ctx.state;
               const clusterId = computeClusterId(cluster.owner.address, cluster.operatorIds);
@@ -139,7 +139,7 @@ describe("Fuzz: Oracle quorum — partial votes, failed quorum, re-voting (CAT-3
                 ctx.network.connect(allOracles[shuffledIndices[0]]).commitRoot(rootA, rootABlockNum),
               ).to.be.revertedWithCustomError(ctx.network, Errors.ALREADY_VOTED);
 
-              ctx.state.phase = "revote-blocked";
+              ctx.state.phase = "duplicate-blocked";
             },
           },
 
@@ -154,6 +154,9 @@ describe("Fuzz: Oracle quorum — partial votes, failed quorum, re-voting (CAT-3
               const receipt3 = await tx3.wait();
               expect(hasEvent(ctx.network, receipt3, Events.WEIGHTED_ROOT_PROPOSED)).to.equal(true);
               expect(hasEvent(ctx.network, receipt3, Events.ROOT_COMMITTED)).to.equal(true);
+
+              const storedRoot = await ctx.views.getCommittedRoot(rootABlockNum);
+              expect(storedRoot).to.equal(rootA);
 
               const tx = await ctx.network.updateClusterBalance(
                 rootABlockNum,
@@ -183,7 +186,22 @@ describe("Fuzz: Oracle quorum — partial votes, failed quorum, re-voting (CAT-3
           },
 
           {
-            name: "phase4-competing-roots",
+            name: "phase4-post-commit-stale-retry",
+            async fn(ctx) {
+              const { allOracles, shuffledIndices, rootAEB, rootABlockNum, cluster } = ctx.state;
+              const clusterId = computeClusterId(cluster.owner.address, cluster.operatorIds);
+              const rootA = computeEBRoot(clusterId, rootAEB);
+
+              await expect(
+                ctx.network.connect(allOracles[shuffledIndices[0]]).commitRoot(rootA, rootABlockNum),
+              ).to.be.revertedWithCustomError(ctx.network, Errors.STALE_BLOCK_NUMBER);
+
+              ctx.state.phase = "stale-blocked";
+            },
+          },
+
+          {
+            name: "phase5-competing-roots",
             async fn(ctx) {
               const { cluster, allOracles, shuffledIndices, rootBEB, rootCEB } = ctx.state;
               const clusterId = computeClusterId(cluster.owner.address, cluster.operatorIds);
@@ -226,6 +244,9 @@ describe("Fuzz: Oracle quorum — partial votes, failed quorum, re-voting (CAT-3
               );
               const receipt = await tx.wait();
               cluster.cluster = parseClusterFromEvent(ctx.network, receipt, Events.CLUSTER_BALANCE_UPDATED);
+
+              const storedRoot2 = await ctx.views.getCommittedRoot(ctx.state.rootBBlockNum);
+              expect(storedRoot2).to.equal(rootB);
 
               const eb = BigInt(
                 await ctx.views.getEffectiveBalance(cluster.owner.address, cluster.operatorIds, cluster.cluster),
