@@ -1,6 +1,7 @@
 import { expect } from "chai";
 import { fuzz, generateSeeds } from "./core/runner.ts";
 import { registerFuzzOperators, registerFuzzCluster, alignFee } from "./core/setup.ts";
+import { computeClusterBalance } from "./core/fuzz-helpers.ts";
 import type { OperatorRecord, ClusterRecord } from "./core/types.ts";
 import { parseClusterFromEvent } from "../helpers/cluster.ts";
 import { makePublicKey } from "../helpers/keys.ts";
@@ -124,6 +125,11 @@ describe("Fuzz: ETH shared operators — multiple clusters (CAT-2-8)", function 
                 exclusiveBIndices, validatorCountB } = ctx.state;
               const thirdParty = ctx.signers[4];
 
+              const blockBefore = BigInt(await ctx.provider.getBlockNumber());
+              const balanceBBefore = BigInt(
+                await ctx.views.getBalance(clusterB.owner.address, clusterB.operatorIds, clusterB.cluster),
+              );
+
               const balance = BigInt(
                 await ctx.views.getBalance(clusterA.owner.address, clusterA.operatorIds, clusterA.cluster),
               );
@@ -169,10 +175,17 @@ describe("Fuzz: ETH shared operators — multiple clusters (CAT-2-8)", function 
                 );
               }
 
+              const blockAfter = BigInt(await ctx.provider.getBlockNumber());
+              const opFeesB = [...sharedIndices, ...exclusiveBIndices].map(i => operators[i].fee);
+              const networkFee = BigInt(await ctx.views.getNetworkFee());
+              const expectedBalanceB = computeClusterBalance(
+                balanceBBefore, opFeesB, networkFee, BigInt(validatorCountB), blockAfter - blockBefore,
+              );
+
               const balanceB = BigInt(
                 await ctx.views.getBalance(clusterB.owner.address, clusterB.operatorIds, clusterB.cluster),
               );
-              expect(balanceB).to.be.greaterThan(0n, "Cluster B must still have balance");
+              expect(balanceB).to.equal(expectedBalanceB);
 
               const networkCount = BigInt(await ctx.views.getNetworkValidatorsCount());
               expect(networkCount).to.equal(expectedB);
