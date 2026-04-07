@@ -13,8 +13,6 @@ import { mineBlocks } from "../helpers/blocks.ts";
 import {
   MINIMAL_OPERATOR_ETH_FEE,
   DEFAULT_ETH_REGISTER_VALUE,
-  DEFAULT_SHARES,
-  MINIMAL_LIQUIDATION_THRESHOLD,
   MINIMUM_LIQUIDATION_PERIOD_COLLATERAL,
 } from "../common/constants.ts";
 
@@ -22,6 +20,7 @@ interface State {
   cluster: ClusterRecord;
   operators: OperatorRecord[];
   phase: string;
+  threshold: bigint;
 }
 
 const RUNS = 10;
@@ -58,6 +57,7 @@ describe("Fuzz: ETH withdraw boundary (CAT-2-7)", function () {
             operators,
             cluster,
             phase: "setup",
+            threshold: 0n,
           };
         },
 
@@ -75,8 +75,9 @@ describe("Fuzz: ETH withdraw boundary (CAT-2-7)", function () {
               const perBlockBurn = BigInt(
                 await ctx.views.getBurnRate(cluster.owner.address, cluster.operatorIds, cluster.cluster),
               );
+              const minBlocks = BigInt(await ctx.views.getLiquidationThresholdPeriod());
 
-              const timeThreshold = MINIMAL_LIQUIDATION_THRESHOLD * perBlockBurn;
+              const timeThreshold = minBlocks * perBlockBurn;
               const threshold = timeThreshold > MINIMUM_LIQUIDATION_PERIOD_COLLATERAL
                 ? timeThreshold
                 : MINIMUM_LIQUIDATION_PERIOD_COLLATERAL;
@@ -104,6 +105,7 @@ describe("Fuzz: ETH withdraw boundary (CAT-2-7)", function () {
                 ),
               ).to.be.revertedWithCustomError(ctx.network, Errors.INSUFFICIENT_BALANCE);
 
+              ctx.state.threshold = threshold;
               ctx.state.phase = "boundary-probed";
             },
           },
@@ -126,6 +128,8 @@ describe("Fuzz: ETH withdraw boundary (CAT-2-7)", function () {
 
               const remainingBalance = BigInt(cluster.cluster.balance);
               expect(remainingBalance).to.be.greaterThan(0n, "Must have remaining balance to withdraw");
+              // Fix #3: remaining balance must be ≤ threshold (fees accrued during bulkRemoveValidator settle against it)
+              expect(remainingBalance).to.be.lessThanOrEqual(ctx.state.threshold, "Remaining balance must not exceed the phase-1 liquidation threshold");
 
               const fullWithdrawTx = await ctx.network.connect(cluster.owner).withdraw(
                 cluster.operatorIds, remainingBalance, cluster.cluster,
@@ -134,7 +138,13 @@ describe("Fuzz: ETH withdraw boundary (CAT-2-7)", function () {
               cluster.cluster = parseClusterFromEvent(ctx.network, fullWithdrawReceipt, Events.CLUSTER_WITHDRAWN);
 
               expect(BigInt(cluster.cluster.balance)).to.equal(0n);
+              // Fix #1: liquidation check is skipped for zero-validator clusters, cluster stays active
               expect(cluster.cluster.active).to.equal(true);
+              // Fix #2: explicitly confirm not liquidatable (zero-validator path skips liquidation check)
+              const isLiquidatableAfterFull = await ctx.views.isLiquidatable(
+                cluster.owner.address, cluster.operatorIds, cluster.cluster,
+              );
+              expect(isLiquidatableAfterFull).to.equal(false);
 
               ctx.state.phase = "fully-withdrawn";
             },

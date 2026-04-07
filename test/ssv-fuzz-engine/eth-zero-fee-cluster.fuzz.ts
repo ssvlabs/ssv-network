@@ -146,6 +146,10 @@ describe("Fuzz: ETH cluster with zero-fee operators (CAT-2-9)", function () {
               );
               expect(isLiq).to.equal(true);
 
+              const contractAddress = await ctx.network.getAddress();
+              const contractEthBefore = BigInt(await ctx.provider.getBalance(contractAddress));
+              const liquidatorEthBefore = BigInt(await ctx.provider.getBalance(thirdParty.address));
+
               const liqTx = await ctx.network.connect(thirdParty).liquidate(
                 cluster.owner.address, cluster.operatorIds, cluster.cluster,
               );
@@ -154,6 +158,22 @@ describe("Fuzz: ETH cluster with zero-fee operators (CAT-2-9)", function () {
 
               expect(cluster.cluster.active).to.equal(false);
               expect(BigInt(cluster.cluster.balance)).to.equal(0n);
+
+              const contractEthAfter = BigInt(await ctx.provider.getBalance(contractAddress));
+              const liquidatorEthAfter = BigInt(await ctx.provider.getBalance(thirdParty.address));
+              const gasCost = BigInt(liqReceipt!.gasUsed) * BigInt(liqReceipt!.gasPrice);
+              const bounty = contractEthBefore - contractEthAfter;
+
+              expect(bounty).to.be.greaterThan(0n, "Liquidator must receive a bounty");
+              expect(liquidatorEthAfter).to.equal(liquidatorEthBefore + bounty - gasCost);
+
+              // Post-liquidation conservation: contract holds only operator earnings + network earnings
+              let totalOperatorEarnings = 0n;
+              for (const op of ctx.state.operators) {
+                totalOperatorEarnings += BigInt(await ctx.views.getOperatorEarnings(op.id));
+              }
+              const networkEarnings = BigInt(await ctx.views.getNetworkEarnings());
+              expect(totalOperatorEarnings + networkEarnings).to.equal(contractEthAfter);
 
               await assertOperatorValidatorCounts(ctx);
               await assertNetworkValidatorCount(ctx);

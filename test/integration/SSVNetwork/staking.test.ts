@@ -730,6 +730,165 @@ describe("SSVNetwork Integration - Staking (Enhanced)", () => {
     });
   });
 
+  describe("Explicit EB staking revenue checks", async function() {
+    it("liquidating an explicit EB=64 cluster stops further staking revenue accrual", async function() {
+      const { network, views, ssvToken } = await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+
+      await ssvToken.mint(staker.address, STAKE_AMOUNT);
+      await ssvToken.connect(staker).approve(await network.getAddress(), STAKE_AMOUNT);
+      await network.connect(staker).stake(STAKE_AMOUNT);
+
+      const operatorIds = await registerOperators(network, operatorOwner, 4);
+      await whitelistAddresses(network, operatorOwner, operatorIds, [clusterOwner.address]);
+      await network.connect(clusterOwner).registerValidator(
+        makePublicKey(9101),
+        operatorIds,
+        DEFAULT_SHARES,
+        EMPTY_CLUSTER,
+        { value: DEFAULT_ETH_REGISTER_VALUE }
+      );
+
+      const allSigners = await connection.ethers.getSigners();
+      const oracles = allSigners.slice(10, 14);
+      for (let i = 0; i < 4; i++) {
+        await network.replaceOracle(i + 1, oracles[i].address);
+      }
+
+      const clusterId = computeClusterId(clusterOwner.address, operatorIds);
+      const ebBlock = Number(await connection.ethers.provider.getBlockNumber());
+      const { root, proofs } = generateMerkleForClusterEB(connection, [
+        { clusterId, effectiveBalance: 64 },
+      ]);
+      await commitEBRoot(network, root, ebBlock, oracles);
+
+      const clusterBeforeUpdate = await getCurrentClusterState(connection, network, clusterOwner.address, operatorIds);
+      await network.updateClusterBalance(
+        ebBlock,
+        clusterOwner.address,
+        operatorIds.map((id) => BigInt(id)),
+        {
+          validatorCount: Number(clusterBeforeUpdate.validatorCount),
+          networkFeeIndex: BigInt(clusterBeforeUpdate.networkFeeIndex),
+          index: BigInt(clusterBeforeUpdate.index),
+          active: clusterBeforeUpdate.active,
+          balance: BigInt(clusterBeforeUpdate.balance),
+        },
+        64,
+        proofs[clusterId],
+      );
+
+      const earningsBefore = await views.getNetworkEarnings();
+      const blocksPerPhase = 100n;
+      await connection.networkHelpers.mine(blocksPerPhase);
+      const earningsBeforeLiquidation = await views.getNetworkEarnings();
+      const preLiquidationDelta = earningsBeforeLiquidation - earningsBefore;
+      const expectedPreLiquidationDelta = blocksPerPhase * NETWORK_FEE * 2n;
+      expect(preLiquidationDelta).to.equal(expectedPreLiquidationDelta);
+
+      const clusterBeforeLiquidation = await getCurrentClusterState(connection, network, clusterOwner.address, operatorIds);
+      await network.connect(clusterOwner).liquidate(
+        clusterOwner.address,
+        operatorIds,
+        {
+          validatorCount: Number(clusterBeforeLiquidation.validatorCount),
+          networkFeeIndex: BigInt(clusterBeforeLiquidation.networkFeeIndex),
+          index: BigInt(clusterBeforeLiquidation.index),
+          active: clusterBeforeLiquidation.active,
+          balance: BigInt(clusterBeforeLiquidation.balance),
+        },
+      );
+
+      const earningsImmediatelyAfterLiquidation = await views.getNetworkEarnings();
+      await connection.networkHelpers.mine(100n);
+      const earningsAfterLiquidation = await views.getNetworkEarnings();
+      const postLiquidationDelta = earningsAfterLiquidation - earningsImmediatelyAfterLiquidation;
+      expect(postLiquidationDelta).to.equal(0n);
+    });
+
+    it("staking revenue doubles when explicit EB increases from 64 to 128", async function() {
+      const { network, views, ssvToken } = await networkHelpers.loadFixture(deployFullSSVNetworkFixture);
+
+      await ssvToken.mint(staker.address, STAKE_AMOUNT);
+      await ssvToken.connect(staker).approve(await network.getAddress(), STAKE_AMOUNT);
+      await network.connect(staker).stake(STAKE_AMOUNT);
+
+      const operatorIds = await registerOperators(network, operatorOwner, 4);
+      await whitelistAddresses(network, operatorOwner, operatorIds, [clusterOwner.address]);
+      await network.connect(clusterOwner).registerValidator(
+        makePublicKey(9102),
+        operatorIds,
+        DEFAULT_SHARES,
+        EMPTY_CLUSTER,
+        { value: DEFAULT_ETH_REGISTER_VALUE }
+      );
+
+      const allSigners = await connection.ethers.getSigners();
+      const oracles = allSigners.slice(10, 14);
+      for (let i = 0; i < 4; i++) {
+        await network.replaceOracle(i + 1, oracles[i].address);
+      }
+
+      await network.updateMinBlocksBetweenUpdates(1n);
+
+      const clusterId = computeClusterId(clusterOwner.address, operatorIds);
+      const eb64Block = Number(await connection.ethers.provider.getBlockNumber());
+      const merkle64 = generateMerkleForClusterEB(connection, [{ clusterId, effectiveBalance: 64 }]);
+      await commitEBRoot(network, merkle64.root, eb64Block, oracles);
+      const clusterBefore64 = await getCurrentClusterState(connection, network, clusterOwner.address, operatorIds);
+      await network.updateClusterBalance(
+        eb64Block,
+        clusterOwner.address,
+        operatorIds.map((id) => BigInt(id)),
+        {
+          validatorCount: Number(clusterBefore64.validatorCount),
+          networkFeeIndex: BigInt(clusterBefore64.networkFeeIndex),
+          index: BigInt(clusterBefore64.index),
+          active: clusterBefore64.active,
+          balance: BigInt(clusterBefore64.balance),
+        },
+        64,
+        merkle64.proofs[clusterId],
+      );
+
+      const earningsBefore64 = await views.getNetworkEarnings();
+      const blocksPerPhase = 100n;
+      await connection.networkHelpers.mine(blocksPerPhase);
+      const earningsAfter64 = await views.getNetworkEarnings();
+      const delta64 = earningsAfter64 - earningsBefore64;
+      const expectedDelta64 = blocksPerPhase * NETWORK_FEE * 2n;
+      expect(delta64).to.equal(expectedDelta64);
+
+      await connection.networkHelpers.mine(1n);
+      const eb128Block = Number(await connection.ethers.provider.getBlockNumber());
+      const merkle128 = generateMerkleForClusterEB(connection, [{ clusterId, effectiveBalance: 128 }]);
+      await commitEBRoot(network, merkle128.root, eb128Block, oracles);
+      const clusterBefore128 = await getCurrentClusterState(connection, network, clusterOwner.address, operatorIds);
+      await network.updateClusterBalance(
+        eb128Block,
+        clusterOwner.address,
+        operatorIds.map((id) => BigInt(id)),
+        {
+          validatorCount: Number(clusterBefore128.validatorCount),
+          networkFeeIndex: BigInt(clusterBefore128.networkFeeIndex),
+          index: BigInt(clusterBefore128.index),
+          active: clusterBefore128.active,
+          balance: BigInt(clusterBefore128.balance),
+        },
+        128,
+        merkle128.proofs[clusterId],
+      );
+
+      const earningsBefore128 = await views.getNetworkEarnings();
+      await connection.networkHelpers.mine(blocksPerPhase);
+      const earningsAfter128 = await views.getNetworkEarnings();
+      const delta128 = earningsAfter128 - earningsBefore128;
+
+      const expectedDelta128 = blocksPerPhase * NETWORK_FEE * 4n;
+      expect(delta128).to.equal(expectedDelta128);
+      expect(delta128).to.equal(delta64 * 2n);
+    });
+  });
+
   describe("Multisig Accounts", async function() {
 
     it("Multisig contract stakes SSV tokens", async function() {
