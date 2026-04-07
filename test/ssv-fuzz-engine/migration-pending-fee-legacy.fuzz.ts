@@ -129,7 +129,7 @@ describe("Fuzz: CAT-1-12 — pending fee declaration, migration + post-upgrade f
               for (const opId of pendingOperatorIds) {
                 await expect(
                   ctx.network.connect(operatorOwner).executeOperatorFee(opId),
-                ).to.be.revertedWithCustomError(ctx.network, Errors.APPROVAL_NOT_WITHIN_TIMEFRAME);
+                ).to.be.revertedWithCustomError(ctx.network, Errors.LEGACY_OPERATOR_FEE_DECLARATION_INVALID);
               }
 
               const opCount = BigInt(cluster.operatorIds.length);

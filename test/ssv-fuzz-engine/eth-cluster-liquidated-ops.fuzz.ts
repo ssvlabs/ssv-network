@@ -162,6 +162,9 @@ describe("Fuzz: ETH cluster liquidated ops (CAT-2-2)", function () {
 
               tracker.totalDeposited += secondDeposit;
 
+              await assertOperatorValidatorCounts(ctx);
+              await assertNetworkValidatorCount(ctx);
+
               ctx.state.phase = "deposited-inactive";
             },
           },
@@ -207,6 +210,9 @@ describe("Fuzz: ETH cluster liquidated ops (CAT-2-2)", function () {
 
               expect(BigInt(cluster.cluster.balance)).to.equal(0n, "Full withdrawal must leave balance == 0");
               expect(cluster.cluster.active).to.equal(false, "Cluster must stay inactive after full withdrawal");
+
+              await assertOperatorValidatorCounts(ctx);
+              await assertNetworkValidatorCount(ctx);
 
               ctx.state.phase = "drained-inactive";
             },
@@ -257,6 +263,10 @@ describe("Fuzz: ETH cluster liquidated ops (CAT-2-2)", function () {
               tracker.totalDeposited += reactivateDeposit;
 
               expect(cluster.cluster.active).to.equal(true, "Cluster must be active after reactivation");
+              expect(BigInt(cluster.cluster.balance)).to.equal(
+                preReactivationDeposit + reactivateDeposit,
+                "Balance at reactivation must equal pre-reactivation deposit + reactivation msg.value",
+              );
 
               ctx.state.phase = "reactivated";
               ctx.state.lastPhaseAwareOperatorEarnings = undefined;
