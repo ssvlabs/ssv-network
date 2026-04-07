@@ -86,7 +86,7 @@ just deploy-module SSVOperators hoodi 12345
 ### Attach a pre-deployed module
 
 ```bash
-just attach-module SSVClusters 0xMODULE 0xPROXY hoodi
+just attach-module hoodi-stage SSVClusters 0xMODULE
 ```
 
 ## Important Notes

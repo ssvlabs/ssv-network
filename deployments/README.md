@@ -108,6 +108,7 @@ This prevents running the wrong config against the wrong proxy.
 | `generate-deployment-attestation.ts` | `just generate-attestation <env>` | Bytecode hashes + config attestation for committee |
 | `generate-safe-batch.ts` | `just generate-safe-batch <env>` | Encode SAFE multisig batch |
 | `deploy-fresh.ts` | `just deploy-fresh <env>` | Full greenfield deployment |
+| `attach-module.ts` | `just attach-module <env> <module> <module-address>` | Attach one module to the env-configured proxy and update the latest deploy-result |
 | `run-forked-tests.ts` | `just test-fork <env>` | Integration tests against fork |
 
 ## Troubleshooting

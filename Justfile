@@ -94,10 +94,9 @@ deploy-module module network *args:
     npx hardhat compile --force
     npx tsx scripts/deploy-module.ts --network {{network}} --module {{module}} {{ if args == "" { "" } else { "--args '[\"" + replace(args, " ", "\",\"") + "\"]'" } }}
 
-# Attach an existing deployed module to the proxy
-attach-module module module-address proxy-address network:
-    npx hardhat compile --force
-    npx tsx scripts/attach-module.ts --network {{network}} --module {{module}} --module-address {{module-address}} --proxy-address {{proxy-address}}
+# Attach an existing deployed module to the env-configured proxy
+attach-module env module module-address network="":
+    npx tsx scripts/attach-module.ts --env {{env}} --module {{module}} --module-address {{module-address}} {{ if network == "" { "" } else { "--network " + network } }}
 
 # Upgrade a contract via UUPS proxy pattern (optionally with pre-deployed impl)
 upgrade-contract contract proxy network *impl:
