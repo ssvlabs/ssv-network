@@ -3,11 +3,15 @@ import { fuzz, generateSeeds } from "./core/runner.ts";
 import { registerFuzzOperators, registerFuzzCluster, alignFee } from "./core/setup.ts";
 import { setupFuzzOracles, type OracleState } from "./core/steps.ts";
 import type { OperatorRecord, ClusterRecord } from "./core/types.ts";
+import {
+  assertOperatorValidatorCounts,
+  assertNetworkValidatorCount,
+} from "./core/assertions.ts";
 import { computeClusterId, computeEBRoot, commitEBRoot } from "../helpers/oracle.ts";
 import { parseClusterFromEvent, extractEventArgs } from "../helpers/cluster.ts";
 import { Events } from "../common/events.ts";
 import { Errors } from "../common/errors.ts";
-import { mineBlocks } from "../helpers/blocks.ts";
+import { mineBlocks, setAccountBalance } from "../helpers/blocks.ts";
 import { ethers } from "ethers";
 import {
   MINIMAL_OPERATOR_ETH_FEE,
@@ -15,6 +19,8 @@ import {
   BPS_DENOMINATOR,
   ETH_DEDUCTED_DIGITS,
   MINIMAL_LIQUIDATION_THRESHOLD,
+  MINIMUM_LIQUIDATION_PERIOD_COLLATERAL,
+  DEFAULT_ETH_REGISTER_VALUE,
 } from "../common/constants.ts";
 
 interface State {
@@ -31,6 +37,15 @@ function ebToVUnits(effectiveBalance: bigint): bigint {
   const vUnits = effectiveBalance * BPS_DENOMINATOR;
   if (vUnits === 0n) return 0n;
   return (vUnits - 1n) / 32n + 1n;
+}
+
+function computeOperatorEarningsDelta(
+  packedFee: bigint,
+  blocks: bigint,
+  effectiveVUnits: bigint,
+): bigint {
+  const deltaPacked = (blocks * packedFee * effectiveVUnits) / BPS_DENOMINATOR;
+  return deltaPacked * ETH_DEDUCTED_DIGITS;
 }
 
 const RUNS = 10;
@@ -140,6 +155,8 @@ describe("Fuzz: EB update on liquidated cluster — snapshot stored, no accounti
               }
               ctx.state.preUpdateOperatorEarnings = earningsBefore;
 
+              const daoEarningsBefore = BigInt(await ctx.views.getNetworkEarnings());
+
               const burnRateBefore = BigInt(
                 await ctx.views.getBurnRate(cluster.owner.address, cluster.operatorIds, cluster.cluster),
               );
@@ -202,6 +219,13 @@ describe("Fuzz: EB update on liquidated cluster — snapshot stored, no accounti
                 );
               }
 
+              await mineBlocks(ctx.provider, 20);
+              const daoEarningsAfter = BigInt(await ctx.views.getNetworkEarnings());
+              expect(daoEarningsAfter).to.equal(
+                daoEarningsBefore,
+                "DAO network earnings must be unchanged — daoTotalEthVUnits == 0 after single-cluster liquidation",
+              );
+
               const isLiq = await ctx.views.isLiquidatable(
                 cluster.owner.address, cluster.operatorIds, cluster.cluster,
               );
@@ -211,13 +235,87 @@ describe("Fuzz: EB update on liquidated cluster — snapshot stored, no accounti
                 ctx.views.getBalance(cluster.owner.address, cluster.operatorIds, cluster.cluster),
               ).to.be.revertedWithCustomError(ctx.network, Errors.CLUSTER_IS_LIQUIDATED);
 
+              await expect(
+                ctx.network.connect(ctx.signers[10]).updateClusterBalance(
+                  blockNum, cluster.owner.address, cluster.operatorIds,
+                  cluster.cluster, ctx.state.postLiqEB, [],
+                ),
+              ).to.be.revertedWithCustomError(ctx.network, Errors.STALE_UPDATE);
+
               ctx.state.phase = "post-liq-eb-updated";
+            },
+          },
+
+          {
+            name: "phase2-reactivation-with-updated-eb",
+            async fn(ctx) {
+              const { cluster, operators } = ctx.state;
+
+              const postLiqVUnits = ebToVUnits(BigInt(ctx.state.postLiqEB));
+              const networkFee = BigInt(await ctx.views.getNetworkFee());
+              let opFeeSum = 0n;
+              for (const op of operators) {
+                opFeeSum += op.fee;
+              }
+              const packedRate = opFeeSum / ETH_DEDUCTED_DIGITS + networkFee / ETH_DEDUCTED_DIGITS;
+              const burnRateThreshold =
+                (MINIMAL_LIQUIDATION_THRESHOLD * packedRate * postLiqVUnits / BPS_DENOMINATOR) * ETH_DEDUCTED_DIGITS;
+              const minViable = burnRateThreshold > MINIMUM_LIQUIDATION_PERIOD_COLLATERAL
+                ? burnRateThreshold
+                : MINIMUM_LIQUIDATION_PERIOD_COLLATERAL;
+
+              const reactivateDeposit = ctx.rng.nextInRange(minViable, minViable + DEFAULT_ETH_REGISTER_VALUE);
+              await setAccountBalance(ctx.provider, cluster.owner.address, reactivateDeposit + 10n ** 18n);
+
+              const reactivateTx = await ctx.network.connect(cluster.owner).reactivate(
+                cluster.operatorIds, cluster.cluster, { value: reactivateDeposit },
+              );
+              const reactivateReceipt = await reactivateTx.wait();
+              cluster.cluster = parseClusterFromEvent(ctx.network, reactivateReceipt, Events.CLUSTER_REACTIVATED);
+
+              expect(cluster.cluster.active).to.equal(true);
+
+              const burnRateAfterReactivation = BigInt(
+                await ctx.views.getBurnRate(cluster.owner.address, cluster.operatorIds, cluster.cluster),
+              );
+              const expectedBurnRate = ((networkFee + opFeeSum) * postLiqVUnits) / BPS_DENOMINATOR;
+              expect(burnRateAfterReactivation).to.equal(
+                expectedBurnRate,
+                "Post-reactivation burn rate must use post-liquidation EB vUnits (not initial EB)",
+              );
+
+              await assertOperatorValidatorCounts(ctx);
+              await assertNetworkValidatorCount(ctx);
+
+              const earningsBeforeProbe = new Map<number, bigint>();
+              for (const op of operators) {
+                earningsBeforeProbe.set(op.id, BigInt(await ctx.views.getOperatorEarnings(op.id)));
+              }
+
+              const probeBlocks = 20n;
+              await mineBlocks(ctx.provider, Number(probeBlocks));
+
+              for (const op of operators) {
+                const earningsAfterProbe = BigInt(await ctx.views.getOperatorEarnings(op.id));
+                const actualDelta = earningsAfterProbe - earningsBeforeProbe.get(op.id)!;
+                const packedFee = op.fee / ETH_DEDUCTED_DIGITS;
+                const expectedDelta = computeOperatorEarningsDelta(packedFee, probeBlocks, postLiqVUnits);
+                expect(actualDelta).to.equal(
+                  expectedDelta,
+                  `Operator ${op.id} post-reactivation earnings must accrue at post-liq EB vUnits`,
+                );
+              }
+
+              ctx.state.phase = "reactivated";
             },
           },
         ],
 
+        expectedPhase: "reactivated",
+
         async after(ctx) {
-          expect(ctx.state.phase).to.equal("post-liq-eb-updated");
+          await assertOperatorValidatorCounts(ctx);
+          await assertNetworkValidatorCount(ctx);
         },
       }, seed);
     });
