@@ -100,13 +100,12 @@ describe("Fuzz: ETH self-liquidation (CAT-2-3)", function () {
                 cluster.owner.address, cluster.operatorIds, cluster.cluster,
               );
               const liqReceipt = await liqTx.wait();
-              cluster.cluster = parseClusterFromEvent(ctx.network, liqReceipt, Events.CLUSTER_LIQUIDATED);
+              cluster.cluster = parseClusterFromEvent(ctx.network, liqReceipt!, Events.CLUSTER_LIQUIDATED);
 
               const ownerEthAfter = BigInt(await ctx.provider.getBalance(cluster.owner.address));
-              const gasCost = BigInt(liqReceipt.gasUsed) * BigInt(liqReceipt.gasPrice);
-              const bounty = ownerEthAfter - ownerEthBefore + gasCost;
+              const gasCost = BigInt(liqReceipt!.gasUsed) * BigInt(liqReceipt!.gasPrice);
 
-              expect(bounty).to.be.greaterThan(0n, "Bounty must be positive (cluster was solvent)");
+              expect(ownerEthAfter).to.be.greaterThan(ownerEthBefore - gasCost, "Bounty must be positive (cluster was solvent)");
               expect(cluster.cluster.active).to.equal(false);
               expect(BigInt(cluster.cluster.balance)).to.equal(0n);
 
@@ -140,7 +139,7 @@ describe("Fuzz: ETH self-liquidation (CAT-2-3)", function () {
                 cluster.operatorIds, cluster.cluster, { value: reactivateDeposit },
               );
               const reactivateReceipt = await reactivateTx.wait();
-              cluster.cluster = parseClusterFromEvent(ctx.network, reactivateReceipt, Events.CLUSTER_REACTIVATED);
+              cluster.cluster = parseClusterFromEvent(ctx.network, reactivateReceipt!, Events.CLUSTER_REACTIVATED);
               tracker.totalDeposited += reactivateDeposit;
 
               expect(cluster.cluster.active).to.equal(true);

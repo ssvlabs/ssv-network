@@ -342,6 +342,12 @@ export async function assertPostUpgradeLiquidatedState<S extends BlockedOpsState
     ),
   ).to.be.revertedWithCustomError(ctx.network, Errors.INCORRECT_CLUSTER_VERSION);
 
+  await expect(
+    ctx.network.connect(cluster.owner).reactivate(
+      cluster.operatorIds, cluster.cluster, { value: DEFAULT_ETH_REGISTER_VALUE },
+    ),
+  ).to.be.revertedWithCustomError(ctx.network, Errors.INCORRECT_CLUSTER_VERSION);
+
   for (const op of operators) {
     const opSSV = await ctx.views.getOperatorByIdSSV(op.id);
     expect(BigInt(opSSV.validatorCount)).to.equal(

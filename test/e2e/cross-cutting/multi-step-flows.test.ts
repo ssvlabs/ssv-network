@@ -20,6 +20,7 @@ import {
   ETH_DEDUCTED_DIGITS,
 } from '../../common/constants.ts';
 import { Events } from "../../common/events.ts";
+import { Errors } from "../../common/errors.ts";
 import {
   mineBlocks,
   getBlockNumber,
@@ -464,6 +465,139 @@ describe("Cross-Cutting: Multi-Step Flows", () => {
         );
         expect(liquidatedCluster.active).to.be.false;
       });
+    });
+  });
+
+  describe("Fee declaration interleavings with EB updates", () => {
+    it("declaring fee, then updating EB, then executing settles pre-exec blocks at old fee", async function () {
+      const { network, views, ssvToken } =
+        await networkHelpers.loadFixture(deployFixture);
+      const provider = connection.ethers.provider;
+
+      const operatorIds = await registerOperators(network, operatorOwner, 4);
+      await whitelistAddresses(network, operatorOwner, operatorIds, [clusterOwner.address]);
+
+      const networkAddress = await network.getAddress();
+      const stakeAmount = ethers.parseEther("100");
+      await ssvToken.transfer(staker.address, stakeAmount);
+      await ssvToken.connect(staker).approve(networkAddress, stakeAmount);
+      await network.connect(staker).stake(stakeAmount);
+      await network.replaceOracle(1, oracle1.address);
+      await network.replaceOracle(2, oracle2.address);
+      await network.replaceOracle(3, oracle3.address);
+
+      const registerTx = await network.connect(clusterOwner).registerValidator(
+        makePublicKey(9101), operatorIds, DEFAULT_SHARES, EMPTY_CLUSTER,
+        { value: DEFAULT_ETH_REGISTER_VALUE },
+      );
+      const registerReceipt = await registerTx.wait();
+      const clusterAfterRegister = parseClusterFromEvent(network, registerReceipt, Events.VALIDATOR_ADDED);
+
+      const clusterId = ethers.keccak256(
+        ethers.solidityPacked(["address", "uint64[]"], [clusterOwner.address, operatorIds]),
+      );
+      const oldFeeWei = BigInt((await views.getOperatorById(BigInt(operatorIds[0]))).fee);
+      const oldFeePacked = oldFeeWei / ETH_DEDUCTED_DIGITS;
+
+      const { root: root64, proofs: proofs64 } = generateMerkleForClusterEB(connection, [
+        { clusterId, effectiveBalance: 64 },
+      ]);
+      const rootBlock64 = await getBlockNumber(provider);
+      await network.connect(oracle1).commitRoot(root64, rootBlock64);
+      await network.connect(oracle2).commitRoot(root64, rootBlock64);
+      await network.connect(oracle3).commitRoot(root64, rootBlock64);
+      const txEb64 = await network.updateClusterBalance(
+        rootBlock64, clusterOwner.address, operatorIds, clusterAfterRegister, 64, proofs64[clusterId],
+      );
+      const clusterAfterEb64 = parseClusterFromEvent(network, await txEb64.wait(), Events.CLUSTER_BALANCE_UPDATED);
+
+      const newFee = await getValidOperatorFeeIncrease(views, BigInt(operatorIds[0]));
+      await network.connect(operatorOwner).declareOperatorFee(operatorIds[0], newFee);
+
+      const { root: root128, proofs: proofs128 } = generateMerkleForClusterEB(connection, [
+        { clusterId, effectiveBalance: 128 },
+      ]);
+      const rootBlock128 = await getBlockNumber(provider);
+      await network.connect(oracle1).commitRoot(root128, rootBlock128);
+      await network.connect(oracle2).commitRoot(root128, rootBlock128);
+      await network.connect(oracle3).commitRoot(root128, rootBlock128);
+      const txEb128 = await network.updateClusterBalance(
+        rootBlock128, clusterOwner.address, operatorIds, clusterAfterEb64, 128, proofs128[clusterId],
+      );
+      const receiptEb128 = await txEb128.wait();
+      const earningsBeforeExecute = BigInt(await views.getOperatorEarnings(BigInt(operatorIds[0])));
+
+      const feePeriods = await views.getOperatorFeePeriods();
+      const declareDelay = BigInt(feePeriods[0]);
+      await provider.send("evm_increaseTime", [Number(declareDelay) + 1]);
+      await mineBlocks(provider, 1);
+
+      const execTx = await network.connect(operatorOwner).executeOperatorFee(operatorIds[0]);
+      const execReceipt = await execTx.wait();
+      const execBlock = BigInt(execReceipt!.blockNumber);
+      const eb128Block = BigInt(receiptEb128!.blockNumber);
+
+      const earningsAfterExecute = BigInt(await views.getOperatorEarnings(BigInt(operatorIds[0])));
+      const expectedDelta = calcOperatorFeeAccrual(
+        execBlock - eb128Block,
+        oldFeePacked,
+        calcVUnits(128n),
+      ) * ETH_DEDUCTED_DIGITS;
+      expect(earningsAfterExecute - earningsBeforeExecute).to.equal(expectedDelta);
+
+      const updatedOperator = await views.getOperatorById(BigInt(operatorIds[0]));
+      expect(BigInt(updatedOperator.fee)).to.equal(BigInt(newFee));
+    });
+
+    it("executeOperatorFee reverts after operator removal on explicit-EB cluster", async function () {
+      const { network, views, ssvToken } =
+        await networkHelpers.loadFixture(deployFixture);
+      const provider = connection.ethers.provider;
+
+      const operatorIds = await registerOperators(network, operatorOwner, 4);
+      await whitelistAddresses(network, operatorOwner, operatorIds, [clusterOwner.address]);
+
+      const networkAddress = await network.getAddress();
+      const stakeAmount = ethers.parseEther("100");
+      await ssvToken.transfer(staker.address, stakeAmount);
+      await ssvToken.connect(staker).approve(networkAddress, stakeAmount);
+      await network.connect(staker).stake(stakeAmount);
+      await network.replaceOracle(1, oracle1.address);
+      await network.replaceOracle(2, oracle2.address);
+      await network.replaceOracle(3, oracle3.address);
+
+      const registerTx = await network.connect(clusterOwner).registerValidator(
+        makePublicKey(9201), operatorIds, DEFAULT_SHARES, EMPTY_CLUSTER,
+        { value: DEFAULT_ETH_REGISTER_VALUE },
+      );
+      const clusterAfterRegister = parseClusterFromEvent(network, await registerTx.wait(), Events.VALIDATOR_ADDED);
+
+      const clusterId = ethers.keccak256(
+        ethers.solidityPacked(["address", "uint64[]"], [clusterOwner.address, operatorIds]),
+      );
+      const { root, proofs } = generateMerkleForClusterEB(connection, [
+        { clusterId, effectiveBalance: 64 },
+      ]);
+      const rootBlock = await getBlockNumber(provider);
+      await network.connect(oracle1).commitRoot(root, rootBlock);
+      await network.connect(oracle2).commitRoot(root, rootBlock);
+      await network.connect(oracle3).commitRoot(root, rootBlock);
+      await network.updateClusterBalance(
+        rootBlock, clusterOwner.address, operatorIds, clusterAfterRegister, 64, proofs[clusterId],
+      );
+
+      const declaredFee = await getValidOperatorFeeIncrease(views, BigInt(operatorIds[0]));
+      await network.connect(operatorOwner).declareOperatorFee(operatorIds[0], declaredFee);
+      await network.connect(operatorOwner).removeOperator(operatorIds[0]);
+
+      const feePeriods = await views.getOperatorFeePeriods();
+      const declareDelay = BigInt(feePeriods[0]);
+      await provider.send("evm_increaseTime", [Number(declareDelay) + 1]);
+      await mineBlocks(provider, 1);
+
+      await expect(
+        network.connect(operatorOwner).executeOperatorFee(operatorIds[0]),
+      ).to.be.revertedWithCustomError(network, Errors.OPERATOR_DOES_NOT_EXIST);
     });
   });
 });
