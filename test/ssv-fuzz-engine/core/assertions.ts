@@ -375,13 +375,53 @@ export async function assertOperatorEarningsWithEB<S extends { cluster: ClusterR
 
       for (const op of operators) {
         const packedFee = op.fee / ETH_DEDUCTED_DIGITS;
-        const expectedDelta = ((packedFee * prev.vUnits) / BPS_DENOMINATOR) * ETH_DEDUCTED_DIGITS * blocks;
+        const expectedDelta = ((blocks * packedFee * prev.vUnits) / BPS_DENOMINATOR) * ETH_DEDUCTED_DIGITS;
         expect(currentEarnings.get(op.id)).to.equal(prev.earnings.get(op.id)! + expectedDelta);
       }
     }
   }
 
   ctx.state.lastEBOperatorEarnings = { block, earnings: currentEarnings, vUnits: currentVUnits };
+}
+
+export interface EBNetworkEarningsSnapshot {
+  block: bigint;
+  earnings: bigint;
+  vUnits: bigint;
+}
+
+export async function assertNetworkEarningsWithEB<S extends {
+  cluster: ClusterRecord;
+  operators: OperatorRecord[];
+  lastEBNetworkEarnings?: EBNetworkEarningsSnapshot;
+}>(ctx: FuzzContext<S>): Promise<void> {
+  const block = BigInt(await ctx.provider.getBlockNumber());
+  const { cluster } = ctx.state;
+  const currentEarnings = BigInt(await ctx.views.getNetworkEarnings());
+  const networkFee = BigInt(await ctx.views.getNetworkFee());
+
+  let currentVUnits: bigint;
+  if (cluster.cluster.active && BigInt(cluster.cluster.validatorCount) > 0n) {
+    const eb = BigInt(await ctx.views.getEffectiveBalance(
+      cluster.owner.address, cluster.operatorIds, cluster.cluster,
+    ));
+    currentVUnits = ebToVUnits(eb);
+  } else {
+    currentVUnits = 0n;
+  }
+
+  if (ctx.state.lastEBNetworkEarnings !== undefined) {
+    const prev = ctx.state.lastEBNetworkEarnings;
+    if (prev.vUnits === currentVUnits) {
+      const blocks = block - prev.block;
+      const packedNetFee = networkFee / ETH_DEDUCTED_DIGITS;
+      const expectedDelta =
+        ((blocks * packedNetFee * prev.vUnits) / BPS_DENOMINATOR) * ETH_DEDUCTED_DIGITS;
+      expect(currentEarnings).to.equal(prev.earnings + expectedDelta);
+    }
+  }
+
+  ctx.state.lastEBNetworkEarnings = { block, earnings: currentEarnings, vUnits: currentVUnits };
 }
 
 export async function assertDaoVUnitsMatchCluster<S extends { cluster: ClusterRecord; operators: OperatorRecord[] }>(

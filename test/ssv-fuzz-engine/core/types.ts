@@ -30,6 +30,7 @@ export interface FuzzConfig<S> {
   setup: SetupFn<S>;
   steps: (StepFn<S> | NamedStep<S>)[];
   expectedPhase?: string;
+  after?: (ctx: FuzzContext<S>) => Promise<void>;
 }
 
 export interface OperatorRecord {
