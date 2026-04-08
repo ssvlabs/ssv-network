@@ -9,6 +9,9 @@ seqLen: 250
 
 workers: 7
 
+corpusDir: "corpus"
+coverageDir: "coverage"
+
 filterBlacklist: false
 filterFunctions:
   - "CSSVTokenAccessControlEchidna.action_attackerTryBurn(uint256)"
@@ -61,7 +64,9 @@ filterFunctions:
   - "SSVClustersEchidna.action_unauthorized_withdraw(uint256)"
   - "SSVClustersEchidna.action_update_cluster_balance_stale(uint256)"
   - "SSVClustersEchidna.action_update_cluster_balance_too_frequent(uint256)"
+  - "SSVClustersEchidna.action_update_cluster_balance_inactive_valid(uint256)"
   - "SSVClustersEchidna.action_update_cluster_balance_valid(uint256)"
+  - "SSVClustersEchidna.action_update_cluster_balance_non_latest_root(uint256)"
   - "SSVClustersEchidna.action_update_cluster_balance_without_root(uint256)"
   - "SSVClustersEchidna.action_withdraw(uint256)"
   - "SSVClustersEchidna.action_withdraw_liquidated(uint256)"
@@ -114,9 +119,12 @@ filterFunctions:
   - "SSVLegacyClustersEchidna.action_liquidate_ssv_with_eb_noise(uint256)"
   - "SSVMigrationEchidna.action_advance_ssv_without_cluster_sync(uint256)"
   - "SSVMigrationEchidna.action_fund_eth(uint256)"
+  - "SSVMigrationEchidna.action_liquidate_ssv()"
+  - "SSVMigrationEchidna.action_migrate_liquidated_ssv_to_eth(uint256)"
   - "SSVMigrationEchidna.action_migrate_ssv_to_eth(uint256)"
   - "SSVMigrationEchidna.action_prepare_migration_and_attempt(uint256)"
   - "SSVMigrationEchidna.action_remove_operator(uint256)"
+  - "SSVMigrationEchidna.action_update_ssv_cluster_balance_valid(uint256)"
   - "SSVMigrationEchidna.action_sync_ssv_cluster()"
   - "SSVOperatorFeeGovEchidna.action_plant_and_execute_legacy(uint256,uint256)"
   - "SSVOperatorFeeGovEchidna.action_register(uint256,uint256,uint8)"
