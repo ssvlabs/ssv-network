@@ -12,6 +12,7 @@ import {
   assertEthConservation,
   type EBNetworkEarningsSnapshot,
 } from "./core/assertions.ts";
+import { ebToVUnits } from "./core/fuzz-helpers.ts";
 import { computeClusterId, computeEBRoot, commitEBRoot } from "../helpers/oracle.ts";
 import { parseClusterFromEvent } from "../helpers/cluster.ts";
 import { Events } from "../common/events.ts";
@@ -34,12 +35,6 @@ interface State {
   maxBurnRate: bigint;
   lastEBNetworkEarnings?: EBNetworkEarningsSnapshot;
   tickDepositDelta: bigint;
-}
-
-function ebToVUnits(effectiveBalance: bigint): bigint {
-  const vUnits = effectiveBalance * BPS_DENOMINATOR;
-  if (vUnits === 0n) return 0n;
-  return (vUnits - 1n) / 32n + 1n;
 }
 
 const RUNS = 10;

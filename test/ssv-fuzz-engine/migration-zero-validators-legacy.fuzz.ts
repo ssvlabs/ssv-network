@@ -2,6 +2,7 @@ import { fuzz, generateSeeds } from "./core/runner.ts";
 import { setupZeroValidatorLegacyMigrationSeed, alignSSVFee } from "./core/setup.ts";
 import type { OperatorRecord, ClusterRecord } from "./core/types.ts";
 import {
+  assertLegacyEthOpsBlocked,
   migrateLegacyCluster,
   type DepositWithdrawTracker,
   type LegacyMigrationSnapshot,
@@ -16,11 +17,13 @@ import {
   assertPhaseAwareClusterBalance,
   assertPhaseAwareNetworkEarnings,
   assertContractBalanceWithDeltas,
+  resetPhaseAwareSnapshots,
   type PhaseAwareOperatorEarningsSnapshot,
   type PhaseAwareClusterBalanceSnapshot,
   type PhaseAwareNetworkEarningsSnapshot,
   type ContractBalanceWithDeltasSnapshot,
 } from "./core/assertions.ts";
+import { computeMinViableBalanceForValidatorCount } from "./core/fuzz-helpers.ts";
 import { parseClusterFromEvent } from "../helpers/cluster.ts";
 import { mineBlocks, setAccountBalance } from "../helpers/blocks.ts";
 import { makePublicKey } from "../helpers/keys.ts";
@@ -32,8 +35,6 @@ import {
   TOKEN_REGISTER_AMOUNT,
   DEFAULT_OPERATOR_ETH_FEE,
   NETWORK_FEE_ETH,
-  ETH_DEDUCTED_DIGITS,
-  BPS_DENOMINATOR,
   MINIMUM_BLOCKS_BEFORE_LIQUIDATION,
   MINIMUM_LIQUIDATION_PERIOD_COLLATERAL,
   DEFAULT_ETH_REGISTER_VALUE,
@@ -131,18 +132,7 @@ describe("Fuzz: CAT-1-9 — zero-validator cluster, migration + post-migration r
                 "Post-upgrade SSV balance must equal residual balance (0 validators → no decay)",
               );
 
-              await expect(
-                ctx.network.connect(cluster.owner).deposit(
-                  cluster.owner.address, cluster.operatorIds, cluster.cluster,
-                  { value: 1n },
-                ),
-              ).to.be.revertedWithCustomError(ctx.network, Errors.INCORRECT_CLUSTER_VERSION);
-
-              await expect(
-                ctx.network.connect(cluster.owner).withdraw(
-                  cluster.operatorIds, 1n, cluster.cluster,
-                ),
-              ).to.be.revertedWithCustomError(ctx.network, Errors.INCORRECT_CLUSTER_VERSION);
+              await assertLegacyEthOpsBlocked(ctx);
 
               // Phase 3: migrate with fuzzed ETH deposit (min..3× minimum)
               const ethDepositAmount = ctx.rng.nextInRange(
@@ -172,16 +162,13 @@ describe("Fuzz: CAT-1-9 — zero-validator cluster, migration + post-migration r
               await assertContractBalanceWithDeltas(ctx);
 
               // Phase 4: register validator on migrated ETH cluster
-              const opCount = BigInt(cluster.operatorIds.length);
-              const packedOpFee = DEFAULT_OPERATOR_ETH_FEE / ETH_DEDUCTED_DIGITS;
-              const packedNetFee = NETWORK_FEE_ETH / ETH_DEDUCTED_DIGITS;
-              const burnRate = opCount * packedOpFee;
-              const vUnits = 1n * BPS_DENOMINATOR;
-              const thresholdUnits = (MINIMUM_BLOCKS_BEFORE_LIQUIDATION * (burnRate + packedNetFee) * vUnits) / BPS_DENOMINATOR;
-              const liquidationThreshold = thresholdUnits * ETH_DEDUCTED_DIGITS;
-              const minViable = liquidationThreshold > MINIMUM_LIQUIDATION_PERIOD_COLLATERAL
-                ? liquidationThreshold
-                : MINIMUM_LIQUIDATION_PERIOD_COLLATERAL;
+              const minViable = computeMinViableBalanceForValidatorCount(
+                cluster.operatorIds.map(() => BigInt(DEFAULT_OPERATOR_ETH_FEE)),
+                BigInt(NETWORK_FEE_ETH),
+                1n,
+                BigInt(MINIMUM_BLOCKS_BEFORE_LIQUIDATION),
+                BigInt(MINIMUM_LIQUIDATION_PERIOD_COLLATERAL),
+              );
 
               const currentBalance = ethDepositAmount;
               const minRegDeposit = minViable > currentBalance ? minViable - currentBalance : 0n;
@@ -205,10 +192,7 @@ describe("Fuzz: CAT-1-9 — zero-validator cluster, migration + post-migration r
               );
 
               // Reset phase-aware snapshots (validator count changed 0->1)
-              ctx.state.lastPhaseAwareOperatorEarnings = undefined;
-              ctx.state.lastPhaseAwareClusterBalance = undefined;
-              ctx.state.lastPhaseAwareNetworkEarnings = undefined;
-              ctx.state.lastContractBalanceWithDeltas = undefined;
+              resetPhaseAwareSnapshots(ctx, { resetContractBalanceWithDeltas: true });
 
               const postRegistrationBlocks = Number(ctx.rng.nextInRange(30n, 100n));
               await mineBlocks(ctx.provider, postRegistrationBlocks);

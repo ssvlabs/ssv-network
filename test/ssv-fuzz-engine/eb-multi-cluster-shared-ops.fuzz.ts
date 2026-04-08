@@ -3,6 +3,7 @@ import { fuzz, generateSeeds } from "./core/runner.ts";
 import { registerFuzzOperators, registerFuzzCluster, alignFee } from "./core/setup.ts";
 import { setupFuzzOracles, type OracleState } from "./core/steps.ts";
 import type { OperatorRecord, ClusterRecord } from "./core/types.ts";
+import { ebToVUnits } from "./core/fuzz-helpers.ts";
 import { computeClusterId, computeEBRoot, commitEBRoot } from "../helpers/oracle.ts";
 import { parseClusterFromEvent } from "../helpers/cluster.ts";
 import { Events } from "../common/events.ts";
@@ -28,12 +29,6 @@ interface State {
   validatorCountB: number;
   burnRateAAfterEB: bigint;
   burnRateBBeforeEB: bigint;
-}
-
-function ebToVUnits(effectiveBalance: bigint): bigint {
-  const vUnits = effectiveBalance * BPS_DENOMINATOR;
-  if (vUnits === 0n) return 0n;
-  return (vUnits - 1n) / 32n + 1n;
 }
 
 function computeExpectedBurnRate(

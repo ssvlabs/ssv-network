@@ -2,6 +2,7 @@ import { fuzz, generateSeeds } from "./core/runner.ts";
 import { setupRemovedOperatorLegacyMigrationSeed, alignSSVFee } from "./core/setup.ts";
 import type { OperatorRecord, ClusterRecord } from "./core/types.ts";
 import {
+  assertLegacyEthOpsBlocked,
   migrateLegacyCluster,
   type DepositWithdrawTracker,
   type LegacyMigrationSnapshot,
@@ -16,11 +17,13 @@ import {
   assertPhaseAwareClusterBalance,
   assertPhaseAwareNetworkEarnings,
   assertContractBalanceWithDeltas,
+  resetPhaseAwareSnapshots,
   type PhaseAwareOperatorEarningsSnapshot,
   type PhaseAwareClusterBalanceSnapshot,
   type PhaseAwareNetworkEarningsSnapshot,
   type ContractBalanceWithDeltasSnapshot,
 } from "./core/assertions.ts";
+import { computeMinViableBalanceForValidatorCount } from "./core/fuzz-helpers.ts";
 import { parseClusterFromEvent } from "../helpers/cluster.ts";
 import { mineBlocks, setAccountBalance } from "../helpers/blocks.ts";
 import { makePublicKey } from "../helpers/keys.ts";
@@ -34,8 +37,6 @@ import {
   DEFAULT_SHARES,
   DEFAULT_OPERATOR_ETH_FEE,
   NETWORK_FEE_ETH,
-  ETH_DEDUCTED_DIGITS,
-  BPS_DENOMINATOR,
   MINIMUM_BLOCKS_BEFORE_LIQUIDATION,
   MINIMUM_LIQUIDATION_PERIOD_COLLATERAL,
 } from "../common/constants.ts";
@@ -109,28 +110,15 @@ describe("Fuzz: CAT-1-3 — removed operator cluster, migration skips removed op
             name: "removedOperatorMigrationLifecycle",
             fn: async (ctx) => {
               expect(ctx.state.cluster.cluster.active).to.equal(true);
-              await expect(
-                ctx.network.connect(ctx.state.cluster.owner).deposit(
-                  ctx.state.cluster.owner.address, ctx.state.cluster.operatorIds, ctx.state.cluster.cluster, { value: 1n },
-                ),
-              ).to.be.revertedWithCustomError(ctx.network, Errors.INCORRECT_CLUSTER_VERSION);
-              await expect(
-                ctx.network.connect(ctx.state.cluster.owner).withdraw(
-                  ctx.state.cluster.operatorIds, 1n, ctx.state.cluster.cluster,
-                ),
-              ).to.be.revertedWithCustomError(ctx.network, Errors.INCORRECT_CLUSTER_VERSION);
+              await assertLegacyEthOpsBlocked(ctx);
 
-              const activeOpCount = BigInt(ctx.state.operators.length);
-              const valCount = BigInt(ctx.state.cluster.cluster.validatorCount);
-              const packedOpFee = DEFAULT_OPERATOR_ETH_FEE / ETH_DEDUCTED_DIGITS;
-              const packedNetFee = NETWORK_FEE_ETH / ETH_DEDUCTED_DIGITS;
-              const burnRate = activeOpCount * packedOpFee;
-              const vUnits = valCount * BPS_DENOMINATOR;
-              const thresholdUnits = (MINIMUM_BLOCKS_BEFORE_LIQUIDATION * (burnRate + packedNetFee) * vUnits) / BPS_DENOMINATOR;
-              const liquidationThreshold = thresholdUnits * ETH_DEDUCTED_DIGITS;
-              const minViable = liquidationThreshold > MINIMUM_LIQUIDATION_PERIOD_COLLATERAL
-                ? liquidationThreshold
-                : MINIMUM_LIQUIDATION_PERIOD_COLLATERAL;
+              const minViable = computeMinViableBalanceForValidatorCount(
+                ctx.state.operators.map(() => BigInt(DEFAULT_OPERATOR_ETH_FEE)),
+                BigInt(NETWORK_FEE_ETH),
+                BigInt(ctx.state.cluster.cluster.validatorCount),
+                BigInt(MINIMUM_BLOCKS_BEFORE_LIQUIDATION),
+                BigInt(MINIMUM_LIQUIDATION_PERIOD_COLLATERAL),
+              );
 
               if (minViable > 0n) {
                 const underfunded = minViable - 1n;
@@ -164,17 +152,12 @@ describe("Fuzz: CAT-1-3 — removed operator cluster, migration skips removed op
               await assertPhaseAwareClusterBalance(ctx);
               await assertPhaseAwareNetworkEarnings(ctx);
 
-              let regReverted = false;
-              try {
-                const tx = await ctx.network.connect(ctx.state.cluster.owner).registerValidator(
+              await expect(
+                ctx.network.connect(ctx.state.cluster.owner).registerValidator(
                   makePublicKey(5000), ctx.state.cluster.operatorIds, DEFAULT_SHARES, ctx.state.cluster.cluster,
                   { value: 0n },
-                );
-                await tx.wait();
-              } catch {
-                regReverted = true;
-              }
-              expect(regReverted, "registerValidator must revert with removed operator in cluster").to.equal(true);
+                ),
+              ).to.be.revertedWithCustomError(ctx.network, Errors.OPERATOR_DOES_NOT_EXIST);
 
               const clusterBalance = BigInt(
                 await ctx.views.getBalance(
@@ -204,9 +187,7 @@ describe("Fuzz: CAT-1-3 — removed operator cluster, migration skips removed op
               ctx.state.cluster.cluster = parseClusterFromEvent(ctx.network, depReceipt, Events.CLUSTER_DEPOSITED);
               ctx.state.tracker.totalDeposited += depositAmount;
 
-              ctx.state.lastPhaseAwareOperatorEarnings = undefined;
-              ctx.state.lastPhaseAwareClusterBalance = undefined;
-              ctx.state.lastPhaseAwareNetworkEarnings = undefined;
+              resetPhaseAwareSnapshots(ctx);
               await assertPhaseAwareOperatorEarnings(ctx);
               await assertPhaseAwareClusterBalance(ctx);
               await assertPhaseAwareNetworkEarnings(ctx);

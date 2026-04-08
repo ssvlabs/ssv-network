@@ -17,11 +17,13 @@ import {
   assertPhaseAwareClusterBalance,
   assertPhaseAwareNetworkEarnings,
   assertContractBalanceWithDeltas,
+  resetPhaseAwareSnapshots,
   type PhaseAwareOperatorEarningsSnapshot,
   type PhaseAwareClusterBalanceSnapshot,
   type PhaseAwareNetworkEarningsSnapshot,
   type ContractBalanceWithDeltasSnapshot,
 } from "./core/assertions.ts";
+import { computeMinViableBalanceForValidatorCount } from "./core/fuzz-helpers.ts";
 import { parseClusterFromEvent } from "../helpers/cluster.ts";
 import { mineBlocks, setAccountBalance } from "../helpers/blocks.ts";
 import { makePublicKey } from "../helpers/keys.ts";
@@ -34,8 +36,6 @@ import {
   DEFAULT_ETH_REGISTER_VALUE,
   DEFAULT_OPERATOR_ETH_FEE,
   NETWORK_FEE_ETH,
-  ETH_DEDUCTED_DIGITS,
-  BPS_DENOMINATOR,
   MINIMUM_BLOCKS_BEFORE_LIQUIDATION,
   MINIMUM_LIQUIDATION_PERIOD_COLLATERAL,
   DEFAULT_SHARES,
@@ -109,15 +109,13 @@ describe("Fuzz: CAT-1-1 — healthy cluster, normal operators — full migration
 
               // After assertBlockedEthOpsOnLegacyCluster removes one validator, validatorCount is 2.
               const valCount = BigInt(ctx.state.cluster.cluster.validatorCount);
-              const packedOpFee = DEFAULT_OPERATOR_ETH_FEE / ETH_DEDUCTED_DIGITS;
-              const packedNetFee = NETWORK_FEE_ETH / ETH_DEDUCTED_DIGITS;
-              const packedOpBurnRate = BigInt(ctx.state.cluster.operatorIds.length) * packedOpFee;
-              const vUnits = valCount * BPS_DENOMINATOR;
-              const thresholdUnits = (MINIMUM_BLOCKS_BEFORE_LIQUIDATION * (packedOpBurnRate + packedNetFee) * vUnits) / BPS_DENOMINATOR;
-              const liquidationThreshold = thresholdUnits * ETH_DEDUCTED_DIGITS;
-              const minViable = liquidationThreshold > MINIMUM_LIQUIDATION_PERIOD_COLLATERAL
-                ? liquidationThreshold
-                : MINIMUM_LIQUIDATION_PERIOD_COLLATERAL;
+              const minViable = computeMinViableBalanceForValidatorCount(
+                ctx.state.cluster.operatorIds.map(() => BigInt(DEFAULT_OPERATOR_ETH_FEE)),
+                BigInt(NETWORK_FEE_ETH),
+                valCount,
+                BigInt(MINIMUM_BLOCKS_BEFORE_LIQUIDATION),
+                BigInt(MINIMUM_LIQUIDATION_PERIOD_COLLATERAL),
+              );
 
               if (minViable > 0n) {
                 const underfunded = minViable - 1n;
@@ -160,9 +158,7 @@ describe("Fuzz: CAT-1-1 — healthy cluster, normal operators — full migration
               ctx.state.cluster.cluster = parseClusterFromEvent(ctx.network, regReceipt, Events.VALIDATOR_ADDED);
               ctx.state.cluster.validatorKeys.push(newKey);
 
-              ctx.state.lastPhaseAwareOperatorEarnings = undefined;
-              ctx.state.lastPhaseAwareClusterBalance = undefined;
-              ctx.state.lastPhaseAwareNetworkEarnings = undefined;
+              resetPhaseAwareSnapshots(ctx);
               await assertPhaseAwareOperatorEarnings(ctx);
               await assertPhaseAwareClusterBalance(ctx);
               await assertPhaseAwareNetworkEarnings(ctx);

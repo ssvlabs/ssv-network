@@ -2,6 +2,7 @@ import { fuzz, generateSeeds } from "./core/runner.ts";
 import { setupPrivateOperatorsLegacyMigrationSeed, alignSSVFee } from "./core/setup.ts";
 import type { OperatorRecord, ClusterRecord } from "./core/types.ts";
 import {
+  assertLegacyEthOpsBlocked,
   migrateLegacyCluster,
   type DepositWithdrawTracker,
   type LegacyMigrationSnapshot,
@@ -16,11 +17,13 @@ import {
   assertPhaseAwareClusterBalance,
   assertPhaseAwareNetworkEarnings,
   assertContractBalanceWithDeltas,
+  resetPhaseAwareSnapshots,
   type PhaseAwareOperatorEarningsSnapshot,
   type PhaseAwareClusterBalanceSnapshot,
   type PhaseAwareNetworkEarningsSnapshot,
   type ContractBalanceWithDeltasSnapshot,
 } from "./core/assertions.ts";
+import { computeMinViableBalanceForValidatorCount } from "./core/fuzz-helpers.ts";
 import { parseClusterFromEvent } from "../helpers/cluster.ts";
 import { mineBlocks, setAccountBalance } from "../helpers/blocks.ts";
 import { makePublicKey } from "../helpers/keys.ts";
@@ -32,8 +35,6 @@ import {
   TOKEN_REGISTER_AMOUNT,
   DEFAULT_OPERATOR_ETH_FEE,
   NETWORK_FEE_ETH,
-  ETH_DEDUCTED_DIGITS,
-  BPS_DENOMINATOR,
   MINIMUM_BLOCKS_BEFORE_LIQUIDATION,
   MINIMUM_LIQUIDATION_PERIOD_COLLATERAL,
   DEFAULT_ETH_REGISTER_VALUE,
@@ -118,30 +119,16 @@ describe("Fuzz: CAT-1-11 — private operators cluster, migration + whitelist en
                 "Cluster must have validators",
               );
 
-              await expect(
-                ctx.network.connect(cluster.owner).deposit(
-                  cluster.owner.address, cluster.operatorIds, cluster.cluster,
-                  { value: 1n },
-                ),
-              ).to.be.revertedWithCustomError(ctx.network, Errors.INCORRECT_CLUSTER_VERSION);
-
-              await expect(
-                ctx.network.connect(cluster.owner).withdraw(
-                  cluster.operatorIds, 1n, cluster.cluster,
-                ),
-              ).to.be.revertedWithCustomError(ctx.network, Errors.INCORRECT_CLUSTER_VERSION);
+              await assertLegacyEthOpsBlocked(ctx);
 
               // Phase 3: migration with fuzzed ETH deposit
-              const opCount = BigInt(cluster.operatorIds.length);
-              const packedOpFee = DEFAULT_OPERATOR_ETH_FEE / ETH_DEDUCTED_DIGITS;
-              const packedNetFee = NETWORK_FEE_ETH / ETH_DEDUCTED_DIGITS;
-              const burnRate = opCount * packedOpFee;
-              const vUnits = BigInt(cluster.cluster.validatorCount) * BPS_DENOMINATOR;
-              const thresholdUnits = (MINIMUM_BLOCKS_BEFORE_LIQUIDATION * (burnRate + packedNetFee) * vUnits) / BPS_DENOMINATOR;
-              const liquidationThreshold = thresholdUnits * ETH_DEDUCTED_DIGITS;
-              const minViable = liquidationThreshold > MINIMUM_LIQUIDATION_PERIOD_COLLATERAL
-                ? liquidationThreshold
-                : MINIMUM_LIQUIDATION_PERIOD_COLLATERAL;
+              const minViable = computeMinViableBalanceForValidatorCount(
+                cluster.operatorIds.map(() => BigInt(DEFAULT_OPERATOR_ETH_FEE)),
+                BigInt(NETWORK_FEE_ETH),
+                BigInt(cluster.cluster.validatorCount),
+                BigInt(MINIMUM_BLOCKS_BEFORE_LIQUIDATION),
+                BigInt(MINIMUM_LIQUIDATION_PERIOD_COLLATERAL),
+              );
 
               const migrateStep = migrateLegacyCluster<State>(minViable, DEFAULT_ETH_REGISTER_VALUE * 2n);
               await migrateStep(ctx);
@@ -185,10 +172,7 @@ describe("Fuzz: CAT-1-11 — private operators cluster, migration + whitelist en
               ctx.state.tracker.totalDeposited += regDepositOwner;
 
               // Reset phase-aware snapshots (validator count changed)
-              ctx.state.lastPhaseAwareOperatorEarnings = undefined;
-              ctx.state.lastPhaseAwareClusterBalance = undefined;
-              ctx.state.lastPhaseAwareNetworkEarnings = undefined;
-              ctx.state.lastContractBalanceWithDeltas = undefined;
+              resetPhaseAwareSnapshots(ctx, { resetContractBalanceWithDeltas: true });
 
               const postMigrationBlocks = Number(ctx.rng.nextInRange(30n, 100n));
               await mineBlocks(ctx.provider, postMigrationBlocks);

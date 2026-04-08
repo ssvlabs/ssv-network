@@ -13,9 +13,11 @@ import {
   assertDaoVUnitsMatchCluster,
   assertEthConservation,
   computeEBAccrualDelta,
+  collectParsedEvents,
+  collectParsedEventsByName,
   getContractEthBalance,
 } from "./core/assertions.ts";
-import { computeClusterBalanceWithVUnits } from "./core/fuzz-helpers.ts";
+import { computeClusterBalanceWithVUnits, ebToVUnits } from "./core/fuzz-helpers.ts";
 import { computeClusterId, computeEBRoot, commitEBRoot } from "../helpers/oracle.ts";
 import { parseClusterFromEvent } from "../helpers/cluster.ts";
 import { Events } from "../common/events.ts";
@@ -48,12 +50,6 @@ interface State {
     operatorEarnings: Map<number, bigint>;
   };
   tickDepositDelta: bigint;
-}
-
-function ebToVUnits(effectiveBalance: bigint): bigint {
-  const vUnits = effectiveBalance * BPS_DENOMINATOR;
-  if (vUnits === 0n) return 0n;
-  return (vUnits - 1n) / 32n + 1n;
 }
 
 const RUNS = 10;
@@ -193,16 +189,8 @@ describe("Fuzz: EB increase triggers auto-liquidation (CAT-3-2)", function () {
 
               const receipt = await commitEBRoot(ctx.network, root, blockNum, oracle.oracles);
               oracle.lastCommittedBlock = BigInt(blockNum);
-
-              const rootCommittedEvent = receipt.logs.find(
-                (log: any) => {
-                  try {
-                    const parsed = ctx.network.interface.parseLog(log);
-                    return parsed?.name === "RootCommitted";
-                  } catch { return false; }
-                },
-              );
-              expect(rootCommittedEvent).to.not.be.undefined;
+              const rootCommittedEvent = collectParsedEventsByName(ctx, receipt, "RootCommitted");
+              expect(rootCommittedEvent.length).to.be.greaterThan(0);
 
               ctx.state.phase = "root-committed";
             },
@@ -236,9 +224,11 @@ describe("Fuzz: EB increase triggers auto-liquidation (CAT-3-2)", function () {
               await expect(tx).to.emit(ctx.network, Events.CLUSTER_LIQUIDATED);
               await expect(tx).to.emit(ctx.network, Events.CLUSTER_BALANCE_UPDATED);
 
-              const eventNames = txReceipt.logs
-                .map((log: any) => { try { return ctx.network.interface.parseLog(log)?.name; } catch { return null; } })
-                .filter((n: string | null | undefined): n is string => n === Events.CLUSTER_LIQUIDATED || n === Events.CLUSTER_BALANCE_UPDATED);
+              const eventNames = collectParsedEvents(ctx, txReceipt)
+                .map((event) => event.name)
+                .filter((name): name is string =>
+                  name === Events.CLUSTER_LIQUIDATED || name === Events.CLUSTER_BALANCE_UPDATED
+                );
               expect(eventNames[0]).to.equal(Events.CLUSTER_LIQUIDATED);
               expect(eventNames[1]).to.equal(Events.CLUSTER_BALANCE_UPDATED);
 

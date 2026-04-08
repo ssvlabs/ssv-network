@@ -2,6 +2,7 @@ import { fuzz, generateSeeds } from "./core/runner.ts";
 import { setupPendingFeeLegacyMigrationSeed, alignFee, alignSSVFee } from "./core/setup.ts";
 import type { OperatorRecord, ClusterRecord } from "./core/types.ts";
 import {
+  assertLegacyEthOpsBlocked,
   migrateLegacyCluster,
   type DepositWithdrawTracker,
   type LegacyMigrationSnapshot,
@@ -16,11 +17,13 @@ import {
   assertPhaseAwareClusterBalance,
   assertPhaseAwareNetworkEarnings,
   assertContractBalanceWithDeltas,
+  collectParsedEventsByName,
   type PhaseAwareOperatorEarningsSnapshot,
   type PhaseAwareClusterBalanceSnapshot,
   type PhaseAwareNetworkEarningsSnapshot,
   type ContractBalanceWithDeltasSnapshot,
 } from "./core/assertions.ts";
+import { computeMinViableBalanceForValidatorCount } from "./core/fuzz-helpers.ts";
 import { mineBlocks, setAccountBalance } from "../helpers/blocks.ts";
 import { Events } from "../common/events.ts";
 import { Errors } from "../common/errors.ts";
@@ -32,7 +35,6 @@ import {
   DEFAULT_OPERATOR_ETH_FEE,
   DECLARE_OPERATOR_FEE_PERIOD,
   ETH_DEDUCTED_DIGITS,
-  BPS_DENOMINATOR,
   NETWORK_FEE_ETH,
   MINIMUM_BLOCKS_BEFORE_LIQUIDATION,
   MINIMUM_LIQUIDATION_PERIOD_COLLATERAL,
@@ -114,16 +116,7 @@ describe("Fuzz: CAT-1-12 — pending fee declaration, migration + post-upgrade f
               expect(cluster.cluster.active).to.equal(true);
               expect(BigInt(cluster.cluster.validatorCount)).to.be.greaterThan(0n);
 
-              await expect(
-                ctx.network.connect(cluster.owner).deposit(
-                  cluster.owner.address, cluster.operatorIds, cluster.cluster, { value: 1n },
-                ),
-              ).to.be.revertedWithCustomError(ctx.network, Errors.INCORRECT_CLUSTER_VERSION);
-              await expect(
-                ctx.network.connect(cluster.owner).withdraw(
-                  cluster.operatorIds, 1n, cluster.cluster,
-                ),
-              ).to.be.revertedWithCustomError(ctx.network, Errors.INCORRECT_CLUSTER_VERSION);
+              await assertLegacyEthOpsBlocked(ctx);
 
               const operatorOwner = operators[0].owner;
               for (const opId of pendingOperatorIds) {
@@ -132,17 +125,13 @@ describe("Fuzz: CAT-1-12 — pending fee declaration, migration + post-upgrade f
                 ).to.be.revertedWithCustomError(ctx.network, Errors.LEGACY_OPERATOR_FEE_DECLARATION_INVALID);
               }
 
-              const opCount = BigInt(cluster.operatorIds.length);
-              const valCount = BigInt(cluster.cluster.validatorCount);
-              const packedOpFee = DEFAULT_OPERATOR_ETH_FEE / ETH_DEDUCTED_DIGITS;
-              const packedNetFee = NETWORK_FEE_ETH / ETH_DEDUCTED_DIGITS;
-              const burnRate = opCount * packedOpFee;
-              const vUnits = valCount * BPS_DENOMINATOR;
-              const thresholdUnits = (MINIMUM_BLOCKS_BEFORE_LIQUIDATION * (burnRate + packedNetFee) * vUnits) / BPS_DENOMINATOR;
-              const liquidationThreshold = thresholdUnits * ETH_DEDUCTED_DIGITS;
-              const minViable = liquidationThreshold > MINIMUM_LIQUIDATION_PERIOD_COLLATERAL
-                ? liquidationThreshold
-                : MINIMUM_LIQUIDATION_PERIOD_COLLATERAL;
+              const minViable = computeMinViableBalanceForValidatorCount(
+                cluster.operatorIds.map(() => BigInt(DEFAULT_OPERATOR_ETH_FEE)),
+                BigInt(NETWORK_FEE_ETH),
+                BigInt(cluster.cluster.validatorCount),
+                BigInt(MINIMUM_BLOCKS_BEFORE_LIQUIDATION),
+                BigInt(MINIMUM_LIQUIDATION_PERIOD_COLLATERAL),
+              );
 
               const migrateStep = migrateLegacyCluster<State>(minViable, DEFAULT_ETH_REGISTER_VALUE * 2n);
               await migrateStep(ctx);
@@ -177,19 +166,12 @@ describe("Fuzz: CAT-1-12 — pending fee declaration, migration + post-upgrade f
               );
               const declareReceipt = await declareTx.wait();
 
+              const declaredEvents = collectParsedEventsByName(ctx, declareReceipt, Events.OPERATOR_FEE_DECLARED);
               let foundDeclare = false;
-              for (const log of declareReceipt?.logs ?? []) {
-                let parsed;
-                try {
-                  parsed = ctx.network.interface.parseLog(log);
-                } catch {
-                  continue;
-                }
-                if (parsed && parsed.name === Events.OPERATOR_FEE_DECLARED) {
-                  expect(BigInt(parsed.args.operatorId)).to.equal(BigInt(targetOp.id));
-                  expect(BigInt(parsed.args.fee)).to.equal(newEthFee);
-                  foundDeclare = true;
-                }
+              for (const event of declaredEvents) {
+                expect(BigInt(event.args.operatorId)).to.equal(BigInt(targetOp.id));
+                expect(BigInt(event.args.fee)).to.equal(newEthFee);
+                foundDeclare = true;
               }
               expect(foundDeclare, "OperatorFeeDeclared event must be emitted").to.equal(true);
 
@@ -199,19 +181,12 @@ describe("Fuzz: CAT-1-12 — pending fee declaration, migration + post-upgrade f
               const execTx = await ctx.network.connect(targetOp.owner).executeOperatorFee(targetOp.id);
               const execReceipt = await execTx.wait();
 
+              const feeExecEvents = collectParsedEventsByName(ctx, execReceipt, Events.OPERATOR_FEE_EXECUTED);
               let foundFeeExec = false;
-              for (const log of execReceipt?.logs ?? []) {
-                let parsed;
-                try {
-                  parsed = ctx.network.interface.parseLog(log);
-                } catch {
-                  continue;
-                }
-                if (parsed && parsed.name === Events.OPERATOR_FEE_EXECUTED) {
-                  expect(BigInt(parsed.args.operatorId)).to.equal(BigInt(targetOp.id));
-                  expect(BigInt(parsed.args.fee)).to.equal(newEthFee);
-                  foundFeeExec = true;
-                }
+              for (const event of feeExecEvents) {
+                expect(BigInt(event.args.operatorId)).to.equal(BigInt(targetOp.id));
+                expect(BigInt(event.args.fee)).to.equal(newEthFee);
+                foundFeeExec = true;
               }
               expect(foundFeeExec, "OperatorFeeExecuted event must be emitted for new fee").to.equal(true);
 

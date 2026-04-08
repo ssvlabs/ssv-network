@@ -10,19 +10,21 @@ import {
   assertPhaseAwareOperatorEarnings,
   assertPhaseAwareNetworkEarnings,
   assertPhaseAwareClusterBalance,
+  assertInactiveClusterNoSettlement,
+  resetPhaseAwareSnapshots,
+  type InactiveSettlementSnapshot,
   type PhaseAwareOperatorEarningsSnapshot,
   type PhaseAwareNetworkEarningsSnapshot,
   type PhaseAwareClusterBalanceSnapshot,
   type ContractBalanceWithDeltasSnapshot,
 } from "./core/assertions.ts";
+import { computeMinViableBalanceForValidatorCount } from "./core/fuzz-helpers.ts";
 import { parseClusterFromEvent } from "../helpers/cluster.ts";
 import { Events } from "../common/events.ts";
 import { setAccountBalance, mineBlocks } from "../helpers/blocks.ts";
 import {
   MINIMAL_OPERATOR_ETH_FEE,
   DEFAULT_ETH_REGISTER_VALUE,
-  ETH_DEDUCTED_DIGITS,
-  BPS_DENOMINATOR,
   MINIMUM_BLOCKS_BEFORE_LIQUIDATION,
   MINIMUM_LIQUIDATION_PERIOD_COLLATERAL,
 } from "../common/constants.ts";
@@ -34,6 +36,7 @@ interface State {
   operators: OperatorRecord[];
   phase: string;
   tracker: DepositWithdrawTracker;
+  inactiveSettlement?: InactiveSettlementSnapshot;
   lastPhaseAwareOperatorEarnings?: PhaseAwareOperatorEarningsSnapshot;
   lastPhaseAwareClusterBalance?: PhaseAwareClusterBalanceSnapshot;
   lastPhaseAwareNetworkEarnings?: PhaseAwareNetworkEarningsSnapshot;
@@ -114,6 +117,7 @@ describe("Fuzz: ETH cluster liquidated ops (CAT-2-2)", function () {
 
               expect(cluster.cluster.active).to.equal(false);
               expect(BigInt(cluster.cluster.balance)).to.equal(0n);
+              ctx.state.inactiveSettlement = await assertInactiveClusterNoSettlement(ctx);
 
               await assertOperatorValidatorCounts(ctx);
               await assertNetworkValidatorCount(ctx);
@@ -161,6 +165,11 @@ describe("Fuzz: ETH cluster liquidated ops (CAT-2-2)", function () {
               expect(cluster.cluster.active).to.equal(false, "Cluster must stay inactive after second deposit");
 
               tracker.totalDeposited += secondDeposit;
+              ctx.state.inactiveSettlement = await assertInactiveClusterNoSettlement(
+                ctx,
+                ctx.state.inactiveSettlement,
+                { expectedClusterBalanceDelta: depositAmount + secondDeposit },
+              );
 
               await assertOperatorValidatorCounts(ctx);
               await assertNetworkValidatorCount(ctx);
@@ -196,6 +205,7 @@ describe("Fuzz: ETH cluster liquidated ops (CAT-2-2)", function () {
               expect(cluster.cluster.active).to.equal(false, "Cluster must stay inactive after partial withdraw");
 
               tracker.totalWithdrawn += partialAmount;
+              let phase3Withdrawn = partialAmount;
 
               const remainingBalance = BigInt(cluster.cluster.balance);
               if (remainingBalance > 0n) {
@@ -206,10 +216,16 @@ describe("Fuzz: ETH cluster liquidated ops (CAT-2-2)", function () {
                 cluster.cluster = parseClusterFromEvent(ctx.network, fullWithdrawReceipt, Events.CLUSTER_WITHDRAWN);
 
                 tracker.totalWithdrawn += remainingBalance;
+                phase3Withdrawn += remainingBalance;
               }
 
               expect(BigInt(cluster.cluster.balance)).to.equal(0n, "Full withdrawal must leave balance == 0");
               expect(cluster.cluster.active).to.equal(false, "Cluster must stay inactive after full withdrawal");
+              ctx.state.inactiveSettlement = await assertInactiveClusterNoSettlement(
+                ctx,
+                ctx.state.inactiveSettlement,
+                { expectedClusterBalanceDelta: -phase3Withdrawn },
+              );
 
               await assertOperatorValidatorCounts(ctx);
               await assertNetworkValidatorCount(ctx);
@@ -242,14 +258,14 @@ describe("Fuzz: ETH cluster liquidated ops (CAT-2-2)", function () {
               tracker.totalDeposited += preReactivationDeposit;
 
               const validatorCount = BigInt(cluster.cluster.validatorCount);
-              const vUnits = validatorCount * BPS_DENOMINATOR;
-              const totalOpFee = operators.reduce((sum, op) => sum + op.fee, 0n);
               const networkFee = BigInt(await ctx.views.getNetworkFee());
-              const packedRate = totalOpFee / ETH_DEDUCTED_DIGITS + networkFee / ETH_DEDUCTED_DIGITS;
-              const minBlocks = MINIMUM_BLOCKS_BEFORE_LIQUIDATION;
-              const threshold = (minBlocks * packedRate * vUnits / BPS_DENOMINATOR) * ETH_DEDUCTED_DIGITS;
-              const minCollateral = MINIMUM_LIQUIDATION_PERIOD_COLLATERAL;
-              const minViable = threshold > minCollateral ? threshold : minCollateral;
+              const minViable = computeMinViableBalanceForValidatorCount(
+                operators.map((op) => op.fee),
+                networkFee,
+                validatorCount,
+                MINIMUM_BLOCKS_BEFORE_LIQUIDATION,
+                MINIMUM_LIQUIDATION_PERIOD_COLLATERAL,
+              );
 
               const reactivateDeposit = ctx.rng.nextInRange(minViable, minViable + DEFAULT_ETH_REGISTER_VALUE);
               await setAccountBalance(ctx.provider, cluster.owner.address, reactivateDeposit + 10n ** 18n);
@@ -269,9 +285,7 @@ describe("Fuzz: ETH cluster liquidated ops (CAT-2-2)", function () {
               );
 
               ctx.state.phase = "reactivated";
-              ctx.state.lastPhaseAwareOperatorEarnings = undefined;
-              ctx.state.lastPhaseAwareClusterBalance = undefined;
-              ctx.state.lastPhaseAwareNetworkEarnings = undefined;
+              resetPhaseAwareSnapshots(ctx);
 
               await assertOperatorValidatorCounts(ctx);
               await assertNetworkValidatorCount(ctx);
