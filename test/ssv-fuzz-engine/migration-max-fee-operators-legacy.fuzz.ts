@@ -2,6 +2,7 @@ import { fuzz, generateSeeds } from "./core/runner.ts";
 import { setupLegacyMigrationSeed } from "./core/setup.ts";
 import type { OperatorRecord, ClusterRecord } from "./core/types.ts";
 import {
+  assertLegacyEthOpsBlocked,
   migrateLegacyCluster,
   type DepositWithdrawTracker,
   type LegacyMigrationSnapshot,
@@ -16,15 +17,15 @@ import {
   assertPhaseAwareClusterBalance,
   assertPhaseAwareNetworkEarnings,
   assertContractBalanceWithDeltas,
+  collectParsedEventsByName,
+  resetPhaseAwareSnapshots,
   type PhaseAwareOperatorEarningsSnapshot,
   type PhaseAwareClusterBalanceSnapshot,
   type PhaseAwareNetworkEarningsSnapshot,
   type ContractBalanceWithDeltasSnapshot,
 } from "./core/assertions.ts";
 import { mineBlocks } from "../helpers/blocks.ts";
-import { makePublicKey } from "../helpers/keys.ts";
 import { Events } from "../common/events.ts";
-import { Errors } from "../common/errors.ts";
 import { expect } from "chai";
 import {
   MAXIMUM_OPERATORS_FEE,
@@ -97,26 +98,7 @@ describe("Fuzz: CAT-1-6 — max-fee operators cluster, migration assigns default
             name: "maxFeeOperatorsMigrationLifecycle",
             fn: async (ctx) => {
               expect(ctx.state.cluster.cluster.active).to.equal(true);
-              await expect(
-                ctx.network.connect(ctx.state.cluster.owner).registerValidator(
-                  makePublicKey(9000), ctx.state.cluster.operatorIds, DEFAULT_SHARES, ctx.state.cluster.cluster, { value: 0n },
-                ),
-              ).to.be.revertedWithCustomError(ctx.network, Errors.INCORRECT_CLUSTER_VERSION);
-              await expect(
-                ctx.network.connect(ctx.state.cluster.owner).deposit(
-                  ctx.state.cluster.owner.address, ctx.state.cluster.operatorIds, ctx.state.cluster.cluster, { value: 1n },
-                ),
-              ).to.be.revertedWithCustomError(ctx.network, Errors.INCORRECT_CLUSTER_VERSION);
-              await expect(
-                ctx.network.connect(ctx.state.cluster.owner).reactivate(
-                  ctx.state.cluster.operatorIds, ctx.state.cluster.cluster, { value: DEFAULT_ETH_REGISTER_VALUE },
-                ),
-              ).to.be.revertedWithCustomError(ctx.network, Errors.INCORRECT_CLUSTER_VERSION);
-              await expect(
-                ctx.network.connect(ctx.state.cluster.owner).withdraw(
-                  ctx.state.cluster.operatorIds, 1n, ctx.state.cluster.cluster,
-                ),
-              ).to.be.revertedWithCustomError(ctx.network, Errors.INCORRECT_CLUSTER_VERSION);
+              await assertLegacyEthOpsBlocked(ctx);
 
               const ethDepositMin = DEFAULT_ETH_REGISTER_VALUE;
               const ethDepositMax = DEFAULT_ETH_REGISTER_VALUE * 3n;
@@ -155,28 +137,18 @@ describe("Fuzz: CAT-1-6 — max-fee operators cluster, migration assigns default
               const execTx = await ctx.network.connect(targetOp.owner).executeOperatorFee(targetOp.id);
               const execReceipt = await execTx.wait();
 
+              const feeExecEvents = collectParsedEventsByName(ctx, execReceipt, Events.OPERATOR_FEE_EXECUTED);
               let foundFeeExec = false;
-              for (const log of execReceipt?.logs ?? []) {
-                let parsed;
-                try {
-                  parsed = ctx.network.interface.parseLog(log);
-                } catch {
-                  continue;
-                }
-                if (parsed && parsed.name === Events.OPERATOR_FEE_EXECUTED) {
-                  expect(BigInt(parsed.args.operatorId)).to.equal(BigInt(targetOp.id));
-                  expect(BigInt(parsed.args.fee)).to.equal(newFee);
-                  foundFeeExec = true;
-                }
+              for (const event of feeExecEvents) {
+                expect(BigInt(event.args.operatorId)).to.equal(BigInt(targetOp.id));
+                expect(BigInt(event.args.fee)).to.equal(newFee);
+                foundFeeExec = true;
               }
               expect(foundFeeExec, "OperatorFeeExecuted event must be emitted for fee increase").to.equal(true);
 
               // Update state to reflect the new fee and reset snapshots
               targetOp.fee = newFee;
-              ctx.state.lastPhaseAwareOperatorEarnings = undefined;
-              ctx.state.lastPhaseAwareClusterBalance = undefined;
-              ctx.state.lastPhaseAwareNetworkEarnings = undefined;
-              ctx.state.lastContractBalanceWithDeltas = undefined;
+              resetPhaseAwareSnapshots(ctx, { resetContractBalanceWithDeltas: true });
 
               // Baseline snapshots at the new fee rate
               await assertPhaseAwareOperatorEarnings(ctx);

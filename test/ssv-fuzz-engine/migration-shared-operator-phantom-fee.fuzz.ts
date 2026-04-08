@@ -8,7 +8,9 @@ import {
 } from "./core/steps.ts";
 import {
   assertLegacyMigrationRefund,
+  collectParsedEventsByName,
 } from "./core/assertions.ts";
+import { computeMinViableBalanceForValidatorCount } from "./core/fuzz-helpers.ts";
 import { parseClusterFromEvent } from "../helpers/cluster.ts";
 import { mineBlocks, setAccountBalance } from "../helpers/blocks.ts";
 import { Events } from "../common/events.ts";
@@ -101,11 +103,16 @@ describe("Fuzz: CAT-1-13 — shared operators, removed operator frozen ETH index
               const packedNetFee = NETWORK_FEE_ETH / ETH_DEDUCTED_DIGITS;
               const burnRate = activeOpCount * packedOpFee;
               const vUnits = valCount * BPS_DENOMINATOR;
-              const thresholdUnits = (MINIMUM_BLOCKS_BEFORE_LIQUIDATION * (burnRate + packedNetFee) * vUnits) / BPS_DENOMINATOR;
-              const liquidationThreshold = thresholdUnits * ETH_DEDUCTED_DIGITS;
-              const minViable = liquidationThreshold > MINIMUM_LIQUIDATION_PERIOD_COLLATERAL
-                ? liquidationThreshold
-                : MINIMUM_LIQUIDATION_PERIOD_COLLATERAL;
+              const minViable = computeMinViableBalanceForValidatorCount(
+                operators.map(() => BigInt(DEFAULT_OPERATOR_ETH_FEE)),
+                BigInt(NETWORK_FEE_ETH),
+                valCount,
+                BigInt(MINIMUM_BLOCKS_BEFORE_LIQUIDATION),
+                BigInt(MINIMUM_LIQUIDATION_PERIOD_COLLATERAL),
+              );
+              const liquidationThreshold =
+                ((BigInt(MINIMUM_BLOCKS_BEFORE_LIQUIDATION) * (burnRate + packedNetFee) * vUnits) /
+                BPS_DENOMINATOR) * ETH_DEDUCTED_DIGITS;
 
               const phantomFee = (frozenEthIndex * vUnits / BPS_DENOMINATOR) * ETH_DEDUCTED_DIGITS;
               expect(phantomFee).to.be.greaterThan(0n);
@@ -117,18 +124,7 @@ describe("Fuzz: CAT-1-13 — shared operators, removed operator frozen ETH index
               const ethDeposited = ctx.state.migrationSnapshot!.ethDeposited;
 
               const { migrateReceipt } = ctx.state.migrationSnapshot!;
-              let feeEventCount = 0;
-              for (const log of migrateReceipt.logs ?? []) {
-                let parsed;
-                try {
-                  parsed = ctx.network.interface.parseLog(log);
-                } catch {
-                  continue;
-                }
-                if (parsed && parsed.name === Events.OPERATOR_FEE_EXECUTED) {
-                  feeEventCount++;
-                }
-              }
+              const feeEventCount = collectParsedEventsByName(ctx, migrateReceipt, Events.OPERATOR_FEE_EXECUTED).length;
               expect(feeEventCount).to.equal(
                 0,
                 "Active ops already ETH-initialized by foreign cluster — no OperatorFeeExecuted during migration",

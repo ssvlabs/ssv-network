@@ -13,7 +13,9 @@ import {
   assertDaoVUnitsMatchCluster,
   assertEthConservation,
   getContractEthBalance,
+  resetEBSnapshots,
 } from "./core/assertions.ts";
+import { ebToVUnits } from "./core/fuzz-helpers.ts";
 import { computeClusterId, computeEBRoot, commitEBRoot } from "../helpers/oracle.ts";
 import { parseClusterFromEvent } from "../helpers/cluster.ts";
 import { Events } from "../common/events.ts";
@@ -35,12 +37,6 @@ interface State {
   lastEBClusterBalance?: EBClusterBalanceSnapshot;
   tickDepositDelta: bigint;
   sameEBBurnRate: bigint;
-}
-
-function ebToVUnits(effectiveBalance: bigint): bigint {
-  const vUnits = effectiveBalance * BPS_DENOMINATOR;
-  if (vUnits === 0n) return 0n;
-  return (vUnits - 1n) / 32n + 1n;
 }
 
 async function backComputeStoredVUnits(
@@ -189,8 +185,7 @@ describe("Fuzz: Implicit EB to explicit EB via oracle update (CAT-3-1)", functio
               await assertDaoVUnitsMatchCluster(ctx);
               await assertEthConservation(ctx);
 
-              ctx.state.lastEBOperatorEarnings = undefined;
-              ctx.state.lastEBClusterBalance = undefined;
+              resetEBSnapshots(ctx);
               await assertOperatorEarningsWithEB(ctx);
               await assertClusterBalanceWithEB(ctx);
 

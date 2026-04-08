@@ -5,14 +5,20 @@ import type { OperatorRecord, ClusterRecord } from "./core/types.ts";
 import type { DepositWithdrawTracker } from "./core/steps.ts";
 import {
   assertOperatorValidatorCounts,
+  assertValidatorCounts,
   assertNetworkValidatorCount,
   assertPhaseAwareOperatorEarnings,
   assertPhaseAwareNetworkEarnings,
   assertPhaseAwareClusterBalance,
+  resetPhaseAwareSnapshots,
   type PhaseAwareOperatorEarningsSnapshot,
   type PhaseAwareNetworkEarningsSnapshot,
   type PhaseAwareClusterBalanceSnapshot,
 } from "./core/assertions.ts";
+import {
+  computeBurnRate,
+  computeMinViableBalanceForValidatorCount,
+} from "./core/fuzz-helpers.ts";
 import { parseClusterFromEvent } from "../helpers/cluster.ts";
 import { Events } from "../common/events.ts";
 import { Errors } from "../common/errors.ts";
@@ -22,8 +28,6 @@ import {
   MINIMAL_OPERATOR_ETH_FEE,
   DEFAULT_ETH_REGISTER_VALUE,
   DEFAULT_SHARES,
-  ETH_DEDUCTED_DIGITS,
-  BPS_DENOMINATOR,
   MINIMUM_BLOCKS_BEFORE_LIQUIDATION,
   MINIMUM_LIQUIDATION_PERIOD_COLLATERAL,
 } from "../common/constants.ts";
@@ -62,14 +66,14 @@ describe("Fuzz: ETH reactivation with removed operators (CAT-2-5)", function () 
           const operatorIds = operators.map((o) => o.id);
 
           const validatorCount = Number(ctx.rng.nextInRange(1n, 5n));
-          const totalOpFee = operators.reduce((sum, op) => sum + op.fee, 0n);
           const networkFee = BigInt(await ctx.views.getNetworkFee());
-          const packedRate = totalOpFee / ETH_DEDUCTED_DIGITS + networkFee / ETH_DEDUCTED_DIGITS;
-          const vUnits = BigInt(validatorCount) * BPS_DENOMINATOR;
-          const minBlocks = MINIMUM_BLOCKS_BEFORE_LIQUIDATION;
-          const threshold = (minBlocks * packedRate * vUnits / BPS_DENOMINATOR) * ETH_DEDUCTED_DIGITS;
-          const minCollateral = MINIMUM_LIQUIDATION_PERIOD_COLLATERAL;
-          const minViable = threshold > minCollateral ? threshold : minCollateral;
+          const minViable = computeMinViableBalanceForValidatorCount(
+            operators.map((op) => op.fee),
+            networkFee,
+            BigInt(validatorCount),
+            MINIMUM_BLOCKS_BEFORE_LIQUIDATION,
+            MINIMUM_LIQUIDATION_PERIOD_COLLATERAL,
+          );
 
           const depositPerValidator = ctx.rng.nextInRange(
             minViable / BigInt(validatorCount) + DEFAULT_ETH_REGISTER_VALUE / 10n,
@@ -183,15 +187,14 @@ describe("Fuzz: ETH reactivation with removed operators (CAT-2-5)", function () 
             async fn(ctx) {
               const { cluster, operators, removedOperators, tracker } = ctx.state;
               const validatorCount = BigInt(cluster.cluster.validatorCount);
-              const vUnits = validatorCount * BPS_DENOMINATOR;
-
-              const totalOpFee = operators.reduce((sum, op) => sum + op.fee, 0n);
               const networkFee = BigInt(await ctx.views.getNetworkFee());
-              const packedRate = totalOpFee / ETH_DEDUCTED_DIGITS + networkFee / ETH_DEDUCTED_DIGITS;
-              const minBlocks = MINIMUM_BLOCKS_BEFORE_LIQUIDATION;
-              const threshold = (minBlocks * packedRate * vUnits / BPS_DENOMINATOR) * ETH_DEDUCTED_DIGITS;
-              const minCollateral = MINIMUM_LIQUIDATION_PERIOD_COLLATERAL;
-              const minViable = threshold > minCollateral ? threshold : minCollateral;
+              const minViable = computeMinViableBalanceForValidatorCount(
+                operators.map((op) => op.fee),
+                networkFee,
+                validatorCount,
+                MINIMUM_BLOCKS_BEFORE_LIQUIDATION,
+                MINIMUM_LIQUIDATION_PERIOD_COLLATERAL,
+              );
 
               const reactivateDeposit = ctx.rng.nextInRange(minViable, minViable + DEFAULT_ETH_REGISTER_VALUE);
               await setAccountBalance(ctx.provider, cluster.owner.address, reactivateDeposit + 10n ** 18n);
@@ -204,38 +207,32 @@ describe("Fuzz: ETH reactivation with removed operators (CAT-2-5)", function () 
               tracker.totalDeposited += reactivateDeposit;
 
               expect(cluster.cluster.active).to.equal(true);
-
-              await assertOperatorValidatorCounts(ctx);
-
+              const expectedCounts = new Map<number, bigint>();
               for (const op of operators) {
-                const opData = await ctx.views.getOperatorById(op.id);
-                expect(BigInt(opData.validatorCount)).to.equal(
-                  validatorCount,
-                  `Active operator ${op.id} must have ethValidatorCount == ${validatorCount}`,
-                );
+                expectedCounts.set(op.id, validatorCount);
               }
+              for (const op of removedOperators) {
+                expectedCounts.set(op.id, 0n);
+              }
+              await assertValidatorCounts(ctx, expectedCounts);
 
               for (const op of removedOperators) {
                 const opData = await ctx.views.getOperatorById(op.id);
-                expect(BigInt(opData.validatorCount)).to.equal(
-                  0n,
-                  `Removed operator ${op.id} must have ethValidatorCount == 0 after reactivation`,
-                );
                 expect(opData.isActive).to.equal(false, `Removed operator ${op.id} must remain inactive`);
               }
 
               const contractBurnRate = BigInt(
                 await ctx.views.getBurnRate(cluster.owner.address, cluster.operatorIds, cluster.cluster),
               );
-              const expectedBurnRate =
-                (totalOpFee / ETH_DEDUCTED_DIGITS * vUnits / BPS_DENOMINATOR) * ETH_DEDUCTED_DIGITS +
-                (networkFee / ETH_DEDUCTED_DIGITS * vUnits / BPS_DENOMINATOR) * ETH_DEDUCTED_DIGITS;
+              const expectedBurnRate = computeBurnRate(
+                operators.map((op) => op.fee),
+                networkFee,
+                validatorCount,
+              );
               expect(contractBurnRate).to.equal(expectedBurnRate, "Burn rate must use only active operators' fees");
 
               ctx.state.phase = "reactivated";
-              ctx.state.lastPhaseAwareOperatorEarnings = undefined;
-              ctx.state.lastPhaseAwareClusterBalance = undefined;
-              ctx.state.lastPhaseAwareNetworkEarnings = undefined;
+              resetPhaseAwareSnapshots(ctx);
 
               await assertNetworkValidatorCount(ctx);
 

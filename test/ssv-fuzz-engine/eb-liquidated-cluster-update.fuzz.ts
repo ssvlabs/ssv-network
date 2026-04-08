@@ -7,6 +7,10 @@ import {
   assertOperatorValidatorCounts,
   assertNetworkValidatorCount,
 } from "./core/assertions.ts";
+import {
+  computeMinViableBalanceFromFees,
+  ebToVUnits,
+} from "./core/fuzz-helpers.ts";
 import { computeClusterId, computeEBRoot, commitEBRoot } from "../helpers/oracle.ts";
 import { parseClusterFromEvent, extractEventArgs } from "../helpers/cluster.ts";
 import { Events } from "../common/events.ts";
@@ -19,6 +23,7 @@ import {
   BPS_DENOMINATOR,
   ETH_DEDUCTED_DIGITS,
   MINIMAL_LIQUIDATION_THRESHOLD,
+  MINIMUM_BLOCKS_BEFORE_LIQUIDATION,
   MINIMUM_LIQUIDATION_PERIOD_COLLATERAL,
   DEFAULT_ETH_REGISTER_VALUE,
 } from "../common/constants.ts";
@@ -31,12 +36,6 @@ interface State {
   initialEB: number;
   postLiqEB: number;
   preUpdateOperatorEarnings: Map<number, bigint>;
-}
-
-function ebToVUnits(effectiveBalance: bigint): bigint {
-  const vUnits = effectiveBalance * BPS_DENOMINATOR;
-  if (vUnits === 0n) return 0n;
-  return (vUnits - 1n) / 32n + 1n;
 }
 
 function computeOperatorEarningsDelta(
@@ -253,16 +252,18 @@ describe("Fuzz: EB update on liquidated cluster — snapshot stored, no accounti
 
               const postLiqVUnits = ebToVUnits(BigInt(ctx.state.postLiqEB));
               const networkFee = BigInt(await ctx.views.getNetworkFee());
+              const operatorFees = operators.map((op) => op.fee);
               let opFeeSum = 0n;
-              for (const op of operators) {
-                opFeeSum += op.fee;
+              for (const fee of operatorFees) {
+                opFeeSum += fee;
               }
-              const packedRate = opFeeSum / ETH_DEDUCTED_DIGITS + networkFee / ETH_DEDUCTED_DIGITS;
-              const burnRateThreshold =
-                (MINIMAL_LIQUIDATION_THRESHOLD * packedRate * postLiqVUnits / BPS_DENOMINATOR) * ETH_DEDUCTED_DIGITS;
-              const minViable = burnRateThreshold > MINIMUM_LIQUIDATION_PERIOD_COLLATERAL
-                ? burnRateThreshold
-                : MINIMUM_LIQUIDATION_PERIOD_COLLATERAL;
+              const minViable = computeMinViableBalanceFromFees(
+                operatorFees,
+                networkFee,
+                postLiqVUnits,
+                BigInt(MINIMUM_BLOCKS_BEFORE_LIQUIDATION),
+                BigInt(MINIMUM_LIQUIDATION_PERIOD_COLLATERAL),
+              );
 
               const reactivateDeposit = ctx.rng.nextInRange(minViable, minViable + DEFAULT_ETH_REGISTER_VALUE);
               await setAccountBalance(ctx.provider, cluster.owner.address, reactivateDeposit + 10n ** 18n);

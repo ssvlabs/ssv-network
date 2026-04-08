@@ -2,6 +2,7 @@ import { fuzz, generateSeeds } from "./core/runner.ts";
 import { setupLegacyMigrationSeed } from "./core/setup.ts";
 import type { OperatorRecord, ClusterRecord } from "./core/types.ts";
 import {
+  assertLegacyEthOpsBlocked,
   migrateLegacyCluster,
   type DepositWithdrawTracker,
   type LegacyMigrationSnapshot,
@@ -16,11 +17,13 @@ import {
   assertPhaseAwareClusterBalance,
   assertPhaseAwareNetworkEarnings,
   assertContractBalanceWithDeltas,
+  resetPhaseAwareSnapshots,
   type PhaseAwareOperatorEarningsSnapshot,
   type PhaseAwareClusterBalanceSnapshot,
   type PhaseAwareNetworkEarningsSnapshot,
   type ContractBalanceWithDeltasSnapshot,
 } from "./core/assertions.ts";
+import { computeMinViableBalanceForValidatorCount } from "./core/fuzz-helpers.ts";
 import { parseClusterFromEvent } from "../helpers/cluster.ts";
 import { mineBlocks, setAccountBalance } from "../helpers/blocks.ts";
 import { makePublicKey } from "../helpers/keys.ts";
@@ -32,8 +35,6 @@ import {
   DEFAULT_ETH_REGISTER_VALUE,
   DEFAULT_SHARES,
   NETWORK_FEE_ETH,
-  ETH_DEDUCTED_DIGITS,
-  BPS_DENOMINATOR,
   MINIMUM_BLOCKS_BEFORE_LIQUIDATION,
   MINIMUM_LIQUIDATION_PERIOD_COLLATERAL,
 } from "../common/constants.ts";
@@ -105,25 +106,15 @@ describe("Fuzz: CAT-1-5 — zero-fee operators cluster, migration preserves zero
             name: "zeroFeeOperatorsMigrationLifecycle",
             fn: async (ctx) => {
               expect(ctx.state.cluster.cluster.active).to.equal(true);
-              await expect(
-                ctx.network.connect(ctx.state.cluster.owner).deposit(
-                  ctx.state.cluster.owner.address, ctx.state.cluster.operatorIds, ctx.state.cluster.cluster, { value: 1n },
-                ),
-              ).to.be.revertedWithCustomError(ctx.network, Errors.INCORRECT_CLUSTER_VERSION);
-              await expect(
-                ctx.network.connect(ctx.state.cluster.owner).withdraw(
-                  ctx.state.cluster.operatorIds, 1n, ctx.state.cluster.cluster,
-                ),
-              ).to.be.revertedWithCustomError(ctx.network, Errors.INCORRECT_CLUSTER_VERSION);
+              await assertLegacyEthOpsBlocked(ctx);
 
-              const valCount = BigInt(ctx.state.cluster.cluster.validatorCount);
-              const packedNetFee = NETWORK_FEE_ETH / ETH_DEDUCTED_DIGITS;
-              const vUnits = valCount * BPS_DENOMINATOR;
-              const thresholdUnits = (MINIMUM_BLOCKS_BEFORE_LIQUIDATION * packedNetFee * vUnits) / BPS_DENOMINATOR;
-              const liquidationThreshold = thresholdUnits * ETH_DEDUCTED_DIGITS;
-              const minViable = liquidationThreshold > MINIMUM_LIQUIDATION_PERIOD_COLLATERAL
-                ? liquidationThreshold
-                : MINIMUM_LIQUIDATION_PERIOD_COLLATERAL;
+              const minViable = computeMinViableBalanceForValidatorCount(
+                ctx.state.operators.map(() => 0n),
+                BigInt(NETWORK_FEE_ETH),
+                BigInt(ctx.state.cluster.cluster.validatorCount),
+                BigInt(MINIMUM_BLOCKS_BEFORE_LIQUIDATION),
+                BigInt(MINIMUM_LIQUIDATION_PERIOD_COLLATERAL),
+              );
 
               if (minViable > 0n) {
                 const underfunded = minViable - 1n;
@@ -172,9 +163,7 @@ describe("Fuzz: CAT-1-5 — zero-fee operators cluster, migration preserves zero
               ctx.state.cluster.cluster = parseClusterFromEvent(ctx.network, regReceipt, Events.VALIDATOR_ADDED);
               ctx.state.cluster.validatorKeys.push(newKey);
 
-              ctx.state.lastPhaseAwareOperatorEarnings = undefined;
-              ctx.state.lastPhaseAwareClusterBalance = undefined;
-              ctx.state.lastPhaseAwareNetworkEarnings = undefined;
+              resetPhaseAwareSnapshots(ctx);
               await assertPhaseAwareOperatorEarnings(ctx);
               await assertPhaseAwareClusterBalance(ctx);
               await assertPhaseAwareNetworkEarnings(ctx);
@@ -207,9 +196,7 @@ describe("Fuzz: CAT-1-5 — zero-fee operators cluster, migration preserves zero
               ctx.state.cluster.cluster = parseClusterFromEvent(ctx.network, depReceipt, Events.CLUSTER_DEPOSITED);
               ctx.state.tracker.totalDeposited += depositAmount;
 
-              ctx.state.lastPhaseAwareOperatorEarnings = undefined;
-              ctx.state.lastPhaseAwareClusterBalance = undefined;
-              ctx.state.lastPhaseAwareNetworkEarnings = undefined;
+              resetPhaseAwareSnapshots(ctx);
               await assertPhaseAwareOperatorEarnings(ctx);
               await assertPhaseAwareClusterBalance(ctx);
               await assertPhaseAwareNetworkEarnings(ctx);

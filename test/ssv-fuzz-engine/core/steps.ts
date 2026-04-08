@@ -271,7 +271,7 @@ interface BlockedOpsState {
   phase: string;
 }
 
-export async function assertBlockedEthOpsOnLegacyCluster<S extends BlockedOpsState>(
+export async function assertLegacyEthOpsBlocked<S extends { cluster: ClusterRecord }>(
   ctx: FuzzContext<S>,
 ): Promise<void> {
   const { cluster } = ctx.state;
@@ -299,6 +299,14 @@ export async function assertBlockedEthOpsOnLegacyCluster<S extends BlockedOpsSta
       cluster.operatorIds, 1n, cluster.cluster,
     ),
   ).to.be.revertedWithCustomError(ctx.network, Errors.INCORRECT_CLUSTER_VERSION);
+}
+
+export async function assertBlockedEthOpsOnLegacyCluster<S extends BlockedOpsState>(
+  ctx: FuzzContext<S>,
+): Promise<void> {
+  const { cluster } = ctx.state;
+
+  await assertLegacyEthOpsBlocked(ctx);
 
   const keyToRemove = cluster.validatorKeys[0];
   const removeTx = await ctx.network.connect(cluster.owner).removeValidator(
