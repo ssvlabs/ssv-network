@@ -349,6 +349,77 @@ export interface EBOperatorEarningsSnapshot {
   vUnits: bigint;
 }
 
+export interface EBTransitionSnapshot {
+  block: bigint;
+  clusterBalance: bigint;
+  networkEarnings: bigint;
+  operatorEarnings: Map<number, bigint>;
+}
+
+export async function captureEBTransitionSnapshot<S extends { cluster: ClusterRecord; operators: OperatorRecord[] }>(
+  ctx: FuzzContext<S>,
+): Promise<EBTransitionSnapshot> {
+  const { cluster, operators } = ctx.state;
+
+  const operatorEarnings = new Map<number, bigint>();
+  for (const op of operators) {
+    operatorEarnings.set(op.id, BigInt(await ctx.views.getOperatorEarnings(op.id)));
+  }
+
+  return {
+    block: BigInt(await ctx.provider.getBlockNumber()),
+    clusterBalance: BigInt(await ctx.views.getBalance(cluster.owner.address, cluster.operatorIds, cluster.cluster)),
+    networkEarnings: BigInt(await ctx.views.getNetworkEarnings()),
+    operatorEarnings,
+  };
+}
+
+export async function assertEBTransitionSettledAtVUnits<
+  S extends { cluster: ClusterRecord; operators: OperatorRecord[] }
+>(
+  ctx: FuzzContext<S>,
+  snapshot: EBTransitionSnapshot,
+  settledVUnits: bigint,
+  clusterBalanceOverride?: bigint,
+): Promise<void> {
+  const { cluster, operators } = ctx.state;
+  const block = BigInt(await ctx.provider.getBlockNumber());
+  const blocks = block - snapshot.block;
+  const networkFee = BigInt(await ctx.views.getNetworkFee());
+
+  const operatorFees = operators.map(op => op.fee);
+
+  let packedTotal = networkFee / ETH_DEDUCTED_DIGITS;
+  for (const fee of operatorFees) {
+    packedTotal += fee / ETH_DEDUCTED_DIGITS;
+  }
+  const expectedClusterBalance = computeClusterBalanceWithVUnits(
+    snapshot.clusterBalance,
+    operatorFees,
+    networkFee,
+    settledVUnits,
+    blocks,
+  );
+
+  const currentClusterBalance = clusterBalanceOverride ?? BigInt(
+    await ctx.views.getBalance(cluster.owner.address, cluster.operatorIds, cluster.cluster),
+  );
+  expect(currentClusterBalance).to.equal(expectedClusterBalance);
+
+  const packedNetworkFee = networkFee / ETH_DEDUCTED_DIGITS;
+  const expectedNetworkDelta =
+    ((blocks * packedNetworkFee * settledVUnits) / BPS_DENOMINATOR) * ETH_DEDUCTED_DIGITS;
+  const currentNetworkEarnings = BigInt(await ctx.views.getNetworkEarnings());
+  expect(currentNetworkEarnings).to.equal(snapshot.networkEarnings + expectedNetworkDelta);
+
+  for (const op of operators) {
+    const packedFee = op.fee / ETH_DEDUCTED_DIGITS;
+    const expectedOpDelta = ((blocks * packedFee * settledVUnits) / BPS_DENOMINATOR) * ETH_DEDUCTED_DIGITS;
+    const currentOpEarnings = BigInt(await ctx.views.getOperatorEarnings(op.id));
+    expect(currentOpEarnings).to.equal(snapshot.operatorEarnings.get(op.id)! + expectedOpDelta);
+  }
+}
+
 export async function assertOperatorEarningsWithEB<S extends { cluster: ClusterRecord; operators: OperatorRecord[]; lastEBOperatorEarnings?: EBOperatorEarningsSnapshot }>(
   ctx: FuzzContext<S>,
 ): Promise<void> {
@@ -375,13 +446,53 @@ export async function assertOperatorEarningsWithEB<S extends { cluster: ClusterR
 
       for (const op of operators) {
         const packedFee = op.fee / ETH_DEDUCTED_DIGITS;
-        const expectedDelta = ((packedFee * prev.vUnits) / BPS_DENOMINATOR) * ETH_DEDUCTED_DIGITS * blocks;
+        const expectedDelta = ((blocks * packedFee * prev.vUnits) / BPS_DENOMINATOR) * ETH_DEDUCTED_DIGITS;
         expect(currentEarnings.get(op.id)).to.equal(prev.earnings.get(op.id)! + expectedDelta);
       }
     }
   }
 
   ctx.state.lastEBOperatorEarnings = { block, earnings: currentEarnings, vUnits: currentVUnits };
+}
+
+export interface EBNetworkEarningsSnapshot {
+  block: bigint;
+  earnings: bigint;
+  vUnits: bigint;
+}
+
+export async function assertNetworkEarningsWithEB<S extends {
+  cluster: ClusterRecord;
+  operators: OperatorRecord[];
+  lastEBNetworkEarnings?: EBNetworkEarningsSnapshot;
+}>(ctx: FuzzContext<S>): Promise<void> {
+  const block = BigInt(await ctx.provider.getBlockNumber());
+  const { cluster } = ctx.state;
+  const currentEarnings = BigInt(await ctx.views.getNetworkEarnings());
+  const networkFee = BigInt(await ctx.views.getNetworkFee());
+
+  let currentVUnits: bigint;
+  if (cluster.cluster.active && BigInt(cluster.cluster.validatorCount) > 0n) {
+    const eb = BigInt(await ctx.views.getEffectiveBalance(
+      cluster.owner.address, cluster.operatorIds, cluster.cluster,
+    ));
+    currentVUnits = ebToVUnits(eb);
+  } else {
+    currentVUnits = 0n;
+  }
+
+  if (ctx.state.lastEBNetworkEarnings !== undefined) {
+    const prev = ctx.state.lastEBNetworkEarnings;
+    if (prev.vUnits === currentVUnits) {
+      const blocks = block - prev.block;
+      const packedNetFee = networkFee / ETH_DEDUCTED_DIGITS;
+      const expectedDelta =
+        ((blocks * packedNetFee * prev.vUnits) / BPS_DENOMINATOR) * ETH_DEDUCTED_DIGITS;
+      expect(currentEarnings).to.equal(prev.earnings + expectedDelta);
+    }
+  }
+
+  ctx.state.lastEBNetworkEarnings = { block, earnings: currentEarnings, vUnits: currentVUnits };
 }
 
 export async function assertDaoVUnitsMatchCluster<S extends { cluster: ClusterRecord; operators: OperatorRecord[] }>(
