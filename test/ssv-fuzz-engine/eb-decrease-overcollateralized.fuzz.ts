@@ -5,6 +5,11 @@ import { setupFuzzOracles, type OracleState } from "./core/steps.ts";
 import type { OperatorRecord, ClusterRecord } from "./core/types.ts";
 import {
   assertDaoVUnitsMatchCluster,
+  assertOperatorEarningsWithEB,
+  assertNetworkEarningsWithEB,
+  assertClusterBalanceWithEB,
+  assertEBTransitionSettledAtVUnits,
+  type EBTransitionSnapshot,
   getContractEthBalance,
 } from "./core/assertions.ts";
 import { computeClusterId, computeEBRoot, commitEBRoot } from "../helpers/oracle.ts";
@@ -27,6 +32,7 @@ interface State {
   highEB: number;
   highVUnits: bigint;
   highBurnRate: bigint;
+  highEBTransitionSnapshot: EBTransitionSnapshot;
   tickDepositDelta: bigint;
 }
 
@@ -99,6 +105,16 @@ describe("Fuzz: EB decrease — cluster becomes over-collateralized (CAT-3-3)", 
           const highBurnRate = BigInt(
             await ctx.views.getBurnRate(cluster.owner.address, cluster.operatorIds, cluster.cluster),
           );
+          const operatorEarnings = new Map<number, bigint>();
+          for (const op of operators) {
+            operatorEarnings.set(op.id, BigInt(await ctx.views.getOperatorEarnings(op.id)));
+          }
+          const highEBTransitionSnapshot: EBTransitionSnapshot = {
+            block: BigInt(await ctx.provider.getBlockNumber()),
+            clusterBalance: BigInt(cluster.cluster.balance),
+            networkEarnings: BigInt(await ctx.views.getNetworkEarnings()),
+            operatorEarnings,
+          };
 
           return {
             operators,
@@ -108,6 +124,7 @@ describe("Fuzz: EB decrease — cluster becomes over-collateralized (CAT-3-3)", 
             highEB,
             highVUnits,
             highBurnRate,
+            highEBTransitionSnapshot,
             tickDepositDelta: 0n,
           };
         },
@@ -178,6 +195,13 @@ describe("Fuzz: EB decrease — cluster becomes over-collateralized (CAT-3-3)", 
               const receipt = await tx.wait();
               cluster.cluster = parseClusterFromEvent(ctx.network, receipt, Events.CLUSTER_BALANCE_UPDATED);
 
+              await assertEBTransitionSettledAtVUnits(
+                ctx,
+                ctx.state.highEBTransitionSnapshot,
+                ctx.state.highVUnits,
+                BigInt(cluster.cluster.balance),
+              );
+
               const newEB = BigInt(
                 await ctx.views.getEffectiveBalance(cluster.owner.address, cluster.operatorIds, cluster.cluster),
               );
@@ -197,6 +221,9 @@ describe("Fuzz: EB decrease — cluster becomes over-collateralized (CAT-3-3)", 
               expect(isLiq).to.equal(false);
 
               await assertDaoVUnitsMatchCluster(ctx);
+              await assertOperatorEarningsWithEB(ctx);
+              await assertNetworkEarningsWithEB(ctx);
+              await assertClusterBalanceWithEB(ctx);
 
               ctx.state.phase = "eb-decreased";
             },
@@ -211,6 +238,9 @@ describe("Fuzz: EB decrease — cluster becomes over-collateralized (CAT-3-3)", 
               await mineBlocks(ctx.provider, postBlocks);
 
               await assertDaoVUnitsMatchCluster(ctx);
+              await assertOperatorEarningsWithEB(ctx);
+              await assertNetworkEarningsWithEB(ctx);
+              await assertClusterBalanceWithEB(ctx);
 
               const eb = BigInt(
                 await ctx.views.getEffectiveBalance(cluster.owner.address, cluster.operatorIds, cluster.cluster),
@@ -241,10 +271,7 @@ describe("Fuzz: EB decrease — cluster becomes over-collateralized (CAT-3-3)", 
             },
           },
         ],
-
-        async after(ctx) {
-          expect(ctx.state.phase).to.equal("lower-burn-verified");
-        },
+        expectedPhase: "lower-burn-verified",
       }, seed);
     });
   }
