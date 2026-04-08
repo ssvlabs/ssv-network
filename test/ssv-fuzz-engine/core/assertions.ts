@@ -343,6 +343,10 @@ function ebToVUnits(effectiveBalance: bigint): bigint {
   return (vUnits - 1n) / 32n + 1n;
 }
 
+export function computeEBAccrualDelta(blocks: bigint, packedFee: bigint, vUnits: bigint): bigint {
+  return ((blocks * packedFee * vUnits) / BPS_DENOMINATOR) * ETH_DEDUCTED_DIGITS;
+}
+
 export interface EBOperatorEarningsSnapshot {
   block: bigint;
   earnings: Map<number, bigint>;
@@ -407,14 +411,13 @@ export async function assertEBTransitionSettledAtVUnits<
   expect(currentClusterBalance).to.equal(expectedClusterBalance);
 
   const packedNetworkFee = networkFee / ETH_DEDUCTED_DIGITS;
-  const expectedNetworkDelta =
-    ((blocks * packedNetworkFee * settledVUnits) / BPS_DENOMINATOR) * ETH_DEDUCTED_DIGITS;
+  const expectedNetworkDelta = computeEBAccrualDelta(blocks, packedNetworkFee, settledVUnits);
   const currentNetworkEarnings = BigInt(await ctx.views.getNetworkEarnings());
   expect(currentNetworkEarnings).to.equal(snapshot.networkEarnings + expectedNetworkDelta);
 
   for (const op of operators) {
     const packedFee = op.fee / ETH_DEDUCTED_DIGITS;
-    const expectedOpDelta = ((blocks * packedFee * settledVUnits) / BPS_DENOMINATOR) * ETH_DEDUCTED_DIGITS;
+    const expectedOpDelta = computeEBAccrualDelta(blocks, packedFee, settledVUnits);
     const currentOpEarnings = BigInt(await ctx.views.getOperatorEarnings(op.id));
     expect(currentOpEarnings).to.equal(snapshot.operatorEarnings.get(op.id)! + expectedOpDelta);
   }
@@ -446,7 +449,7 @@ export async function assertOperatorEarningsWithEB<S extends { cluster: ClusterR
 
       for (const op of operators) {
         const packedFee = op.fee / ETH_DEDUCTED_DIGITS;
-        const expectedDelta = ((blocks * packedFee * prev.vUnits) / BPS_DENOMINATOR) * ETH_DEDUCTED_DIGITS;
+        const expectedDelta = computeEBAccrualDelta(blocks, packedFee, prev.vUnits);
         expect(currentEarnings.get(op.id)).to.equal(prev.earnings.get(op.id)! + expectedDelta);
       }
     }
@@ -486,8 +489,7 @@ export async function assertNetworkEarningsWithEB<S extends {
     if (prev.vUnits === currentVUnits) {
       const blocks = block - prev.block;
       const packedNetFee = networkFee / ETH_DEDUCTED_DIGITS;
-      const expectedDelta =
-        ((blocks * packedNetFee * prev.vUnits) / BPS_DENOMINATOR) * ETH_DEDUCTED_DIGITS;
+      const expectedDelta = computeEBAccrualDelta(blocks, packedNetFee, prev.vUnits);
       expect(currentEarnings).to.equal(prev.earnings + expectedDelta);
     }
   }

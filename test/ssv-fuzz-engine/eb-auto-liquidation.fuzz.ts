@@ -12,8 +12,10 @@ import {
   assertClusterBalanceWithEB,
   assertDaoVUnitsMatchCluster,
   assertEthConservation,
+  computeEBAccrualDelta,
   getContractEthBalance,
 } from "./core/assertions.ts";
+import { computeClusterBalanceWithVUnits } from "./core/fuzz-helpers.ts";
 import { computeClusterId, computeEBRoot, commitEBRoot } from "../helpers/oracle.ts";
 import { parseClusterFromEvent } from "../helpers/cluster.ts";
 import { Events } from "../common/events.ts";
@@ -38,6 +40,13 @@ interface State {
   fuzzedEB: number;
   lastEBOperatorEarnings?: EBOperatorEarningsSnapshot;
   lastEBClusterBalance?: EBClusterBalanceSnapshot;
+  preUpdateSnapshot?: {
+    block: bigint;
+    clusterBalance: bigint;
+    burnRate: bigint;
+    networkEarnings: bigint;
+    operatorEarnings: Map<number, bigint>;
+  };
   tickDepositDelta: bigint;
 }
 
@@ -132,7 +141,7 @@ describe("Fuzz: EB increase triggers auto-liquidation (CAT-3-2)", function () {
           {
             name: "phase1-verify-solvency",
             async fn(ctx) {
-              const { cluster } = ctx.state;
+              const { cluster, operators } = ctx.state;
 
               const preBlocks = Number(ctx.rng.nextInRange(10n, 50n));
               await mineBlocks(ctx.provider, preBlocks);
@@ -151,6 +160,23 @@ describe("Fuzz: EB increase triggers auto-liquidation (CAT-3-2)", function () {
                 await ctx.views.getEffectiveBalance(cluster.owner.address, cluster.operatorIds, cluster.cluster),
               );
               expect(implicitEB).to.equal(64n);
+
+              const preUpdateOperatorEarnings = new Map<number, bigint>();
+              for (const op of operators) {
+                preUpdateOperatorEarnings.set(op.id, BigInt(await ctx.views.getOperatorEarnings(op.id)));
+              }
+
+              ctx.state.preUpdateSnapshot = {
+                block: BigInt(await ctx.provider.getBlockNumber()),
+                clusterBalance: BigInt(
+                  await ctx.views.getBalance(cluster.owner.address, cluster.operatorIds, cluster.cluster),
+                ),
+                burnRate: BigInt(
+                  await ctx.views.getBurnRate(cluster.owner.address, cluster.operatorIds, cluster.cluster),
+                ),
+                networkEarnings: BigInt(await ctx.views.getNetworkEarnings()),
+                operatorEarnings: preUpdateOperatorEarnings,
+              };
 
               ctx.state.phase = "solvency-verified";
             },
@@ -189,6 +215,8 @@ describe("Fuzz: EB increase triggers auto-liquidation (CAT-3-2)", function () {
               const caller = ctx.signers[10];
 
               expect(cluster.cluster.active).to.equal(true, "cluster must be active before EB update");
+              expect(ctx.state.preUpdateSnapshot).to.not.be.undefined;
+              const preUpdateSnapshot = ctx.state.preUpdateSnapshot!;
 
               const contractBalBefore = await getContractEthBalance(ctx);
               const callerBalBefore = BigInt(await ctx.provider.getBalance(caller.address));
@@ -202,17 +230,19 @@ describe("Fuzz: EB increase triggers auto-liquidation (CAT-3-2)", function () {
                 [],
               );
               const receipt = await tx.wait();
+              if (!receipt) throw new Error("Missing transaction receipt");
+              const txReceipt = receipt;
 
               await expect(tx).to.emit(ctx.network, Events.CLUSTER_LIQUIDATED);
               await expect(tx).to.emit(ctx.network, Events.CLUSTER_BALANCE_UPDATED);
 
-              const eventNames = receipt?.logs
+              const eventNames = txReceipt.logs
                 .map((log: any) => { try { return ctx.network.interface.parseLog(log)?.name; } catch { return null; } })
                 .filter((n: string | null | undefined): n is string => n === Events.CLUSTER_LIQUIDATED || n === Events.CLUSTER_BALANCE_UPDATED);
               expect(eventNames[0]).to.equal(Events.CLUSTER_LIQUIDATED);
               expect(eventNames[1]).to.equal(Events.CLUSTER_BALANCE_UPDATED);
 
-              cluster.cluster = parseClusterFromEvent(ctx.network, receipt, Events.CLUSTER_LIQUIDATED);
+              cluster.cluster = parseClusterFromEvent(ctx.network, txReceipt, Events.CLUSTER_LIQUIDATED);
 
               expect(cluster.cluster.active).to.equal(false);
               expect(BigInt(cluster.cluster.balance)).to.equal(0n);
@@ -220,11 +250,61 @@ describe("Fuzz: EB increase triggers auto-liquidation (CAT-3-2)", function () {
               const expectedVUnits = ebToVUnits(BigInt(ctx.state.fuzzedEB));
               expect(expectedVUnits).to.be.greaterThan(ctx.state.implicitVUnits);
 
+              const updateBlock = BigInt(txReceipt.blockNumber);
+              const blockDiff = updateBlock - preUpdateSnapshot.block;
+              const networkFee = BigInt(await ctx.views.getNetworkFee());
+              const packedNetworkFee = networkFee / ETH_DEDUCTED_DIGITS;
+
+              const operatorFees = operators.map((op) => op.fee);
+              let totalUnpackedFee = networkFee;
+              for (const fee of operatorFees) {
+                totalUnpackedFee += fee;
+              }
+
+              const expectedPreUpdateBurnRate = (totalUnpackedFee * ctx.state.implicitVUnits) / BPS_DENOMINATOR;
+              expect(preUpdateSnapshot.burnRate).to.equal(expectedPreUpdateBurnRate);
+
+              const expectedPostUpdateBurnRate = (totalUnpackedFee * expectedVUnits) / BPS_DENOMINATOR;
+              const burnRateAfter = BigInt(
+                await ctx.views.getBurnRate(cluster.owner.address, cluster.operatorIds, cluster.cluster),
+              );
+              expect(burnRateAfter).to.equal(expectedPostUpdateBurnRate);
+              expect(burnRateAfter).to.not.equal(preUpdateSnapshot.burnRate);
+
+              const expectedNetworkDelta =
+                computeEBAccrualDelta(blockDiff, packedNetworkFee, ctx.state.implicitVUnits);
+              const networkEarningsAfter = BigInt(await ctx.views.getNetworkEarnings());
+              expect(networkEarningsAfter).to.equal(preUpdateSnapshot.networkEarnings + expectedNetworkDelta);
+
+              for (const op of operators) {
+                const packedFee = op.fee / ETH_DEDUCTED_DIGITS;
+                const expectedOperatorDelta = computeEBAccrualDelta(
+                  blockDiff,
+                  packedFee,
+                  ctx.state.implicitVUnits,
+                );
+                const currentOperatorEarnings = BigInt(await ctx.views.getOperatorEarnings(op.id));
+                expect(currentOperatorEarnings).to.equal(
+                  preUpdateSnapshot.operatorEarnings.get(op.id)! + expectedOperatorDelta,
+                );
+              }
+
+              const expectedSettledBalance = computeClusterBalanceWithVUnits(
+                preUpdateSnapshot.clusterBalance,
+                operatorFees,
+                networkFee,
+                ctx.state.implicitVUnits,
+                blockDiff,
+              );
+
               const contractBalAfter = await getContractEthBalance(ctx);
               const bounty = contractBalBefore - contractBalAfter;
               expect(bounty).to.be.greaterThan(0n);
+              expect(bounty).to.equal(expectedSettledBalance);
 
-              const gasCost = BigInt(receipt.gasUsed) * BigInt(receipt.gasPrice);
+              const effectiveGasPrice = (txReceipt as any).effectiveGasPrice;
+              const gasPrice = BigInt(effectiveGasPrice ?? txReceipt.gasPrice);
+              const gasCost = BigInt(txReceipt.gasUsed) * gasPrice;
               const callerBalAfter = BigInt(await ctx.provider.getBalance(caller.address));
               expect(callerBalAfter - callerBalBefore + gasCost).to.equal(bounty);
 
@@ -240,12 +320,28 @@ describe("Fuzz: EB increase triggers auto-liquidation (CAT-3-2)", function () {
           {
             name: "phase4-post-liquidation",
             async fn(ctx) {
-              const { cluster } = ctx.state;
+              const { cluster, operators } = ctx.state;
 
               const isLiq = await ctx.views.isLiquidatable(
                 cluster.owner.address, cluster.operatorIds, cluster.cluster,
               );
               expect(isLiq).to.equal(false);
+
+              const earningsBefore = new Map<number, bigint>();
+              for (const op of operators) {
+                earningsBefore.set(op.id, BigInt(await ctx.views.getOperatorEarnings(op.id)));
+              }
+              const networkBefore = BigInt(await ctx.views.getNetworkEarnings());
+
+              const postBlocks = Number(ctx.rng.nextInRange(20n, 80n));
+              await mineBlocks(ctx.provider, postBlocks);
+
+              for (const op of operators) {
+                const earningsAfter = BigInt(await ctx.views.getOperatorEarnings(op.id));
+                expect(earningsAfter).to.equal(earningsBefore.get(op.id)!);
+              }
+              const networkAfter = BigInt(await ctx.views.getNetworkEarnings());
+              expect(networkAfter).to.equal(networkBefore);
 
               await expect(
                 ctx.views.getBalance(cluster.owner.address, cluster.operatorIds, cluster.cluster),
