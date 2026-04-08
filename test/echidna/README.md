@@ -156,6 +156,8 @@ This harness also instantiates staking claimants and operator owners so `echidna
 
 ## SSVValidatorsEchidna (8 Invariants)
 
+This harness now drives both single and bulk registration/removal/exit paths.
+
 | Property | Description |
 |----------|-------------|
 | `echidna_validator_hash_consistent` | Validator state matches stored operator ids |

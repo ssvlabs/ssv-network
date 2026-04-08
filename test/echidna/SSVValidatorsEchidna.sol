@@ -32,6 +32,15 @@ contract ValidatorUser {
         validators.registerValidator{value: msg.value}(publicKey, operatorIds, sharesData, cluster);
     }
 
+    function bulkRegister(
+        bytes[] calldata publicKeys,
+        uint64[] calldata operatorIds,
+        bytes[] calldata sharesData,
+        ISSVNetworkCore.Cluster memory cluster
+    ) external payable {
+        validators.bulkRegisterValidator{value: msg.value}(publicKeys, operatorIds, sharesData, cluster);
+    }
+
     function remove(
         bytes calldata publicKey,
         uint64[] calldata operatorIds,
@@ -40,8 +49,20 @@ contract ValidatorUser {
         validators.removeValidator(publicKey, operatorIds, cluster);
     }
 
+    function bulkRemove(
+        bytes[] calldata publicKeys,
+        uint64[] calldata operatorIds,
+        ISSVNetworkCore.Cluster memory cluster
+    ) external {
+        validators.bulkRemoveValidator(publicKeys, operatorIds, cluster);
+    }
+
     function exit(bytes calldata publicKey, uint64[] calldata operatorIds) external {
         validators.exitValidator(publicKey, operatorIds);
+    }
+
+    function bulkExit(bytes[] calldata publicKeys, uint64[] calldata operatorIds) external {
+        validators.bulkExitValidator(publicKeys, operatorIds);
     }
 }
 
@@ -139,6 +160,45 @@ contract SSVValidatorsEchidna is SSVValidators {
         } catch {}
     }
 
+    function action_bulk_register(uint256 seed, uint8 ownerSeed, uint8 operatorsSeed) external {
+        uint256 remainingCapacity = MAX_VALIDATORS - validatorIds.length;
+        if (remainingCapacity < 2) return;
+
+        address owner = (ownerSeed % 2 == 0) ? address(owner1) : address(owner2);
+        uint8 operatorsKey = operatorsSeed % 2;
+        uint64[] memory operatorIds = _operatorIdsForKey(operatorsKey);
+        bytes32 clusterId = keccak256(abi.encodePacked(owner, operatorIds));
+
+        ISSVNetworkCore.Cluster memory cluster = _getClusterForRegistration(clusterId);
+        uint256 batchSize = 2 + ((seed >> 16) % 2);
+        if (batchSize > remainingCapacity) {
+            batchSize = remainingCapacity;
+        }
+        if (batchSize < 2) return;
+
+        bytes[] memory publicKeys = new bytes[](batchSize);
+        bytes[] memory sharesData = new bytes[](batchSize);
+        bytes32[] memory validatorKeys = new bytes32[](batchSize);
+
+        for (uint256 i; i < batchSize; ++i) {
+            uint256 validatorSeed = uint256(keccak256(abi.encodePacked(seed, i, owner, operatorsKey)));
+            bytes memory publicKey = _makePublicKey(validatorSeed);
+            bytes32 validatorKey = keccak256(abi.encodePacked(publicKey, owner));
+            if (validatorKeyToId[validatorKey] != 0) return;
+
+            publicKeys[i] = publicKey;
+            sharesData[i] = _makeShares(validatorSeed);
+            validatorKeys[i] = validatorKey;
+        }
+
+        uint256 amount = _boundAmount(seed >> 8, _availableBalance());
+        ValidatorUser ownerUser = _ownerUser(owner);
+
+        try ownerUser.bulkRegister{value: amount}(publicKeys, operatorIds, sharesData, cluster) {
+            _recordBulkRegistration(clusterId, owner, operatorsKey, cluster, publicKeys, validatorKeys, amount, operatorIds);
+        } catch {}
+    }
+
     function action_remove(uint256 seed) external {
         uint256 validatorId = _pickValidatorId(seed);
         if (validatorId == 0) return;
@@ -165,6 +225,83 @@ contract SSVValidatorsEchidna is SSVValidators {
         } catch {}
     }
 
+    function action_bulk_remove(uint256 seed) external {
+        bytes32 clusterId = _pickBulkRemovableClusterId(seed);
+        if (clusterId == bytes32(0)) return;
+
+        ClusterRecord storage clusterRecord = clusters[clusterId];
+        if (!clusterRecord.exists) return;
+
+        uint256[] memory activeValidatorIds = _activeValidatorIdsForCluster(clusterId);
+        uint256 activeCount = activeValidatorIds.length;
+        if (activeCount < 2) return;
+
+        uint256 batchSize = 2 + ((seed >> 8) % 2);
+        if (batchSize > activeCount) {
+            batchSize = activeCount;
+        }
+        if (batchSize < 2) return;
+
+        uint256 start = (seed >> 16) % activeCount;
+        bytes[] memory publicKeys = new bytes[](batchSize);
+        uint256[] memory selectedValidatorIds = new uint256[](batchSize);
+
+        for (uint256 i; i < batchSize; ++i) {
+            uint256 validatorId = activeValidatorIds[(start + i) % activeCount];
+            selectedValidatorIds[i] = validatorId;
+            publicKeys[i] = validators[validatorId].publicKey;
+        }
+
+        uint64[] memory operatorIds = _operatorIdsForKey(clusterRecord.operatorsKey);
+        ValidatorUser ownerUser = _ownerUser(clusterRecord.owner);
+
+        try ownerUser.bulkRemove(publicKeys, operatorIds, clusterRecord.cluster) {
+            for (uint256 i; i < batchSize; ++i) {
+                uint256 validatorId = selectedValidatorIds[i];
+                ValidatorRecord storage record = validators[validatorId];
+                record.active = false;
+                bytes32 validatorKey = keccak256(abi.encodePacked(record.publicKey, record.owner));
+                if (validatorKeyToId[validatorKey] == validatorId) {
+                    validatorKeyToId[validatorKey] = 0;
+                }
+            }
+
+            _recordBulkRemoval(clusterRecord, clusterId, operatorIds, uint32(batchSize));
+            for (uint256 i; i < batchSize; ++i) {
+                _updateExpectedOperatorCounts(operatorIds, false);
+            }
+        } catch {}
+    }
+
+    function action_bulk_exit(uint256 seed) external {
+        bytes32 clusterId = _pickBulkRemovableClusterId(seed);
+        if (clusterId == bytes32(0)) return;
+
+        ClusterRecord storage clusterRecord = clusters[clusterId];
+        if (!clusterRecord.exists) return;
+
+        uint256[] memory activeValidatorIds = _activeValidatorIdsForCluster(clusterId);
+        uint256 activeCount = activeValidatorIds.length;
+        if (activeCount < 2) return;
+
+        uint256 batchSize = 2 + ((seed >> 8) % 2);
+        if (batchSize > activeCount) {
+            batchSize = activeCount;
+        }
+        if (batchSize < 2) return;
+
+        uint256 start = (seed >> 16) % activeCount;
+        bytes[] memory publicKeys = new bytes[](batchSize);
+        for (uint256 i; i < batchSize; ++i) {
+            uint256 validatorId = activeValidatorIds[(start + i) % activeCount];
+            publicKeys[i] = validators[validatorId].publicKey;
+        }
+
+        uint64[] memory operatorIds = _operatorIdsForKey(clusterRecord.operatorsKey);
+        ValidatorUser ownerUser = _ownerUser(clusterRecord.owner);
+        try ownerUser.bulkExit(publicKeys, operatorIds) {} catch {}
+    }
+
     function action_exit_unauthorized(uint256 seed) external {
         uint256 validatorId = _pickValidatorId(seed);
         if (validatorId == 0) return;
@@ -175,6 +312,36 @@ contract SSVValidatorsEchidna is SSVValidators {
 
         uint64[] memory operatorIds = _operatorIdsForKey(record.operatorsKey);
         try attacker.exit(record.publicKey, operatorIds) {
+            unauthorizedExitSucceeded = true;
+        } catch {}
+    }
+
+    function action_bulk_exit_unauthorized(uint256 seed) external {
+        bytes32 clusterId = _pickBulkRemovableClusterId(seed);
+        if (clusterId == bytes32(0)) return;
+
+        ClusterRecord storage clusterRecord = clusters[clusterId];
+        if (!clusterRecord.exists || clusterRecord.owner == address(attacker)) return;
+
+        uint256[] memory activeValidatorIds = _activeValidatorIdsForCluster(clusterId);
+        uint256 activeCount = activeValidatorIds.length;
+        if (activeCount < 2) return;
+
+        uint256 batchSize = 2 + ((seed >> 8) % 2);
+        if (batchSize > activeCount) {
+            batchSize = activeCount;
+        }
+        if (batchSize < 2) return;
+
+        uint256 start = (seed >> 16) % activeCount;
+        bytes[] memory publicKeys = new bytes[](batchSize);
+        for (uint256 i; i < batchSize; ++i) {
+            uint256 validatorId = activeValidatorIds[(start + i) % activeCount];
+            publicKeys[i] = validators[validatorId].publicKey;
+        }
+
+        uint64[] memory operatorIds = _operatorIdsForKey(clusterRecord.operatorsKey);
+        try attacker.bulkExit(publicKeys, operatorIds) {
             unauthorizedExitSucceeded = true;
         } catch {}
     }
@@ -396,6 +563,58 @@ contract SSVValidatorsEchidna is SSVValidators {
         validatorKeyToId[validatorKey] = nextValidatorId;
     }
 
+    function _recordBulkRegistration(
+        bytes32 clusterId,
+        address owner,
+        uint8 operatorsKey,
+        ISSVNetworkCore.Cluster memory cluster,
+        bytes[] memory publicKeys,
+        bytes32[] memory validatorKeys,
+        uint256 amount,
+        uint64[] memory operatorIds
+    ) internal {
+        ClusterRecord storage record = clusters[clusterId];
+        bool existed = record.exists;
+        uint256 previousBalance = existed ? record.cluster.balance : 0;
+        uint32 validatorsAdded = uint32(publicKeys.length);
+
+        cluster.balance += amount;
+
+        StorageData storage s = SSVStorage.load();
+        StorageProtocol storage sp = SSVStorageProtocol.load();
+        uint64 clusterIndex = _clusterIndexFromStorage(operatorIds, s);
+        uint64 networkFeeIndex = sp.currentNetworkFeeIndex();
+
+        cluster.updateClusterData(clusterId, clusterIndex, networkFeeIndex);
+        cluster.validatorCount += validatorsAdded;
+        cluster.active = true;
+
+        totalExpectedBalance = totalExpectedBalance - previousBalance + cluster.balance;
+        for (uint256 i; i < validatorsAdded; ++i) {
+            _updateExpectedOperatorCounts(operatorIds, true);
+        }
+
+        if (!existed) {
+            record.owner = owner;
+            record.operatorsKey = operatorsKey;
+            record.exists = true;
+            clusterIds.push(clusterId);
+        }
+        record.cluster = cluster;
+
+        for (uint256 i; i < validatorsAdded; ++i) {
+            nextValidatorId += 1;
+            validators[nextValidatorId] = ValidatorRecord({
+                publicKey: publicKeys[i],
+                owner: owner,
+                operatorsKey: operatorsKey,
+                active: true
+            });
+            validatorIds.push(nextValidatorId);
+            validatorKeyToId[validatorKeys[i]] = nextValidatorId;
+        }
+    }
+
     function _recordRemoval(ClusterRecord storage record, bytes32 clusterId, uint64[] memory operatorIds) internal {
         if (!record.exists) return;
 
@@ -412,6 +631,35 @@ contract SSVValidatorsEchidna is SSVValidators {
 
         if (cluster.validatorCount > 0) {
             cluster.validatorCount -= 1;
+        }
+
+        record.cluster = cluster;
+        totalExpectedBalance = totalExpectedBalance - previousBalance + cluster.balance;
+    }
+
+    function _recordBulkRemoval(
+        ClusterRecord storage record,
+        bytes32 clusterId,
+        uint64[] memory operatorIds,
+        uint32 validatorsRemoved
+    ) internal {
+        if (!record.exists) return;
+
+        ISSVNetworkCore.Cluster memory cluster = record.cluster;
+        uint256 previousBalance = cluster.balance;
+
+        if (cluster.active) {
+            StorageData storage s = SSVStorage.load();
+            StorageProtocol storage sp = SSVStorageProtocol.load();
+            uint64 clusterIndex = _clusterIndexFromStorage(operatorIds, s);
+            uint64 networkFeeIndex = sp.currentNetworkFeeIndex();
+            cluster.updateClusterData(clusterId, clusterIndex, networkFeeIndex);
+        }
+
+        if (cluster.validatorCount >= validatorsRemoved) {
+            cluster.validatorCount -= validatorsRemoved;
+        } else {
+            cluster.validatorCount = 0;
         }
 
         record.cluster = cluster;
@@ -466,6 +714,51 @@ contract SSVValidatorsEchidna is SSVValidators {
         uint256 count = validatorIds.length;
         if (count == 0) return 0;
         return validatorIds[seed % count];
+    }
+
+    function _pickBulkRemovableClusterId(uint256 seed) internal view returns (bytes32) {
+        uint256 count = clusterIds.length;
+        if (count == 0) return bytes32(0);
+
+        uint256 start = seed % count;
+        for (uint256 i; i < count; ++i) {
+            bytes32 clusterId = clusterIds[(start + i) % count];
+            if (_activeValidatorCountForCluster(clusterId) >= 2) {
+                return clusterId;
+            }
+        }
+        return bytes32(0);
+    }
+
+    function _activeValidatorCountForCluster(bytes32 clusterId) internal view returns (uint256 count) {
+        uint256 validatorsCount = validatorIds.length;
+        for (uint256 i; i < validatorsCount; ++i) {
+            ValidatorRecord storage record = validators[validatorIds[i]];
+            if (!record.active) continue;
+            bytes32 recordCluster = keccak256(abi.encodePacked(record.owner, _operatorIdsForKey(record.operatorsKey)));
+            if (recordCluster == clusterId) {
+                count += 1;
+            }
+        }
+    }
+
+    function _activeValidatorIdsForCluster(bytes32 clusterId) internal view returns (uint256[] memory activeIds) {
+        uint256 count = _activeValidatorCountForCluster(clusterId);
+        activeIds = new uint256[](count);
+        if (count == 0) return activeIds;
+
+        uint256 next;
+        uint256 validatorsCount = validatorIds.length;
+        for (uint256 i; i < validatorsCount; ++i) {
+            uint256 validatorId = validatorIds[i];
+            ValidatorRecord storage record = validators[validatorId];
+            if (!record.active) continue;
+            bytes32 recordCluster = keccak256(abi.encodePacked(record.owner, _operatorIdsForKey(record.operatorsKey)));
+            if (recordCluster == clusterId) {
+                activeIds[next] = validatorId;
+                next += 1;
+            }
+        }
     }
 
     function _ownerUser(address owner) internal view returns (ValidatorUser) {
