@@ -27,6 +27,7 @@ echidna test/echidna/SSVClustersEchidna.sol --contract SSVClustersEchidna --conf
 echidna test/echidna/SSVAccountingEchidna.sol --contract SSVAccountingEchidna --config test/echidna/echidna.yaml
 echidna test/echidna/SSVEdgeCasesEchidna.sol --contract SSVEdgeCasesEchidna --config test/echidna/echidna.yaml
 echidna test/echidna/SSVValidatorsEchidna.sol --contract SSVValidatorsEchidna --config test/echidna/echidna.yaml
+echidna test/echidna/SSVWhitelistValidatorsEchidna.sol --contract SSVWhitelistValidatorsEchidna --config test/echidna/echidna.yaml
 echidna test/echidna/SSVStakingEchidna.sol --contract SSVStakingEchidna --config test/echidna/echidna.yaml
 echidna test/echidna/SSVDAOEchidna.sol --contract SSVDAOEchidna --config test/echidna/echidna.yaml
 echidna test/echidna/SSVMigrationEchidna.sol --contract SSVMigrationEchidna --config test/echidna/echidna.yaml
@@ -46,6 +47,7 @@ test/echidna/
 ├── SSVAccountingEchidna.sol          # System accounting invariants (7 tests)
 ├── SSVEdgeCasesEchidna.sol           # Edge-case invariants (7 tests)
 ├── SSVValidatorsEchidna.sol          # Validators invariants (8 tests)
+├── SSVWhitelistValidatorsEchidna.sol # Private-operator registration invariants (5 tests)
 ├── SSVStakingEchidna.sol             # Staking invariants (16 tests)
 ├── SSVDAOEchidna.sol                 # DAO invariants (23 tests)
 ├── SSVMigrationEchidna.sol           # Migration invariants (6 tests) [BUG-14]
@@ -168,6 +170,18 @@ This harness now drives both single and bulk registration/removal/exit paths.
 | `echidna_no_duplicate_validators` | Duplicate validators cannot be registered |
 | `echidna_owner_only_remove` | Only owner can remove validators |
 | `echidna_owner_only_exit` | Only owner can exit validators |
+
+## SSVWhitelistValidatorsEchidna (5 Invariants)
+
+This harness focuses on private-operator registration coverage across both single and bulk registration: direct whitelist address flow, whitelist-contract flow, mixed public/private clusters with a zero-fee private operator, and a legacy SSV private operator that is initialized for ETH fees before ETH-cluster registration.
+
+| Property | Description |
+|----------|-------------|
+| `echidna_private_registration_access_control` | Unauthorized callers cannot single-register or bulk-register clusters that include private operators |
+| `echidna_private_authorized_paths_consistent` | Authorized single-register and bulk-register mixed-cluster / whitelist-contract paths keep validator state and operator fee assumptions intact |
+| `echidna_legacy_private_eth_init_preserves_whitelist` | A legacy SSV private operator keeps its whitelist semantics after ETH defaults are initialized and it is used in a new ETH cluster through single or bulk registration |
+| `echidna_whitelist_operator_counts_consistent` | Operator ETH validator counts and DAO ETH validator totals stay consistent across private/public registration scenarios |
+| `echidna_whitelist_cluster_hashes_consistent` | Successful private-operator registrations keep stored ETH cluster hashes consistent, and unauthorized registrations do not create clusters |
 
 ## SSVStakingEchidna (16 Invariants)
 
