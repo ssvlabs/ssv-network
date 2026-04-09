@@ -27,3 +27,7 @@ filterFunctions:
   - "SSVClustersEchidna.action_withdraw(uint256)"
   - "SSVClustersEchidna.action_withdraw_liquidated(uint256)"
   - "SSVClustersEchidna.action_withdraw_over(uint256)"
+  - "SSVRemovedOperatorETHFlowsEchidna.action_bug21_removed_operator_eb_decrease(uint256)"
+  - "SSVRemovedOperatorETHFlowsEchidna.action_bug21_removed_operator_eb_increase(uint256)"
+  - "SSVRemovedOperatorETHFlowsEchidna.action_bug21_removed_operator_liquidation(uint256)"
+  - "SSVRemovedOperatorETHFlowsEchidna.action_bug21_removed_operator_final_removal(uint256)"
