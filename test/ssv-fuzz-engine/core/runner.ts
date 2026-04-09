@@ -88,4 +88,17 @@ export async function fuzz<S>(config: FuzzConfig<S>, seed: bigint): Promise<void
       );
     }
   }
+
+  if (config.after) {
+    try {
+      await config.after(ctx);
+    } catch (err: any) {
+      const msg = err?.message ?? String(err);
+      throw new Error(
+        `after() hook failed:\n` +
+        `  Reproduce: FUZZ_SEED=${seed} npx hardhat test <testfile>\n` +
+        `  ${msg}`,
+      );
+    }
+  }
 }

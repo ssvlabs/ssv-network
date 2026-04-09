@@ -1000,8 +1000,6 @@ export async function setupPendingFeeLegacyMigrationSeed(
 
   const preUpgradeCluster = { ...cluster };
 
-  // Advance time past declareOperatorFeePeriod so approvalBeginTime <= upgradeTimestamp,
-  // ensuring the UPGRADE_TIMESTAMP guard fires on executeOperatorFee post-upgrade.
   await connection.ethers.provider.send("evm_increaseTime", [Number(DECLARE_OPERATOR_FEE_PERIOD) + 1]);
   await mineBlocks(connection.ethers.provider, 1);
 

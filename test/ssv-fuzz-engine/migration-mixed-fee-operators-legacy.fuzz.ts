@@ -2,6 +2,7 @@ import { fuzz, generateSeeds } from "./core/runner.ts";
 import { setupMixedFeeLegacyMigrationSeed, alignSSVFee } from "./core/setup.ts";
 import type { OperatorRecord, ClusterRecord } from "./core/types.ts";
 import {
+  assertLegacyEthOpsBlocked,
   migrateLegacyCluster,
   type DepositWithdrawTracker,
   type LegacyMigrationSnapshot,
@@ -16,6 +17,7 @@ import {
   assertPhaseAwareClusterBalance,
   assertPhaseAwareNetworkEarnings,
   assertContractBalanceWithDeltas,
+  resetPhaseAwareSnapshots,
   type PhaseAwareOperatorEarningsSnapshot,
   type PhaseAwareClusterBalanceSnapshot,
   type PhaseAwareNetworkEarningsSnapshot,
@@ -99,16 +101,7 @@ describe("Fuzz: CAT-1-7 — mixed-fee operators cluster, migration assigns per-o
             fn: async (ctx) => {
               // Phase 2: SSV cluster still active, ETH ops blocked
               expect(ctx.state.cluster.cluster.active).to.equal(true);
-              await expect(
-                ctx.network.connect(ctx.state.cluster.owner).deposit(
-                  ctx.state.cluster.owner.address, ctx.state.cluster.operatorIds, ctx.state.cluster.cluster, { value: 1n },
-                ),
-              ).to.be.revertedWithCustomError(ctx.network, Errors.INCORRECT_CLUSTER_VERSION);
-              await expect(
-                ctx.network.connect(ctx.state.cluster.owner).withdraw(
-                  ctx.state.cluster.operatorIds, 1n, ctx.state.cluster.cluster,
-                ),
-              ).to.be.revertedWithCustomError(ctx.network, Errors.INCORRECT_CLUSTER_VERSION);
+              await assertLegacyEthOpsBlocked(ctx);
 
               // Phase 3: migrate
               const ethDepositMin = DEFAULT_ETH_REGISTER_VALUE;
@@ -173,8 +166,7 @@ describe("Fuzz: CAT-1-7 — mixed-fee operators cluster, migration assigns per-o
                 }
               }
 
-              ctx.state.lastPhaseAwareOperatorEarnings = undefined;
-              ctx.state.lastContractBalanceWithDeltas = undefined;
+              resetPhaseAwareSnapshots(ctx, { resetContractBalanceWithDeltas: true });
               await assertPhaseAwareOperatorEarnings(ctx);
 
               ctx.state.phase = "post-migration-complete";

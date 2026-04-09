@@ -3,7 +3,69 @@ import type { FuzzContext, ClusterRecord, OperatorRecord } from "./types.ts";
 import type { LegacyMigrationSnapshot } from "./steps.ts";
 import { ETH_DEDUCTED_DIGITS, BPS_DENOMINATOR, DEFAULT_OPERATOR_ETH_FEE } from "../../common/constants.ts";
 import { Events } from "../../common/events.ts";
-import { computeBurnRate, computeClusterBalance, computeClusterBalanceWithVUnits } from "./fuzz-helpers.ts";
+import { Errors } from "../../common/errors.ts";
+import {
+  computeBurnRate,
+  computeClusterBalance,
+  computeClusterBalanceWithVUnits,
+  ebToVUnits,
+} from "./fuzz-helpers.ts";
+
+export interface ParsedEvent<TArgs = any> {
+  index: number;
+  name: string;
+  args: TArgs;
+  log: any;
+}
+
+export function collectParsedEvents(
+  ctx: Pick<FuzzContext<any>, "network">,
+  receipt: { logs?: readonly any[] } | null | undefined,
+): ParsedEvent[] {
+  const orderedEvents: ParsedEvent[] = [];
+  const logs = receipt?.logs ?? [];
+  for (let i = 0; i < logs.length; i++) {
+    const log = logs[i];
+    let parsed;
+    try {
+      parsed = ctx.network.interface.parseLog(log);
+    } catch {
+      continue;
+    }
+    if (!parsed) continue;
+    orderedEvents.push({
+      index: i,
+      name: parsed.name,
+      args: parsed.args,
+      log,
+    });
+  }
+  return orderedEvents;
+}
+
+export function collectParsedEventsByName<TArgs = any>(
+  ctx: Pick<FuzzContext<any>, "network">,
+  receipt: { logs?: readonly any[] } | null | undefined,
+  eventName: string,
+): ParsedEvent<TArgs>[] {
+  return collectParsedEvents(ctx, receipt)
+    .filter((event) => event.name === eventName) as ParsedEvent<TArgs>[];
+}
+
+interface OperatorFeeExecutedArgs {
+  operatorId: bigint;
+  fee: bigint;
+}
+
+function collectOperatorFeeExecutedEvents(
+  ctx: Pick<FuzzContext<any>, "network">,
+  receipt: { logs?: readonly any[] } | null | undefined,
+): OperatorFeeExecutedArgs[] {
+  return collectParsedEventsByName(ctx, receipt, Events.OPERATOR_FEE_EXECUTED).map((event) => ({
+    operatorId: BigInt(event.args.operatorId),
+    fee: BigInt(event.args.fee),
+  }));
+}
 
 export async function getContractEthBalance(ctx: FuzzContext<any>): Promise<bigint> {
   const address = await ctx.network.getAddress();
@@ -305,6 +367,134 @@ export async function assertPhaseAwareNetworkEarnings<S extends { cluster: Clust
   };
 }
 
+export function resetPhaseAwareSnapshots<S extends {
+  lastPhaseAwareOperatorEarnings?: PhaseAwareOperatorEarningsSnapshot;
+  lastPhaseAwareClusterBalance?: PhaseAwareClusterBalanceSnapshot;
+  lastPhaseAwareNetworkEarnings?: PhaseAwareNetworkEarningsSnapshot;
+  lastContractBalanceWithDeltas?: ContractBalanceWithDeltasSnapshot;
+}>(
+  ctx: FuzzContext<S>,
+  options?: { resetContractBalanceWithDeltas?: boolean },
+): void {
+  ctx.state.lastPhaseAwareOperatorEarnings = undefined;
+  ctx.state.lastPhaseAwareClusterBalance = undefined;
+  ctx.state.lastPhaseAwareNetworkEarnings = undefined;
+  if (options?.resetContractBalanceWithDeltas) {
+    ctx.state.lastContractBalanceWithDeltas = undefined;
+  }
+}
+
+export function resetEBSnapshots<S extends {
+  lastEBOperatorEarnings?: EBOperatorEarningsSnapshot;
+  lastEBClusterBalance?: EBClusterBalanceSnapshot;
+  lastEBNetworkEarnings?: EBNetworkEarningsSnapshot;
+  tickDepositDelta?: bigint;
+}>(
+  ctx: FuzzContext<S>,
+  options?: { resetTickDepositDelta?: boolean },
+): void {
+  ctx.state.lastEBOperatorEarnings = undefined;
+  ctx.state.lastEBClusterBalance = undefined;
+  ctx.state.lastEBNetworkEarnings = undefined;
+  if (options?.resetTickDepositDelta) {
+    ctx.state.tickDepositDelta = 0n;
+  }
+}
+
+export interface InactiveSettlementSnapshot {
+  networkEarnings: bigint;
+  operatorEarnings: Map<number, bigint>;
+  clusterBalance: bigint;
+  onchainClusterBalance?: bigint;
+  contractEthBalance: bigint;
+}
+
+async function captureSettlementSnapshot<S extends { operators: OperatorRecord[]; cluster: ClusterRecord }>(
+  ctx: FuzzContext<S>,
+): Promise<InactiveSettlementSnapshot> {
+  const operatorEarnings = new Map<number, bigint>();
+  for (const op of ctx.state.operators) {
+    operatorEarnings.set(op.id, BigInt(await ctx.views.getOperatorEarnings(op.id)));
+  }
+  const localClusterBalance = BigInt(ctx.state.cluster.cluster.balance);
+  const readOnchainClusterBalance = async (): Promise<bigint> => BigInt(
+    await ctx.views.getBalance(
+      ctx.state.cluster.owner.address,
+      ctx.state.cluster.operatorIds,
+      ctx.state.cluster.cluster,
+    ),
+  );
+  const contractEthBalance = await getContractEthBalance(ctx);
+
+  let onchainClusterBalance: bigint | undefined;
+  try {
+    onchainClusterBalance = await readOnchainClusterBalance();
+  } catch {
+    await expect(
+      ctx.views.getBalance(
+        ctx.state.cluster.owner.address,
+        ctx.state.cluster.operatorIds,
+        ctx.state.cluster.cluster,
+      ),
+    ).to.be.revertedWithCustomError(ctx.network, Errors.CLUSTER_IS_LIQUIDATED);
+    onchainClusterBalance = undefined;
+  }
+  if (onchainClusterBalance !== undefined) {
+    expect(
+      onchainClusterBalance,
+      "Local cluster snapshot diverged from on-chain balance",
+    ).to.equal(localClusterBalance);
+  }
+  return {
+    networkEarnings: BigInt(await ctx.views.getNetworkEarnings()),
+    operatorEarnings,
+    clusterBalance: localClusterBalance,
+    onchainClusterBalance,
+    contractEthBalance,
+  };
+}
+
+export async function assertInactiveClusterNoSettlement<S extends { cluster: ClusterRecord; operators: OperatorRecord[] }>(
+  ctx: FuzzContext<S>,
+  previous?: InactiveSettlementSnapshot,
+  options?: { expectedClusterBalanceDelta?: bigint },
+): Promise<InactiveSettlementSnapshot> {
+  expect(ctx.state.cluster.cluster.active).to.equal(false, "Expected inactive cluster");
+  const current = await captureSettlementSnapshot(ctx);
+  if (previous !== undefined) {
+    const expectedClusterBalanceDelta = options?.expectedClusterBalanceDelta ?? 0n;
+    expect(current.networkEarnings).to.equal(previous.networkEarnings);
+    for (const [opId, earnings] of previous.operatorEarnings.entries()) {
+      expect(
+        current.operatorEarnings.get(opId),
+        `Operator ${opId} earnings changed while cluster is inactive`,
+      ).to.equal(earnings);
+    }
+    expect(
+      current.clusterBalance,
+      "Inactive cluster balance changed beyond expected explicit deposit/withdraw delta",
+    ).to.equal(previous.clusterBalance + expectedClusterBalanceDelta);
+    expect(
+      current.contractEthBalance,
+      "Contract ETH balance changed beyond expected explicit deposit/withdraw delta",
+    ).to.equal(previous.contractEthBalance + expectedClusterBalanceDelta);
+    if (previous.onchainClusterBalance !== undefined && current.onchainClusterBalance !== undefined) {
+      expect(
+        current.onchainClusterBalance,
+        "On-chain inactive cluster balance changed beyond expected explicit deposit/withdraw delta",
+      ).to.equal(previous.onchainClusterBalance + expectedClusterBalanceDelta);
+    } else if (previous.onchainClusterBalance !== undefined && current.onchainClusterBalance === undefined) {
+      const expectedOnchainBalance = previous.onchainClusterBalance + expectedClusterBalanceDelta;
+      // getBalance() is expected to become unreadable when inactive cluster reaches zero balance.
+      expect(
+        expectedOnchainBalance,
+        "On-chain balance became unreadable before expected zero-balance liquidated state",
+      ).to.equal(0n);
+    }
+  }
+  return current;
+}
+
 export async function assertRemovedOperatorEarningsFrozen<S extends { removedOperator: OperatorRecord | null; lastRemovedOperatorEarnings?: bigint }>(
   ctx: FuzzContext<S>,
 ): Promise<void> {
@@ -337,16 +527,101 @@ export async function assertOperatorValidatorCounts<S extends { cluster: Cluster
   }
 }
 
-function ebToVUnits(effectiveBalance: bigint): bigint {
-  const vUnits = effectiveBalance * BPS_DENOMINATOR;
-  if (vUnits === 0n) return 0n;
-  return (vUnits - 1n) / 32n + 1n;
+export async function assertValidatorCounts<S extends { operators: OperatorRecord[] }>(
+  ctx: FuzzContext<S>,
+  expectedByOperator: Record<number, bigint> | Map<number, bigint>,
+): Promise<void> {
+  const expectedEntries = expectedByOperator instanceof Map
+    ? expectedByOperator.entries()
+    : Object.entries(expectedByOperator).map(([id, count]) => [Number(id), count] as const);
+
+  for (const [operatorId, expected] of expectedEntries) {
+    const opData = await ctx.views.getOperatorById(Number(operatorId));
+    expect(BigInt(opData.validatorCount)).to.equal(
+      expected,
+      `Unexpected validatorCount for operator ${operatorId}`,
+    );
+  }
+}
+
+export function computeEBAccrualDelta(blocks: bigint, packedFee: bigint, vUnits: bigint): bigint {
+  return ((blocks * packedFee * vUnits) / BPS_DENOMINATOR) * ETH_DEDUCTED_DIGITS;
 }
 
 export interface EBOperatorEarningsSnapshot {
   block: bigint;
   earnings: Map<number, bigint>;
   vUnits: bigint;
+}
+
+export interface EBTransitionSnapshot {
+  block: bigint;
+  clusterBalance: bigint;
+  networkEarnings: bigint;
+  operatorEarnings: Map<number, bigint>;
+}
+
+export async function captureEBTransitionSnapshot<S extends { cluster: ClusterRecord; operators: OperatorRecord[] }>(
+  ctx: FuzzContext<S>,
+): Promise<EBTransitionSnapshot> {
+  const { cluster, operators } = ctx.state;
+
+  const operatorEarnings = new Map<number, bigint>();
+  for (const op of operators) {
+    operatorEarnings.set(op.id, BigInt(await ctx.views.getOperatorEarnings(op.id)));
+  }
+
+  return {
+    block: BigInt(await ctx.provider.getBlockNumber()),
+    clusterBalance: BigInt(await ctx.views.getBalance(cluster.owner.address, cluster.operatorIds, cluster.cluster)),
+    networkEarnings: BigInt(await ctx.views.getNetworkEarnings()),
+    operatorEarnings,
+  };
+}
+
+export async function assertEBTransitionSettledAtVUnits<
+  S extends { cluster: ClusterRecord; operators: OperatorRecord[] }
+>(
+  ctx: FuzzContext<S>,
+  snapshot: EBTransitionSnapshot,
+  settledVUnits: bigint,
+  clusterBalanceOverride?: bigint,
+): Promise<void> {
+  const { cluster, operators } = ctx.state;
+  const block = BigInt(await ctx.provider.getBlockNumber());
+  const blocks = block - snapshot.block;
+  const networkFee = BigInt(await ctx.views.getNetworkFee());
+
+  const operatorFees = operators.map(op => op.fee);
+
+  let packedTotal = networkFee / ETH_DEDUCTED_DIGITS;
+  for (const fee of operatorFees) {
+    packedTotal += fee / ETH_DEDUCTED_DIGITS;
+  }
+  const expectedClusterBalance = computeClusterBalanceWithVUnits(
+    snapshot.clusterBalance,
+    operatorFees,
+    networkFee,
+    settledVUnits,
+    blocks,
+  );
+
+  const currentClusterBalance = clusterBalanceOverride ?? BigInt(
+    await ctx.views.getBalance(cluster.owner.address, cluster.operatorIds, cluster.cluster),
+  );
+  expect(currentClusterBalance).to.equal(expectedClusterBalance);
+
+  const packedNetworkFee = networkFee / ETH_DEDUCTED_DIGITS;
+  const expectedNetworkDelta = computeEBAccrualDelta(blocks, packedNetworkFee, settledVUnits);
+  const currentNetworkEarnings = BigInt(await ctx.views.getNetworkEarnings());
+  expect(currentNetworkEarnings).to.equal(snapshot.networkEarnings + expectedNetworkDelta);
+
+  for (const op of operators) {
+    const packedFee = op.fee / ETH_DEDUCTED_DIGITS;
+    const expectedOpDelta = computeEBAccrualDelta(blocks, packedFee, settledVUnits);
+    const currentOpEarnings = BigInt(await ctx.views.getOperatorEarnings(op.id));
+    expect(currentOpEarnings).to.equal(snapshot.operatorEarnings.get(op.id)! + expectedOpDelta);
+  }
 }
 
 export async function assertOperatorEarningsWithEB<S extends { cluster: ClusterRecord; operators: OperatorRecord[]; lastEBOperatorEarnings?: EBOperatorEarningsSnapshot }>(
@@ -375,13 +650,52 @@ export async function assertOperatorEarningsWithEB<S extends { cluster: ClusterR
 
       for (const op of operators) {
         const packedFee = op.fee / ETH_DEDUCTED_DIGITS;
-        const expectedDelta = ((packedFee * prev.vUnits) / BPS_DENOMINATOR) * ETH_DEDUCTED_DIGITS * blocks;
+        const expectedDelta = computeEBAccrualDelta(blocks, packedFee, prev.vUnits);
         expect(currentEarnings.get(op.id)).to.equal(prev.earnings.get(op.id)! + expectedDelta);
       }
     }
   }
 
   ctx.state.lastEBOperatorEarnings = { block, earnings: currentEarnings, vUnits: currentVUnits };
+}
+
+export interface EBNetworkEarningsSnapshot {
+  block: bigint;
+  earnings: bigint;
+  vUnits: bigint;
+}
+
+export async function assertNetworkEarningsWithEB<S extends {
+  cluster: ClusterRecord;
+  operators: OperatorRecord[];
+  lastEBNetworkEarnings?: EBNetworkEarningsSnapshot;
+}>(ctx: FuzzContext<S>): Promise<void> {
+  const block = BigInt(await ctx.provider.getBlockNumber());
+  const { cluster } = ctx.state;
+  const currentEarnings = BigInt(await ctx.views.getNetworkEarnings());
+  const networkFee = BigInt(await ctx.views.getNetworkFee());
+
+  let currentVUnits: bigint;
+  if (cluster.cluster.active && BigInt(cluster.cluster.validatorCount) > 0n) {
+    const eb = BigInt(await ctx.views.getEffectiveBalance(
+      cluster.owner.address, cluster.operatorIds, cluster.cluster,
+    ));
+    currentVUnits = ebToVUnits(eb);
+  } else {
+    currentVUnits = 0n;
+  }
+
+  if (ctx.state.lastEBNetworkEarnings !== undefined) {
+    const prev = ctx.state.lastEBNetworkEarnings;
+    if (prev.vUnits === currentVUnits) {
+      const blocks = block - prev.block;
+      const packedNetFee = networkFee / ETH_DEDUCTED_DIGITS;
+      const expectedDelta = computeEBAccrualDelta(blocks, packedNetFee, prev.vUnits);
+      expect(currentEarnings).to.equal(prev.earnings + expectedDelta);
+    }
+  }
+
+  ctx.state.lastEBNetworkEarnings = { block, earnings: currentEarnings, vUnits: currentVUnits };
 }
 
 export async function assertDaoVUnitsMatchCluster<S extends { cluster: ClusterRecord; operators: OperatorRecord[] }>(
@@ -536,22 +850,7 @@ export async function assertLegacyEnsureETHDefaultsTransition<S extends { migrat
 ): Promise<void> {
   const { migrateReceipt } = ctx.state.migrationSnapshot;
   const { operatorIds } = ctx.state.cluster;
-
-  const feeEvents: { operatorId: bigint; fee: bigint }[] = [];
-  for (const log of migrateReceipt.logs ?? []) {
-    let parsed;
-    try {
-      parsed = ctx.network.interface.parseLog(log);
-    } catch {
-      continue;
-    }
-    if (parsed && parsed.name === Events.OPERATOR_FEE_EXECUTED) {
-      feeEvents.push({
-        operatorId: BigInt(parsed.args.operatorId),
-        fee: BigInt(parsed.args.fee),
-      });
-    }
-  }
+  const feeEvents = collectOperatorFeeExecutedEvents(ctx, migrateReceipt);
 
   expect(feeEvents.length).to.equal(operatorIds.length);
 
@@ -573,22 +872,7 @@ export async function assertMixedFeeEnsureETHDefaultsTransition<S extends {
   const { migrateReceipt } = ctx.state.migrationSnapshot;
   const { operatorIds } = ctx.state.cluster;
   const { ssvFees } = ctx.state;
-
-  const feeEvents: { operatorId: bigint; fee: bigint }[] = [];
-  for (const log of migrateReceipt.logs ?? []) {
-    let parsed;
-    try {
-      parsed = ctx.network.interface.parseLog(log);
-    } catch {
-      continue;
-    }
-    if (parsed && parsed.name === Events.OPERATOR_FEE_EXECUTED) {
-      feeEvents.push({
-        operatorId: BigInt(parsed.args.operatorId),
-        fee: BigInt(parsed.args.fee),
-      });
-    }
-  }
+  const feeEvents = collectOperatorFeeExecutedEvents(ctx, migrateReceipt);
 
   const expectedEventCount = ssvFees.filter(f => f !== 0n).length;
   expect(feeEvents.length).to.equal(
@@ -641,22 +925,7 @@ export async function assertRemovedOperatorMigrationSkip<S extends {
   const { operatorIds } = ctx.state.cluster;
   const removedId = ctx.state.removedOperator.id;
   const activeIds = operatorIds.filter(id => id !== removedId);
-
-  const feeEvents: { operatorId: bigint; fee: bigint }[] = [];
-  for (const log of migrateReceipt.logs ?? []) {
-    let parsed;
-    try {
-      parsed = ctx.network.interface.parseLog(log);
-    } catch {
-      continue;
-    }
-    if (parsed && parsed.name === Events.OPERATOR_FEE_EXECUTED) {
-      feeEvents.push({
-        operatorId: BigInt(parsed.args.operatorId),
-        fee: BigInt(parsed.args.fee),
-      });
-    }
-  }
+  const feeEvents = collectOperatorFeeExecutedEvents(ctx, migrateReceipt);
 
   expect(feeEvents.length).to.equal(activeIds.length);
 
@@ -696,22 +965,7 @@ export async function assertAllOperatorsSkippedOnMigration<S extends {
   ctx: FuzzContext<S>,
 ): Promise<void> {
   const { migrateReceipt } = ctx.state.migrationSnapshot;
-
-  const feeEvents: { operatorId: bigint; fee: bigint }[] = [];
-  for (const log of migrateReceipt.logs ?? []) {
-    let parsed;
-    try {
-      parsed = ctx.network.interface.parseLog(log);
-    } catch {
-      continue;
-    }
-    if (parsed && parsed.name === Events.OPERATOR_FEE_EXECUTED) {
-      feeEvents.push({
-        operatorId: BigInt(parsed.args.operatorId),
-        fee: BigInt(parsed.args.fee),
-      });
-    }
-  }
+  const feeEvents = collectOperatorFeeExecutedEvents(ctx, migrateReceipt);
 
   expect(feeEvents.length).to.equal(0, "No OperatorFeeExecuted events expected when all operators are removed");
 
@@ -746,19 +1000,7 @@ export async function assertZeroFeeOperatorsPostMigration<S extends {
 ): Promise<void> {
   const { migrateReceipt } = ctx.state.migrationSnapshot;
   const expectedEthCount = BigInt(ctx.state.cluster.cluster.validatorCount);
-
-  const feeEvents: { operatorId: bigint }[] = [];
-  for (const log of migrateReceipt.logs ?? []) {
-    let parsed;
-    try {
-      parsed = ctx.network.interface.parseLog(log);
-    } catch {
-      continue;
-    }
-    if (parsed && parsed.name === Events.OPERATOR_FEE_EXECUTED) {
-      feeEvents.push({ operatorId: BigInt(parsed.args.operatorId) });
-    }
-  }
+  const feeEvents = collectOperatorFeeExecutedEvents(ctx, migrateReceipt);
 
   expect(feeEvents.length).to.equal(0, "No OperatorFeeExecuted events expected for zero-fee operators");
 
@@ -780,20 +1022,7 @@ export async function assertLegacyReactivationOnMigration<S extends { migrationS
   ctx: FuzzContext<S>,
 ): Promise<void> {
   const { migrateReceipt } = ctx.state.migrationSnapshot;
-
-  let foundReactivation = false;
-  for (const log of migrateReceipt.logs ?? []) {
-    let parsed;
-    try {
-      parsed = ctx.network.interface.parseLog(log);
-    } catch {
-      continue;
-    }
-    if (parsed && parsed.name === Events.CLUSTER_REACTIVATED) {
-      foundReactivation = true;
-      break;
-    }
-  }
+  const foundReactivation = collectParsedEventsByName(ctx, migrateReceipt, Events.CLUSTER_REACTIVATED).length > 0;
   expect(foundReactivation, "ClusterReactivated event not emitted on liquidated cluster migration").to.equal(true);
   expect(ctx.state.cluster.cluster.active).to.equal(true);
 }
@@ -809,22 +1038,7 @@ export async function assertLargeClusterMigrationEvents<S extends {
   const { migrateReceipt } = ctx.state.migrationSnapshot;
   const { operatorIds } = ctx.state.cluster;
   const { ssvFees, removedOperatorIds } = ctx.state;
-
-  const feeEvents: { operatorId: bigint; fee: bigint }[] = [];
-  for (const log of migrateReceipt.logs ?? []) {
-    let parsed;
-    try {
-      parsed = ctx.network.interface.parseLog(log);
-    } catch {
-      continue;
-    }
-    if (parsed && parsed.name === Events.OPERATOR_FEE_EXECUTED) {
-      feeEvents.push({
-        operatorId: BigInt(parsed.args.operatorId),
-        fee: BigInt(parsed.args.fee),
-      });
-    }
-  }
+  const feeEvents = collectOperatorFeeExecutedEvents(ctx, migrateReceipt);
 
   const expectedEventCount = operatorIds.filter((id, i) =>
     ssvFees[i] !== 0n && !removedOperatorIds.includes(id),
@@ -875,22 +1089,7 @@ export async function assertPendingFeeOperatorsMigrationEvents<S extends {
   const { migrateReceipt } = ctx.state.migrationSnapshot;
   const { operatorIds } = ctx.state.cluster;
   const { pendingOperatorIds } = ctx.state;
-
-  const feeEvents: { operatorId: bigint; fee: bigint }[] = [];
-  for (const log of migrateReceipt.logs ?? []) {
-    let parsed;
-    try {
-      parsed = ctx.network.interface.parseLog(log);
-    } catch {
-      continue;
-    }
-    if (parsed && parsed.name === Events.OPERATOR_FEE_EXECUTED) {
-      feeEvents.push({
-        operatorId: BigInt(parsed.args.operatorId),
-        fee: BigInt(parsed.args.fee),
-      });
-    }
-  }
+  const feeEvents = collectOperatorFeeExecutedEvents(ctx, migrateReceipt);
 
   const normalOpIds = operatorIds.filter(id => !pendingOperatorIds.includes(id));
   expect(feeEvents.length).to.equal(

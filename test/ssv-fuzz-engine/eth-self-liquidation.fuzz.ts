@@ -9,10 +9,12 @@ import {
   assertPhaseAwareOperatorEarnings,
   assertPhaseAwareNetworkEarnings,
   assertPhaseAwareClusterBalance,
+  resetPhaseAwareSnapshots,
   type PhaseAwareOperatorEarningsSnapshot,
   type PhaseAwareNetworkEarningsSnapshot,
   type PhaseAwareClusterBalanceSnapshot,
 } from "./core/assertions.ts";
+import { computeMinViableBalanceForValidatorCount } from "./core/fuzz-helpers.ts";
 import { parseClusterFromEvent } from "../helpers/cluster.ts";
 import { Events } from "../common/events.ts";
 import { Errors } from "../common/errors.ts";
@@ -20,8 +22,6 @@ import { setAccountBalance, mineBlocks } from "../helpers/blocks.ts";
 import {
   MINIMAL_OPERATOR_ETH_FEE,
   DEFAULT_ETH_REGISTER_VALUE,
-  ETH_DEDUCTED_DIGITS,
-  BPS_DENOMINATOR,
   MINIMUM_BLOCKS_BEFORE_LIQUIDATION,
   MINIMUM_LIQUIDATION_PERIOD_COLLATERAL,
 } from "../common/constants.ts";
@@ -122,15 +122,14 @@ describe("Fuzz: ETH self-liquidation (CAT-2-3)", function () {
             async fn(ctx) {
               const { cluster, operators, tracker } = ctx.state;
               const validatorCount = BigInt(cluster.cluster.validatorCount);
-              const vUnits = validatorCount * BPS_DENOMINATOR;
-
-              const totalOpFee = operators.reduce((sum, op) => sum + op.fee, 0n);
               const networkFee = BigInt(await ctx.views.getNetworkFee());
-              const packedRate = totalOpFee / ETH_DEDUCTED_DIGITS + networkFee / ETH_DEDUCTED_DIGITS;
-              const minBlocks = MINIMUM_BLOCKS_BEFORE_LIQUIDATION;
-              const threshold = (minBlocks * packedRate * vUnits / BPS_DENOMINATOR) * ETH_DEDUCTED_DIGITS;
-              const minCollateral = MINIMUM_LIQUIDATION_PERIOD_COLLATERAL;
-              const minViable = threshold > minCollateral ? threshold : minCollateral;
+              const minViable = computeMinViableBalanceForValidatorCount(
+                operators.map((op) => op.fee),
+                networkFee,
+                validatorCount,
+                MINIMUM_BLOCKS_BEFORE_LIQUIDATION,
+                MINIMUM_LIQUIDATION_PERIOD_COLLATERAL,
+              );
 
               const reactivateDeposit = ctx.rng.nextInRange(minViable, minViable + DEFAULT_ETH_REGISTER_VALUE);
               await setAccountBalance(ctx.provider, cluster.owner.address, reactivateDeposit + 10n ** 18n);
@@ -145,9 +144,7 @@ describe("Fuzz: ETH self-liquidation (CAT-2-3)", function () {
               expect(cluster.cluster.active).to.equal(true);
 
               ctx.state.phase = "reactivated";
-              ctx.state.lastPhaseAwareOperatorEarnings = undefined;
-              ctx.state.lastPhaseAwareClusterBalance = undefined;
-              ctx.state.lastPhaseAwareNetworkEarnings = undefined;
+              resetPhaseAwareSnapshots(ctx);
 
               await assertOperatorValidatorCounts(ctx);
               await assertNetworkValidatorCount(ctx);

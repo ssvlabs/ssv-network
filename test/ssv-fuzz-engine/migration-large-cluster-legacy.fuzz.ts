@@ -2,6 +2,7 @@ import { fuzz, generateSeeds } from "./core/runner.ts";
 import { setupLargeClusterLegacyMigrationSeed, alignSSVFee } from "./core/setup.ts";
 import type { OperatorRecord, ClusterRecord } from "./core/types.ts";
 import {
+  assertLegacyEthOpsBlocked,
   migrateLegacyCluster,
   type DepositWithdrawTracker,
   type LegacyMigrationSnapshot,
@@ -16,11 +17,13 @@ import {
   assertPhaseAwareClusterBalance,
   assertPhaseAwareNetworkEarnings,
   assertContractBalanceWithDeltas,
+  resetPhaseAwareSnapshots,
   type PhaseAwareOperatorEarningsSnapshot,
   type PhaseAwareClusterBalanceSnapshot,
   type PhaseAwareNetworkEarningsSnapshot,
   type ContractBalanceWithDeltasSnapshot,
 } from "./core/assertions.ts";
+import { computeMinViableBalanceForValidatorCount } from "./core/fuzz-helpers.ts";
 import { parseClusterFromEvent } from "../helpers/cluster.ts";
 import { mineBlocks, setAccountBalance } from "../helpers/blocks.ts";
 import { makePublicKey } from "../helpers/keys.ts";
@@ -33,9 +36,7 @@ import {
   DEFAULT_OPERATOR_ETH_FEE,
   NETWORK_FEE_ETH,
   NETWORK_FEE,
-  ETH_DEDUCTED_DIGITS,
   DEDUCTED_DIGITS,
-  BPS_DENOMINATOR,
   MINIMUM_BLOCKS_BEFORE_LIQUIDATION,
   MINIMUM_LIQUIDATION_PERIOD_COLLATERAL,
   DEFAULT_ETH_REGISTER_VALUE,
@@ -132,33 +133,20 @@ describe("Fuzz: CAT-1-10 — large cluster (13 ops: 10 normal + 2 zero-fee + 1 r
               expect(cluster.cluster.active).to.equal(true);
               expect(BigInt(cluster.cluster.validatorCount)).to.not.equal(0n);
 
-              await expect(
-                ctx.network.connect(cluster.owner).deposit(
-                  cluster.owner.address, cluster.operatorIds, cluster.cluster,
-                  { value: 1n },
-                ),
-              ).to.be.revertedWithCustomError(ctx.network, Errors.INCORRECT_CLUSTER_VERSION);
-
-              await expect(
-                ctx.network.connect(cluster.owner).withdraw(
-                  cluster.operatorIds, 1n, cluster.cluster,
-                ),
-              ).to.be.revertedWithCustomError(ctx.network, Errors.INCORRECT_CLUSTER_VERSION);
+              await assertLegacyEthOpsBlocked(ctx);
 
               // Compute minViable: burn rate uses only 10 normal ops (zero-fee contribute 0, removed skipped)
               const normalOpCount = ctx.state.ssvFees.filter(
                 (f, i) => f !== 0n && !ctx.state.removedOperatorIds.includes(cluster.operatorIds[i]),
               ).length;
               const valCount = BigInt(cluster.cluster.validatorCount);
-              const packedOpFee = DEFAULT_OPERATOR_ETH_FEE / ETH_DEDUCTED_DIGITS;
-              const packedNetFee = NETWORK_FEE_ETH / ETH_DEDUCTED_DIGITS;
-              const burnRate = BigInt(normalOpCount) * packedOpFee;
-              const vUnits = valCount * BPS_DENOMINATOR;
-              const thresholdUnits = (MINIMUM_BLOCKS_BEFORE_LIQUIDATION * (burnRate + packedNetFee) * vUnits) / BPS_DENOMINATOR;
-              const liquidationThreshold = thresholdUnits * ETH_DEDUCTED_DIGITS;
-              const minViable = liquidationThreshold > MINIMUM_LIQUIDATION_PERIOD_COLLATERAL
-                ? liquidationThreshold
-                : MINIMUM_LIQUIDATION_PERIOD_COLLATERAL;
+              const minViable = computeMinViableBalanceForValidatorCount(
+                Array.from({ length: normalOpCount }, () => BigInt(DEFAULT_OPERATOR_ETH_FEE)),
+                BigInt(NETWORK_FEE_ETH),
+                valCount,
+                BigInt(MINIMUM_BLOCKS_BEFORE_LIQUIDATION),
+                BigInt(MINIMUM_LIQUIDATION_PERIOD_COLLATERAL),
+              );
 
               // Boundary revert
               if (minViable > 0n) {
@@ -224,17 +212,12 @@ describe("Fuzz: CAT-1-10 — large cluster (13 ops: 10 normal + 2 zero-fee + 1 r
               await assertPhaseAwareNetworkEarnings(ctx);
 
               // registerValidator reverts (removed op in cluster)
-              let regReverted = false;
-              try {
-                const tx = await ctx.network.connect(cluster.owner).registerValidator(
+              await expect(
+                ctx.network.connect(cluster.owner).registerValidator(
                   makePublicKey(5000), cluster.operatorIds, DEFAULT_SHARES, cluster.cluster,
                   { value: 0n },
-                );
-                await tx.wait();
-              } catch {
-                regReverted = true;
-              }
-              expect(regReverted, "registerValidator must revert with removed operator in cluster").to.equal(true);
+                ),
+              ).to.be.revertedWithCustomError(ctx.network, Errors.OPERATOR_DOES_NOT_EXIST);
 
               // Withdraw + deposit succeed
               const clusterBalance = BigInt(
@@ -264,9 +247,7 @@ describe("Fuzz: CAT-1-10 — large cluster (13 ops: 10 normal + 2 zero-fee + 1 r
               ctx.state.tracker.totalDeposited += depositAmount;
 
               // Reset snapshots after withdraw+deposit
-              ctx.state.lastPhaseAwareOperatorEarnings = undefined;
-              ctx.state.lastPhaseAwareClusterBalance = undefined;
-              ctx.state.lastPhaseAwareNetworkEarnings = undefined;
+              resetPhaseAwareSnapshots(ctx);
               await assertPhaseAwareOperatorEarnings(ctx);
               await assertPhaseAwareClusterBalance(ctx);
               await assertPhaseAwareNetworkEarnings(ctx);
