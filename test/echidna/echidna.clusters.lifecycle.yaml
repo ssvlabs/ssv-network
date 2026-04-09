@@ -1,0 +1,29 @@
+cryticArgs: ["--compile-force-framework", "foundry"]
+
+testMode: property
+prefix: "echidna_"
+
+testLimit: 200000
+shrinkLimit: 5000
+seqLen: 140
+
+workers: 7
+
+corpusDir: "test/echidna/corpus/clusters-lifecycle"
+coverageDir: "test/echidna/coverage/clusters-lifecycle"
+
+filterBlacklist: false
+filterFunctions:
+  - "SSVClustersEchidna.action_advance_time(uint256)"
+  - "SSVClustersEchidna.action_create_cluster(uint256)"
+  - "SSVClustersEchidna.action_deposit(uint256)"
+  - "SSVClustersEchidna.action_deposit_liquidated(uint256)"
+  - "SSVClustersEchidna.action_dust_liquidation(uint256)"
+  - "SSVClustersEchidna.action_fund(uint256)"
+  - "SSVClustersEchidna.action_liquidate(uint256)"
+  - "SSVClustersEchidna.action_reactivate(uint256)"
+  - "SSVClustersEchidna.action_reactivate_with_removed_operators(uint256)"
+  - "SSVClustersEchidna.action_unauthorized_withdraw(uint256)"
+  - "SSVClustersEchidna.action_withdraw(uint256)"
+  - "SSVClustersEchidna.action_withdraw_liquidated(uint256)"
+  - "SSVClustersEchidna.action_withdraw_over(uint256)"

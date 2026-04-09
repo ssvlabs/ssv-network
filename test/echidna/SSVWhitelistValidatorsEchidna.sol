@@ -76,14 +76,40 @@ contract WhitelistOperatorOwner {
         operatorsWhitelist.setOperatorsWhitelists(operatorIds, whitelistAddresses);
     }
 
+    function removeWhitelist(uint64 operatorId, address whitelistAddress) external {
+        uint64[] memory operatorIds = new uint64[](1);
+        operatorIds[0] = operatorId;
+        address[] memory whitelistAddresses = new address[](1);
+        whitelistAddresses[0] = whitelistAddress;
+        operatorsWhitelist.removeOperatorsWhitelists(operatorIds, whitelistAddresses);
+    }
+
     function whitelistContract(uint64 operatorId, ISSVWhitelistingContract whitelistingContract) external {
         uint64[] memory operatorIds = new uint64[](1);
         operatorIds[0] = operatorId;
         operatorsWhitelist.setOperatorsWhitelistingContract(operatorIds, whitelistingContract);
     }
 
+    function removeWhitelistContract(uint64 operatorId) external {
+        uint64[] memory operatorIds = new uint64[](1);
+        operatorIds[0] = operatorId;
+        operatorsWhitelist.removeOperatorsWhitelistingContract(operatorIds);
+    }
+
     function reduceFee(uint64 operatorId, uint256 fee) external {
         operators.reduceOperatorFee(operatorId, fee);
+    }
+
+    function setPrivate(uint64 operatorId) external {
+        uint64[] memory operatorIds = new uint64[](1);
+        operatorIds[0] = operatorId;
+        operators.setOperatorsPrivateUnchecked(operatorIds);
+    }
+
+    function setPublic(uint64 operatorId) external {
+        uint64[] memory operatorIds = new uint64[](1);
+        operatorIds[0] = operatorId;
+        operators.setOperatorsPublicUnchecked(operatorIds);
     }
 }
 
@@ -109,6 +135,8 @@ contract SSVWhitelistValidatorsEchidna is SSVValidators, SSVOperators(0), SSVOpe
     WhitelistOperatorOwner private publicOwner3;
     WhitelistOperatorOwner private privateZeroOwner;
     WhitelistOperatorOwner private privateFeeOwner;
+    WhitelistOperatorOwner private privateToggleOwner;
+    WhitelistOperatorOwner private privateMutationOwner;
     WhitelistOperatorOwner private legacyOwner;
 
     MockWhitelistingContract private mockWhitelistContract;
@@ -118,6 +146,8 @@ contract SSVWhitelistValidatorsEchidna is SSVValidators, SSVOperators(0), SSVOpe
     uint64 private publicOp3;
     uint64 private privateZeroOp;
     uint64 private privateFeeOp;
+    uint64 private privateToggleOp;
+    uint64 private privateMutationOp;
     uint64 private legacyPrivateOp;
 
     struct ClusterRecord {
@@ -137,6 +167,8 @@ contract SSVWhitelistValidatorsEchidna is SSVValidators, SSVOperators(0), SSVOpe
     bool private mixedZeroFeeViolation;
     bool private contractWhitelistViolation;
     bool private legacyWhitelistViolation;
+    bool private whitelistMutationFeeViolation;
+    bool private privacyToggleViolation;
     bool private legacyFeePrepared;
     bool private mixedZeroScenarioDone;
     bool private contractWhitelistScenarioDone;
@@ -144,6 +176,8 @@ contract SSVWhitelistValidatorsEchidna is SSVValidators, SSVOperators(0), SSVOpe
     bool private mixedZeroBulkScenarioDone;
     bool private contractWhitelistBulkScenarioDone;
     bool private legacyBulkScenarioDone;
+    bool private whitelistMutationFeeScenarioDone;
+    bool private privacyToggleScenarioDone;
     uint256 private nextPkNonce;
 
     constructor() {
@@ -160,6 +194,8 @@ contract SSVWhitelistValidatorsEchidna is SSVValidators, SSVOperators(0), SSVOpe
         publicOwner3 = new WhitelistOperatorOwner(address(this));
         privateZeroOwner = new WhitelistOperatorOwner(address(this));
         privateFeeOwner = new WhitelistOperatorOwner(address(this));
+        privateToggleOwner = new WhitelistOperatorOwner(address(this));
+        privateMutationOwner = new WhitelistOperatorOwner(address(this));
         legacyOwner = new WhitelistOperatorOwner(address(this));
 
         address[] memory initialWhitelisted = new address[](1);
@@ -413,12 +449,155 @@ contract SSVWhitelistValidatorsEchidna is SSVValidators, SSVOperators(0), SSVOpe
         } catch {}
     }
 
+    function action_mutate_whitelist_and_reduce_fee_after_use(uint256 seed) external {
+        seed;
+        if (whitelistMutationFeeScenarioDone) return;
+        uint256 available = _availableBalance();
+        if (available < 2 * REGISTRATION_AMOUNT) return;
+        if (!_ensureMutationOperatorUsed()) return;
+
+        ISSVNetworkCore.Operator storage operator = SSVStorage.load().operators[privateMutationOp];
+        if (operator.ethValidatorCount == 0) {
+            whitelistMutationFeeViolation = true;
+            return;
+        }
+
+        try privateMutationOwner.removeWhitelistContract(privateMutationOp) {} catch {
+            whitelistMutationFeeViolation = true;
+            return;
+        }
+        try privateMutationOwner.whitelist(privateMutationOp, address(eoaWhitelistedUser)) {} catch {
+            whitelistMutationFeeViolation = true;
+            return;
+        }
+        try privateMutationOwner.reduceFee(privateMutationOp, 0) {
+            if (PackedETH.unwrap(SSVStorage.load().operators[privateMutationOp].ethFee) != 0) {
+                whitelistMutationFeeViolation = true;
+                return;
+            }
+        } catch {
+            whitelistMutationFeeViolation = true;
+            return;
+        }
+
+        uint64[] memory operatorIds = _mutationOperatorIds();
+        bytes32 clusterId = keccak256(abi.encodePacked(address(eoaWhitelistedUser), operatorIds));
+        ISSVNetworkCore.Cluster memory cluster = _getClusterForRegistration(clusterId);
+        bytes memory publicKey = _newPublicKey();
+        bytes32 validatorKey = keccak256(abi.encodePacked(publicKey, address(eoaWhitelistedUser)));
+        bytes memory shares = _makeShares(nextPkNonce);
+
+        try eoaWhitelistedUser.register{value: REGISTRATION_AMOUNT}(publicKey, operatorIds, shares, cluster) {
+            _recordRegistration(clusterId, address(eoaWhitelistedUser), 3, cluster, REGISTRATION_AMOUNT, operatorIds);
+            if (!_validatorStoredActive(validatorKey, operatorIds)) {
+                whitelistMutationFeeViolation = true;
+                return;
+            }
+        } catch {
+            whitelistMutationFeeViolation = true;
+            return;
+        }
+
+        bytes memory unauthorizedPk = _newPublicKey();
+        bytes memory unauthorizedShares = _makeShares(nextPkNonce);
+        try contractWhitelistedBulkUser.register{value: REGISTRATION_AMOUNT}(
+            unauthorizedPk, operatorIds, unauthorizedShares, _defaultCluster()
+        ) {
+            unauthorizedPrivateRegistrationSucceeded = true;
+            return;
+        } catch {}
+
+        whitelistMutationFeeScenarioDone = true;
+    }
+
+    function action_toggle_privacy_after_use(uint256 seed) external {
+        seed;
+        if (privacyToggleScenarioDone) return;
+        uint256 available = _availableBalance();
+        if (available < 3 * REGISTRATION_AMOUNT) return;
+        if (!_ensureToggleOperatorUsed()) return;
+
+        ISSVNetworkCore.Operator storage operator = SSVStorage.load().operators[privateToggleOp];
+        if (operator.ethValidatorCount == 0) {
+            privacyToggleViolation = true;
+            return;
+        }
+
+        try privateToggleOwner.setPublic(privateToggleOp) {
+            if (SSVStorage.load().operators[privateToggleOp].whitelisted) {
+                privacyToggleViolation = true;
+                return;
+            }
+        } catch {
+            privacyToggleViolation = true;
+            return;
+        }
+
+        uint64[] memory operatorIds = _toggleOperatorIds();
+        bytes32 publicClusterId = keccak256(abi.encodePacked(address(attacker), operatorIds));
+        ISSVNetworkCore.Cluster memory publicCluster = _getClusterForRegistration(publicClusterId);
+        bytes memory publicKey = _newPublicKey();
+        bytes32 publicValidatorKey = keccak256(abi.encodePacked(publicKey, address(attacker)));
+        bytes memory publicShares = _makeShares(nextPkNonce);
+
+        try attacker.register{value: REGISTRATION_AMOUNT}(publicKey, operatorIds, publicShares, publicCluster) {
+            _recordRegistration(publicClusterId, address(attacker), 4, publicCluster, REGISTRATION_AMOUNT, operatorIds);
+            if (!_validatorStoredActive(publicValidatorKey, operatorIds)) {
+                privacyToggleViolation = true;
+                return;
+            }
+        } catch {
+            privacyToggleViolation = true;
+            return;
+        }
+
+        try privateToggleOwner.setPrivate(privateToggleOp) {
+            if (!SSVStorage.load().operators[privateToggleOp].whitelisted) {
+                privacyToggleViolation = true;
+                return;
+            }
+        } catch {
+            privacyToggleViolation = true;
+            return;
+        }
+
+        bytes memory unauthorizedPk = _newPublicKey();
+        bytes memory unauthorizedShares = _makeShares(nextPkNonce);
+        try contractWhitelistedUser.register{value: REGISTRATION_AMOUNT}(
+            unauthorizedPk, operatorIds, unauthorizedShares, _defaultCluster()
+        ) {
+            unauthorizedPrivateRegistrationSucceeded = true;
+            return;
+        } catch {}
+
+        bytes32 rePrivateClusterId = keccak256(abi.encodePacked(address(eoaWhitelistedBulkUser), operatorIds));
+        ISSVNetworkCore.Cluster memory rePrivateCluster = _getClusterForRegistration(rePrivateClusterId);
+        bytes memory rePrivatePk = _newPublicKey();
+        bytes32 rePrivateValidatorKey = keccak256(abi.encodePacked(rePrivatePk, address(eoaWhitelistedBulkUser)));
+        bytes memory rePrivateShares = _makeShares(nextPkNonce);
+
+        try eoaWhitelistedBulkUser.register{value: REGISTRATION_AMOUNT}(
+            rePrivatePk, operatorIds, rePrivateShares, rePrivateCluster
+        ) {
+            _recordRegistration(rePrivateClusterId, address(eoaWhitelistedBulkUser), 4, rePrivateCluster, REGISTRATION_AMOUNT, operatorIds);
+            if (!_validatorStoredActive(rePrivateValidatorKey, operatorIds)) {
+                privacyToggleViolation = true;
+                return;
+            }
+        } catch {
+            privacyToggleViolation = true;
+            return;
+        }
+
+        privacyToggleScenarioDone = true;
+    }
+
     function echidna_private_registration_access_control() external view returns (bool) {
         return !unauthorizedPrivateRegistrationSucceeded;
     }
 
     function echidna_private_authorized_paths_consistent() external view returns (bool) {
-        return !mixedZeroFeeViolation && !contractWhitelistViolation;
+        return !mixedZeroFeeViolation && !contractWhitelistViolation && !whitelistMutationFeeViolation && !privacyToggleViolation;
     }
 
     function echidna_legacy_private_eth_init_preserves_whitelist() external view returns (bool) {
@@ -434,6 +613,8 @@ contract SSVWhitelistValidatorsEchidna is SSVValidators, SSVOperators(0), SSVOpe
         if (s.operators[publicOp3].ethValidatorCount != expectedOperatorEthValidators[publicOp3]) return false;
         if (s.operators[privateZeroOp].ethValidatorCount != expectedOperatorEthValidators[privateZeroOp]) return false;
         if (s.operators[privateFeeOp].ethValidatorCount != expectedOperatorEthValidators[privateFeeOp]) return false;
+        if (s.operators[privateToggleOp].ethValidatorCount != expectedOperatorEthValidators[privateToggleOp]) return false;
+        if (s.operators[privateMutationOp].ethValidatorCount != expectedOperatorEthValidators[privateMutationOp]) return false;
         if (s.operators[legacyPrivateOp].ethValidatorCount != expectedOperatorEthValidators[legacyPrivateOp]) return false;
 
         if (sp.ethDaoValidatorCount != expectedTotalValidators) return false;
@@ -458,13 +639,34 @@ contract SSVWhitelistValidatorsEchidna is SSVValidators, SSVOperators(0), SSVOpe
 
         uint64[] memory contractOperatorIds = _contractWhitelistOperatorIds();
         bytes32 contractUnauthorizedClusterId = keccak256(abi.encodePacked(address(eoaWhitelistedUser), contractOperatorIds));
-        if (s.ethClusters[contractUnauthorizedClusterId] != 0) return false;
+        if (!_isCurrentlyAuthorizedForOperator(address(eoaWhitelistedUser), privateFeeOp)) {
+            if (s.ethClusters[contractUnauthorizedClusterId] != 0) return false;
+        }
 
         uint64[] memory legacyOperatorIds = _legacyPrivateOperatorIds();
         bytes32 legacyUnauthorizedClusterId = keccak256(abi.encodePacked(address(contractWhitelistedUser), legacyOperatorIds));
         if (s.ethClusters[legacyUnauthorizedClusterId] != 0) return false;
 
         return address(this).balance >= totalExpectedBalance;
+    }
+
+    function _isCurrentlyAuthorizedForOperator(address account, uint64 operatorId) internal view returns (bool) {
+        StorageData storage s = SSVStorage.load();
+        ISSVNetworkCore.Operator storage operator = s.operators[operatorId];
+        if (!operator.whitelisted) return true;
+
+        uint256 blockIndex = operatorId >> 8;
+        uint256 bitPosition = operatorId & 0xFF;
+        if (s.addressWhitelistedForOperators[account][blockIndex] & (1 << bitPosition) != 0) {
+            return true;
+        }
+
+        address whitelistedAddress = s.operatorsWhitelist[operatorId];
+        if (whitelistedAddress == address(0)) return false;
+        if (whitelistedAddress == account) return true;
+        if (!OperatorLib.isWhitelistingContract(whitelistedAddress)) return false;
+
+        return ISSVWhitelistingContract(whitelistedAddress).isWhitelisted(account, operatorId);
     }
 
     function _initProtocolDefaults() internal {
@@ -494,7 +696,14 @@ contract SSVWhitelistValidatorsEchidna is SSVValidators, SSVOperators(0), SSVOpe
         privateFeeOp = _createEthOperator(address(privateFeeOwner), _operatorPk(5), uint64(PRIVATE_FEE), true);
         _setWhitelistingContract(privateFeeOp, address(mockWhitelistContract));
 
-        legacyPrivateOp = _createLegacyPrivateOperator(address(legacyOwner), _operatorPk(6), 1, true);
+        privateToggleOp = _createEthOperator(address(privateToggleOwner), _operatorPk(6), 0, true);
+        _whitelistAddress(privateToggleOp, address(eoaWhitelistedUser));
+        _whitelistAddress(privateToggleOp, address(eoaWhitelistedBulkUser));
+
+        privateMutationOp = _createEthOperator(address(privateMutationOwner), _operatorPk(7), uint64(PRIVATE_FEE), true);
+        _setWhitelistingContract(privateMutationOp, address(mockWhitelistContract));
+
+        legacyPrivateOp = _createLegacyPrivateOperator(address(legacyOwner), _operatorPk(8), 1, true);
         _setLegacyWhitelistAddress(legacyPrivateOp, address(eoaWhitelistedUser));
         _whitelistAddress(legacyPrivateOp, address(eoaWhitelistedBulkUser));
     }
@@ -666,6 +875,116 @@ contract SSVWhitelistValidatorsEchidna is SSVValidators, SSVOperators(0), SSVOpe
         }
     }
 
+    function _ensureContractWhitelistUsed() internal returns (bool) {
+        if (contractWhitelistScenarioDone) return true;
+
+        uint64[] memory operatorIds = _contractWhitelistOperatorIds();
+        bytes32 clusterId = keccak256(abi.encodePacked(address(contractWhitelistedUser), operatorIds));
+        ISSVNetworkCore.Cluster memory cluster = _getClusterForRegistration(clusterId);
+        bytes memory publicKey = _newPublicKey();
+        bytes32 validatorKey = keccak256(abi.encodePacked(publicKey, address(contractWhitelistedUser)));
+        bytes memory shares = _makeShares(nextPkNonce);
+
+        try contractWhitelistedUser.register{value: REGISTRATION_AMOUNT}(publicKey, operatorIds, shares, cluster) {
+            _recordRegistration(clusterId, address(contractWhitelistedUser), 1, cluster, REGISTRATION_AMOUNT, operatorIds);
+            contractWhitelistScenarioDone = true;
+            if (!_validatorStoredActive(validatorKey, operatorIds)) {
+                contractWhitelistViolation = true;
+                return false;
+            }
+            if (PackedETH.unwrap(SSVStorage.load().operators[privateFeeOp].ethFee) == 0) {
+                contractWhitelistViolation = true;
+                return false;
+            }
+            return true;
+        } catch {
+            contractWhitelistViolation = true;
+            return false;
+        }
+    }
+
+    function _ensureMixedZeroUsed() internal returns (bool) {
+        if (mixedZeroScenarioDone) return true;
+
+        uint64[] memory operatorIds = _mixedZeroFeeOperatorIds();
+        bytes32 clusterId = keccak256(abi.encodePacked(address(eoaWhitelistedUser), operatorIds));
+        ISSVNetworkCore.Cluster memory cluster = _getClusterForRegistration(clusterId);
+        bytes memory publicKey = _newPublicKey();
+        bytes32 validatorKey = keccak256(abi.encodePacked(publicKey, address(eoaWhitelistedUser)));
+        bytes memory shares = _makeShares(nextPkNonce);
+
+        try eoaWhitelistedUser.register{value: REGISTRATION_AMOUNT}(publicKey, operatorIds, shares, cluster) {
+            _recordRegistration(clusterId, address(eoaWhitelistedUser), 0, cluster, REGISTRATION_AMOUNT, operatorIds);
+            mixedZeroScenarioDone = true;
+            if (!_validatorStoredActive(validatorKey, operatorIds)) {
+                mixedZeroFeeViolation = true;
+                return false;
+            }
+            if (PackedETH.unwrap(SSVStorage.load().operators[privateZeroOp].ethFee) != 0) {
+                mixedZeroFeeViolation = true;
+                return false;
+            }
+            return true;
+        } catch {
+            mixedZeroFeeViolation = true;
+            return false;
+        }
+    }
+
+    function _ensureMutationOperatorUsed() internal returns (bool) {
+        uint64[] memory operatorIds = _mutationOperatorIds();
+        bytes32 clusterId = keccak256(abi.encodePacked(address(contractWhitelistedUser), operatorIds));
+        if (clusters[clusterId].exists) return true;
+
+        ISSVNetworkCore.Cluster memory cluster = _getClusterForRegistration(clusterId);
+        bytes memory publicKey = _newPublicKey();
+        bytes32 validatorKey = keccak256(abi.encodePacked(publicKey, address(contractWhitelistedUser)));
+        bytes memory shares = _makeShares(nextPkNonce);
+
+        try contractWhitelistedUser.register{value: REGISTRATION_AMOUNT}(publicKey, operatorIds, shares, cluster) {
+            _recordRegistration(clusterId, address(contractWhitelistedUser), 3, cluster, REGISTRATION_AMOUNT, operatorIds);
+            if (!_validatorStoredActive(validatorKey, operatorIds)) {
+                whitelistMutationFeeViolation = true;
+                return false;
+            }
+            if (PackedETH.unwrap(SSVStorage.load().operators[privateMutationOp].ethFee) == 0) {
+                whitelistMutationFeeViolation = true;
+                return false;
+            }
+            return true;
+        } catch {
+            whitelistMutationFeeViolation = true;
+            return false;
+        }
+    }
+
+    function _ensureToggleOperatorUsed() internal returns (bool) {
+        uint64[] memory operatorIds = _toggleOperatorIds();
+        bytes32 clusterId = keccak256(abi.encodePacked(address(eoaWhitelistedUser), operatorIds));
+        if (clusters[clusterId].exists) return true;
+
+        ISSVNetworkCore.Cluster memory cluster = _getClusterForRegistration(clusterId);
+        bytes memory publicKey = _newPublicKey();
+        bytes32 validatorKey = keccak256(abi.encodePacked(publicKey, address(eoaWhitelistedUser)));
+        bytes memory shares = _makeShares(nextPkNonce);
+
+        try eoaWhitelistedUser.register{value: REGISTRATION_AMOUNT}(publicKey, operatorIds, shares, cluster) {
+            _recordRegistration(clusterId, address(eoaWhitelistedUser), 4, cluster, REGISTRATION_AMOUNT, operatorIds);
+            if (!_validatorStoredActive(validatorKey, operatorIds)) {
+                privacyToggleViolation = true;
+                return false;
+            }
+            if (PackedETH.unwrap(SSVStorage.load().operators[privateToggleOp].ethFee) != 0) {
+                privacyToggleViolation = true;
+                return false;
+            }
+            return true;
+        } catch {
+            privacyToggleViolation = true;
+            return false;
+        }
+    }
+
     function _validatorStoredActive(bytes32 validatorKey, uint64[] memory operatorIds) internal view returns (bool) {
         bytes32 stored = SSVStorage.load().validatorPKs[validatorKey];
         if (stored == bytes32(0)) return false;
@@ -706,12 +1025,28 @@ contract SSVWhitelistValidatorsEchidna is SSVValidators, SSVOperators(0), SSVOpe
         operatorIds[3] = privateZeroOp;
     }
 
+    function _toggleOperatorIds() internal view returns (uint64[] memory operatorIds) {
+        operatorIds = new uint64[](4);
+        operatorIds[0] = publicOp1;
+        operatorIds[1] = publicOp2;
+        operatorIds[2] = publicOp3;
+        operatorIds[3] = privateToggleOp;
+    }
+
     function _contractWhitelistOperatorIds() internal view returns (uint64[] memory operatorIds) {
         operatorIds = new uint64[](4);
         operatorIds[0] = publicOp1;
         operatorIds[1] = publicOp2;
         operatorIds[2] = publicOp3;
         operatorIds[3] = privateFeeOp;
+    }
+
+    function _mutationOperatorIds() internal view returns (uint64[] memory operatorIds) {
+        operatorIds = new uint64[](4);
+        operatorIds[0] = publicOp1;
+        operatorIds[1] = publicOp2;
+        operatorIds[2] = publicOp3;
+        operatorIds[3] = privateMutationOp;
     }
 
     function _legacyPrivateOperatorIds() internal view returns (uint64[] memory operatorIds) {
