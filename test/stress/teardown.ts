@@ -1,55 +1,13 @@
-// Teardown: every cluster owner self-liquidates their cluster.
-//
-// When clusterOwner == msg.sender, the contract skips the liquidation-threshold
-// check and returns the full balance to the caller immediately — no mining needed.
-//
-// Flow:
-//   1. Each ETH cluster owner calls liquidate(ownerAddr, operatorIds, cluster)
-//   2. Each SSV cluster owner calls liquidateSSV(ownerAddr, operatorIds, cluster)
-//   3. Withdraw all operator ETH and SSV earnings
-//   4. Withdraw network SSV earnings (DAO treasury)
-//
-// After teardown:
-//   ETH = SEED_ETH + accumulated ETH network fees (verified via getNetworkEarnings())
-//   SSV = SEED_SSV  (all SSV earnings drained)
-
 import { assert } from 'chai';
 import type { StressSetup } from './setup.ts';
 import { toClusterStruct } from './setup.ts';
 import type { RunReport } from './report.ts';
-import { advanceAll, VERSION_ETH, VERSION_SSV } from './state.ts';
+import { advanceAll } from './state.ts';
+import { VERSION_ETH, VERSION_SSV } from './constants.ts';
 import { Events } from '../common/events.ts';
-import { SEED_ETH, SEED_SSV, UNSTAKE_COOLDOWN_BLOCKS } from './constants.ts';
-
-function gas(receipt: any): bigint {
-  return BigInt(receipt?.gasUsed ?? 0n);
-}
-
-function parseLastClusterStruct(contract: any, receipt: any, eventName: string): any | null {
-  let last: any = null;
-  for (const log of receipt?.logs ?? []) {
-    try {
-      const parsed = contract.interface.parseLog(log);
-      if (parsed?.name === eventName) {
-        const t = parsed.args[parsed.args.length - 1];
-        last = {
-          validatorCount:  BigInt(t[0]),
-          networkFeeIndex: BigInt(t[1]),
-          index:           BigInt(t[2]),
-          active:          Boolean(t[3]),
-          balance:         BigInt(t[4]),
-        };
-      }
-    } catch { /* skip */ }
-  }
-  return last;
-}
-
-function getOwnerSigner(setup: StressSetup, owner: string): any {
-  return setup.allSigners.find(
-    (s: any) => s.address.toLowerCase() === owner.toLowerCase(),
-  ) ?? null;
-}
+import { SEED_ETH, SEED_SSV, STRESS_COOLDOWN_SECS } from './constants.ts';
+import { parseClusterFromEvent } from '../helpers/index.js';
+import { getOwnerSigner, gas } from './actions.js';
 
 export async function teardown(
   setup: StressSetup,
@@ -59,11 +17,8 @@ export async function teardown(
   const { operators, clusters } = simState;
   const networkAddr = await network.getAddress();
 
-  // Advance TS to current block before starting
   advanceAll(simState, BigInt(await provider.getBlockNumber()));
 
-  // ── 1. Self-liquidate all ETH clusters ──────────────────────────────────────
-  // Owner calls liquidate(ownerAddr, ...) → threshold check skipped, full ETH returned.
   let ethLiquidated = 0;
   for (const cluster of clusters.values()) {
     if (!cluster.active || cluster.version !== VERSION_ETH) continue;
@@ -89,7 +44,7 @@ export async function teardown(
       cluster.burnRate = 0n;
       cluster.active = false;
 
-      const newStruct = parseLastClusterStruct(network, receipt, Events.CLUSTER_LIQUIDATED);
+      const newStruct = parseClusterFromEvent(network, receipt, Events.CLUSTER_LIQUIDATED);
       if (newStruct) cluster.lastStruct = newStruct;
       report.record('teardown:liquidate', gas(receipt), txBlock);
       ethLiquidated++;
@@ -109,7 +64,6 @@ export async function teardown(
     }
   }
 
-  // ── 2. Self-liquidate all SSV clusters ──────────────────────────────────────
   let ssvLiquidated = 0;
   for (const cluster of clusters.values()) {
     if (!cluster.active || cluster.version !== VERSION_SSV) continue;
@@ -134,7 +88,7 @@ export async function teardown(
       cluster.ssvBalance = 0n;
       cluster.active = false;
 
-      const newStruct = parseLastClusterStruct(network, receipt, Events.CLUSTER_LIQUIDATED);
+      const newStruct = parseClusterFromEvent(network, receipt, Events.CLUSTER_LIQUIDATED);
       if (newStruct) cluster.lastStruct = newStruct;
       report.record('teardown:liquidateSSV', gas(receipt), txBlock);
       ssvLiquidated++;
@@ -143,13 +97,11 @@ export async function teardown(
     }
   }
 
-  // Record a conservation point now — all cluster balances are 0 (shows drop in graph)
   {
     const block = BigInt(await provider.getBlockNumber());
     report.recordConservation(block, 0n, 0n, 0n);
   }
 
-  // ── 3. Withdraw all operator ETH and SSV earnings ────────────────────────────
   for (const op of operators.values()) {
     if (op.isRemoved) continue;
     const ownerSigner = getOwnerSigner(setup, op.owner);
@@ -176,7 +128,6 @@ export async function teardown(
     }
   }
 
-  // ── 4. Withdraw network SSV earnings (DAO treasury) ──────────────────────────
   try {
     const networkSSVBal = BigInt(await views.getNetworkEarningsSSV());
     if (networkSSVBal > 0n) {
@@ -189,8 +140,6 @@ export async function teardown(
     }
   } catch { /* ignore */ }
 
-  // ── 5. Drain all stakers' SSV (requestUnstake any remaining cSSV, then withdrawUnlocked) ───
-  // Phase A: requestUnstake for any staker with remaining cSSV balance
   let anyNewRequests = false;
   for (const stakerRec of simState.stakers.values()) {
     if (stakerRec.cssvBalance === 0n) continue;
@@ -208,14 +157,14 @@ export async function teardown(
     } catch { /* already 0 or insufficient */ }
   }
 
-  // Phase B: mine cooldown blocks so all newly requested unstakes become withdrawable
   if (anyNewRequests) {
-    await provider.send('hardhat_mine', [`0x${UNSTAKE_COOLDOWN_BLOCKS.toString(16)}`]);
+    await provider.send('hardhat_mine', ['0x1']);
+    await provider.send('evm_increaseTime', [Number(STRESS_COOLDOWN_SECS) + 1]);
+    await provider.send('hardhat_mine', ['0x1']);
     const postCooldownBlock = BigInt(await provider.getBlockNumber());
     advanceAll(simState, postCooldownBlock);
   }
 
-  // Phase C: withdrawUnlocked for all stakers with any pending requests
   for (const stakerRec of simState.stakers.values()) {
     if (stakerRec.pendingUnstake.length === 0) continue;
     const ownerSigner = getOwnerSigner(setup, stakerRec.address);
@@ -230,7 +179,6 @@ export async function teardown(
     } catch { /* nothing unlocked or already withdrawn */ }
   }
 
-  // ── Final assertions ─────────────────────────────────────────────────────────
   const finalContractETH = BigInt(await provider.getBalance(networkAddr));
   const finalContractSSV = BigInt(await setup.ssvToken.balanceOf(networkAddr));
   report.finalDustSSV = finalContractSSV;

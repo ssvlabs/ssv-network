@@ -1,5 +1,3 @@
-// Seeded Mulberry32 PRNG for reproducible stress test sequences.
-
 export interface RNG {
   next(): bigint;
   nextInt(max: bigint): bigint;
@@ -29,14 +27,18 @@ export function pickFrom<T>(rng: RNG, arr: T[]): T | undefined {
   return arr[Number(rng.nextInt(BigInt(arr.length)))];
 }
 
-export function pickFromRequired<T>(rng: RNG, arr: T[]): T {
-  if (arr.length === 0) throw new Error('Cannot pick from empty array');
-  return arr[Number(rng.nextInt(BigInt(arr.length)))];
-}
-
 export interface WeightedItem<T> {
   item: T;
   weight: number;
+}
+
+import { ETH_DEDUCTED_DIGITS } from './constants.ts';
+
+export function randFee(rng: RNG, center: bigint, deviationBps: bigint): bigint {
+  const rangeBps = 2n * deviationBps + 1n;
+  const devBps   = rng.nextInt(rangeBps) - deviationBps;
+  const raw      = center + (center * devBps) / 10_000n;
+  return ((raw + ETH_DEDUCTED_DIGITS / 2n) / ETH_DEDUCTED_DIGITS) * ETH_DEDUCTED_DIGITS;
 }
 
 export function pickWeighted<T>(rng: RNG, items: WeightedItem<T>[]): T | undefined {
@@ -49,10 +51,4 @@ export function pickWeighted<T>(rng: RNG, items: WeightedItem<T>[]): T | undefin
     if (r < 0) return item;
   }
   return eligible[eligible.length - 1].item;
-}
-
-/** Return a random bigint in [min, max) */
-export function randRange(rng: RNG, min: bigint, max: bigint): bigint {
-  if (max <= min) return min;
-  return min + rng.nextInt(max - min);
 }

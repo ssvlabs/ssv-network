@@ -1,5 +1,5 @@
 export { makePublicKey, makePublicKeys, makeOperatorKey, makeArrayOfKeysAndShares, } from "./keys.ts";
-export { getHarnessName, createCluster, createLegacySSVCluster, clusterToTuple, extractEventArgs, parseClusterFromEvent, getCurrentClusterState, addValidatorsToCluster, registerAndParseCluster, registerAndLiquidate, } from "./cluster.ts";
+export { getHarnessName, createCluster, createLegacySSVCluster, clusterToTuple, extractEventArgs, parseClusterFromEvent, parseLastClusterFromEvent, getCurrentClusterState, addValidatorsToCluster, registerAndParseCluster, registerAndLiquidate, } from "./cluster.ts";
 export { registerOperators, registerOperatorsSSV, whitelistAddresses, getOperatorFeeBounds, getValidOperatorFeeIncrease, getFeeAboveIncreaseLimit, calculateInitialBurnRate, registerDefaultCluster, registerDefaultClusters, seedOperatorWithETHBalance, } from "./operator.ts";
 export { computeClusterId, computeEBRoot, setupOracles, commitEBRoot, generateMerkleForClusterEB, buildEBMerkleForDefaultClusters, updateClusterBalancesForDefaultClusters, mockEBAndUpdate, } from "./oracle.ts";
 export { calcOperatorFeeAccrual, calcNetworkFeeAccrual, calcClusterBurn, calcVUnits, defaultVUnits, calcLiquidationThreshold, calcAccEthPerShareDelta, calcStakingReward, calcSSVClusterFees, setupMockProtocol, } from "./fee.ts";

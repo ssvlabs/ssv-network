@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SSV Network Stress Test Report</title>
+<style>
+  :root {
+    --bg: #0d1117; --bg2: #161b22; --bg3: #1c2128; --border: #30363d;
+    --text: #c9d1d9; --text-muted: #8b949e; --accent: #58a6ff; --accent2: #3fb950;
+    --warn: #d29922; --danger: #f85149; --purple: #bc8cff; --teal: #39d353;
+    --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, monospace;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: var(--font); font-size: 14px; line-height: 1.6; }
+  a { color: var(--accent); text-decoration: none; }
+  h1 { font-size: 24px; font-weight: 700; color: #fff; }
+  h2 { font-size: 18px; font-weight: 600; color: var(--accent); margin-bottom: 12px; border-bottom: 1px solid var(--border); padding-bottom: 8px; }
+  h3 { font-size: 14px; font-weight: 600; color: var(--text-muted); margin-bottom: 8px; }
+  .header { background: var(--bg2); border-bottom: 1px solid var(--border); padding: 20px 32px; display: flex; align-items: center; gap: 16px; }
+  .header .logo { font-size: 28px; }
+  .header .meta { color: var(--text-muted); font-size: 12px; }
+  .container { max-width: 1400px; margin: 0 auto; padding: 24px 32px; }
+  .section { background: var(--bg2); border: 1px solid var(--border); border-radius: 8px; padding: 20px; margin-bottom: 24px; }
+  .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px; margin-bottom: 24px; }
+  .card { background: var(--bg3); border: 1px solid var(--border); border-radius: 6px; padding: 14px; }
+  .card .val { font-size: 22px; font-weight: 700; color: #fff; margin-top: 4px; }
+  .card .val.danger { color: var(--danger); }
+  .card .val.ok { color: var(--accent2); }
+  .card .lbl { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { background: var(--bg3); color: var(--text-muted); font-weight: 600; text-align: left; padding: 8px 12px; border-bottom: 1px solid var(--border); font-size: 11px; text-transform: uppercase; }
+  td { padding: 7px 12px; border-bottom: 1px solid #21262d; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: var(--bg3); }
+  .mono { font-family: monospace; font-size: 12px; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; }
+  .badge-ok { background: #1a4025; color: var(--teal); }
+  .badge-warn { background: #2d2011; color: var(--warn); }
+  .badge-danger { background: #2d1117; color: var(--danger); }
+  .chart-container { position: relative; height: 200px; margin: 12px 0; }
+  .toc { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 24px; }
+  .toc a { background: var(--bg3); border: 1px solid var(--border); border-radius: 4px; padding: 4px 10px; font-size: 12px; color: var(--text-muted); }
+  .toc a:hover { color: var(--accent); border-color: var(--accent); }
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 900px) { .two-col { grid-template-columns: 1fr; } }
+  .scroll-x { overflow-x: auto; }
+  .small { font-size: 12px; color: var(--text-muted); }
+  .tag { background: #1f2937; border: 1px solid #374151; border-radius: 4px; padding: 1px 6px; font-size: 11px; color: #9ca3af; font-family: monospace; }
+  .explorer { display: grid; grid-template-columns: 260px 1fr; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
+  .exp-list { background: var(--bg3); border-right: 1px solid var(--border); overflow-y: auto; max-height: 540px; }
+  .exp-item { padding: 10px 14px; cursor: pointer; border-bottom: 1px solid #21262d; font-size: 12px; transition: background .1s; }
+  .exp-item:hover { background: #1c2128; }
+  .exp-item.active { background: #1c3045; border-left: 3px solid var(--accent); }
+  .exp-item .ei-id { color: var(--accent); font-family: monospace; font-size: 11px; }
+  .exp-item .ei-sub { color: var(--text-muted); font-size: 11px; margin-top: 2px; }
+  .exp-detail { padding: 16px; overflow-y: auto; max-height: 540px; }
+  .exp-empty { color: var(--text-muted); text-align: center; padding: 80px 20px; font-size: 13px; }
+  .tl-wrap { position: relative; padding-left: 64px; }
+  .tl-wrap::before { content: ''; position: absolute; left: 22px; top: 0; bottom: 0; width: 2px; background: var(--border); }
+  .tl-node { position: relative; margin-bottom: 20px; }
+  .tl-circle { position: absolute; left: -52px; top: 0; width: 44px; height: 44px; border-radius: 50%; background: var(--bg3); border: 2px solid var(--border); display: flex; align-items: center; justify-content: center; font-size: 9px; font-family: monospace; color: var(--text-muted); text-align: center; line-height: 1.2; cursor: default; transition: border-color .15s; z-index: 1; }
+  .tl-node:hover .tl-circle { border-color: var(--accent); color: var(--accent); }
+  .tl-txs { background: var(--bg3); border: 1px solid var(--border); border-radius: 6px; padding: 8px 12px; }
+  .tl-tx { padding: 5px 0; border-bottom: 1px solid #21262d; cursor: pointer; display: flex; align-items: flex-start; gap: 8px; font-size: 12px; }
+  .tl-tx:last-child { border-bottom: none; }
+  .tl-tx:hover { background: #1c2128; margin: 0 -12px; padding-left: 12px; padding-right: 12px; }
+  .tl-tx-detail { display: none; background: var(--bg2); border: 1px solid var(--border); border-radius: 4px; padding: 10px 14px; margin-top: 6px; font-size: 12px; }
+  .tl-tx-detail.open { display: block; }
+  .tl-tx-detail table td:first-child { color: var(--text-muted); padding-right: 16px; white-space: nowrap; font-size: 11px; }
+  .tl-filter { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }
+  .tl-filter-btn { background: var(--bg3); border: 1px solid var(--border); border-radius: 4px; padding: 3px 10px; font-size: 11px; color: var(--text-muted); cursor: pointer; }
+  .tl-filter-btn.active { background: #1c3045; border-color: var(--accent); color: var(--accent); }
+  .tl-search { background: var(--bg3); border: 1px solid var(--border); border-radius: 4px; padding: 4px 10px; font-size: 12px; color: var(--text); width: 240px; }
+  .tab-bar { display: flex; gap: 2px; margin-bottom: 12px; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
+  .tab-btn { background: none; border: none; border-bottom: 2px solid transparent; margin-bottom: -1px; padding: 7px 14px; color: var(--text-muted); cursor: pointer; font-size: 12px; font-family: var(--font); transition: color .1s; }
+  .tab-btn:hover { color: var(--text); }
+  .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script>
+const DATA = /*__REPORT_DATA__*/null;
+if (!DATA) { document.getElementById('app').innerHTML = '<h1 style="color:#f85149;padding:40px">No report data found</h1>'; throw new Error('No DATA'); }
+
+function E(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function fmtNum(n) { if (Math.abs(n)>=1e9) return (n/1e9).toFixed(1)+'B'; if (Math.abs(n)>=1e6) return (n/1e6).toFixed(1)+'M'; if (Math.abs(n)>=1e3) return (n/1e3).toFixed(1)+'K'; return String(Math.round(n)); }
+function gasCostUsd(gas) { const c = Number(gas)*DATA.gasPriceGwei*1e9/1e18*DATA.ethPriceUSD; return c<0.0001?'<$0.0001':'$'+c.toFixed(4); }
+
+const D = DATA;
+const app = document.getElementById('app');
+let h = '';
+
+h += `<div class="header"><div class="logo">&#x2B21;</div><div><h1>SSV Network Stress Test Report</h1><div class="meta">Stress test (${E(D.simDuration)}) &bull; Generated ${E(D.generatedAt)}</div></div></div>`;
+h += '<div class="container">';
+
+h += '<nav class="toc"><a href="#s1">1. Summary</a><a href="#s2">2. Actions</a><a href="#s3">3. Gas</a><a href="#s4">4. Conservation</a><a href="#s5">5. Cluster ETH</a><a href="#s7">7. Liquidations</a><a href="#s9">9. EB Rounds</a><a href="#s10">10. Stakers</a><a href="#s11">11. Params</a><a href="#s12">12. Economics</a><a href="#s13">13. Dust</a><a href="#s15">15. Config</a><a href="#s16">16. Assertions</a><a href="#s17">17. Timeline</a><a href="#s18">18. Clusters</a><a href="#s19">19. Operators</a><a href="#s20">20. Catalog</a><a href="#s21">21. Reverts</a></nav>';
+
+h += '<div id="s1" class="section"><h2>1. Run Summary</h2><div class="cards">';
+D.summaryCards.forEach(c => { const cls = c.highlight ? ' danger' : c.label==='Invariant Failures' ? ' ok' : ''; h += `<div class="card"><div class="lbl">${E(c.label)}</div><div class="val${cls}">${E(c.value)}</div></div>`; });
+h += '</div></div>';
+
+h += '<div class="section" style="margin-top:-12px"><h2>Cluster &amp; Operator Counts</h2><div class="two-col"><div><h3>Clusters</h3><table>';
+h += `<tr><td>SSV clusters (setup)</td><td class="mono">${D.ssvClustersSetup}</td></tr>`;
+h += `<tr><td>ETH clusters (setup)</td><td class="mono">${D.ethClustersSetup}</td></tr>`;
+h += `<tr><td>ETH clusters (dynamic)</td><td class="mono">${D.ethClustersDynamic}</td></tr>`;
+h += `<tr><td><strong>Total ETH clusters</strong></td><td class="mono"><strong>${D.ethClustersSetup+D.ethClustersDynamic}</strong></td></tr>`;
+h += `<tr><td>Migrations (setup)</td><td class="mono">${D.migrationsSetup}</td></tr>`;
+h += `<tr><td>Migrations (dynamic)</td><td class="mono">${D.migrationsDynamic}</td></tr>`;
+h += `<tr><td><strong>Total migrations</strong></td><td class="mono"><strong>${D.migrationsSetup+D.migrationsDynamic}</strong></td></tr>`;
+h += `<tr><td>SSV liquidated pre-migration</td><td class="mono">${D.ssvClustersLiquidatedBeforeMigration}</td></tr>`;
+h += `<tr><td>Unique cluster owners</td><td class="mono">${D.uniqueClusterOwners}</td></tr>`;
+h += '</table></div><div><h3>Operators</h3><table>';
+h += `<tr><td>Pre-migration (setup)</td><td class="mono">${D.operatorsPreMigration}</td></tr>`;
+h += `<tr><td>Post-migration (setup)</td><td class="mono">${D.operatorsPostMigrationSetup}</td></tr>`;
+h += `<tr><td>Post-migration (dynamic)</td><td class="mono">${D.operatorsPostMigrationDynamic}</td></tr>`;
+h += `<tr><td><strong>Total operators</strong></td><td class="mono"><strong>${D.operatorsPreMigration+D.operatorsPostMigrationSetup+D.operatorsPostMigrationDynamic}</strong></td></tr>`;
+h += `<tr><td>Unique operator owners</td><td class="mono">${D.uniqueOperatorOwners}</td></tr>`;
+h += `<tr><td>Private (incl removed)</td><td class="mono">${D.operatorPrivateCount}</td></tr>`;
+h += `<tr><td>Public (incl removed)</td><td class="mono">${D.operatorPublicCount}</td></tr>`;
+h += `<tr><td>Removed</td><td class="mono">${D.operatorRemovedCount}</td></tr>`;
+h += `<tr><td>Zero ETH fee (active)</td><td class="mono">${D.operatorZeroFeeCount}</td></tr>`;
+h += `<tr><td>Avg yearly ETH fee</td><td class="mono">${D.operatorAvgYearlyFeeEth.toFixed(6)} ETH ($${(D.operatorAvgYearlyFeeEth*D.ethPriceUSD).toFixed(2)})</td></tr>`;
+h += '</table></div></div></div>';
+
+h += '<div class="section" style="margin-top:-12px"><h2>Network Fees</h2><div class="two-col"><div><h3>ETH Network Fee</h3><table>';
+h += `<tr><td>Rate (per block)</td><td class="mono">${D.networkFeeEthWei} wei</td></tr>`;
+h += `<tr><td>Rate (yearly)</td><td class="mono">${D.ethRateYearly.toFixed(8)} ETH</td></tr>`;
+h += `<tr><td><strong>Total collected</strong></td><td class="mono"><strong>${D.networkEarningsEthStr} ETH</strong></td></tr>`;
+h += '</table></div><div><h3>SSV Network Fee</h3><table>';
+h += `<tr><td>Rate (per block)</td><td class="mono">${D.networkFeeSSVWei} wei</td></tr>`;
+h += `<tr><td>Rate (yearly)</td><td class="mono">${D.ssvRateYearly.toFixed(4)} SSV</td></tr>`;
+h += `<tr><td><strong>Total collected</strong></td><td class="mono"><strong>${D.networkEarningsSSVStr} SSV</strong></td></tr>`;
+h += '</table></div></div></div>';
+
+h += `<div id="s2" class="section"><h2>2. Action Breakdown</h2><p class="small" style="margin-bottom:12px">Gas price: <strong>${D.gasPriceGwei} gwei</strong>, ETH: <strong>$${D.ethPriceUSD}</strong></p><div class="scroll-x"><table><thead><tr><th>Action</th><th>Count</th><th>Avg Gas</th><th>Avg Cost</th><th>Min Gas</th><th>Max Gas</th><th>%</th></tr></thead><tbody>`;
+D.actionTableRows.forEach(r => { h += `<tr><td><span class="tag">${E(r.name)}</span></td><td>${r.count}</td><td class="mono">${Number(r.avgGas).toLocaleString()}</td><td class="mono">${gasCostUsd(r.avgGas)}</td><td class="mono">${Number(r.minGas).toLocaleString()}</td><td class="mono">${Number(r.maxGas).toLocaleString()}</td><td>${D.txCount>0?((r.count/D.txCount)*100).toFixed(1):'0.0'}%</td></tr>`; });
+h += '</tbody></table></div></div>';
+
+h += '<div id="s3" class="section"><h2>3. Gas Usage by Action</h2><div><svg id="gasChartSvg" width="100%"></svg></div>';
+h += `<div class="small" style="margin-top:8px">Total: ${D.gasCostEth.toFixed(4)} ETH ($${D.gasCostUSD.toFixed(2)}) at ${D.gasPriceGwei} gwei</div></div>`;
+
+h += '<div id="s4" class="section"><h2>4. Accumulated Protocol Fees</h2><p class="small" style="margin-bottom:12px">Sampled every 50 TXs.</p><div class="chart-container"><svg id="conservationChartSvg" width="100%" height="200" viewBox="0 0 900 200" preserveAspectRatio="none"></svg></div></div>';
+
+h += '<div id="s5" class="section"><h2>5. Total ETH in Active Clusters</h2><div class="chart-container"><svg id="clusterBalanceChartSvg" width="100%" height="200" viewBox="0 0 900 200" preserveAspectRatio="none"></svg></div></div>';
+
+h += '<div id="s7" class="section"><h2>7. Liquidation &amp; Reactivation Summary</h2>';
+h += '<div class="cards" style="margin-bottom:20px">';
+h += `<div class="card"><div class="lbl">Total Liquidated</div><div class="val">${D.totalClustersLiquidated}</div></div>`;
+h += `<div class="card"><div class="lbl">Runway Liquidations</div><div class="val">${D.runwayLiquidations.length}</div></div>`;
+h += `<div class="card"><div class="lbl">Collateral Liquidations</div><div class="val">${D.collateralLiquidations.length}</div></div>`;
+h += `<div class="card"><div class="lbl">Reactivations</div><div class="val">${D.totalReactivations}</div></div>`;
+h += `<div class="card"><div class="lbl">Avg Cluster Age</div><div class="val">${D.avgClusterAgeDays} d</div></div>`;
+h += '</div>';
+function liqStats(arr, key, unit) { if (!arr.length) return '<tr><td colspan="2" style="color:var(--text-muted)">None</td></tr>'; const v=arr.map(r=>Number(BigInt(r[key]))); const avg=v.reduce((s,x)=>s+x,0)/v.length; return `<tr><td>Avg</td><td class="mono">${avg.toFixed(0)} ${unit}</td></tr><tr><td>Min</td><td class="mono">${Math.min(...v)} ${unit}</td></tr><tr><td>Max</td><td class="mono">${Math.max(...v)} ${unit}</td></tr>`; }
+h += '<div class="two-col"><div><h3>Runway</h3><table>'+liqStats(D.runwayLiquidations,'blocksLeft','blocks')+'</table></div>';
+h += '<div><h3>Collateral</h3><table>'+liqStats(D.collateralLiquidations,'amountLeft','wei')+'</table></div></div></div>';
+
+h += '<div id="s9" class="section"><h2>9. Oracle / EB Activity</h2>';
+h += '<div class="cards" style="margin-bottom:18px">';
+h += `<div class="card"><div class="lbl">EB Rounds</div><div class="val">${D.ebRounds}</div></div>`;
+h += `<div class="card"><div class="lbl">Raised</div><div class="val" style="color:var(--danger)">${D.ebRaised}</div></div>`;
+h += `<div class="card"><div class="lbl">Lowered</div><div class="val" style="color:var(--accent)">${D.ebLowered}</div></div>`;
+h += `<div class="card"><div class="lbl">Skipped</div><div class="val" style="color:var(--warn)">${D.ebSkipped}</div></div>`;
+h += `<div class="card"><div class="lbl">Auto-Liquidated</div><div class="val" style="color:var(--danger)">${D.ebLiquidated}</div></div>`;
+h += '</div>';
+h += `<p class="small" style="margin-bottom:12px">Last ${D.ebSummaryRows.length} rounds:</p>`;
+h += '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px">';
+for (let col=0;col<4;col++) { const slice=D.ebSummaryRows.slice(col*30,col*30+30); if (!slice.length){h+='<div></div>';continue;} h+='<div><table><thead><tr><th>Block</th><th>Clusters</th></tr></thead><tbody>'; slice.forEach(r=>{h+=`<tr><td class="mono">${Number(r.block).toLocaleString()}</td><td>${r.clustersUpdated}</td></tr>`;}); h+='</tbody></table></div>'; }
+h += '</div></div>';
+
+h += '<div id="s10" class="section"><h2>10. Staker Summaries</h2>';
+h += '<h3>cSSV Transfer Breakdown</h3><table style="margin-bottom:20px"><thead><tr><th>Metric</th><th>Count</th></tr></thead><tbody>';
+h += `<tr><td>Total transfers</td><td class="mono">${D.cssvTransferTotal}</td></tr>`;
+h += `<tr><td>Full balance transfers</td><td class="mono">${D.cssvTransferAllBalance}</td></tr>`;
+h += `<tr><td>To contract staker</td><td class="mono">${D.cssvTransferToContract}</td></tr>`;
+h += `<tr><td>To fresh wallet</td><td class="mono">${D.cssvTransferToFreshWallet}</td></tr>`;
+h += `<tr><td>From contract staker</td><td class="mono">${D.cssvTransferFromContract}</td></tr>`;
+h += '</tbody></table>';
+h += '<h3>Staker Balances</h3><div class="scroll-x"><table><thead><tr><th>Address</th><th>cSSV</th><th>Staked</th><th>Claimed</th></tr></thead><tbody>';
+if (D.stakerRows.length) D.stakerRows.forEach(r => { h += `<tr><td class="mono">${E(r.address.slice(0,10))}...</td><td>${(Number(BigInt(r.cssvBalance))/1e18).toFixed(4)} SSV</td><td>${(Number(BigInt(r.totalStaked))/1e18).toFixed(4)} SSV</td><td>${(Number(BigInt(r.totalClaimed))/1e18).toFixed(6)} ETH</td></tr>`; });
+else h += '<tr><td colspan="4" style="text-align:center;color:var(--text-muted)">No staker data</td></tr>';
+h += '</tbody></table></div></div>';
+
+h += '<div id="s12" class="section"><h2>12. Economic Totals</h2><div class="cards">';
+h += `<div class="card"><div class="lbl">ETH Deposited</div><div class="val">${D.totalEthDepositedEth} ETH</div></div>`;
+h += `<div class="card"><div class="lbl">ETH Withdrawn (clusters)</div><div class="val">${D.totalEthWithdrawnByOwnersEth} ETH</div></div>`;
+h += `<div class="card"><div class="lbl">ETH Withdrawn (operators)</div><div class="val">${D.totalOperatorEthWithdrawnEth} ETH</div></div>`;
+h += `<div class="card"><div class="lbl">Staking Pool</div><div class="val">${D.stakingPoolAccumulationEth} ETH</div></div>`;
+h += '</div></div>';
+
+h += '<div id="s13" class="section"><h2>13. Post-Teardown Balances</h2><table><thead><tr><th>Metric</th><th>Actual</th><th>Expected</th><th>Status</th></tr></thead><tbody>';
+h += `<tr><td>Contract ETH</td><td class="mono">${(Number(BigInt(D.finalContractETH))/1e18).toFixed(10)} ETH</td><td class="mono">${(Number(BigInt(D.expectedFinalETH))/1e18).toFixed(10)} ETH</td><td><span class="badge ${D.ethMatch?'badge-ok':'badge-danger'}">${D.ethMatch?'EXACT MATCH':'MISMATCH '+D.ethDiffWei+' wei'}</span></td></tr>`;
+h += `<tr><td>Contract SSV</td><td class="mono">${(Number(BigInt(D.finalDustSSV))/1e18).toFixed(10)} SSV</td><td class="mono">${(Number(BigInt(D.expectedFinalSSV))/1e18).toFixed(10)} SSV</td><td><span class="badge ${D.ssvMatch?'badge-ok':'badge-danger'}">${D.ssvMatch?'EXACT MATCH':'MISMATCH '+D.ssvDiffWei+' wei'}</span></td></tr>`;
+h += `<tr><td>State checks</td><td class="mono">${D.checkStateCallCount}</td><td></td><td><span class="badge badge-ok">OK</span></td></tr>`;
+h += '</tbody></table></div>';
+
+h += `<div id="s15" class="section"><h2>15. Simulation Config</h2><div class="two-col"><div><h3>Scale</h3><table><tr><td>Pre-upgrade operators</td><td>${D.operatorsPreMigration}</td></tr><tr><td>Post-upgrade operators (setup)</td><td>${D.operatorsPostMigrationSetup}</td></tr><tr><td>Post-upgrade operators (dynamic)</td><td>${D.operatorsPostMigrationDynamic}</td></tr><tr><td>SSV clusters</td><td>${D.ssvClustersSetup}</td></tr><tr><td>ETH clusters (setup)</td><td>${D.ethClustersSetup}</td></tr><tr><td>ETH clusters (dynamic)</td><td>${D.ethClustersDynamic}</td></tr></table></div><div><h3>Run</h3><table><tr><td>TX target</td><td>${D.txTarget}</td></tr><tr><td>TX actual</td><td>${D.primaryActionCount}</td></tr><tr><td>Blocks mined</td><td>${Number(D.blocksMined).toLocaleString()}</td></tr><tr><td>Sim duration</td><td>${D.simDuration}</td></tr><tr><td>RNG Seed</td><td class="mono">0xdeadbeef</td></tr></table></div></div></div>`;
+
+h += '<div id="s16" class="section"><h2>16. Assertions</h2>';
+h += '<div class="cards" style="margin-bottom:20px">';
+h += `<div class="card"><div class="lbl">State Checks</div><div class="val ok">${D.checkStateCallCount}</div></div>`;
+h += `<div class="card"><div class="lbl">Failures</div><div class="val${D.failures.length>0?' danger':' ok'}">${D.failures.length}</div></div>`;
+h += `<div class="card"><div class="lbl">Pass Rate</div><div class="val ok">${D.checkStateCallCount>0?(((D.checkStateCallCount-D.failures.length)/D.checkStateCallCount)*100).toFixed(2):'100.00'}%</div></div>`;
+h += '</div>';
+if (D.failures.length===0) h += `<p><span class="badge badge-ok">PASS</span> All ${D.checkStateCallCount} checks passed.</p>`;
+else { h += '<div class="scroll-x"><table><thead><tr><th>Block</th><th>Check</th><th>Expected</th><th>Actual</th><th>Action</th></tr></thead><tbody>'; D.failures.forEach(r=>{h+=`<tr><td class="mono">${E(r.block)}</td><td>${E(r.check)}</td><td class="mono">${E(r.expected.slice(0,30))}</td><td class="mono">${E(r.actual.slice(0,30))}</td><td><span class="tag">${E(r.action)}</span></td></tr>`;}); h+='</tbody></table></div>'; }
+h += '</div>';
+
+h += '<div id="s17" class="section"><h2>17. Transaction Timeline</h2><div class="tl-filter" id="tlFilterBar"><input type="text" class="tl-search" id="tlSearch" placeholder="Search..." oninput="renderTimeline()"><button class="tl-filter-btn active" id="tlAll" onclick="setTlFilter(\'\')">All</button><button class="tl-filter-btn" id="tlFilterCluster" onclick="setTlFilter(\'cluster\')">Clusters</button><button class="tl-filter-btn" id="tlFilterOperator" onclick="setTlFilter(\'operator\')">Operators</button><button class="tl-filter-btn" id="tlFilterNetwork" onclick="setTlFilter(\'network\')">Network</button></div><div id="tlContainer" style="max-height:700px;overflow-y:auto"></div></div>';
+
+h += '<div id="s18" class="section"><h2>18. Cluster Explorer</h2><div class="tl-filter" id="clusterFnFilterBar" style="margin-bottom:12px"></div><div class="explorer"><div class="exp-list" id="clusterList"></div><div class="exp-detail" id="clusterDetail"><div class="exp-empty">Select a cluster</div></div></div></div>';
+
+h += '<div id="s19" class="section"><h2>19. Operator Explorer</h2><div class="tl-filter" id="operatorFnFilterBar" style="margin-bottom:12px"></div><div class="explorer"><div class="exp-list" id="operatorList"></div><div class="exp-detail" id="operatorDetail"><div class="exp-empty">Select an operator</div></div></div></div>';
+
+h += '</div>';
+app.innerHTML = h;
+
+function renderBarChart(svgId, data, lKey, vKey, color) {
+  const svg = document.getElementById(svgId); if (!svg||!data.length) return;
+  const bH=26,gap=6,lW=180,vW=80,W=900,padT=8,padB=8;
+  const H=data.length*(bH+gap)+padT+padB; svg.setAttribute('height',H); svg.setAttribute('viewBox','0 0 '+W+' '+H);
+  const vals=data.map(d=>Number(d[vKey])),mx=Math.max(...vals,1),cW=W-lW-12-vW-8;
+  let s=''; s+=`<line x1="${lW+12}" y1="${padT}" x2="${lW+12}" y2="${H-padB}" stroke="#30363d"/>`;
+  data.forEach((d,i)=>{const v=Number(d[vKey]),bL=(v/mx)*cW,y=padT+i*(bH+gap),mY=(y+bH/2+4).toFixed(1);
+    s+=`<text x="${lW}" y="${mY}" fill="#8b949e" font-size="11" text-anchor="end">${E(d[lKey])}</text>`;
+    if(bL>0)s+=`<rect x="${lW+12}" y="${y}" width="${bL.toFixed(1)}" height="${bH}" fill="${color}" opacity="0.8" rx="3"/>`;
+    s+=`<text x="${(lW+12+bL+6).toFixed(1)}" y="${mY}" fill="#c9d1d9" font-size="11">${fmtNum(v)}</text>`;
+  }); svg.innerHTML=s;
+}
+function renderLineChart(svgId, data, xKey, yKey, color) {
+  const svg=document.getElementById(svgId); if(!svg||!data.length){if(svg)svg.innerHTML='<text x="450" y="100" fill="#8b949e" text-anchor="middle">No data</text>';return;}
+  const W=900,H=200,p={t:10,b:30,l:70,r:10};
+  const xs=data.map(d=>Number(d[xKey])),ys=data.map(d=>Number(d[yKey]));
+  const xn=Math.min(...xs),xx=Math.max(...xs),yn=Math.min(0,...ys),yx=Math.max(...ys,1);
+  const tX=v=>p.l+(xx>xn?(v-xn)/(xx-xn):0)*(W-p.l-p.r), tY=v=>H-p.b-(yx>yn?(v-yn)/(yx-yn):0)*(H-p.t-p.b);
+  let s=`<polyline points="${data.map(d=>tX(Number(d[xKey])).toFixed(1)+','+tY(Number(d[yKey])).toFixed(1)).join(' ')}" fill="none" stroke="${color}" stroke-width="1.5"/>`;
+  s+=`<line x1="${p.l}" y1="${p.t}" x2="${p.l}" y2="${H-p.b}" stroke="#30363d"/><line x1="${p.l}" y1="${H-p.b}" x2="${W-p.r}" y2="${H-p.b}" stroke="#30363d"/>`;
+  s+=`<text x="${p.l-4}" y="${p.t+8}" fill="#8b949e" font-size="10" text-anchor="end">${fmtNum(yx)}</text>`;
+  s+=`<text x="${p.l}" y="${H-4}" fill="#8b949e" font-size="10">${fmtNum(xn)}</text><text x="${W-p.r}" y="${H-4}" fill="#8b949e" font-size="10" text-anchor="end">${fmtNum(xx)}</text>`;
+  svg.innerHTML=s;
+}
+
+const timelineMap={};
+for (const [cid,rec] of Object.entries(D.clusterHistory)) { for (const e of rec.entries) { if(e.action.startsWith('teardown'))continue; if(!timelineMap[e.block])timelineMap[e.block]=[]; timelineMap[e.block].push({type:'cluster',label:cid.slice(0,8)+'...',account:rec.owner,action:e.action,params:e.params,event:e.event}); }}
+for (const [addr,rec] of Object.entries(D.operatorHistory)) { for (const e of rec.entries) { if(e.action.startsWith('teardown'))continue; if(!timelineMap[e.block])timelineMap[e.block]=[]; timelineMap[e.block].push({type:'operator',label:'op '+rec.opIds.slice(0,2).join(','),account:addr,action:e.action,params:e.params,event:e.event}); }}
+for (const e of D.networkHistory) { if(!timelineMap[e.block])timelineMap[e.block]=[]; timelineMap[e.block].push({type:'network',label:'network',account:'protocol',action:e.action,params:e.params,event:''}); }
+const timelineBlocks=Object.keys(timelineMap).map(Number).sort((a,b)=>a-b);
+let tlFilter='';
+function setTlFilter(f){tlFilter=f;['tlAll','tlFilterCluster','tlFilterOperator','tlFilterNetwork'].forEach(id=>{const el=document.getElementById(id);if(el)el.className='tl-filter-btn';});const a=f===''?'tlAll':f==='cluster'?'tlFilterCluster':f==='operator'?'tlFilterOperator':'tlFilterNetwork';const ae=document.getElementById(a);if(ae)ae.className='tl-filter-btn active';renderTimeline();}
+function renderTimeline(){const c=document.getElementById('tlContainer');if(!c)return;const s=(document.getElementById('tlSearch')?.value||'').toLowerCase();const tc={cluster:'#58a6ff',operator:'#bc8cff',network:'#39d353'};const fb=timelineBlocks.filter(b=>(timelineMap[String(b)]||[]).some(tx=>(!tlFilter||tx.type===tlFilter)&&(!s||tx.action.toLowerCase().includes(s)||tx.account.toLowerCase().includes(s))));if(!fb.length){c.innerHTML='<p style="color:var(--text-muted);text-align:center;padding:40px">No matches</p>';return;}
+c.innerHTML='<div class="tl-wrap">'+fb.map((b,ni)=>{const txs=(timelineMap[String(b)]||[]).filter(tx=>(!tlFilter||tx.type===tlFilter)&&(!s||tx.action.toLowerCase().includes(s)||tx.account.toLowerCase().includes(s)));const bl=b>=1e6?(b/1e6).toFixed(2)+'M':b.toLocaleString();return '<div class="tl-node"><div class="tl-circle" title="Block '+b+'">'+E(bl)+'</div><div class="tl-txs">'+txs.map((tx,ti)=>{const did='td_'+ni+'_'+ti;const co=tc[tx.type]||'#8b949e';const pp=Object.entries(tx.params).map(([k,v])=>'<tr><td>'+E(k)+'</td><td class="mono">'+E(v)+'</td></tr>').join('');return '<div class="tl-tx" onclick="toggleDetail(\''+did+'\')"><span class="tag" style="color:'+co+'">'+E(tx.action)+'</span><span style="color:var(--text-muted);font-size:11px">'+E(tx.label)+'</span></div><div class="tl-tx-detail" id="'+did+'"><table>'+pp+'<tr><td>Event</td><td style="color:var(--text-muted)">'+E(tx.event)+'</td></tr></table></div>';}).join('')+'</div></div>';}).join('')+'</div>';}
+function toggleDetail(id){const el=document.getElementById(id);if(el)el.classList.toggle('open');}
+
+const clusterHistoryData=D.clusterHistory;
+let _clusterFnFilter='';
+function buildClusterFnButtons(){const bar=document.getElementById('clusterFnFilterBar');if(!bar)return;const fc={};for(const r of Object.values(clusterHistoryData)){const seen=new Set();for(const e of r.entries){if(!seen.has(e.action)){seen.add(e.action);fc[e.action]=(fc[e.action]||0)+1;}}}const sorted=Object.keys(fc).sort();bar.innerHTML='<button class="tl-filter-btn active" onclick="setClusterFnFilter(\'\')">All ('+Object.keys(clusterHistoryData).length+')</button>'+sorted.map(fn=>'<button class="tl-filter-btn" id="cfn_'+fn+'" onclick="setClusterFnFilter(\''+fn+'\')">'+fn+' ('+fc[fn]+')</button>').join('');}
+function setClusterFnFilter(fn){_clusterFnFilter=fn;document.querySelectorAll('#clusterFnFilterBar .tl-filter-btn').forEach(b=>b.classList.remove('active'));if(!fn)document.querySelector('#clusterFnFilterBar .tl-filter-btn').classList.add('active');else{const b=document.getElementById('cfn_'+fn);if(b)b.classList.add('active');}buildClusterList();document.getElementById('clusterDetail').innerHTML='<div class="exp-empty">Select a cluster</div>';}
+function buildClusterList(){const list=document.getElementById('clusterList');if(!list)return;let entries=Object.entries(clusterHistoryData);if(_clusterFnFilter)entries=entries.filter(([,r])=>r.entries.some(e=>e.action===_clusterFnFilter));entries.sort((a,b)=>b[1].entries.length-a[1].entries.length);if(!entries.length){list.innerHTML='<div class="exp-empty">No clusters</div>';return;}
+list.innerHTML=entries.map(([id,rec])=>{const n=_clusterFnFilter?rec.entries.filter(e=>e.action===_clusterFnFilter).length:rec.entries.length;const vc=rec.version==='ETH'?'#39d353':rec.version==='SSV'?'#bc8cff':'#8b949e';return '<div class="exp-item" id="ci_'+id+'" onclick="selectCluster(\''+id+'\')"><div class="ei-id">'+E(id.slice(0,14))+'... <span style="color:'+vc+';font-size:10px">'+(rec.version||'')+'</span></div><div class="ei-sub">ops ['+E(rec.operatorIds.slice(0,4).join(', '))+'] '+n+' txs</div></div>';}).join('');}
+function selectCluster(id){document.querySelectorAll('#clusterList .exp-item').forEach(el=>el.classList.remove('active'));const it=document.getElementById('ci_'+id);if(it)it.classList.add('active');const rec=clusterHistoryData[id];const det=document.getElementById('clusterDetail');if(!rec||!det)return;let r='<h3>'+E(id.slice(0,14))+'...</h3><p class="small">Owner: <span class="mono">'+E(rec.owner)+'</span></p><p class="small" style="margin-bottom:12px">Ops: ['+E(rec.operatorIds.join(', '))+']</p>';r+='<div class="scroll-x"><table><thead><tr><th>Block</th><th>Action</th><th>Params</th><th>Event</th></tr></thead><tbody>';rec.entries.forEach(e=>{const pp=Object.entries(e.params).map(([k,v])=>'<span class="tag">'+E(k)+'='+E(v)+'</span>').join(' ');r+='<tr><td class="mono">'+E(e.block)+'</td><td><span class="tag">'+E(e.action)+'</span></td><td>'+pp+'</td><td style="color:var(--text-muted);font-size:11px">'+E(e.event)+'</td></tr>';});r+='</tbody></table></div>';det.innerHTML=r;}
+
+const operatorHistoryData=D.operatorHistory;
+const opIdToOwner={};for(const[addr,rec] of Object.entries(operatorHistoryData)){for(const id of rec.opIds)opIdToOwner[id]=addr;}
+const allOpIds=Object.keys(opIdToOwner).map(Number).sort((a,b)=>a-b);
+let _opFnFilter='';
+function buildOperatorFnButtons(){const bar=document.getElementById('operatorFnFilterBar');if(!bar)return;const fns=new Set();for(const r of Object.values(operatorHistoryData))for(const e of r.entries)fns.add(e.action);const sorted=Array.from(fns).sort();bar.innerHTML='<button class="tl-filter-btn active" onclick="setOpFnFilter(\'\')">All</button>'+sorted.map(fn=>'<button class="tl-filter-btn" id="ofn_'+fn+'" onclick="setOpFnFilter(\''+fn+'\')">'+fn+'</button>').join('');}
+function setOpFnFilter(fn){_opFnFilter=fn;document.querySelectorAll('#operatorFnFilterBar .tl-filter-btn').forEach(b=>b.classList.remove('active'));if(!fn)document.querySelector('#operatorFnFilterBar .tl-filter-btn').classList.add('active');else{const b=document.getElementById('ofn_'+fn);if(b)b.classList.add('active');}buildOperatorList();}
+function buildOperatorList(){const list=document.getElementById('operatorList');if(!list)return;let ids=allOpIds;if(_opFnFilter)ids=ids.filter(opId=>{const o=opIdToOwner[opId];const r=o?operatorHistoryData[o]:null;return(r&&r.entries.some(e=>e.action===_opFnFilter))||Object.values(clusterHistoryData).some(cr=>cr.operatorIds.includes(String(opId))&&cr.entries.some(e=>e.action===_opFnFilter));});if(!ids.length){list.innerHTML='<div class="exp-empty">No operators</div>';return;}
+list.innerHTML=ids.map(opId=>{const o=opIdToOwner[opId];const r=operatorHistoryData[o];const cc=Object.values(clusterHistoryData).filter(cr=>cr.operatorIds.includes(String(opId))).length;return '<div class="exp-item" id="oi_'+opId+'" onclick="selectOperator('+opId+')"><div class="ei-id">Operator #'+opId+'</div><div class="ei-sub">'+(r?r.entries.length:0)+' txs, '+cc+' cluster(s)</div></div>';}).join('');}
+function selectOperator(opId){document.querySelectorAll('#operatorList .exp-item').forEach(el=>el.classList.remove('active'));const it=document.getElementById('oi_'+opId);if(it)it.classList.add('active');const o=opIdToOwner[opId];const r=o?operatorHistoryData[o]:null;const det=document.getElementById('operatorDetail');if(!det)return;let s='<h3>Operator #'+opId+'</h3><p class="small" style="margin-bottom:12px">Owner: <span class="mono">'+(o?E(o):'unknown')+'</span></p>';if(r&&r.entries.length){s+='<div class="scroll-x"><table><thead><tr><th>Block</th><th>Action</th><th>Params</th><th>Event</th></tr></thead><tbody>';r.entries.forEach(e=>{const pp=Object.entries(e.params).map(([k,v])=>'<span class="tag">'+E(k)+'='+E(v)+'</span>').join(' ');s+='<tr><td class="mono">'+E(e.block)+'</td><td><span class="tag">'+E(e.action)+'</span></td><td>'+pp+'</td><td style="color:var(--text-muted);font-size:11px">'+E(e.event)+'</td></tr>';});s+='</tbody></table></div>';}else s+='<p class="small">No direct operator actions.</p>';det.innerHTML=s;}
+
+window.addEventListener('DOMContentLoaded',()=>{
+  renderBarChart('gasChartSvg',D.gasChartData,'name','avgGas','#58a6ff');
+  renderLineChart('conservationChartSvg',D.conservationData,'block','excessEth','#3fb950');
+  renderLineChart('clusterBalanceChartSvg',D.clusterBalanceData,'block','ethValue','#f78166');
+  renderTimeline();
+  buildClusterFnButtons();
+  buildClusterList();
+  buildOperatorFnButtons();
+  buildOperatorList();
+});
+</script>
+</body>
+</html>

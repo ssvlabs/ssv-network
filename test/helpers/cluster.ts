@@ -99,6 +99,28 @@ export function parseClusterFromEvent(contract: any, receipt: any, eventName: st
   throw new Error(`Event ${eventName} not found`);
 }
 
+export function parseLastClusterFromEvent(contract: any, receipt: any, eventName: string): Cluster {
+  let last: Cluster | null = null;
+  for (const log of receipt.logs ?? []) {
+    try {
+      const parsed = contract.interface.parseLog(log);
+      if (parsed?.name === eventName) {
+        const clusterTuple = parsed.args[parsed.args.length - 1];
+        const [validatorCount, networkFeeIndex, index, active, balance] = clusterTuple;
+        last = {
+          validatorCount: BigInt(validatorCount),
+          networkFeeIndex: BigInt(networkFeeIndex),
+          index: BigInt(index),
+          active: Boolean(active),
+          balance: BigInt(balance),
+        };
+      }
+    } catch { continue; }
+  }
+  if (!last) throw new Error(`Event ${eventName} not found in receipt`);
+  return last;
+}
+
 export async function getCurrentClusterState(connection: NetworkConnection<"generic">, networkContract: SSVNetwork, ownerAddress: string, operatorIds: bigint[] | number[]): Promise<Cluster> {
   const provider = connection.ethers.provider;
   const owner = connection.ethers.getAddress(ownerAddress).toLowerCase();

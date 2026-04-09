@@ -1,9 +1,3 @@
-// Regression test: cluster balance precision — spec formula vs. on-chain getBalance
-//
-// Walks through a minimal ETH cluster lifecycle step by step, logging every
-// balance computation in detail, then demonstrates and explains the discrepancy
-// that appears after an effective-balance (EB) update to a non-32-ETH value.
-
 import { assert } from 'chai';
 import { getTestConnection } from '../setup/connection.ts';
 import { ssvNetworkFullFixture } from '../setup/fixtures.ts';
@@ -27,8 +21,6 @@ import { calcClusterBurn, calcVUnits } from '../helpers/fee.ts';
 import { makeValKey, parseOperatorId } from './setup.ts';
 import { makeOperatorKey } from '../common/helpers.ts';
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
-
 async function registerOp(network: any, owner: any, index: number, fee: bigint): Promise<bigint> {
   const receipt = await (await network.connect(owner).registerOperator(
     makeOperatorKey(index),
@@ -41,8 +33,6 @@ async function registerOp(network: any, owner: any, index: number, fee: bigint):
 async function mine(provider: any, n: number): Promise<void> {
   await provider.send('hardhat_mine', ['0x' + n.toString(16)]);
 }
-
-// ─── Test ─────────────────────────────────────────────────────────────────────
 
 describe('Cluster balance: spec formula vs. on-chain getBalance', function () {
   this.timeout(120_000);
@@ -78,7 +68,6 @@ describe('Cluster balance: spec formula vs. on-chain getBalance', function () {
     console.log(  '║  CLUSTER BALANCE WALKTHROUGH — spec formula vs. getBalance  ║');
     console.log(  '╚══════════════════════════════════════════════════════════════╝');
 
-    // ── Register 4 operators ─────────────────────────────────────────────────
     console.log('\n── Operator registration ──────────────────────────────────────');
     const opIds: bigint[] = [];
     for (let i = 0; i < 4; i++) {
@@ -89,7 +78,6 @@ describe('Cluster balance: spec formula vs. on-chain getBalance', function () {
     console.log(`  Network fee : ${netFeeWei} wei  packed = ${packedNetFee}`);
     console.log(`  burnRate    : ${burnRate} wei per vUnit per block  (= 4×opFee + netFee)`);
 
-    // ── Register cluster (1 validator, default 32 ETH EB) ────────────────────
     console.log('\n── Cluster registration ───────────────────────────────────────');
     const regReceipt = await (await network.connect(owner).registerValidator(
       makeValKey(1),
@@ -109,7 +97,6 @@ describe('Cluster balance: spec formula vs. on-chain getBalance', function () {
     console.log(`  vUnits      : ${defaultVUnits}  (validatorCount × BPS = 1 × ${BPS})`);
     console.log(`  fee/block   : burnRate × vUnits / BPS = ${burnRate} × ${defaultVUnits} / ${BPS} = ${burnRate * defaultVUnits / BPS} wei`);
 
-    // Helper: format a struct for getBalance calls
     const toStructArg = (s: any) => ({
       validatorCount:  s.validatorCount,
       networkFeeIndex: s.networkFeeIndex,
@@ -118,13 +105,11 @@ describe('Cluster balance: spec formula vs. on-chain getBalance', function () {
       balance:         s.balance,
     });
 
-    // Helper: compute TS expected balance from lastStruct (spec formula — exact integer)
     const specBalance = (struct: any, blockDiff: bigint, vUnits: bigint): bigint => {
       const feesPerBlock = burnRate * vUnits / BPS;  // exact (ETH_DED/BPS = 10, no remainder)
       return BigInt(struct.balance) - blockDiff * feesPerBlock;
     };
 
-    // Helper: compute fees using the contract's split-floor formula (mirrors updateBalanceWithEB)
     const contractFees = (blockDiff: bigint, vUnits: bigint): bigint =>
       calcClusterBurn({
         blockDiff,
@@ -134,7 +119,6 @@ describe('Cluster balance: spec formula vs. on-chain getBalance', function () {
         effectiveVUnits: vUnits,
       });
 
-    // ── Mine 10 blocks, check balance ─────────────────────────────────────────
     console.log('\n── Progress 10 blocks (vUnits = 10 000, default 32 ETH) ───────');
     await mine(provider, 10);
     {
@@ -150,7 +134,6 @@ describe('Cluster balance: spec formula vs. on-chain getBalance', function () {
       assert.equal(onChain, tsBalance, 'balance should match spec exactly at default vUnits');
     }
 
-    // ── Commit Merkle root for 33 ETH EB ─────────────────────────────────────
     console.log('\n── Commit Merkle root: cluster EB = 33 ETH ────────────────────');
     const ebBlockNum = Number(await provider.getBlockNumber());
     const { root, proofs } = generateMerkleForClusterEB(
@@ -173,7 +156,6 @@ describe('Cluster balance: spec formula vs. on-chain getBalance', function () {
       assert.equal(onChain, tsBalance, 'balance should match at time of root commit');
     }
 
-    // ── Mine 10 blocks (root committed, no updateClusterBalance yet) ──────────
     console.log('\n── Progress 10 blocks (root committed, EB not applied yet) ────');
     await mine(provider, 10);
     {
@@ -188,7 +170,6 @@ describe('Cluster balance: spec formula vs. on-chain getBalance', function () {
       assert.equal(onChain, tsBalance, 'balance should match before EB update is applied');
     }
 
-    // ── updateClusterBalance (applies 33 ETH EB on-chain) ────────────────────
     console.log('\n── updateClusterBalance: apply 33 ETH EB ──────────────────────');
     const ebReceipt = await (await network.connect(owner).updateClusterBalance(
       ebBlockNum,
@@ -216,25 +197,20 @@ describe('Cluster balance: spec formula vs. on-chain getBalance', function () {
       console.log(`  Match       : ${tsBalance === onChain ? '✓ EXACT' : `✗ DIFF = ${tsBalance - onChain}`}`);
     }
 
-    // ── Mine 10 blocks with new vUnits ────────────────────────────────────────
     console.log('\n── Progress 10 blocks (vUnits = 10 313, 33 ETH EB active) ─────');
     await mine(provider, 10);
     const finalBlock = BigInt(await provider.getBlockNumber());
     const finalBD    = finalBlock - ebBlock;
 
-    // Spec formula (exact, no floor)
     const specFeePerBlock  = burnRate * newVUnits / BPS;  // exact
     const specTotalFees    = finalBD * specFeePerBlock;
     const specExpected     = BigInt(lastStruct.balance) - specTotalFees;
 
-    // Contract formula (split-floor, mirrors updateBalanceWithEB)
     const conFees          = contractFees(finalBD, newVUnits);
     const conExpected      = BigInt(lastStruct.balance) - conFees;
 
-    // On-chain value
     const onChainFinal     = BigInt(await views.getBalance(owner.address, opIds, toStructArg(lastStruct)));
 
-    // Decompose the split-floor to show exactly why they differ
     const idxOp   = finalBD * NUM_OPS * packedOpFee;
     const idxNet  = finalBD * packedNetFee;
     const remOp   = (idxOp  * newVUnits) % BPS;
@@ -280,16 +256,13 @@ describe('Cluster balance: spec formula vs. on-chain getBalance', function () {
     console.log(`     With vUnits = BPS (32 ETH default), vUnits/BPS = 1 exactly → no floor → exact match.`);
     console.log('');
 
-    // Assert: on-chain matches the contract (split-floor) formula
     assert.equal(onChainFinal, conExpected,
       'getBalance must match the split-floor contract formula exactly');
 
-    // Assert: discrepancy is within the theoretical maximum
     const maxDiff = (BPS - 1n) * 2n * 10n; // 199 980 wei
     assert.isTrue(discrepancy <= maxDiff,
       `discrepancy ${discrepancy} exceeds theoretical max ${maxDiff}`);
 
-    // Confirm: with default vUnits (32 ETH), there would be zero discrepancy
     const remOpDefault  = (finalBD * NUM_OPS * packedOpFee * BPS) % BPS;
     const remNetDefault = (finalBD * packedNetFee            * BPS) % BPS;
     assert.equal(remOpDefault,  0n, 'with vUnits=BPS: op remainder must be 0');
@@ -331,7 +304,6 @@ describe('Cluster balance: spec formula vs. on-chain getBalance', function () {
       balance:         s.balance,
     });
 
-    // Register 4 operators + cluster
     const opIds: bigint[] = [];
     for (let i = 0; i < 4; i++) opIds.push(await registerOp(network, deployer, i + 1, opFee));
 
@@ -342,7 +314,6 @@ describe('Cluster balance: spec formula vs. on-chain getBalance', function () {
     let lastStruct = parseClusterFromEvent(network, regReceipt, Events.VALIDATOR_ADDED);
     const clusterId = computeClusterId(owner.address, opIds);
 
-    // Initial updateClusterBalance to establish 33 ETH EB (non-BPS vUnits)
     const snap0 = Number(await provider.getBlockNumber());
     const { root: r0, proofs: p0 } = generateMerkleForClusterEB(
       { ethers: connection.ethers }, [{ clusterId, effectiveBalance: 33 }],
@@ -357,7 +328,6 @@ describe('Cluster balance: spec formula vs. on-chain getBalance', function () {
     const newVUnits      = calcVUnits(33n);  // 10313
     let   totalSpecFees  = 0n;
 
-    // Compute actual per-call remainder to show in header
     const packedOpFee2  = opFee / ETH_DED;
     const packedNetFee2 = netFeeWei / ETH_DED;
 

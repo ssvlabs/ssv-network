@@ -1,7 +1,3 @@
-// Stress test: 5-year simulation of SSV Network v2.0.0.
-// Generates ~1500 randomized write transactions across ~13M blocks.
-// After every transaction, verifies TS simulation state matches on-chain state.
-
 import * as path from 'path';
 import * as fs from 'fs';
 import { getTestConnection } from '../setup/connection.ts';
@@ -23,60 +19,41 @@ import {
   onSettleUser,
   isLiquidatable,
   liquidationThreshold,
-  VERSION_ETH,
-  VERSION_SSV,
-  BPS_DENOMINATOR,
   DEFAULT_EB,
 } from './state.ts';
 import type { SimState } from './state.ts';
 import type { StressSetup } from './setup.ts';
 import {
+  VERSION_ETH,
+  VERSION_SSV,
+  BPS_DENOMINATOR,
   STRESS_TARGET_WRITE_TXS,
   DEFAULT_RNG_SEED,
-  FALLBACK_ETH_PRICE_USD,
   SEED_ETH,
   STRESS_SSV_CLUSTERS,
   STRESS_ETH_CLUSTERS,
   STRESS_OPERATORS_PRE_UPGRADE,
   STRESS_OPERATORS_POST_UPGRADE,
-  STRESS_STAKER_START_IDX,
+  _SL_EOA_START,
   STRESS_COOLDOWN_SECS,
   ETH_DEDUCTED_DIGITS,
   TARGET_OPERATOR_ETH_FEE,
   STRESS_TOTAL_SIGNERS,
 } from './constants.ts';
 
-// ── Fetch current ETH price from CoinGecko ─────────────────────────────────
-
 async function fetchEthPriceUSD(): Promise<number> {
-  try {
-    const url = 'https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd';
-    const res = await fetch(url, { signal: AbortSignal.timeout(5000) });
-    if (!res.ok) return FALLBACK_ETH_PRICE_USD;
-    const data = await res.json() as any;
-    const price = data?.ethereum?.usd;
-    return typeof price === 'number' && price > 0 ? price : FALLBACK_ETH_PRICE_USD;
-  } catch {
-    return FALLBACK_ETH_PRICE_USD;
-  }
+  const url = 'https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd';
+  const res = await fetch(url, { signal: AbortSignal.timeout(5000) });
+  if (!res.ok) throw new Error(`CoinGecko API returned ${res.status}`);
+  const data = await res.json() as any;
+  const price = data?.ethereum?.usd;
+  if (typeof price !== 'number' || price <= 0) throw new Error(`Invalid ETH price: ${price}`);
+  return price;
 }
 
-// ── Safe block mining helpers ──────────────────────────────────────────────
-
-/**
- * Pick a safe block count to mine.
- *
- * Strategy:
- *   1. Find the cluster whose balance hits 0 soonest from currentBlock.
- *      That gives a hard ceiling — we must mine fewer blocks than that.
- *   2. Within [1, ceiling], pick randomly (up to ~1 day / 8760 blocks max).
- *   3. Retry up to 20 times to also satisfy the soft rule: ≤5% of active
- *      clusters become liquidatable. Falls back to 1 block if all retries fail.
- */
 function pickSafeBlockCount(simState: SimState, currentBlock: bigint, rng: RNG): bigint {
   const activeClusters = [...simState.clusters.values()].filter(c => c.active);
 
-  // ── Step 1: find the cluster that hits 0 the soonest ──────────────────
   let minBlocksToZero = 8760n; // default ceiling when no cluster is close
   for (const c of activeClusters) {
     let bpb: bigint;
@@ -97,22 +74,15 @@ function pickSafeBlockCount(simState: SimState, currentBlock: bigint, rng: RNG):
 
     if (bpb === 0n) continue;
 
-    // Block at which this cluster's balance hits 0 (from its last snapshot).
-    // balance(block) = snapshotBalance - (block - snapshotBlock) * bpb = 0
-    //   → block = snapshotBlock + snapshotBalance / bpb  (floor)
     const zeroBlock = snapshotBlock + snapshotBalance / bpb;
     const blocksFromNow = zeroBlock > currentBlock ? zeroBlock - currentBlock : 0n;
     if (blocksFromNow < minBlocksToZero) minBlocksToZero = blocksFromNow;
   }
 
-  // We must mine strictly fewer than minBlocksToZero blocks (so no cluster hits exactly 0).
-  // Cap at 8760 (≈1 day) and ensure at least 1.
   const hardCeiling = minBlocksToZero > 1n ? minBlocksToZero - 1n : 1n;
   const upperBound = hardCeiling < 8760n ? hardCeiling : 8760n;
 
-  // ── Step 2: pick randomly within [1, upperBound], respecting ≤5% liquidatable ──
   for (let attempt = 0; attempt < 20; attempt++) {
-    // nextInt(n) returns [0, n-1], so +1n gives [1, upperBound]
     const blocks = 1n + rng.nextInt(upperBound);
     const endBlock = currentBlock + blocks;
 
@@ -137,17 +107,9 @@ function pickSafeBlockCount(simState: SimState, currentBlock: bigint, rng: RNG):
     }
   }
 
-  // Couldn't satisfy ≤5% in 20 tries — use 1 block (always safe)
   return 1n;
 }
 
-/**
- * After mining blocks, handle all clusters that are now liquidatable:
- *   - SSV clusters: always liquidate (no SSV top-up option).
- *   - ETH clusters: 80% of the time rescue with a large deposit; 20% liquidate instead.
- *     Deposit gives 50× the liquidation threshold, dramatically reducing re-rescue frequency.
- *     If the deposit fails or the cluster is still at risk after depositing, liquidate anyway.
- */
 async function handleLiquidatableClusters(
   setup: StressSetup,
   provider: any,
@@ -161,15 +123,12 @@ async function handleLiquidatableClusters(
   const toHandle = [...simState.clusters.values()].filter(c => isLiquidatable(c, simState));
   for (const cluster of toHandle) {
     if (cluster.version === VERSION_SSV) {
-      // SSV clusters: always liquidate
       await liquidateClusterDirectly(cluster, setup, report);
     } else {
-      // ETH clusters: 20% chance to liquidate instead of rescue (1-in-5)
       const liquidateInstead = rng.nextInt(5n) === 0n;
       if (liquidateInstead) {
         await liquidateClusterDirectly(cluster, setup, report);
       } else {
-        // Deposit 50× the liquidation threshold — gives substantial runway before next rescue
         const threshold = liquidationThreshold(cluster, simState);
         const depositAmount = threshold * 50n;
         const ok = await depositToClusterDirectly(cluster, depositAmount, setup, report);
@@ -188,34 +147,33 @@ describe('Stress Test', function () {
     const { connection, networkHelpers } = await getTestConnection();
     const provider = connection.ethers.provider as any;
 
-    // ── Fetch ETH price for report ─────────────────────────────────────
-    const ethPriceUSD = await fetchEthPriceUSD();
+    let ethPriceUSD = 0;
+    try {
+      ethPriceUSD = await fetchEthPriceUSD();
+    } catch (err) {
+      console.error(`  Failed to fetch ETH price: ${err}`);
+    }
 
-    // ── RNG — shared across setup (fee randomisation) and main loop ────
     const rng = mulberry32(DEFAULT_RNG_SEED);
 
     console.log(`\nSSV Network Stress Test — ${STRESS_TARGET_WRITE_TXS.toLocaleString()} TXs`);
     process.stdout.write('  pre-upgrade: deploying & registering operators...\r');
 
-    // ── Deploy and set up the full network ─────────────────────────────
     const setup = await setupStressTest(connection, networkHelpers, rng);
 
     process.stdout.write('  post-upgrade: verifying initial state...          \r');
 
-    // ── Initial state check ────────────────────────────────────────────
     await checkState(setup, 'initial');
 
     const report = new RunReport();
     report.ethPriceUSD = ethPriceUSD;
     report.txTarget = STRESS_TARGET_WRITE_TXS;
-    // Seed counts from setup (action increments add on top of these during the run)
     report.ssvClustersSetup            = STRESS_SSV_CLUSTERS;
     report.ethClustersSetup            = STRESS_ETH_CLUSTERS;
     report.migrationsSetup             = 0; // SSV clusters are migrated dynamically, not in setup
     report.operatorsPreMigration       = STRESS_OPERATORS_PRE_UPGRADE;
     report.operatorsPostMigrationSetup = STRESS_OPERATORS_POST_UPGRADE;
 
-    // Record creation events for all clusters created during setup (before report tracking began)
     for (const cluster of setup.simState.clusters.values()) {
       const creationBlock = cluster.version === VERSION_ETH ? cluster.block : cluster.ssvBlock;
       const version = cluster.version === VERSION_ETH ? 'ETH' : 'SSV';
@@ -231,11 +189,7 @@ describe('Stress Test', function () {
     let consecutiveSkips = 0;
     let checkStateCount = 0;
     let currentBlockForProgress = 0n;
-    // One-shot test: migrate an SSV cluster that contains a removed operator.
     let migrateWithRemovedOpTested = false;
-    // One-shot test: reactivate a liquidated ETH cluster that contains a removed operator,
-    // then verify no new validators can be registered to it (registerValidator/bulkRegister
-    // filter those clusters out) but all other operations remain valid.
     let reactivateWithRemovedOpTested = false;
     const simStartBlock = BigInt(await setup.provider.getBlockNumber());
 
@@ -249,8 +203,6 @@ describe('Stress Test', function () {
       return `${hours}h`;
     }
 
-    // Progress bar — updates every 5 seconds.
-    // Cleared in the finally block so it always stops, even on test failure.
     const progressInterval = setInterval(() => {
       if (currentBlockForProgress === 0n) {
         process.stdout.write('  starting simulation loop...                                                   \r');
@@ -263,17 +215,9 @@ describe('Stress Test', function () {
     }, 5000);
 
     try {
-
-    // ── Assert: pre-upgrade SSV fee declaration is rejected post-upgrade ──
-    // setup.ts mined 604801 blocks (≈7 days) before the upgrade so that
-    // UPGRADE_TIMESTAMP (= upgradeBlock.timestamp) > approvalBeginTime.
-    // The contract checks approvalBeginTime <= UPGRADE_TIMESTAMP first, so
-    // executeOperatorFee must revert with LegacyOperatorFeeDeclarationInvalid.
     if (setup.preUpgradeFeeDeclaration) {
       const { opId, ownerAddress } = setup.preUpgradeFeeDeclaration;
 
-      // The contract may revert with either LegacyOperatorFeeDeclarationInvalid or
-      // ApprovalNotWithinTimeframe depending on check order — both correctly block execution.
       const ownerSigner = setup.allSigners.find((s: any) =>
         s.address.toLowerCase() === ownerAddress.toLowerCase(),
       );
@@ -291,27 +235,19 @@ describe('Stress Test', function () {
       }
       if (!reverted) throw new Error('ASSERTION FAILED: pre-upgrade fee declaration should be blocked post-upgrade');
 
-      // Cancel the stale declaration so it doesn't interfere with the random action loop
       await (await setup.network.connect(ownerSigner).cancelDeclaredOperatorFee(opId)).wait();
       await checkState(setup, 'post-preUpgradeFeeTest', report);
     }
 
-    // ── Assert: whitelist-revoked cluster migrates OK but cannot register validators ──
-    // setup.ts (Phase 3.65) removed the cluster owner from a private operator's whitelist
-    // before the upgrade. Migration must succeed — migrateClusterToETH does not check operator
-    // whitelists. registerValidator afterward must revert with CallerNotWhitelistedWithData
-    // because the cluster owner is no longer on the private operator's whitelist.
     if (setup.whitelistRemovedClusterId) {
       const wlCluster = setup.simState.clusters.get(setup.whitelistRemovedClusterId);
       if (!wlCluster) throw new Error(`Whitelist-revoked cluster ${setup.whitelistRemovedClusterId} not in simState`);
 
       console.log(`\n  [static] whitelist-revoked cluster: migrate + register-fail test (${wlCluster.id.slice(0, 14)})`);
 
-      // Step 1: migrate — must succeed even though owner is no longer whitelisted
       await migrateClusterDirectly(wlCluster, setup, report);
       await checkState(setup, 'post-whitelistRevoke-migrate', report);
 
-      // Step 2: try registerValidator — must fail with CallerNotWhitelistedWithData
       const wlOwnerSigner = setup.allSigners.find((s: any) =>
         s.address.toLowerCase() === wlCluster.owner.toLowerCase(),
       );
@@ -332,17 +268,11 @@ describe('Stress Test', function () {
       }
       if (!wlRegisterReverted) throw new Error('ASSERTION FAILED: registerValidator should revert with CallerNotWhitelistedWithData');
 
-      // Mark canRegister=false — actRegisterValidator / actBulkRegisterValidator will skip this cluster
       wlCluster.canRegister = false;
       console.log(`  [static] whitelist-revoked cluster passed — migration OK, register blocked (canRegister=false)`);
     }
 
-    // ── Assert: ETH cluster operations revert with IncorrectClusterVersion on SSV clusters ──
-    // After the upgrade, SSV clusters exist in s.clusters (not s.ethClusters).
-    // Every ETH-only cluster operation checks validateClusterVersion(VERSION_ETH) and
-    // must revert with IncorrectClusterVersion when called on an SSV cluster.
     {
-      // Helper: send a TX and assert it reverts with the expected error name.
       async function assertReverts(
         txPromise: Promise<any>,
         errorName: string,
@@ -361,7 +291,6 @@ describe('Stress Test', function () {
         if (!reverted) throw new Error(`ASSERTION FAILED: [${label}] succeeded but should have reverted with ${errorName}`);
       }
 
-      // Find test targets in sim state
       const activeSsvClusters = [...setup.simState.clusters.values()].filter(
         c => c.version === VERSION_SSV && c.active && c.validatorCount > 0n,
       );
@@ -388,39 +317,32 @@ describe('Stress Test', function () {
       const strct = toClusterStruct(ssvCluster);
       const liqStrct = toClusterStruct(liquidatedSsvCluster);
 
-      // Use a validator key far outside the sequential seed range (stress test maxes out ~50k)
       const dummyKey = makeValKey(999_000_000);
 
-      // 1. withdraw → IncorrectClusterVersion
       await assertReverts(
         setup.network.connect(ssvOwner).withdraw(ops, 1n, strct),
         'IncorrectClusterVersion',
         'withdraw on SSV cluster',
       );
 
-      // 2. registerValidator → IncorrectClusterVersion
-      //    validateClusterOnRegistration fires after registerPublicKey loop; both roll back on revert.
       await assertReverts(
         setup.network.connect(ssvOwner).registerValidator(dummyKey, ops, DEFAULT_SHARES, strct, { value: 0 }),
         'IncorrectClusterVersion',
         'registerValidator on SSV cluster',
       );
 
-      // 3. bulkRegisterValidator → IncorrectClusterVersion
       await assertReverts(
         setup.network.connect(ssvOwner).bulkRegisterValidator([dummyKey], ops, [DEFAULT_SHARES], strct, { value: 0 }),
         'IncorrectClusterVersion',
         'bulkRegisterValidator on SSV cluster',
       );
 
-      // 4. reactivate on a liquidated SSV cluster → IncorrectClusterVersion
       await assertReverts(
         setup.network.connect(liqOwner).reactivate(liquidatedSsvCluster.operatorIds, liqStrct, { value: 0 }),
         'IncorrectClusterVersion',
         'reactivate on liquidated SSV cluster',
       );
 
-      // 5. deposit (ETH path, any caller) → IncorrectClusterVersion
       await assertReverts(
         setup.network.connect(setup.deployer).deposit(ssvCluster.owner, ops, strct, { value: 1n }),
         'IncorrectClusterVersion',
@@ -430,17 +352,11 @@ describe('Stress Test', function () {
       await checkState(setup, 'post-ssvVersionTests', report);
     }
 
-    // ── Assert: over-unstake correctly reverts ─────────────────────────────
-    // Use the first random staker (allSigners[STRESS_STAKER_START_IDX]):
-    //   1. Mint 5 SSV and stake it → cssvBalance = 5 SSV
-    //   2. requestUnstake(5 SSV) → cssvBalance = 0, 1 pending entry
-    //   3. requestUnstake(1 SSV) → MUST revert with UnstakeAmountExceedsBalance
     {
-      const overUnstakeStaker = setup.allSigners[STRESS_STAKER_START_IDX];
+      const overUnstakeStaker = setup.allSigners[_SL_EOA_START];
       const stakeAmount = 5n * 10n ** 18n;
       const networkAddr = await setup.network.getAddress();
 
-      // Stake
       await (await setup.ssvToken.mint(overUnstakeStaker.address, stakeAmount)).wait();
       await (await setup.ssvToken.connect(overUnstakeStaker).approve(networkAddr, stakeAmount)).wait();
       const stakeReceipt = await (await setup.network.connect(overUnstakeStaker).stake(stakeAmount)).wait();
@@ -458,7 +374,6 @@ describe('Stress Test', function () {
         stakerRec.cssvBalance += stakeAmount;
       }
 
-      // requestUnstake(all) — burns all cSSV
       const unstakeReceipt = await (await setup.network.connect(overUnstakeStaker).requestUnstake(stakeAmount)).wait();
       if (!unstakeReceipt) throw new Error('over-unstake test: requestUnstake receipt null');
       {
@@ -473,7 +388,6 @@ describe('Stress Test', function () {
         stakerRec.cssvBalance = 0n;
       }
 
-      // requestUnstake(1) — MUST revert
       let overReverted = false;
       try {
         await (await setup.network.connect(overUnstakeStaker).requestUnstake(1n)).wait();
@@ -489,23 +403,13 @@ describe('Stress Test', function () {
       await checkState(setup, 'post-overUnstake', report);
     }
 
-    // ── Assert: withdrawUnlocked reverts when only locked requests remain ──
-    // Uses the second random staker (allSigners[STRESS_STAKER_START_IDX + 1]):
-    //   1. Stake 10 SSV → 10 cSSV
-    //   2. requestUnstake(4 SSV) → pending entry A, unlockTime_A = now + 500s
-    //   3. Mine 500 blocks (500s) → entry A is now unlocked
-    //   4. requestUnstake(6 SSV) → pending entry B, unlockTime_B = new_now + 500s (still locked)
-    //   5. withdrawUnlocked() → drains 4 SSV (entry A), leaves entry B pending
-    //   6. withdrawUnlocked() again → REVERTS with NothingToWithdraw (only entry B remains, still locked)
-    //   Entry B stays in the pool (teardown will drain it after the cooldown).
     {
-      const earlyClaimStaker = setup.allSigners[STRESS_STAKER_START_IDX + 1];
+      const earlyClaimStaker = setup.allSigners[_SL_EOA_START + 1];
       const stakeTotal = 10n * 10n ** 18n;
       const firstUnstake = 4n * 10n ** 18n;
       const secondUnstake = 6n * 10n ** 18n;
       const networkAddr = await setup.network.getAddress();
 
-      // Stake 10 SSV
       await (await setup.ssvToken.mint(earlyClaimStaker.address, stakeTotal)).wait();
       await (await setup.ssvToken.connect(earlyClaimStaker).approve(networkAddr, stakeTotal)).wait();
       const s1 = await (await setup.network.connect(earlyClaimStaker).stake(stakeTotal)).wait();
@@ -522,7 +426,6 @@ describe('Stress Test', function () {
         stakerRec.cssvBalance += stakeTotal;
       }
 
-      // requestUnstake(4 SSV)
       const ru1 = await (await setup.network.connect(earlyClaimStaker).requestUnstake(firstUnstake)).wait();
       if (!ru1) throw new Error('earlyClaimStaker requestUnstake(4) receipt null');
       advanceAll(setup.simState, BigInt(ru1.blockNumber));
@@ -535,12 +438,10 @@ describe('Stress Test', function () {
         stakerRec.pendingUnstake.push({ amount: firstUnstake, unlockTime: BigInt(bd1.timestamp) + STRESS_COOLDOWN_SECS });
       }
 
-      // Mine 500 blocks so entry A is past its unlockTime
       await provider.send('hardhat_mine', ['0x' + (STRESS_COOLDOWN_SECS + 1n).toString(16)]);
       await provider.send('evm_increaseTime', [Number(STRESS_COOLDOWN_SECS) + 1]);
       advanceAll(setup.simState, BigInt(await provider.getBlockNumber()));
 
-      // requestUnstake(6 SSV) — entry B, unlockTime_B is still in the future
       const ru2 = await (await setup.network.connect(earlyClaimStaker).requestUnstake(secondUnstake)).wait();
       if (!ru2) throw new Error('earlyClaimStaker requestUnstake(6) receipt null');
       advanceAll(setup.simState, BigInt(ru2.blockNumber));
@@ -553,7 +454,6 @@ describe('Stress Test', function () {
         stakerRec.pendingUnstake.push({ amount: secondUnstake, unlockTime: BigInt(bd2.timestamp) + STRESS_COOLDOWN_SECS });
       }
 
-      // withdrawUnlocked() → drains entry A (4 SSV unlocked), entry B stays pending
       const wu1 = await (await setup.network.connect(earlyClaimStaker).withdrawUnlocked()).wait();
       if (!wu1) throw new Error('earlyClaimStaker withdrawUnlocked() receipt null');
       advanceAll(setup.simState, BigInt(wu1.blockNumber));
@@ -563,7 +463,6 @@ describe('Stress Test', function () {
         stakerRec.pendingUnstake = stakerRec.pendingUnstake.filter(r => r.unlockTime > BigInt(bd.timestamp));
       }
 
-      // withdrawUnlocked() again — entry B is still locked → MUST revert with NothingToWithdraw
       let earlyReverted = false;
       try {
         await (await setup.network.connect(earlyClaimStaker).withdrawUnlocked()).wait();
@@ -576,24 +475,13 @@ describe('Stress Test', function () {
       }
       if (!earlyReverted) throw new Error('ASSERTION FAILED: early withdrawUnlocked should revert with NothingToWithdraw');
 
-      // Entry B remains in pendingUnstake — teardown will drain it after the cooldown.
       await checkState(setup, 'post-earlyWithdrawRevert', report);
     }
 
-    // ── Assert: canRegister=false blocks register/bulkRegister but allows all else ──
-    // 1. Register 1 fresh public ETH operator (owner = allSigners[158]).
-    // 2. Create 20 ETH clusters (owners allSigners[159..178]), each with the test op + 3 public ops.
-    // 3. Owner self-liquidates each cluster (bypasses threshold — owner==liquidator in contract).
-    // 4. Remove the test operator (effectiveBalance=0 after all liquidations).
-    // 5. Reactivate all 20 via reactivateClusterDirectly (allowed — contract skips removed ops).
-    // 6. Mark canRegister=false on all 20 → actRegisterValidator / actBulkRegisterValidator skip them.
     {
       console.log('\n  [static] setting up 20 removed-op clusters (canRegister=false test)');
       const { simState, network } = setup;
 
-      // ── Step 1: Register test operator ────────────────────────────────────
-      // Signers beyond STRESS_TOTAL_SIGNERS — generated on demand and appended to allSigners
-      // so that existing setup.allSigners.find() calls (e.g. in reactivateClusterDirectly) work.
       const testOpOwner = await getSigner(setup.connection, [], STRESS_TOTAL_SIGNERS);
       const testClusterOwners: any[] = [];
       for (let j = 0; j < 20; j++) {
@@ -619,21 +507,17 @@ describe('Stress Test', function () {
       });
       report.operatorsPostMigrationDynamic++;
 
-      // ── Step 2: Pick 3 companion public ops (non-removed, non-private, lowest IDs) ──
       const publicOps = [...simState.operators.values()]
         .filter(op => !op.isRemoved && !op.isPrivate && op.id !== testOpId)
         .sort((a, b) => (a.id < b.id ? -1 : 1))
         .slice(0, 3)
         .map(op => op.id);
       if (publicOps.length < 3) throw new Error('static removed-op test: not enough public operators');
-      // Sort the full op set (testOpId fits in its natural position)
       const testOpSet = [...publicOps, testOpId].sort((a, b) => (a < b ? -1 : 1));
 
-      // Precompute burnRate for these clusters (all operators are non-removed at this point)
       let testClusterBurnRate = simState.network.feeWei;
       for (const opId of testOpSet) testClusterBurnRate += simState.operators.get(opId)!.feeWei;
 
-      // Deposit: 2 ETH per cluster, comfortably above threshold, allows immediate self-liquidation
       const testClusterDeposit = 2n * 10n ** 18n;
 
       const testClusters: import('./state.ts').ClusterRecord[] = [];
@@ -675,8 +559,6 @@ describe('Stress Test', function () {
         report.record('registerValidator', BigInt(regReceipt.gasUsed ?? 0n), regTxBlock);
       }
 
-      // ── Step 3: Owner self-liquidates each cluster ─────────────────────────
-      // Contract skips the threshold check when msg.sender == clusterOwner.
       for (const cluster of testClusters) {
         const clusterOwner = setup.allSigners.find((s: any) =>
           s.address.toLowerCase() === cluster.owner.toLowerCase(),
@@ -705,8 +587,6 @@ describe('Stress Test', function () {
         report.totalClustersLiquidated++;
       }
 
-      // ── Step 4: Remove the test operator ──────────────────────────────────
-      // effectiveBalance is 0 on all 20 operators (all clusters liquidated), so remove is valid.
       const remTx = await network.connect(testOpOwner).removeOperator(testOpId);
       const remReceipt = await remTx.wait();
       if (!remReceipt) throw new Error('static removed-op test: removeOperator receipt null');
@@ -720,13 +600,10 @@ describe('Stress Test', function () {
       testOp.isRemoved = true;
       report.record('removeOperator', BigInt(remReceipt.gasUsed ?? 0n), remTxBlock);
 
-      // ── Step 5: Reactivate all 20 (allowed — contract skips removed ops) ──
       for (const cluster of testClusters) {
         await reactivateClusterDirectly(cluster, setup, report);
       }
 
-      // ── Step 6: Mark canRegister=false ────────────────────────────────────
-      // actRegisterValidator / actBulkRegisterValidator will skip these clusters.
       for (const cluster of testClusters) {
         cluster.canRegister = false;
       }
@@ -735,11 +612,6 @@ describe('Stress Test', function () {
       console.log(`  [static] done — ${testClusters.length} clusters marked canRegister=false (op #${testOpId})`);
     }
 
-    // ── Assert: empty SSV cluster must migrate before registering ETH validators ──
-    // Setup Phase 3.9 created a 4-op / 5-validator SSV cluster, then removed all
-    // validators and withdrew all SSV, leaving an empty (0-validator, 0-balance) SSV
-    // cluster. Post-upgrade, ETH registerValidator must revert with IncorrectClusterVersion.
-    // After migration, bulkRegisterValidator must succeed and the cluster joins the pool.
     {
       const emptyCluster = setup.emptySSVClusterForMigrateTest;
       if (emptyCluster) {
@@ -749,7 +621,6 @@ describe('Stress Test', function () {
         );
         if (!emptyOwner) throw new Error('empty SSV cluster owner signer not found');
 
-        // Step 1: registerValidator (ETH path) MUST revert with IncorrectClusterVersion
         let registerReverted = false;
         try {
           await (await setup.network.connect(emptyOwner).registerValidator(
@@ -768,11 +639,9 @@ describe('Stress Test', function () {
         }
         if (!registerReverted) throw new Error('ASSERTION FAILED: registerValidator on empty SSV cluster must revert with IncorrectClusterVersion');
 
-        // Step 2: migrate → converts to VERSION_ETH, deposits ETH
         await migrateClusterDirectly(emptyCluster, setup, report);
         await checkState(setup, 'post-emptySsvCluster-migrate', report);
 
-        // Step 3: bulkRegisterValidator — 5 validators on the freshly migrated ETH cluster
         {
           const n = 5;
           const keys: string[] = [];
@@ -782,7 +651,6 @@ describe('Stress Test', function () {
           const preTxBlock = BigInt(await provider.getBlockNumber());
           advanceAll(setup.simState, preTxBlock);
 
-          // Compute deposit: 90-day runway on 5 validators × burnRate per DEFAULT_EB
           const addedEB = BigInt(n) * DEFAULT_EB;
           const newEB = emptyCluster.effectiveBalance + addedEB;
           const bpb = emptyCluster.burnRate * newEB / DEFAULT_EB;
@@ -799,7 +667,6 @@ describe('Stress Test', function () {
           const txBlock = BigInt(bulkReceipt.blockNumber);
           advanceAll(setup.simState, txBlock);
 
-          // Parse final cluster state from last ValidatorAdded event
           let lastParsed: any = null;
           for (const log of bulkReceipt.logs ?? []) {
             try {
@@ -809,7 +676,6 @@ describe('Stress Test', function () {
           }
           if (!lastParsed) throw new Error('empty-SSV migrate test: no ValidatorAdded event found');
 
-          // Update sim state
           emptyCluster.validatorCount  = BigInt(lastParsed.validatorCount ?? lastParsed[0]);
           emptyCluster.effectiveBalance += addedEB;
           emptyCluster.balance         = BigInt(lastParsed.balance ?? lastParsed[4]);
@@ -837,11 +703,6 @@ describe('Stress Test', function () {
       }
     }
 
-    // ── Main simulation loop ───────────────────────────────────────────
-    // Mining is one weighted option in the pool (weight=100, ~34% of picks).
-    // Protocol actions make up the rest. When a protocol action is selected,
-    // there is a SAME_BLOCK_PCT % chance it lands in the same block as the
-    // previous TX; otherwise we advance 1 block first.
     const MINE_WEIGHT    = 40;   // relative weight for the "mine" option (~17% of picks)
     const SAME_BLOCK_PCT = 8n;   // % chance a protocol TX shares a block with the previous one
 
@@ -849,7 +710,6 @@ describe('Stress Test', function () {
       const currentBlock = BigInt(await provider.getBlockNumber());
       currentBlockForProgress = currentBlock;
 
-      // Build weighted pool: all protocol actions + the "mine" pseudo-action
       const poolWeighted = [
         ...ALL_ACTIONS.map(a => ({ item: a as WeightedAction | { name: 'mine'; fn?: never }, weight: a.weight })),
         { item: { name: 'mine' as const }, weight: MINE_WEIGHT },
@@ -858,7 +718,6 @@ describe('Stress Test', function () {
       if (!picked) continue;
 
       if (picked.name === 'mine') {
-        // ── Mine a safe block count ──────────────────────────────────────
         const blocksToMine = pickSafeBlockCount(setup.simState, currentBlock, rng);
         await provider.send('hardhat_mine', ['0x' + blocksToMine.toString(16)]);
         await provider.send('evm_increaseTime', [Number(blocksToMine) * 12]);
@@ -869,10 +728,7 @@ describe('Stress Test', function () {
         await checkState(setup, `post-mine:tx${report.primaryActionCount}`, report);
         report.checkStateCallCount++;
         consecutiveSkips = 0;
-        // Mining does NOT increment primaryActionCount — it's infrastructure, not a protocol TX.
       } else {
-        // ── Protocol action ──────────────────────────────────────────────
-        // Advance 1 block first unless we roll into the same-block window.
         if (rng.nextInt(100n) >= SAME_BLOCK_PCT) {
           await provider.send('hardhat_mine', ['0x1']);
           await provider.send('evm_increaseTime', [12]);
@@ -887,13 +743,11 @@ describe('Stress Test', function () {
         if (success) {
           consecutiveSkips = 0;
           report.primaryActionCount++;
-          // Only assert staking state after TXs that call _syncFees on-chain.
           const isStakingSync = ['stake', 'requestUnstake', 'transferCSSV', 'claimEthRewards'].includes(action.name);
           await checkState(setup, `after:${action.name}:tx${report.primaryActionCount}`, report, isStakingSync);
           report.checkStateCallCount++;
           checkStateCount++;
 
-          // Record conservation data every 50 successful TXs
           if (checkStateCount % 50 === 0) {
             const block = BigInt(await provider.getBlockNumber());
             const networkAddr = await setup.network.getAddress();
@@ -913,14 +767,7 @@ describe('Stress Test', function () {
             report.recordConservation(block, excessWei, totalActiveClusterBalance, validatorCount);
           }
 
-          // ── One-shot test: migrateClusterToETH with a removed operator ──────
-          // Fires the first time removeOperator succeeds AND an SSV cluster (active
-          // or liquidated) that still contains the removed operator can be found.
-          // Verifies the contract skips removed operators during migration rather than
-          // reverting — migrateClusterToETH's updateClusterOperatorsMigration just
-          // continues past operators whose both snapshots are zeroed.
           if (action.name === 'removeOperator') {
-            // ── one-shot: migrateClusterToETH with a removed operator ──────────
             if (!migrateWithRemovedOpTested) {
               const target = [...setup.simState.clusters.values()].find(c =>
                 c.version === VERSION_SSV &&
@@ -935,7 +782,6 @@ describe('Stress Test', function () {
                 migrateWithRemovedOpTested = true;
               }
             }
-            // ── one-shot: reactivate a liquidated ETH cluster with a removed operator ──
             if (!reactivateWithRemovedOpTested) {
               const target = [...setup.simState.clusters.values()].find(c =>
                 c.version === VERSION_ETH &&
@@ -955,7 +801,6 @@ describe('Stress Test', function () {
         } else {
           consecutiveSkips++;
           if (consecutiveSkips > 200) {
-            // Too many skips in a row — mine a safe number of blocks to unblock state
             const fallbackBlock = BigInt(await provider.getBlockNumber());
             const fallbackBlocks = pickSafeBlockCount(setup.simState, fallbackBlock, rng);
             await provider.send('hardhat_mine', ['0x' + fallbackBlocks.toString(16)]);
@@ -972,43 +817,28 @@ describe('Stress Test', function () {
       }
     }
 
-    // ── Final state check ──────────────────────────────────────────────
     await checkState(setup, 'final', report);
 
-    // ── Snapshot operator + network stats before teardown ─────────────
     report.recordOperatorStats(setup.simState.operators);
     report.recordNetworkStats(setup.simState.network);
     report.recordStakingDust(setup.simState.totalStakingDust);
+    report.recordStakerSummaries(setup.simState.stakers);
 
-    // ── Teardown: drain all balances ───────────────────────────────────
     await teardown(setup, report);
 
-    // ── Write full TX history for successful run ───────────────────────
     try { report.writeSuccessHistory(); } catch { /* non-fatal */ }
 
     } finally {
       clearInterval(progressInterval);
       process.stdout.write('\n'); // end progress bar line
 
-      // ── Print console report (always, even on failure) ─────────────
       try { report.print(); } catch { /* ignore print errors */ }
 
-      // ── Write HTML report (always, even on failure) ─────────────────
       try {
         const reportsDir = path.join(process.cwd(), 'test', 'stress', 'reports');
         fs.mkdirSync(reportsDir, { recursive: true });
         const htmlPath = path.join(reportsDir, 'stress-test-report.html');
-        const simSummary = {
-          totalBlocks:  totalBlocks.toString(),
-          totalTxs:     report.primaryActionCount,
-          miningRounds: report.miningRounds,
-          blocksMined:  report.blocksMined.toString(),
-          operators:    setup.simState.operators.size,
-          clusters:     setup.simState.clusters.size,
-          liquidations: report.totalClustersLiquidated,
-          failures:     report.failures.length,
-        };
-        await report.writeHTML(htmlPath, simSummary);
+        await report.writeHTML(htmlPath);
       } catch (htmlErr) {
         console.error('  Failed to write HTML report:', htmlErr);
       }
