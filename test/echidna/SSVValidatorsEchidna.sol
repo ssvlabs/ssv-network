@@ -199,6 +199,39 @@ contract SSVValidatorsEchidna is SSVValidators {
         } catch {}
     }
 
+    function action_bulk_register_duplicate(uint256 seed) external {
+        uint256 validatorId = _pickValidatorId(seed);
+        if (validatorId == 0) return;
+
+        ValidatorRecord storage duplicateRecord = validators[validatorId];
+        if (!duplicateRecord.active) return;
+
+        uint8 operatorsKey = duplicateRecord.operatorsKey;
+        uint64[] memory operatorIds = _operatorIdsForKey(operatorsKey);
+        bytes32 clusterId = keccak256(abi.encodePacked(duplicateRecord.owner, operatorIds));
+        ISSVNetworkCore.Cluster memory cluster = _getClusterForRegistration(clusterId);
+
+        bytes[] memory publicKeys = new bytes[](2);
+        bytes[] memory sharesData = new bytes[](2);
+        publicKeys[0] = duplicateRecord.publicKey;
+        sharesData[0] = _makeShares(seed);
+
+        uint256 freshSeed = uint256(keccak256(abi.encodePacked(seed, duplicateRecord.owner, operatorsKey, uint256(0xB001))));
+        bytes memory freshKey = _makePublicKey(freshSeed);
+        bytes32 freshValidatorKey = keccak256(abi.encodePacked(freshKey, duplicateRecord.owner));
+        if (validatorKeyToId[freshValidatorKey] != 0) return;
+
+        publicKeys[1] = freshKey;
+        sharesData[1] = _makeShares(freshSeed);
+
+        uint256 amount = _boundAmount(seed >> 8, _availableBalance());
+        ValidatorUser ownerUser = _ownerUser(duplicateRecord.owner);
+
+        try ownerUser.bulkRegister{value: amount}(publicKeys, operatorIds, sharesData, cluster) {
+            duplicateValidatorRegistered = true;
+        } catch {}
+    }
+
     function action_remove(uint256 seed) external {
         uint256 validatorId = _pickValidatorId(seed);
         if (validatorId == 0) return;
@@ -360,6 +393,36 @@ contract SSVValidatorsEchidna is SSVValidators {
         if (!clusterRecord.exists) return;
 
         try attacker.remove(record.publicKey, operatorIds, clusterRecord.cluster) {
+            unauthorizedRemoveSucceeded = true;
+        } catch {}
+    }
+
+    function action_bulk_remove_unauthorized(uint256 seed) external {
+        bytes32 clusterId = _pickBulkRemovableClusterId(seed);
+        if (clusterId == bytes32(0)) return;
+
+        ClusterRecord storage clusterRecord = clusters[clusterId];
+        if (!clusterRecord.exists || clusterRecord.owner == address(attacker)) return;
+
+        uint256[] memory activeValidatorIds = _activeValidatorIdsForCluster(clusterId);
+        uint256 activeCount = activeValidatorIds.length;
+        if (activeCount < 2) return;
+
+        uint256 batchSize = 2 + ((seed >> 8) % 2);
+        if (batchSize > activeCount) {
+            batchSize = activeCount;
+        }
+        if (batchSize < 2) return;
+
+        uint256 start = (seed >> 16) % activeCount;
+        bytes[] memory publicKeys = new bytes[](batchSize);
+        for (uint256 i; i < batchSize; ++i) {
+            uint256 validatorId = activeValidatorIds[(start + i) % activeCount];
+            publicKeys[i] = validators[validatorId].publicKey;
+        }
+
+        uint64[] memory operatorIds = _operatorIdsForKey(clusterRecord.operatorsKey);
+        try attacker.bulkRemove(publicKeys, operatorIds, clusterRecord.cluster) {
             unauthorizedRemoveSucceeded = true;
         } catch {}
     }
