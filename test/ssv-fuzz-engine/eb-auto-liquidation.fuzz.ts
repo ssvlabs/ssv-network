@@ -17,7 +17,7 @@ import {
   collectParsedEventsByName,
   getContractEthBalance,
 } from "./core/assertions.ts";
-import { computeClusterBalanceWithVUnits, ebToVUnits } from "./core/fuzz-helpers.ts";
+import { computeClusterBalance, ebToVUnits } from "./core/fuzz-helpers.ts";
 import { computeClusterId, computeEBRoot, commitEBRoot } from "../helpers/oracle.ts";
 import { parseClusterFromEvent } from "../helpers/cluster.ts";
 import { Events } from "../common/events.ts";
@@ -70,7 +70,7 @@ describe("Fuzz: EB increase triggers auto-liquidation (CAT-3-2)", function () {
             fees.push(alignFee(ctx.rng.nextInRange(MINIMAL_OPERATOR_ETH_FEE, MINIMAL_OPERATOR_ETH_FEE * 5n)));
           }
 
-          const operators = await registerFuzzOperators(ctx, operatorOwner, 4, fees, false);
+          const operators = await registerFuzzOperators(ctx, operatorOwner, 4, fees, 1000, false);
           const operatorIds = operators.map((o) => o.id);
 
           await ctx.ssvToken.mint(oracleSigner.address, STAKE_AMOUNT);
@@ -279,7 +279,7 @@ describe("Fuzz: EB increase triggers auto-liquidation (CAT-3-2)", function () {
                 );
               }
 
-              const expectedSettledBalance = computeClusterBalanceWithVUnits(
+              const expectedSettledBalance = computeClusterBalance(
                 preUpdateSnapshot.clusterBalance,
                 operatorFees,
                 networkFee,

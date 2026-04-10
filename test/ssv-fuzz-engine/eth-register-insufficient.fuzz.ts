@@ -46,7 +46,7 @@ describe("Fuzz: ETH register validator insufficient balance (CAT-2-6)", function
             fees.push(alignFee(ctx.rng.nextInRange(MINIMAL_OPERATOR_ETH_FEE * 10n, MINIMAL_OPERATOR_ETH_FEE * 20n)));
           }
 
-          const operators = await registerFuzzOperators(ctx, operatorOwner, 4, fees, false);
+          const operators = await registerFuzzOperators(ctx, operatorOwner, 4, fees, 1000, false);
           const operatorIds = operators.map((o) => o.id);
 
           return {

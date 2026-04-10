@@ -30,6 +30,7 @@ import {
   DEFAULT_SHARES,
   MINIMUM_BLOCKS_BEFORE_LIQUIDATION,
   MINIMUM_LIQUIDATION_PERIOD_COLLATERAL,
+  BPS_DENOMINATOR,
 } from "../common/constants.ts";
 
 interface State {
@@ -62,7 +63,7 @@ describe("Fuzz: ETH reactivation with removed operators (CAT-2-5)", function () 
             fees.push(alignFee(ctx.rng.nextInRange(MINIMAL_OPERATOR_ETH_FEE, MINIMAL_OPERATOR_ETH_FEE * 5n)));
           }
 
-          const operators = await registerFuzzOperators(ctx, operatorOwner, 4, fees, false);
+          const operators = await registerFuzzOperators(ctx, operatorOwner, 4, fees, 1000, false);
           const operatorIds = operators.map((o) => o.id);
 
           const validatorCount = Number(ctx.rng.nextInRange(1n, 5n));
@@ -227,9 +228,9 @@ describe("Fuzz: ETH reactivation with removed operators (CAT-2-5)", function () 
               const expectedBurnRate = computeBurnRate(
                 operators.map((op) => op.fee),
                 networkFee,
-                validatorCount,
+                BigInt(validatorCount) * BPS_DENOMINATOR,
               );
-              expect(contractBurnRate).to.equal(expectedBurnRate, "Burn rate must use only active operators' fees");
+              expect(contractBurnRate).to.equal(expectedBurnRate);
 
               ctx.state.phase = "reactivated";
               resetPhaseAwareSnapshots(ctx);
