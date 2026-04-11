@@ -151,12 +151,13 @@ contract SSVClustersEchidna is SSVClusters, SSVOperators(0), SSVStaking(address(
     bool private reactivateWhileActiveSucceeded;
     bool private dustLiquidationFailed;
     bool private ebUpdateWithoutRootSucceeded;
+    bool private ebUpdateNonLatestRootBypassed;
     bool private ebUpdateFrequencyBypassed;
     bool private ebUpdateStalenessBypassed;
+    bool private inactiveEbUpdateViolation;
     bool private feeIndexNotCurrentAfterSettle;
     bool private feeUsedNewVUnitsOnEbChange;
     bool private implicitEbDefaultViolation;
-    bool private liquidationDidNotClearEbSnapshot;
     bool private ebSnapshotRootDecreased;
     bool private ebSnapshotFutureBlock;
     bool private clusterBalanceFloorViolation;
@@ -1016,6 +1017,39 @@ contract SSVClustersEchidna is SSVClusters, SSVOperators(0), SSVStaking(address(
         } catch {}
     }
 
+    function action_update_cluster_balance_non_latest_root(uint256 seed) external {
+        bytes32 clusterId = _pickInactiveClusterId(seed);
+        if (clusterId == bytes32(0)) return;
+
+        ClusterRecord storage record = clusters[clusterId];
+        uint64[] memory operatorIds = _operatorIdsForKey(record.operatorsKey);
+        StorageEB storage seb = SSVStorageEB.load();
+        ClusterEBSnapshot memory ebBefore = seb.clusterEB[clusterId];
+
+        uint64 oldBlock = seb.latestCommittedBlock;
+        uint64 minOldBlock = ebBefore.lastRootBlockNum + 1;
+        if (oldBlock < minOldBlock) {
+            oldBlock = minOldBlock;
+        }
+
+        uint64 newBlock = oldBlock + 1;
+        if (uint64(block.number) < newBlock) return;
+
+        uint32 effectiveBalance = record.cluster.validatorCount * uint32(DEFAULT_EB_PER_VALIDATOR / 1 ether);
+        bytes32 oldRoot = _singleLeafRoot(clusterId, effectiveBalance);
+        bytes32 newRoot = keccak256(abi.encodePacked(clusterId, seed, newBlock));
+        bytes32[] memory proof = new bytes32[](0);
+
+        _setCommittedRoot(seb, oldBlock, oldRoot);
+        _setCommittedRoot(seb, newBlock, newRoot);
+
+        try attacker.updateClusterBalance(
+            oldBlock, record.owner, operatorIds, record.cluster, effectiveBalance, proof
+        ) {
+            ebUpdateNonLatestRootBypassed = true;
+        } catch {}
+    }
+
     function action_update_cluster_balance_too_frequent(uint256 seed) external {
         bytes32 clusterId = _pickInactiveClusterId(seed);
         if (clusterId == bytes32(0)) return;
@@ -1074,6 +1108,79 @@ contract SSVClustersEchidna is SSVClusters, SSVOperators(0), SSVStaking(address(
                 ebUpdateStalenessBypassed = true;
             } catch {}
         } catch {}
+    }
+
+    function action_update_cluster_balance_inactive_valid(uint256 seed) external {
+        bytes32 clusterId = _pickInactiveClusterId(seed);
+        if (clusterId == bytes32(0)) return;
+
+        ClusterRecord storage record = clusters[clusterId];
+        if (!record.exists || record.cluster.active) return;
+
+        StorageData storage s = SSVStorage.load();
+        if (s.ethClusters[clusterId] != record.cluster.hashClusterData()) return;
+
+        uint64[] memory operatorIds = _operatorIdsForKey(record.operatorsKey);
+        StorageProtocol storage sp = SSVStorageProtocol.load();
+        StorageEB storage seb = SSVStorageEB.load();
+
+        ClusterEBSnapshot memory ebBefore = seb.clusterEB[clusterId];
+        if (uint64(block.number) < ebBefore.lastRootBlockNum + 1) return;
+        if (ebBefore.lastUpdateBlock != 0 && uint64(block.number) < ebBefore.lastUpdateBlock + seb.minBlocksBetweenUpdates)
+        {
+            return;
+        }
+
+        uint64 minBlockNum = ebBefore.lastRootBlockNum + 1;
+        uint64 blockNum = minBlockNum + uint64((seed >> 8) % (uint64(block.number) - minBlockNum + 1));
+
+        uint32 minEb = record.cluster.validatorCount * uint32(DEFAULT_EB_PER_VALIDATOR / 1 ether);
+        uint32 maxEb = minEb + (record.cluster.validatorCount * 16);
+        uint32 effectiveBalance = minEb;
+        if (maxEb > minEb) {
+            effectiveBalance = minEb + uint32((seed >> 24) % (maxEb - minEb + 1));
+        }
+
+        bytes32 storedHashBefore = s.ethClusters[clusterId];
+        uint64 daoTotalEthVUnitsBefore = sp.daoTotalEthVUnits;
+        bool wasMarkedLiquidated = liquidatedClusters[clusterId];
+        uint64[] memory operatorEthVUnitsBefore = new uint64[](operatorIds.length);
+        for (uint256 i; i < operatorIds.length; ++i) {
+            operatorEthVUnitsBefore[i] = seb.operatorEthVUnits[operatorIds[i]];
+        }
+
+        bytes32 root = _singleLeafRoot(clusterId, effectiveBalance);
+        _setCommittedRoot(seb, blockNum, root);
+        bytes32[] memory proof = new bytes32[](0);
+
+        try attacker.updateClusterBalance(blockNum, record.owner, operatorIds, record.cluster, effectiveBalance, proof) {
+            ClusterEBSnapshot storage ebAfter = seb.clusterEB[clusterId];
+            if (s.ethClusters[clusterId] != storedHashBefore) {
+                inactiveEbUpdateViolation = true;
+            }
+            if (sp.daoTotalEthVUnits != daoTotalEthVUnitsBefore) {
+                inactiveEbUpdateViolation = true;
+            }
+            if (liquidatedClusters[clusterId] != wasMarkedLiquidated) {
+                inactiveEbUpdateViolation = true;
+            }
+            for (uint256 i; i < operatorIds.length; ++i) {
+                if (seb.operatorEthVUnits[operatorIds[i]] != operatorEthVUnitsBefore[i]) {
+                    inactiveEbUpdateViolation = true;
+                }
+            }
+            if (ebAfter.vUnits != ClusterLib.ebToVUnits(effectiveBalance)) {
+                inactiveEbUpdateViolation = true;
+            }
+            if (ebAfter.lastRootBlockNum != blockNum) {
+                inactiveEbUpdateViolation = true;
+            }
+            if (ebAfter.lastUpdateBlock != uint64(block.number)) {
+                inactiveEbUpdateViolation = true;
+            }
+        } catch {
+            inactiveEbUpdateViolation = true;
+        }
     }
 
     function echidna_cluster_hash_consistent() external view returns (bool) {
@@ -1163,12 +1270,20 @@ contract SSVClustersEchidna is SSVClusters, SSVOperators(0), SSVStaking(address(
         return !ebUpdateWithoutRootSucceeded;
     }
 
+    function echidna_eb_update_requires_latest_root() external view returns (bool) {
+        return !ebUpdateNonLatestRootBypassed;
+    }
+
     function echidna_eb_update_frequency() external view returns (bool) {
         return !ebUpdateFrequencyBypassed;
     }
 
     function echidna_eb_update_staleness() external view returns (bool) {
         return !ebUpdateStalenessBypassed;
+    }
+
+    function echidna_inactive_eb_update_skips_accounting() external view returns (bool) {
+        return !inactiveEbUpdateViolation;
     }
 
     function echidna_fee_index_current_after_settle() external view returns (bool) {
@@ -1181,11 +1296,6 @@ contract SSVClustersEchidna is SSVClusters, SSVOperators(0), SSVStaking(address(
 
     function echidna_fee_uses_old_vunits_on_eb_change() external view returns (bool) {
         return !feeUsedNewVUnitsOnEbChange;
-    }
-
-    function echidna_liquidation_clears_eb_snapshot() external pure returns (bool) {
-        // Liquidation is allowed to leave the last EB snapshot in storage.
-        return true;
     }
 
     function echidna_cluster_balance_non_negative() external view returns (bool) {

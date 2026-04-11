@@ -188,6 +188,8 @@ contract SSVAccountingEchidna is SSVClusters, SSVOperators(0), SSVDAO, SSVValida
     bytes32[] private migratedClusterIds;
     mapping(bytes32 => bool) private migratedSet;
     bool private ssvAccrualCorrupted;
+    bool private daoSsvWithdrawMismatch;
+    bool private daoSsvOverWithdrawSucceeded;
     bytes32 private lifecycleClusterId;
     bool private lifecycleClusterInitialized;
     bool private lifecycleClusterPathTouched;
@@ -755,18 +757,39 @@ contract SSVAccountingEchidna is SSVClusters, SSVOperators(0), SSVDAO, SSVValida
     function action_withdraw_dao_ssv(uint256 seed) external {
         _settleTime();
         StorageProtocol storage sp = SSVStorageProtocol.load();
-        PackedSSV available = sp.daoBalance;
-        if (available.eq(PACKED_SSV_ZERO)) return;
-        PackedSSV withdrawUnits = PackedSSV.wrap(uint64(seed % (PackedSSV.unwrap(available) + 1)));
-        if (withdrawUnits.eq(PACKED_SSV_ZERO)) return;
+        uint64 availableUnits = PackedSSV.unwrap(sp.daoBalance);
 
-        uint256 amount = PackedSSVLib.unpack(withdrawUnits);
-        if (amount > token.balanceOf(address(this))) return;
+        bool tryOverWithdraw = (seed % 5 == 0) && availableUnits > 0;
+        uint64 withdrawUnitsRaw;
+        if (tryOverWithdraw) {
+            withdrawUnitsRaw = availableUnits + 1;
+        } else {
+            if (availableUnits == 0) return;
+            withdrawUnitsRaw = uint64(seed % availableUnits) + 1;
+        }
 
-        uint256 before = token.balanceOf(address(this));
+        uint256 amount = uint256(withdrawUnitsRaw) * DEDUCTED_DIGITS;
+        if (!tryOverWithdraw && amount > token.balanceOf(address(this))) return;
+
+        uint64 daoBefore = PackedSSV.unwrap(sp.daoBalance);
+
+        // Intentionally self-call the DAO module here: this harness checks accrual-backed
+        // daoBalance settlement only. Real token outflow is covered in SSVDAOEchidna.
         try this.withdrawNetworkSSVEarnings(amount) {
-            totalSsvOut += before - token.balanceOf(address(this));
-        } catch {}
+            if (tryOverWithdraw) {
+                daoSsvOverWithdrawSucceeded = true;
+                return;
+            }
+
+            uint64 daoAfter = PackedSSV.unwrap(sp.daoBalance);
+
+            // daoBalance must decrease by exactly the withdrawn packed units
+            if (daoAfter != daoBefore - withdrawUnitsRaw) daoSsvWithdrawMismatch = true;
+            // checkpoint must be reset to current block
+            if (sp.daoIndexBlockNumber != uint32(block.number)) daoSsvWithdrawMismatch = true;
+        } catch {
+            if (tryOverWithdraw) return;
+        }
     }
 
     function action_update_network_fee(uint256 seed) external {
@@ -987,6 +1010,14 @@ contract SSVAccountingEchidna is SSVClusters, SSVOperators(0), SSVDAO, SSVValida
 
     function echidna_ssv_accrual_no_overflow() external view returns (bool) {
         return !ssvAccrualCorrupted;
+    }
+
+    function echidna_dao_ssv_withdraw_conserves() external view returns (bool) {
+        return !daoSsvWithdrawMismatch;
+    }
+
+    function echidna_dao_ssv_over_withdraw_reverts() external view returns (bool) {
+        return !daoSsvOverWithdrawSucceeded;
     }
 
     function echidna_vunits_deviation_consistent() external view returns (bool) {
