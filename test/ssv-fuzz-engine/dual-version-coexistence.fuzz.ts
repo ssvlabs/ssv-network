@@ -125,7 +125,7 @@ const seeds = generateSeeds(DEFAULT_FUZZ_SEED_COUNT);
 
 describe("Fuzz: dual-version coexistence — SSV and ETH clusters on shared operators", function () {
   for (const seed of seeds) {
-    it(`seed=${seed}`, async function () {
+    it(`Validates SSV + ETH cluster dual tracking and version exclusivity on shared operators with seed=${seed}`, async function () {
       await fuzz<State>({
         ticks: 10,
         blocksPerTick: { min: 20n, max: 200n },

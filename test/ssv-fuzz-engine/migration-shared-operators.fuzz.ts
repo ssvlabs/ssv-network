@@ -104,7 +104,7 @@ const seeds = generateSeeds(DEFAULT_FUZZ_SEED_COUNT);
 
 describe("Fuzz: migration with shared operators — ensureETHDefaults idempotency", function () {
   for (const seed of seeds) {
-    it(`seed=${seed}`, async function () {
+    it(`Validates ensureETHDefaults idempotency across shared-operator migrations with seed=${seed}`, async function () {
       await fuzz<State>({
         ticks: 10,
         blocksPerTick: { min: 10n, max: 100n },

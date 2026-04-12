@@ -146,7 +146,7 @@ const seeds = generateSeeds(DEFAULT_FUZZ_SEED_COUNT);
 
 describe("Fuzz: EB boundary validation — below min, above max, exact boundaries", function () {
   for (const seed of seeds) {
-    it(`seed=${seed}`, async function () {
+    it(`Validates EB boundaries — below min, above max, and exact min/max with seed=${seed}`, async function () {
       await fuzz<State>({
         ticks: 12,
         blocksPerTick: { min: 5n, max: 50n },

@@ -68,7 +68,7 @@ const seeds = generateSeeds(DEFAULT_FUZZ_SEED_COUNT);
 
 describe("Fuzz: governance max fee lowered blocks pending declaration (CAT-6-4)", function () {
   for (const seed of seeds) {
-    it(`seed=${seed}`, async function () {
+    it(`Validates lowering max fee blocks pending fee declaration execution with seed=${seed}`, async function () {
       await fuzz<State>({
         ticks: 8,
         blocksPerTick: { min: 1n, max: 10n },

@@ -132,7 +132,7 @@ const seeds = generateSeeds(DEFAULT_FUZZ_SEED_COUNT);
 
 describe("Fuzz: EB update on liquidated ETH cluster — snapshot stored, no accounting", function () {
   for (const seed of seeds) {
-    it(`seed=${seed}`, async function () {
+    it(`Validates EB snapshot stored on liquidated ETH cluster without accounting impact with seed=${seed}`, async function () {
       await fuzz<State>({
         ticks: 20,
         blocksPerTick: { min: 50n, max: 500n },

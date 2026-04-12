@@ -101,7 +101,7 @@ const seeds = generateSeeds(DEFAULT_FUZZ_SEED_COUNT);
 
 describe("Fuzz: Stale root rejection — must use latest committed root", function () {
   for (const seed of seeds) {
-    it(`seed=${seed}`, async function () {
+    it(`Validates stale EB root rejection — only latest committed root is accepted with seed=${seed}`, async function () {
       await fuzz<State>({
         ticks: 12,
         blocksPerTick: { min: 5n, max: 100n },

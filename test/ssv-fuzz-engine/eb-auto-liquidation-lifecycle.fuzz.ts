@@ -131,7 +131,7 @@ const seeds = generateSeeds(DEFAULT_FUZZ_SEED_COUNT);
 
 describe("Fuzz: EB auto-liquidation → reactivation → survival", function () {
   for (const seed of seeds) {
-    it(`seed=${seed}`, async function () {
+    it(`Validates EB auto-liquidation → reactivation → post-liq EB update survival with seed=${seed}`, async function () {
       await fuzz<State>({
         ticks: 10,
         blocksPerTick: { min: 10n, max: 100n },

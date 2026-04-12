@@ -109,7 +109,7 @@ const seeds = generateSeeds(DEFAULT_FUZZ_SEED_COUNT);
 
 describe("Fuzz: Max EB (2048 ETH/validator) — massive vUnit deviation and high burn rate", function () {
   for (const seed of seeds) {
-    it(`seed=${seed}`, async function () {
+    it(`Validates max EB (2048 ETH) vUnit deviation and burn rate with seed=${seed}`, async function () {
       await fuzz<State>({
         ticks: 8,
         blocksPerTick: { min: 10n, max: 50n },

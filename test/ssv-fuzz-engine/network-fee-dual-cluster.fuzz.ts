@@ -127,7 +127,7 @@ const seeds = generateSeeds(10);
 
 describe("Fuzz: dual-cluster — SSV and ETH fee independence", function () {
   for (const seed of seeds) {
-    it(`seed=${seed}`, async function () {
+    it(`Validates SSV and ETH network fee independence across dual clusters with seed=${seed}`, async function () {
       await fuzz<State>({
         ticks: 50,
         blocksPerTick: { min: 10n, max: 200n },

@@ -105,7 +105,7 @@ const seeds = generateSeeds(DEFAULT_FUZZ_SEED_COUNT);
 
 describe("Fuzz: Multiple liquidations in same block (CAT-5-6)", function () {
   for (const seed of seeds) {
-    it(`seed=${seed}`, async function () {
+    it(`Validates bounty conservation across multiple liquidations in the same block with seed=${seed}`, async function () {
       await fuzz<State>({
         ticks: 30,
         blocksPerTick: { min: 50n, max: 500n },

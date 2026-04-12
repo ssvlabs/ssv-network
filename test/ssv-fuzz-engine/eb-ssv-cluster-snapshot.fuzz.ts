@@ -122,7 +122,7 @@ const seeds = generateSeeds(DEFAULT_FUZZ_SEED_COUNT);
 
 describe("Fuzz: EB update on SSV cluster — snapshot stored, no accounting until migration", function () {
   for (const seed of seeds) {
-    it(`seed=${seed}`, async function () {
+    it(`Validates EB snapshot stored on SSV cluster without accounting impact until migration with seed=${seed}`, async function () {
       await fuzz<State>({
         ticks: 12,
         blocksPerTick: { min: 5n, max: 50n },

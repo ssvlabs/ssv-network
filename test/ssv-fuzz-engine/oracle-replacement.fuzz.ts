@@ -138,7 +138,7 @@ const seeds = generateSeeds(DEFAULT_FUZZ_SEED_COUNT);
 
 describe("Fuzz: oracle chaos — replacements, voting, and access control", function () {
   for (const seed of seeds) {
-    it(`seed=${seed}`, async function () {
+    it(`Validates oracle replacement during voting — old oracle rejected, new oracle completes quorum with seed=${seed}`, async function () {
       await fuzz<State>({
         ticks: 30,
         blocksPerTick: { min: 1n, max: 10n },

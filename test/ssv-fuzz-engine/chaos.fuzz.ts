@@ -22,7 +22,7 @@ const seeds = generateSeeds(DEFAULT_FUZZ_SEED_COUNT);
 
 describe("Fuzz: governance + multi-cluster chaos with shared operators", function () {
   for (const seed of seeds) {
-    it(`seed=${seed}`, async function () {
+    it(`Validates invariants under random multi-cluster governance and cluster operations with seed=${seed}`, async function () {
       await fuzz<ChaosState>({
         ticks: 100,
         blocksPerTick: { min: 10n, max: 500n },

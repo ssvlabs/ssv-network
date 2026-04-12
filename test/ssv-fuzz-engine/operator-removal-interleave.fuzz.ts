@@ -123,7 +123,7 @@ const seeds = generateSeeds(DEFAULT_FUZZ_SEED_COUNT);
 
 describe("Fuzz: operator removal interleaved with cluster operations", function () {
   for (const seed of seeds) {
-    it(`seed=${seed}`, async function () {
+    it(`Validates operator removal interleaved with withdraw and validator registration with seed=${seed}`, async function () {
       await fuzz<State>({
         ticks: 5,
         blocksPerTick: { min: 10n, max: 100n },

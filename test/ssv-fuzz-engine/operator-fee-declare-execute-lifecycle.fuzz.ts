@@ -121,7 +121,7 @@ const seeds = generateSeeds(DEFAULT_FUZZ_SEED_COUNT);
 
 describe("Fuzz: operator fee declare → execute → cluster impact (CAT-4-2)", function () {
   for (const seed of seeds) {
-    it(`seed=${seed}`, async function () {
+    it(`Validates operator fee declare → execute → cluster burn rate lifecycle with seed=${seed}`, async function () {
       await fuzz<State>({
         ticks: 12,
         blocksPerTick: { min: 5n, max: 50n },

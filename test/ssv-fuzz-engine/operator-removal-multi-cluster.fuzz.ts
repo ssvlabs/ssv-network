@@ -137,7 +137,7 @@ const seeds = generateSeeds(DEFAULT_FUZZ_SEED_COUNT);
 
 describe("Fuzz: Operator removal while multiple clusters use it (CAT-4-5)", function () {
   for (const seed of seeds) {
-    it(`seed=${seed}`, async function () {
+    it(`Validates operator removal propagates to every cluster using it with seed=${seed}`, async function () {
       await fuzz<State>({
         ticks: 10,
         blocksPerTick: { min: 10n, max: 200n },

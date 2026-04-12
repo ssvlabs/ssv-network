@@ -79,7 +79,7 @@ const seeds = generateSeeds(DEFAULT_FUZZ_SEED_COUNT);
 
 describe("Fuzz: operator fee declare overwrite — second declaration replaces first (CAT-4-7)", function () {
   for (const seed of seeds) {
-    it(`seed=${seed}`, async function () {
+    it(`Validates second fee declaration overwrites pending declaration with seed=${seed}`, async function () {
       await fuzz<State>({
         ticks: 8,
         blocksPerTick: { min: 1n, max: 10n },

@@ -140,7 +140,7 @@ const seeds = generateSeeds(DEFAULT_FUZZ_SEED_COUNT);
 
 describe("Fuzz: Implicit EB → explicit EB (no deviation) → explicit EB (positive deviation)", function () {
   for (const seed of seeds) {
-    it(`seed=${seed}`, async function () {
+    it(`Validates implicit → explicit-no-deviation → explicit-with-deviation EB transition with seed=${seed}`, async function () {
       await fuzz<State>({
         ticks: 10,
         blocksPerTick: { min: 10n, max: 200n },

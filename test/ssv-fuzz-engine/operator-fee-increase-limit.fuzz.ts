@@ -47,7 +47,7 @@ const seeds = generateSeeds(DEFAULT_FUZZ_SEED_COUNT);
 
 describe("Fuzz: Operator fee increase limit enforcement (CAT-4-8)", function () {
   for (const seed of seeds) {
-    it(`seed=${seed}`, async function () {
+    it(`Validates operator fee increase limit enforcement (declare-at-max, cancel, above-max revert) with seed=${seed}`, async function () {
       await fuzz<State>({
         ticks: 5,
         blocksPerTick: { min: 1n, max: 10n },

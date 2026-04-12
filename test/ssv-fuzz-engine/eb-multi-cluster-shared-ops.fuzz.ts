@@ -234,7 +234,7 @@ const seeds = generateSeeds(DEFAULT_FUZZ_SEED_COUNT);
 
 describe("Fuzz: Multiple clusters with different EBs sharing operators", function () {
   for (const seed of seeds) {
-    it(`seed=${seed}`, async function () {
+    it(`Validates burn-rate and earnings isolation across clusters with different EBs sharing operators with seed=${seed}`, async function () {
       await fuzz<State>({
         ticks: 30,
         blocksPerTick: { min: 50n, max: 500n },

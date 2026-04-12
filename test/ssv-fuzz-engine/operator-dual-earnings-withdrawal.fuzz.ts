@@ -164,7 +164,7 @@ const seeds = generateSeeds(DEFAULT_FUZZ_SEED_COUNT);
 
 describe("Fuzz: Operator dual ETH + SSV earnings withdrawal (CAT-4-6)", function () {
   for (const seed of seeds) {
-    it(`seed=${seed}`, async function () {
+    it(`Validates dual ETH + SSV operator earnings withdrawal with seed=${seed}`, async function () {
       await fuzz<State>({
         ticks: 12,
         blocksPerTick: { min: 10n, max: 100n },
