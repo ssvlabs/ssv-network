@@ -5,7 +5,8 @@ import type { FuzzContext, OperatorRecord, ClusterRecord } from "./core/types.ts
 import type { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/types";
 import { parseClusterFromEvent } from "../helpers/cluster.ts";
 import { Events } from "../common/events.ts";
-import { computeBurnRate, ebToVUnits, setupFuzzOracles, generateRandomFees, computeLiquidationMetrics, DEFAULT_FUZZ_SEED_COUNT } from "./core/fuzz-helpers.ts";
+import { computeBurnRate, ebToVUnits, setupFuzzOracles, generateRandomFees, computeLiquidationMetrics, computeOperatorEarningsDelta, computeDAOEarningsDelta, DEFAULT_FUZZ_SEED_COUNT } from "./core/fuzz-helpers.ts";
+import { mineBlocks } from "../helpers/blocks.ts";
 import {
   computeClusterId,
   generateMerkleForClusterEB,
@@ -14,15 +15,18 @@ import {
 import {
   MINIMAL_OPERATOR_ETH_FEE,
   BPS_DENOMINATOR,
+  ETH_DEDUCTED_DIGITS,
   DEFAULT_ETH_REGISTER_VALUE,
 } from "../common/constants.ts";
 
+const PROBE_BLOCKS = 20n;
+
 type Phase =
   | "update-a-high-eb"
-  | "update-b-no-deviation"
   | "verify-burn-rates"
   | "liquidate-a"
   | "verify-post-liquidation"
+  | "probe-earnings-post-liq"
   | "verified";
 
 interface State {
@@ -41,6 +45,7 @@ interface State {
   proofs: Record<string, string[]>;
   burnRateAAfterEB?: bigint;
   burnRateBAfterEB?: bigint;
+  probedPostLiq: boolean;
 }
 
 async function lifecycle(ctx: FuzzContext<State>): Promise<void> {
@@ -60,6 +65,12 @@ async function lifecycle(ctx: FuzzContext<State>): Promise<void> {
     await commitEBRoot(ctx.network, root, Number(blockNum), oracles);
     ctx.state.lastCommittedBlock = blockNum;
 
+    const txB = await ctx.network.updateClusterBalance(
+      blockNum, clusterB.owner.address, clusterB.operatorIds, clusterB.cluster,
+      ctx.state.noDevEB_B, proofs[clusterIdB],
+    );
+    clusterB.cluster = parseClusterFromEvent(ctx.network, await txB.wait(), Events.CLUSTER_BALANCE_UPDATED);
+
     const txA = await ctx.network.updateClusterBalance(
       blockNum, clusterA.owner.address, clusterA.operatorIds, clusterA.cluster,
       ctx.state.highEBA, proofs[clusterIdA],
@@ -67,48 +78,60 @@ async function lifecycle(ctx: FuzzContext<State>): Promise<void> {
     clusterA.cluster = parseClusterFromEvent(ctx.network, await txA.wait(), Events.CLUSTER_BALANCE_UPDATED);
 
     const vUnitsA = ebToVUnits(ctx.state.highEBA);
+    const vUnitsB = ebToVUnits(ctx.state.noDevEB_B);
+    expect(vUnitsB).to.equal(BigInt(ctx.state.valCountB) * BPS_DENOMINATOR);
+
     const opFeesA: bigint[] = [];
     for (const opId of clusterA.operatorIds) {
       opFeesA.push(BigInt((await ctx.views.getOperatorById(opId)).fee));
     }
-    const networkFee = BigInt(await ctx.views.getNetworkFee());
-    const expectedBurnRateA = computeBurnRate(opFeesA, networkFee, vUnitsA);
-    const contractBurnRateA = BigInt(
-      await ctx.views.getBurnRate(clusterA.owner.address, clusterA.operatorIds, clusterA.cluster),
-    );
-    expect(contractBurnRateA).to.equal(expectedBurnRateA);
-
-    ctx.state.phase = "update-b-no-deviation";
-    return;
-  }
-
-  if (ctx.state.phase === "update-b-no-deviation") {
-    const blockNum = ctx.state.lastCommittedBlock;
-
-    const txB = await ctx.network.updateClusterBalance(
-      blockNum, clusterB.owner.address, clusterB.operatorIds, clusterB.cluster,
-      ctx.state.noDevEB_B, ctx.state.proofs[clusterIdB],
-    );
-    clusterB.cluster = parseClusterFromEvent(ctx.network, await txB.wait(), Events.CLUSTER_BALANCE_UPDATED);
-
-    const vUnitsB = ebToVUnits(ctx.state.noDevEB_B);
-    expect(vUnitsB).to.equal(BigInt(ctx.state.valCountB) * BPS_DENOMINATOR);
-
     const opFeesB: bigint[] = [];
     for (const opId of clusterB.operatorIds) {
       opFeesB.push(BigInt((await ctx.views.getOperatorById(opId)).fee));
     }
     const networkFee = BigInt(await ctx.views.getNetworkFee());
+    const expectedBurnRateA = computeBurnRate(opFeesA, networkFee, vUnitsA);
     const expectedBurnRateB = computeBurnRate(opFeesB, networkFee, vUnitsB);
+    const contractBurnRateA = BigInt(
+      await ctx.views.getBurnRate(clusterA.owner.address, clusterA.operatorIds, clusterA.cluster),
+    );
     const contractBurnRateB = BigInt(
       await ctx.views.getBurnRate(clusterB.owner.address, clusterB.operatorIds, clusterB.cluster),
     );
+    expect(contractBurnRateA).to.equal(expectedBurnRateA);
     expect(contractBurnRateB).to.equal(expectedBurnRateB);
 
-    ctx.state.burnRateAAfterEB = BigInt(
-      await ctx.views.getBurnRate(clusterA.owner.address, clusterA.operatorIds, clusterA.cluster),
-    );
+    ctx.state.burnRateAAfterEB = contractBurnRateA;
     ctx.state.burnRateBAfterEB = contractBurnRateB;
+
+    const { operators } = ctx.state;
+    const blockBefore = BigInt(await ctx.provider.getBlockNumber());
+    const daoEarningsBefore = BigInt(await ctx.views.getNetworkEarnings());
+    const earningsBefore = new Map<number, bigint>();
+    for (let i = 0; i < 5; i++) {
+      earningsBefore.set(i, BigInt(await ctx.views.getOperatorEarnings(operators[i].id)));
+    }
+
+    await mineBlocks(ctx.provider, Number(PROBE_BLOCKS));
+
+    const sharedEffective = vUnitsA + vUnitsB;
+    const expectedEffective = [sharedEffective, sharedEffective, sharedEffective, vUnitsA, vUnitsB];
+
+    const packedNetworkFee = networkFee / ETH_DEDUCTED_DIGITS;
+    const blockAfter = BigInt(await ctx.provider.getBlockNumber());
+    const actualBlocks = blockAfter - blockBefore;
+    const daoEarningsAfter = BigInt(await ctx.views.getNetworkEarnings());
+    expect(daoEarningsAfter - daoEarningsBefore).to.equal(
+      computeDAOEarningsDelta(actualBlocks, packedNetworkFee, vUnitsA + vUnitsB),
+    );
+
+    for (let i = 0; i < 5; i++) {
+      const earningsAfter = BigInt(await ctx.views.getOperatorEarnings(operators[i].id));
+      const packedFee = operators[i].fee / ETH_DEDUCTED_DIGITS;
+      expect(earningsAfter - earningsBefore.get(i)!).to.equal(
+        computeOperatorEarningsDelta(packedFee, actualBlocks, expectedEffective[i]),
+      );
+    }
 
     ctx.state.phase = "verify-burn-rates";
     return;
@@ -167,6 +190,42 @@ async function lifecycle(ctx: FuzzContext<State>): Promise<void> {
       }
     }
 
+    ctx.state.phase = "probe-earnings-post-liq";
+    return;
+  }
+
+  if (ctx.state.phase === "probe-earnings-post-liq") {
+    const { operators } = ctx.state;
+
+    const blockBefore = BigInt(await ctx.provider.getBlockNumber());
+    const daoEarningsBefore = BigInt(await ctx.views.getNetworkEarnings());
+    const earningsBefore = new Map<number, bigint>();
+    for (let i = 0; i < 5; i++) {
+      earningsBefore.set(i, BigInt(await ctx.views.getOperatorEarnings(operators[i].id)));
+    }
+
+    await mineBlocks(ctx.provider, Number(PROBE_BLOCKS));
+
+    const vUnitsB = ebToVUnits(ctx.state.noDevEB_B);
+    const expectedEffective = [vUnitsB, vUnitsB, vUnitsB, 0n, vUnitsB];
+
+    const packedNetworkFee = BigInt(await ctx.views.getNetworkFee()) / ETH_DEDUCTED_DIGITS;
+    const blockAfter = BigInt(await ctx.provider.getBlockNumber());
+    const actualBlocks = blockAfter - blockBefore;
+    const daoEarningsAfter = BigInt(await ctx.views.getNetworkEarnings());
+    expect(daoEarningsAfter - daoEarningsBefore).to.equal(
+      computeDAOEarningsDelta(actualBlocks, packedNetworkFee, vUnitsB),
+    );
+
+    for (let i = 0; i < 5; i++) {
+      const earningsAfter = BigInt(await ctx.views.getOperatorEarnings(operators[i].id));
+      const packedFee = operators[i].fee / ETH_DEDUCTED_DIGITS;
+      expect(earningsAfter - earningsBefore.get(i)!).to.equal(
+        computeOperatorEarningsDelta(packedFee, actualBlocks, expectedEffective[i]),
+      );
+    }
+
+    ctx.state.probedPostLiq = true;
     ctx.state.phase = "verified";
   }
 }
@@ -227,6 +286,7 @@ describe("Fuzz: Multiple clusters with different EBs sharing operators", functio
             valCountA, valCountB,
             highEBA,
             noDevEB_B,
+            probedPostLiq: false,
           };
         },
 

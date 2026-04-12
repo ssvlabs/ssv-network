@@ -55,7 +55,7 @@ describe("Fuzz: ETH self-liquidation (CAT-2-3)", function () {
             fees.push(alignFee(ctx.rng.nextInRange(MINIMAL_OPERATOR_ETH_FEE, MINIMAL_OPERATOR_ETH_FEE * 5n)));
           }
 
-          const operators = await registerFuzzOperators(ctx, operatorOwner, operatorCount, fees, false);
+          const operators = await registerFuzzOperators(ctx, operatorOwner, operatorCount, fees);
           const operatorIds = operators.map((o) => o.id);
 
           const validatorCount = Number(ctx.rng.nextInRange(1n, 5n));

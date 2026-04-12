@@ -133,6 +133,24 @@ export function computeLiquidationMetrics(
   return { threshold, burnPerBlock };
 }
 
+export function computeOperatorEarningsDelta(
+  packedFee: bigint,
+  blocks: bigint,
+  effectiveVUnits: bigint,
+): bigint {
+  const deltaPacked = (blocks * packedFee * effectiveVUnits) / BPS_DENOMINATOR;
+  return deltaPacked * ETH_DEDUCTED_DIGITS;
+}
+
+export function computeDAOEarningsDelta(
+  blocks: bigint,
+  packedNetworkFee: bigint,
+  daoTotalEthVUnits: bigint,
+): bigint {
+  const deltaPacked = (blocks * packedNetworkFee * daoTotalEthVUnits) / BPS_DENOMINATOR;
+  return deltaPacked * ETH_DEDUCTED_DIGITS;
+}
+
 export function computeBurnRate(operatorFees: bigint[], networkFee: bigint, vUnits: bigint): bigint {
   if (vUnits === 0n) return 0n;
 

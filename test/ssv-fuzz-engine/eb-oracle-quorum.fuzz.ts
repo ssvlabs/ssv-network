@@ -67,7 +67,7 @@ describe("Fuzz: Oracle quorum — partial votes, failed quorum, re-voting (CAT-3
             fees.push(alignFee(ctx.rng.nextInRange(MINIMAL_OPERATOR_ETH_FEE, MINIMAL_OPERATOR_ETH_FEE * 5n)));
           }
 
-          const operators = await registerFuzzOperators(ctx, operatorOwner, 4, fees, false);
+          const operators = await registerFuzzOperators(ctx, operatorOwner, 4, fees);
           const operatorIds = operators.map((o) => o.id);
 
           await ctx.ssvToken.mint(oracleSigner.address, STAKE_AMOUNT);
