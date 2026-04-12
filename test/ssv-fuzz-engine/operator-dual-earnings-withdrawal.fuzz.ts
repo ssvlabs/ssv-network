@@ -5,13 +5,13 @@ import type { FuzzContext, OperatorRecord, ClusterRecord } from "./core/types.ts
 import type { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/types";
 import { migrateLegacyCluster, type DepositWithdrawTracker, type LegacyMigrationSnapshot } from "./core/steps.ts";
 import { Errors } from "../common/errors.ts";
-import { generateRandomFees, DEFAULT_FUZZ_SEED_COUNT } from "./core/fuzz-helpers.ts";
+import { computeOperatorEarningsDelta, generateRandomFees, DEFAULT_FUZZ_SEED_COUNT } from "./core/fuzz-helpers.ts";
 import {
   MINIMAL_OPERATOR_FEE_SSV,
   TOKEN_REGISTER_AMOUNT,
   DEFAULT_ETH_REGISTER_VALUE,
   MINIMAL_OPERATOR_ETH_FEE,
-  DEFAULT_OPERATOR_ETH_FEE,
+  BPS_DENOMINATOR,
   ETH_DEDUCTED_DIGITS,
   DEDUCTED_DIGITS,
 } from "../common/constants.ts";
@@ -112,9 +112,12 @@ async function lifecycle(ctx: FuzzContext<State>): Promise<void> {
 
   if (ctx.state.phase === "withdraw-all-version") {
     const op = legacyOperators[1];
+    const migratedCluster = ctx.state.legacyCluster;
 
+    const queryBlock = BigInt(await ctx.provider.getBlockNumber());
     const expectedEthEarnings = BigInt(await ctx.views.getOperatorEarnings(op.id));
     const expectedSSVEarnings = BigInt(await ctx.views.getOperatorEarningsSSV(op.id));
+    const opFeeUnpacked = BigInt((await ctx.views.getOperatorById(op.id)).fee);
 
     const tokenBefore = BigInt(await ctx.ssvToken.balanceOf(op.owner.address));
     const balBefore = BigInt(await ctx.provider.getBalance(op.owner.address));
@@ -130,9 +133,10 @@ async function lifecycle(ctx: FuzzContext<State>): Promise<void> {
     const ethWithdrawn = balAfter - balBefore + gasUsed;
     const ssvWithdrawn = tokenAfter - tokenBefore;
 
-    const migrationValidatorCount = 2n;
-    const oneBlockEthDelta = DEFAULT_OPERATOR_ETH_FEE * migrationValidatorCount;
-    expect(ethWithdrawn).to.equal(expectedEthEarnings + oneBlockEthDelta);
+    const blocksElapsed = BigInt(receipt.blockNumber) - queryBlock;
+    const vUnits = BigInt(migratedCluster.cluster.validatorCount) * BPS_DENOMINATOR;
+    const ethDelta = computeOperatorEarningsDelta(opFeeUnpacked / ETH_DEDUCTED_DIGITS, blocksElapsed, vUnits);
+    expect(ethWithdrawn).to.equal(expectedEthEarnings + ethDelta);
     expect(ssvWithdrawn).to.equal(expectedSSVEarnings);
 
     expect(BigInt(await ctx.views.getOperatorEarnings(op.id))).to.equal(0n);

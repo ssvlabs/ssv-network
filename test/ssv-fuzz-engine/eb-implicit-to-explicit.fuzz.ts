@@ -6,6 +6,7 @@ import type { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/types"
 import { parseClusterFromEvent } from "../helpers/cluster.ts";
 import { Events } from "../common/events.ts";
 import { computeBurnRate, ebToVUnits, setupFuzzOracles, generateRandomFees, computeLiquidationMetrics, DEFAULT_FUZZ_SEED_COUNT } from "./core/fuzz-helpers.ts";
+import { assertDaoVUnitsMatchCluster } from "./core/assertions.ts";
 import {
   computeClusterId,
   computeEBRoot,
@@ -69,6 +70,8 @@ async function lifecycle(ctx: FuzzContext<State>): Promise<void> {
     );
     expect(eb).to.equal(BigInt(validatorCount) * 32n);
 
+    await assertDaoVUnitsMatchCluster(ctx);
+
     ctx.state.phase = "explicit-no-deviation";
     return;
   }
@@ -97,6 +100,8 @@ async function lifecycle(ctx: FuzzContext<State>): Promise<void> {
     );
     expect(contractEB).to.equal(BigInt(eb));
 
+    await assertDaoVUnitsMatchCluster(ctx);
+
     ctx.state.phase = "explicit-with-deviation";
     return;
   }
@@ -124,6 +129,8 @@ async function lifecycle(ctx: FuzzContext<State>): Promise<void> {
     expect(contractEB).to.equal(BigInt(eb));
 
     expect(await ctx.views.isLiquidatable(cluster.owner.address, cluster.operatorIds, cluster.cluster)).to.equal(false);
+
+    await assertDaoVUnitsMatchCluster(ctx);
 
     ctx.state.phase = "verified";
   }

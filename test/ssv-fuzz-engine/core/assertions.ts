@@ -108,6 +108,24 @@ export async function assertContractBalanceWithDeltas<S extends { tracker: { tot
   };
 }
 
+async function guardImplicitEB<S extends { cluster: ClusterRecord; operators: OperatorRecord[] }>(
+  ctx: FuzzContext<S>,
+): Promise<void> {
+  const { cluster, operators } = ctx.state;
+  if (!cluster.cluster.active || cluster.cluster.validatorCount === 0) return;
+
+  const implicitVUnits = BigInt(cluster.cluster.validatorCount) * BPS_DENOMINATOR;
+  const operatorFees = operators.map(op => op.fee);
+  const networkFee = BigInt(await ctx.views.getNetworkFee());
+  const expectedImplicit = computeBurnRate(operatorFees, networkFee, implicitVUnits);
+  const contractBurnRate = BigInt(
+    await ctx.views.getBurnRate(cluster.owner.address, cluster.operatorIds, cluster.cluster),
+  );
+  if (contractBurnRate !== expectedImplicit) {
+    throw new Error("implicit-EB assertion used on explicit-EB cluster; use the *WithEB variant");
+  }
+}
+
 export interface OperatorEarningsSnapshot {
   block: bigint;
   earnings: Map<number, bigint>;
@@ -117,6 +135,7 @@ export interface OperatorEarningsSnapshot {
 export async function assertOperatorEarnings<S extends { cluster: ClusterRecord; operators: OperatorRecord[]; lastOperatorEarnings?: OperatorEarningsSnapshot }>(
   ctx: FuzzContext<S>,
 ): Promise<void> {
+  await guardImplicitEB(ctx);
   const block = BigInt(await ctx.provider.getBlockNumber());
   const { cluster, operators } = ctx.state;
 
@@ -148,6 +167,7 @@ export interface PhaseAwareOperatorEarningsSnapshot {
 export async function assertPhaseAwareOperatorEarnings<S extends { cluster: ClusterRecord; operators: OperatorRecord[]; phase: string; lastPhaseAwareOperatorEarnings?: PhaseAwareOperatorEarningsSnapshot }>(
   ctx: FuzzContext<S>,
 ): Promise<void> {
+  if (ctx.state.phase !== "liquidated") await guardImplicitEB(ctx);
   const block = BigInt(await ctx.provider.getBlockNumber());
   const { cluster, operators, phase } = ctx.state;
 
@@ -310,6 +330,7 @@ export interface NetworkEarningsSnapshot {
 export async function assertNetworkEarnings<S extends { cluster: ClusterRecord; operators: OperatorRecord[]; lastNetworkEarnings?: NetworkEarningsSnapshot }>(
   ctx: FuzzContext<S>,
 ): Promise<void> {
+  await guardImplicitEB(ctx);
   const block = BigInt(await ctx.provider.getBlockNumber());
   const { cluster } = ctx.state;
   const currentEarnings = BigInt(await ctx.views.getNetworkEarnings());
@@ -333,9 +354,10 @@ export interface PhaseAwareNetworkEarningsSnapshot {
   phase: string;
 }
 
-export async function assertPhaseAwareNetworkEarnings<S extends { cluster: ClusterRecord; phase: string; lastPhaseAwareNetworkEarnings?: PhaseAwareNetworkEarningsSnapshot }>(
+export async function assertPhaseAwareNetworkEarnings<S extends { cluster: ClusterRecord; operators: OperatorRecord[]; phase: string; lastPhaseAwareNetworkEarnings?: PhaseAwareNetworkEarningsSnapshot }>(
   ctx: FuzzContext<S>,
 ): Promise<void> {
+  if (ctx.state.phase !== "liquidated") await guardImplicitEB(ctx);
   const block = BigInt(await ctx.provider.getBlockNumber());
   const { cluster, phase } = ctx.state;
   const currentEarnings = BigInt(await ctx.views.getNetworkEarnings());

@@ -7,6 +7,7 @@ import { parseClusterFromEvent } from "../helpers/cluster.ts";
 import { Events } from "../common/events.ts";
 import { Errors } from "../common/errors.ts";
 import { computeBurnRate, ebToVUnits, setupFuzzOracles, generateRandomFees, computeLiquidationMetrics, DEFAULT_FUZZ_SEED_COUNT } from "./core/fuzz-helpers.ts";
+import { assertDaoVUnitsMatchCluster } from "./core/assertions.ts";
 import {
   computeClusterId,
   computeEBRoot,
@@ -99,6 +100,8 @@ async function lifecycle(ctx: FuzzContext<State>): Promise<void> {
     );
     expect(contractEB).to.equal(BigInt(minEB));
 
+    await assertDaoVUnitsMatchCluster(ctx);
+
     ctx.state.phase = "exact-maximum";
     return;
   }
@@ -132,6 +135,8 @@ async function lifecycle(ctx: FuzzContext<State>): Promise<void> {
       await ctx.views.getEffectiveBalance(cluster.owner.address, cluster.operatorIds, cluster.cluster),
     );
     expect(contractEB).to.equal(BigInt(maxEB));
+
+    await assertDaoVUnitsMatchCluster(ctx);
 
     ctx.state.phase = "verified";
   }
