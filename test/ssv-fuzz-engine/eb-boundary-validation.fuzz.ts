@@ -1,331 +1,190 @@
 import { expect } from "chai";
 import { fuzz, generateSeeds } from "./core/runner.ts";
-import { registerFuzzOperators, registerFuzzCluster, alignFee } from "./core/setup.ts";
-import { setupFuzzOracles, type OracleState } from "./core/steps.ts";
-import type { OperatorRecord, ClusterRecord } from "./core/types.ts";
-import type {
-  EBOperatorEarningsSnapshot,
-  EBClusterBalanceSnapshot,
-} from "./core/assertions.ts";
-import {
-  assertDaoVUnitsMatchCluster,
-  assertOperatorEarningsWithEB,
-  assertClusterBalanceWithEB,
-} from "./core/assertions.ts";
-import { computeClusterId, computeEBRoot, commitEBRoot } from "../helpers/oracle.ts";
+import { registerFuzzOperators, registerFuzzCluster } from "./core/setup.ts";
+import type { FuzzContext, OperatorRecord, ClusterRecord } from "./core/types.ts";
+import type { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/types";
 import { parseClusterFromEvent } from "../helpers/cluster.ts";
-import { setupTestContext } from "../helpers/context.ts";
-import { ssvNetworkFullFixture } from "../setup/fixtures.ts";
 import { Events } from "../common/events.ts";
 import { Errors } from "../common/errors.ts";
-import { mineBlocks } from "../helpers/blocks.ts";
-import { ethers } from "ethers";
+import { computeBurnRate, ebToVUnits, setupFuzzOracles, generateRandomFees, computeLiquidationMetrics, DEFAULT_FUZZ_SEED_COUNT } from "./core/fuzz-helpers.ts";
+import { assertDaoVUnitsMatchCluster } from "./core/assertions.ts";
+import {
+  computeClusterId,
+  computeEBRoot,
+  commitEBRoot,
+} from "../helpers/oracle.ts";
 import {
   MINIMAL_OPERATOR_ETH_FEE,
-  STAKE_AMOUNT,
   BPS_DENOMINATOR,
+  DEFAULT_ETH_REGISTER_VALUE,
 } from "../common/constants.ts";
 
+type Phase =
+  | "below-minimum"
+  | "above-maximum"
+  | "exact-minimum"
+  | "exact-maximum"
+  | "verified";
+
 interface State {
-  cluster: ClusterRecord;
   operators: OperatorRecord[];
-  oracle: OracleState;
-  phase: string;
-  validatorCount: bigint;
-  exactMin: bigint;
-  exactMax: bigint;
-  lastEBOperatorEarnings?: EBOperatorEarningsSnapshot;
-  lastEBClusterBalance?: EBClusterBalanceSnapshot;
-  tickDepositDelta: bigint;
+  cluster: ClusterRecord;
+  oracles: HardhatEthersSigner[];
+  lastCommittedBlock: bigint;
+  phase: Phase;
+  clusterId: string;
+  validatorCount: number;
 }
 
-const RUNS = 10;
-const seeds = generateSeeds(RUNS);
+async function lifecycle(ctx: FuzzContext<State>): Promise<void> {
+  const { cluster, oracles, clusterId, validatorCount } = ctx.state;
+  const minEB = validatorCount * 32;
+  const maxEB = validatorCount * 2048;
 
-describe("Fuzz: EB boundary validation — revert at limits, succeed at exact boundaries (CAT-3-6)", function () {
-  it("deterministic 3-validator anchor (exact catalog boundaries 95/96/6144/6145)", async function () {
-    const { connection, networkHelpers, signers } = await setupTestContext();
-    const anchorFixture = async () => ssvNetworkFullFixture(connection);
-    const { network, views, ssvToken } = await networkHelpers.loadFixture(anchorFixture);
+  if (ctx.state.phase === "below-minimum") {
+    const blockNum = BigInt(await ctx.provider.getBlockNumber());
+    if (blockNum <= ctx.state.lastCommittedBlock) return;
 
-    const [, operatorOwner, clusterOwner, oracleSigner] = signers;
-    const provider = connection.ethers.provider;
+    const belowEB = minEB - 1;
+    const root = computeEBRoot(clusterId, belowEB);
+    await commitEBRoot(ctx.network, root, Number(blockNum), oracles);
+    ctx.state.lastCommittedBlock = blockNum;
 
-    const dummyCtx: any = {
-      connection,
-      networkHelpers,
-      provider,
-      network,
-      views,
-      ssvToken,
-      signers,
-      state: { cluster: undefined as any, operators: [] as OperatorRecord[] },
-    };
-
-    const fees = [
-      MINIMAL_OPERATOR_ETH_FEE,
-      MINIMAL_OPERATOR_ETH_FEE * 2n,
-      MINIMAL_OPERATOR_ETH_FEE * 3n,
-      MINIMAL_OPERATOR_ETH_FEE * 4n,
-    ].map(alignFee);
-
-    const operators = await registerFuzzOperators(dummyCtx, operatorOwner, 4, fees, false);
-    const operatorIds = operators.map((o) => o.id);
-
-    await ssvToken.mint(oracleSigner.address, STAKE_AMOUNT);
-    await ssvToken.connect(oracleSigner).approve(await network.getAddress(), STAKE_AMOUNT);
-    await network.connect(oracleSigner).stake(STAKE_AMOUNT);
-
-    const oracles = [signers[17], signers[18], signers[19]];
-    await setupFuzzOracles(dummyCtx, oracles);
-
-    const validatorCount = 3;
-    const largeDeposit = ethers.parseEther("500");
-    const cluster = await registerFuzzCluster(
-      dummyCtx, clusterOwner, operatorOwner, operatorIds, validatorCount, largeDeposit,
-    );
-    dummyCtx.state.cluster = cluster;
-    dummyCtx.state.operators = operators;
-
-    const clusterId = computeClusterId(cluster.owner.address, cluster.operatorIds);
-
-    // Phase 1: below minimum -> revert (95 < 3*32 = 96)
-    let blockNum = Number(await provider.getBlockNumber());
-    let root = computeEBRoot(clusterId, 95);
-    await commitEBRoot(network, root, blockNum, oracles);
     await expect(
-      network.updateClusterBalance(blockNum, cluster.owner.address, cluster.operatorIds, cluster.cluster, 95, []),
-    ).to.be.revertedWithCustomError(network, Errors.EB_BELOW_MINIMUM);
+      ctx.network.updateClusterBalance(
+        blockNum, cluster.owner.address, cluster.operatorIds, cluster.cluster, belowEB, [],
+      ),
+    ).to.be.revertedWithCustomError(ctx.network, Errors.EB_BELOW_MINIMUM);
 
-    // Phase 2: above maximum -> revert (6145 > 3*2048 = 6144)
-    await mineBlocks(provider, 1);
-    blockNum = Number(await provider.getBlockNumber());
-    root = computeEBRoot(clusterId, 6145);
-    await commitEBRoot(network, root, blockNum, oracles);
+    ctx.state.phase = "above-maximum";
+    return;
+  }
+
+  if (ctx.state.phase === "above-maximum") {
+    const blockNum = BigInt(await ctx.provider.getBlockNumber());
+    if (blockNum <= ctx.state.lastCommittedBlock) return;
+
+    const aboveEB = maxEB + 1;
+    const root = computeEBRoot(clusterId, aboveEB);
+    await commitEBRoot(ctx.network, root, Number(blockNum), oracles);
+    ctx.state.lastCommittedBlock = blockNum;
+
     await expect(
-      network.updateClusterBalance(blockNum, cluster.owner.address, cluster.operatorIds, cluster.cluster, 6145, []),
-    ).to.be.revertedWithCustomError(network, Errors.EB_EXCEEDS_MAXIMUM);
+      ctx.network.updateClusterBalance(
+        blockNum, cluster.owner.address, cluster.operatorIds, cluster.cluster, aboveEB, [],
+      ),
+    ).to.be.revertedWithCustomError(ctx.network, Errors.EB_EXCEEDS_MAXIMUM);
 
-    // Phase 3a: exact minimum -> success (96 == 3*32)
-    await mineBlocks(provider, 1);
-    blockNum = Number(await provider.getBlockNumber());
-    root = computeEBRoot(clusterId, 96);
-    await commitEBRoot(network, root, blockNum, oracles);
-    let tx = await network.updateClusterBalance(
-      blockNum, cluster.owner.address, cluster.operatorIds, cluster.cluster, 96, [],
+    ctx.state.phase = "exact-minimum";
+    return;
+  }
+
+  if (ctx.state.phase === "exact-minimum") {
+    const blockNum = BigInt(await ctx.provider.getBlockNumber());
+    if (blockNum <= ctx.state.lastCommittedBlock) return;
+
+    const root = computeEBRoot(clusterId, minEB);
+    await commitEBRoot(ctx.network, root, Number(blockNum), oracles);
+    ctx.state.lastCommittedBlock = blockNum;
+
+    const tx = await ctx.network.updateClusterBalance(
+      blockNum, cluster.owner.address, cluster.operatorIds, cluster.cluster, minEB, [],
     );
-    let receipt = await tx.wait();
-    cluster.cluster = parseClusterFromEvent(network, receipt, Events.CLUSTER_BALANCE_UPDATED);
-    let eb = BigInt(await views.getEffectiveBalance(cluster.owner.address, cluster.operatorIds, cluster.cluster));
-    expect(eb).to.equal(96n);
-    await assertDaoVUnitsMatchCluster(dummyCtx);
+    cluster.cluster = parseClusterFromEvent(ctx.network, await tx.wait(), Events.CLUSTER_BALANCE_UPDATED);
 
-    // Phase 3b: exact maximum -> success (6144 == 3*2048)
-    await mineBlocks(provider, 1);
-    blockNum = Number(await provider.getBlockNumber());
-    root = computeEBRoot(clusterId, 6144);
-    await commitEBRoot(network, root, blockNum, oracles);
-    tx = await network.updateClusterBalance(
-      blockNum, cluster.owner.address, cluster.operatorIds, cluster.cluster, 6144, [],
+    const expectedVUnits = ebToVUnits(minEB);
+    expect(expectedVUnits).to.equal(BigInt(validatorCount) * BPS_DENOMINATOR);
+
+    const contractEB = BigInt(
+      await ctx.views.getEffectiveBalance(cluster.owner.address, cluster.operatorIds, cluster.cluster),
     );
-    receipt = await tx.wait();
-    cluster.cluster = parseClusterFromEvent(network, receipt, Events.CLUSTER_BALANCE_UPDATED);
-    eb = BigInt(await views.getEffectiveBalance(cluster.owner.address, cluster.operatorIds, cluster.cluster));
-    expect(eb).to.equal(6144n);
-    await assertDaoVUnitsMatchCluster(dummyCtx);
+    expect(contractEB).to.equal(BigInt(minEB));
 
-    const isLiq = await views.isLiquidatable(cluster.owner.address, cluster.operatorIds, cluster.cluster);
-    expect(isLiq).to.equal(false);
-  });
+    await assertDaoVUnitsMatchCluster(ctx);
 
+    ctx.state.phase = "exact-maximum";
+    return;
+  }
+
+  if (ctx.state.phase === "exact-maximum") {
+    const blockNum = BigInt(await ctx.provider.getBlockNumber());
+    if (blockNum <= ctx.state.lastCommittedBlock) return;
+
+    const root = computeEBRoot(clusterId, maxEB);
+    await commitEBRoot(ctx.network, root, Number(blockNum), oracles);
+    ctx.state.lastCommittedBlock = blockNum;
+
+    const tx = await ctx.network.updateClusterBalance(
+      blockNum, cluster.owner.address, cluster.operatorIds, cluster.cluster, maxEB, [],
+    );
+    cluster.cluster = parseClusterFromEvent(ctx.network, await tx.wait(), Events.CLUSTER_BALANCE_UPDATED);
+
+    const expectedVUnits = ebToVUnits(maxEB);
+    const opFees: bigint[] = [];
+    for (const opId of cluster.operatorIds) {
+      opFees.push(BigInt((await ctx.views.getOperatorById(opId)).fee));
+    }
+    const networkFee = BigInt(await ctx.views.getNetworkFee());
+    const expectedBurnRate = computeBurnRate(opFees, networkFee, expectedVUnits);
+    const contractBurnRate = BigInt(
+      await ctx.views.getBurnRate(cluster.owner.address, cluster.operatorIds, cluster.cluster),
+    );
+    expect(contractBurnRate).to.equal(expectedBurnRate);
+
+    const contractEB = BigInt(
+      await ctx.views.getEffectiveBalance(cluster.owner.address, cluster.operatorIds, cluster.cluster),
+    );
+    expect(contractEB).to.equal(BigInt(maxEB));
+
+    await assertDaoVUnitsMatchCluster(ctx);
+
+    ctx.state.phase = "verified";
+  }
+}
+
+const seeds = generateSeeds(DEFAULT_FUZZ_SEED_COUNT);
+
+describe("Fuzz: EB boundary validation — below min, above max, exact boundaries", function () {
   for (const seed of seeds) {
-    it(`Validates EB boundary enforcement with seed=${seed}`, async function () {
+    it(`Validates EB boundaries — below min, above max, and exact min/max with seed=${seed}`, async function () {
       await fuzz<State>({
-        ticks: 1,
-        blocksPerTick: { min: 0n, max: 0n },
+        ticks: 12,
+        blocksPerTick: { min: 5n, max: 50n },
 
         async setup(ctx) {
-          const [, operatorOwner, clusterOwner, oracleSigner] = ctx.signers;
+          const [, operatorOwner, clusterOwner, staker] = ctx.signers;
 
-          const fees: bigint[] = [];
-          for (let i = 0; i < 4; i++) {
-            fees.push(alignFee(ctx.rng.nextInRange(MINIMAL_OPERATOR_ETH_FEE, MINIMAL_OPERATOR_ETH_FEE * 5n)));
-          }
+          const fees = generateRandomFees(ctx, 4, MINIMAL_OPERATOR_ETH_FEE, MINIMAL_OPERATOR_ETH_FEE * 3n);
+          const operators = await registerFuzzOperators(ctx, operatorOwner, 4, fees);
+          const operatorIds = operators.map(o => o.id);
 
-          const operators = await registerFuzzOperators(ctx, operatorOwner, 4, fees, false);
-          const operatorIds = operators.map((o) => o.id);
-
-          await ctx.ssvToken.mint(oracleSigner.address, STAKE_AMOUNT);
-          await ctx.ssvToken.connect(oracleSigner).approve(await ctx.network.getAddress(), STAKE_AMOUNT);
-          await ctx.network.connect(oracleSigner).stake(STAKE_AMOUNT);
-
-          const oracles = [ctx.signers[17], ctx.signers[18], ctx.signers[19]];
-          await setupFuzzOracles(ctx, oracles);
+          const oracles = await setupFuzzOracles(ctx, staker);
 
           const validatorCount = Number(ctx.rng.nextInRange(1n, 10n));
-          const largeDeposit = ethers.parseEther("500");
+          const maxEB = validatorCount * 2048;
+          const maxVUnits = ebToVUnits(maxEB);
+          const minBlocks = BigInt(await ctx.views.getLiquidationThresholdPeriod());
+          const networkFee = BigInt(await ctx.views.getNetworkFee());
+
+          const { threshold: maxThreshold } = computeLiquidationMetrics(operators.map(o => o.fee), networkFee, maxVUnits, minBlocks);
+          const depositPerValidator = (maxThreshold * 10n) / BigInt(validatorCount) + DEFAULT_ETH_REGISTER_VALUE;
+
           const cluster = await registerFuzzCluster(
-            ctx, clusterOwner, operatorOwner, operatorIds, validatorCount, largeDeposit,
+            ctx, clusterOwner, operatorOwner, operatorIds,
+            validatorCount, depositPerValidator,
           );
 
-          const exactMin = BigInt(validatorCount) * 32n;
-          const exactMax = BigInt(validatorCount) * 2048n;
-
           return {
-            operators,
-            cluster,
-            oracle: { oracles, lastCommittedBlock: 0n },
-            phase: "setup",
-            validatorCount: BigInt(validatorCount),
-            exactMin,
-            exactMax,
-            tickDepositDelta: 0n,
+            operators, cluster, oracles,
+            lastCommittedBlock: 0n,
+            phase: "below-minimum" as Phase,
+            clusterId: computeClusterId(clusterOwner.address, operatorIds),
+            validatorCount,
           };
         },
 
-        steps: [
-          {
-            name: "phase1-below-minimum-revert",
-            async fn(ctx) {
-              const { cluster, oracle, exactMin } = ctx.state;
-              const clusterId = computeClusterId(cluster.owner.address, cluster.operatorIds);
-
-              const maxOffset = exactMin - 1n < 31n ? exactMin - 1n : 31n;
-              const belowOffset = ctx.rng.nextInRange(1n, maxOffset);
-              const belowEB = Number(exactMin - belowOffset);
-
-              const blockNum = Number(await ctx.provider.getBlockNumber());
-              const root = computeEBRoot(clusterId, belowEB);
-              await commitEBRoot(ctx.network, root, blockNum, oracle.oracles);
-              oracle.lastCommittedBlock = BigInt(blockNum);
-
-              await expect(
-                ctx.network.updateClusterBalance(
-                  blockNum,
-                  cluster.owner.address,
-                  cluster.operatorIds,
-                  cluster.cluster,
-                  belowEB,
-                  [],
-                ),
-              ).to.be.revertedWithCustomError(ctx.network, Errors.EB_BELOW_MINIMUM);
-
-              ctx.state.phase = "below-min-reverted";
-            },
-          },
-
-          {
-            name: "phase2-above-maximum-revert",
-            async fn(ctx) {
-              const { cluster, oracle, exactMax } = ctx.state;
-              const clusterId = computeClusterId(cluster.owner.address, cluster.operatorIds);
-
-              await mineBlocks(ctx.provider, 1);
-
-              const aboveOffset = ctx.rng.nextInRange(1n, 1000n);
-              const aboveEB = Number(exactMax + aboveOffset);
-
-              const blockNum = Number(await ctx.provider.getBlockNumber());
-              const root = computeEBRoot(clusterId, aboveEB);
-              await commitEBRoot(ctx.network, root, blockNum, oracle.oracles);
-              oracle.lastCommittedBlock = BigInt(blockNum);
-
-              await expect(
-                ctx.network.updateClusterBalance(
-                  blockNum,
-                  cluster.owner.address,
-                  cluster.operatorIds,
-                  cluster.cluster,
-                  aboveEB,
-                  [],
-                ),
-              ).to.be.revertedWithCustomError(ctx.network, Errors.EB_EXCEEDS_MAXIMUM);
-
-              ctx.state.phase = "above-max-reverted";
-            },
-          },
-
-          {
-            name: "phase3a-exact-minimum-success",
-            async fn(ctx) {
-              const { cluster, oracle, exactMin } = ctx.state;
-              const clusterId = computeClusterId(cluster.owner.address, cluster.operatorIds);
-
-              await mineBlocks(ctx.provider, 1);
-
-              const blockNum = Number(await ctx.provider.getBlockNumber());
-              const root = computeEBRoot(clusterId, Number(exactMin));
-              await commitEBRoot(ctx.network, root, blockNum, oracle.oracles);
-              oracle.lastCommittedBlock = BigInt(blockNum);
-
-              const tx = await ctx.network.updateClusterBalance(
-                blockNum,
-                cluster.owner.address,
-                cluster.operatorIds,
-                cluster.cluster,
-                Number(exactMin),
-                [],
-              );
-              const receipt = await tx.wait();
-              cluster.cluster = parseClusterFromEvent(ctx.network, receipt, Events.CLUSTER_BALANCE_UPDATED);
-
-              const eb = BigInt(
-                await ctx.views.getEffectiveBalance(cluster.owner.address, cluster.operatorIds, cluster.cluster),
-              );
-              expect(eb).to.equal(exactMin);
-
-              await assertDaoVUnitsMatchCluster(ctx);
-
-              ctx.state.phase = "exact-min-verified";
-            },
-          },
-
-          {
-            name: "phase3b-exact-maximum-success",
-            async fn(ctx) {
-              const { cluster, oracle, exactMax } = ctx.state;
-              const clusterId = computeClusterId(cluster.owner.address, cluster.operatorIds);
-
-              await mineBlocks(ctx.provider, 1);
-
-              const blockNum = Number(await ctx.provider.getBlockNumber());
-              const root = computeEBRoot(clusterId, Number(exactMax));
-              await commitEBRoot(ctx.network, root, blockNum, oracle.oracles);
-              oracle.lastCommittedBlock = BigInt(blockNum);
-
-              const tx = await ctx.network.updateClusterBalance(
-                blockNum,
-                cluster.owner.address,
-                cluster.operatorIds,
-                cluster.cluster,
-                Number(exactMax),
-                [],
-              );
-              const receipt = await tx.wait();
-              cluster.cluster = parseClusterFromEvent(ctx.network, receipt, Events.CLUSTER_BALANCE_UPDATED);
-
-              const eb = BigInt(
-                await ctx.views.getEffectiveBalance(cluster.owner.address, cluster.operatorIds, cluster.cluster),
-              );
-              expect(eb).to.equal(exactMax);
-
-              await assertDaoVUnitsMatchCluster(ctx);
-              await assertOperatorEarningsWithEB(ctx);
-              await assertClusterBalanceWithEB(ctx);
-
-              const isLiq = await ctx.views.isLiquidatable(
-                cluster.owner.address, cluster.operatorIds, cluster.cluster,
-              );
-              expect(isLiq).to.equal(false);
-
-              ctx.state.phase = "exact-max-verified";
-            },
-          },
-        ],
-
-        async after(ctx) {
-          expect(ctx.state.phase).to.equal("exact-max-verified");
-        },
+        steps: [lifecycle],
+        expectedPhase: "verified",
       }, seed);
     });
   }

@@ -11,6 +11,7 @@ import {
   MINIMAL_OPERATOR_ETH_FEE,
   DEFAULT_ETH_REGISTER_VALUE,
   DEFAULT_SHARES,
+  BPS_DENOMINATOR,
 } from "../common/constants.ts";
 
 interface State {
@@ -47,7 +48,7 @@ describe("Fuzz: ETH shared operators — multiple clusters (CAT-2-8)", function 
             fees.push(alignFee(ctx.rng.nextInRange(MINIMAL_OPERATOR_ETH_FEE, MINIMAL_OPERATOR_ETH_FEE * 5n)));
           }
 
-          const operators = await registerFuzzOperators(ctx, operatorOwner, totalOperators, fees, false);
+          const operators = await registerFuzzOperators(ctx, operatorOwner, totalOperators, fees, 1000, false);
 
           const sharedIndices = Array.from({ length: sharedCount }, (_, i) => i);
           const exclusiveAIndices = Array.from({ length: exclusivePerCluster }, (_, i) => sharedCount + i);
@@ -179,7 +180,7 @@ describe("Fuzz: ETH shared operators — multiple clusters (CAT-2-8)", function 
               const opFeesB = [...sharedIndices, ...exclusiveBIndices].map(i => operators[i].fee);
               const networkFee = BigInt(await ctx.views.getNetworkFee());
               const expectedBalanceB = computeClusterBalance(
-                balanceBBefore, opFeesB, networkFee, BigInt(validatorCountB), blockAfter - blockBefore,
+                balanceBBefore, opFeesB, networkFee, BigInt(validatorCountB) * BPS_DENOMINATOR, blockAfter - blockBefore,
               );
 
               const balanceB = BigInt(

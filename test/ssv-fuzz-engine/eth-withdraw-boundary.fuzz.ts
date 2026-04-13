@@ -41,7 +41,7 @@ describe("Fuzz: ETH withdraw boundary (CAT-2-7)", function () {
             fees.push(alignFee(ctx.rng.nextInRange(MINIMAL_OPERATOR_ETH_FEE, MINIMAL_OPERATOR_ETH_FEE * 5n)));
           }
 
-          const operators = await registerFuzzOperators(ctx, operatorOwner, 4, fees, false);
+          const operators = await registerFuzzOperators(ctx, operatorOwner, 4, fees);
           const operatorIds = operators.map((o) => o.id);
 
           const cluster = await registerFuzzCluster(

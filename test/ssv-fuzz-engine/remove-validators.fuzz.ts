@@ -1,5 +1,6 @@
 import { fuzz, generateSeeds } from "./core/runner.ts";
-import { registerFuzzOperators, registerFuzzCluster, alignFee } from "./core/setup.ts";
+import { registerFuzzOperators, registerFuzzCluster } from "./core/setup.ts";
+import { generateRandomFees } from "./core/fuzz-helpers.ts";
 import {
   assertContractBalanceUnchanged,
   assertOperatorEarnings,
@@ -15,7 +16,6 @@ import {
 import type { OperatorRecord, ClusterRecord } from "./core/types.ts";
 import { removeValidators } from "./core/steps.ts";
 import {
-  MINIMAL_OPERATOR_ETH_FEE,
   DEFAULT_ETH_REGISTER_VALUE,
 } from "../common/constants.ts";
 
@@ -44,10 +44,7 @@ describe("Fuzz: remove validators from cluster", function () {
 
           const operatorCount = ctx.rng.pick([4, 7, 10, 13]);
 
-          const fees: bigint[] = [];
-          for (let i = 0; i < operatorCount; i++) {
-            fees.push(alignFee(ctx.rng.nextInRange(MINIMAL_OPERATOR_ETH_FEE, MINIMAL_OPERATOR_ETH_FEE * 5n)));
-          }
+          const fees = generateRandomFees(ctx, operatorCount);
 
           const operators = await registerFuzzOperators(ctx, operatorOwner, operatorCount, fees);
           const operatorIds = operators.map((o) => o.id);

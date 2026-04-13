@@ -61,7 +61,7 @@ describe("Fuzz: ETH cluster full lifecycle (CAT-2-1)", function () {
             fees.push(alignFee(ctx.rng.nextInRange(MINIMAL_OPERATOR_ETH_FEE, MINIMAL_OPERATOR_ETH_FEE * 5n)));
           }
 
-          const operators = await registerFuzzOperators(ctx, operatorOwner, operatorCount, fees, false);
+          const operators = await registerFuzzOperators(ctx, operatorOwner, operatorCount, fees, 1000, false);
           const operatorIds = operators.map((o) => o.id);
 
           return {

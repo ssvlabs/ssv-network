@@ -1,14 +1,14 @@
 import { expect } from "chai";
 import type { FuzzContext, ClusterRecord, OperatorRecord } from "./types.ts";
 import type { LegacyMigrationSnapshot } from "./steps.ts";
-import { ETH_DEDUCTED_DIGITS, BPS_DENOMINATOR, DEFAULT_OPERATOR_ETH_FEE } from "../../common/constants.ts";
+import { ETH_DEDUCTED_DIGITS, BPS_DENOMINATOR, DEFAULT_OPERATOR_ETH_FEE, CLUSTER_VERSION_SSV, CLUSTER_VERSION_ETH } from "../../common/constants.ts";
 import { Events } from "../../common/events.ts";
 import { Errors } from "../../common/errors.ts";
 import {
   computeBurnRate,
   computeClusterBalance,
-  computeClusterBalanceWithVUnits,
   ebToVUnits,
+  parseFeeExecutedEvents,
 } from "./fuzz-helpers.ts";
 
 export interface ParsedEvent<TArgs = any> {
@@ -108,15 +108,34 @@ export async function assertContractBalanceWithDeltas<S extends { tracker: { tot
   };
 }
 
+async function guardImplicitEB<S extends { cluster: ClusterRecord; operators: OperatorRecord[] }>(
+  ctx: FuzzContext<S>,
+): Promise<void> {
+  const { cluster, operators } = ctx.state;
+  if (!cluster.cluster.active || cluster.cluster.validatorCount === 0) return;
+
+  const implicitVUnits = BigInt(cluster.cluster.validatorCount) * BPS_DENOMINATOR;
+  const operatorFees = operators.map(op => op.fee);
+  const networkFee = BigInt(await ctx.views.getNetworkFee());
+  const expectedImplicit = computeBurnRate(operatorFees, networkFee, implicitVUnits);
+  const contractBurnRate = BigInt(
+    await ctx.views.getBurnRate(cluster.owner.address, cluster.operatorIds, cluster.cluster),
+  );
+  if (contractBurnRate !== expectedImplicit) {
+    throw new Error("implicit-EB assertion used on explicit-EB cluster; use the *WithEB variant");
+  }
+}
+
 export interface OperatorEarningsSnapshot {
   block: bigint;
   earnings: Map<number, bigint>;
-  validatorCount: bigint;
+  vUnits: bigint;
 }
 
 export async function assertOperatorEarnings<S extends { cluster: ClusterRecord; operators: OperatorRecord[]; lastOperatorEarnings?: OperatorEarningsSnapshot }>(
   ctx: FuzzContext<S>,
 ): Promise<void> {
+  await guardImplicitEB(ctx);
   const block = BigInt(await ctx.provider.getBlockNumber());
   const { cluster, operators } = ctx.state;
 
@@ -128,28 +147,27 @@ export async function assertOperatorEarnings<S extends { cluster: ClusterRecord;
   if (ctx.state.lastOperatorEarnings !== undefined) {
     const prev = ctx.state.lastOperatorEarnings;
     const blocks = block - prev.block;
-    const vUnits = prev.validatorCount * BPS_DENOMINATOR;
-
     for (const op of operators) {
       const packedFee = op.fee / ETH_DEDUCTED_DIGITS;
-      const expectedDelta = ((packedFee * vUnits) / BPS_DENOMINATOR) * ETH_DEDUCTED_DIGITS * blocks;
+      const expectedDelta = ((packedFee * prev.vUnits) / BPS_DENOMINATOR) * ETH_DEDUCTED_DIGITS * blocks;
       expect(currentEarnings.get(op.id)).to.equal(prev.earnings.get(op.id)! + expectedDelta);
     }
   }
 
-  ctx.state.lastOperatorEarnings = { block, earnings: currentEarnings, validatorCount: BigInt(cluster.cluster.validatorCount) };
+  ctx.state.lastOperatorEarnings = { block, earnings: currentEarnings, vUnits: BigInt(cluster.cluster.validatorCount) * BPS_DENOMINATOR };
 }
 
 export interface PhaseAwareOperatorEarningsSnapshot {
   block: bigint;
   earnings: Map<number, bigint>;
-  validatorCount: bigint;
+  vUnits: bigint;
   phase: string;
 }
 
 export async function assertPhaseAwareOperatorEarnings<S extends { cluster: ClusterRecord; operators: OperatorRecord[]; phase: string; lastPhaseAwareOperatorEarnings?: PhaseAwareOperatorEarningsSnapshot }>(
   ctx: FuzzContext<S>,
 ): Promise<void> {
+  if (ctx.state.phase !== "liquidated") await guardImplicitEB(ctx);
   const block = BigInt(await ctx.provider.getBlockNumber());
   const { cluster, operators, phase } = ctx.state;
 
@@ -167,10 +185,9 @@ export async function assertPhaseAwareOperatorEarnings<S extends { cluster: Clus
         expect(currentEarnings.get(op.id)).to.equal(prev.earnings.get(op.id)!);
       }
     } else {
-      const vUnits = prev.validatorCount * BPS_DENOMINATOR;
       for (const op of operators) {
         const packedFee = op.fee / ETH_DEDUCTED_DIGITS;
-        const expectedDelta = ((packedFee * vUnits) / BPS_DENOMINATOR) * ETH_DEDUCTED_DIGITS * blocks;
+        const expectedDelta = ((packedFee * prev.vUnits) / BPS_DENOMINATOR) * ETH_DEDUCTED_DIGITS * blocks;
         expect(currentEarnings.get(op.id)).to.equal(prev.earnings.get(op.id)! + expectedDelta);
       }
     }
@@ -179,7 +196,7 @@ export async function assertPhaseAwareOperatorEarnings<S extends { cluster: Clus
   ctx.state.lastPhaseAwareOperatorEarnings = {
     block,
     earnings: currentEarnings,
-    validatorCount: BigInt(cluster.cluster.validatorCount),
+    vUnits: BigInt(cluster.cluster.validatorCount) * BPS_DENOMINATOR,
     phase,
   };
 }
@@ -187,7 +204,7 @@ export async function assertPhaseAwareOperatorEarnings<S extends { cluster: Clus
 export interface ClusterBalanceSnapshot {
   block: bigint;
   balance: bigint;
-  validatorCount: bigint;
+  vUnits: bigint;
 }
 
 export async function assertClusterBalance<S extends { cluster: ClusterRecord; operators: OperatorRecord[]; lastClusterBalance?: ClusterBalanceSnapshot }>(
@@ -195,12 +212,12 @@ export async function assertClusterBalance<S extends { cluster: ClusterRecord; o
 ): Promise<void> {
   const block = BigInt(await ctx.provider.getBlockNumber());
   const { cluster, operators } = ctx.state;
-  const validatorCount = BigInt(cluster.cluster.validatorCount);
+  const vUnits = BigInt(cluster.cluster.validatorCount) * BPS_DENOMINATOR;
   const operatorFees = operators.map(op => op.fee);
   const networkFee = BigInt(await ctx.views.getNetworkFee());
 
-  if (validatorCount > 0n && cluster.cluster.active) {
-    const expectedBurnRate = computeBurnRate(operatorFees, networkFee, validatorCount);
+  if (vUnits > 0n && cluster.cluster.active) {
+    const expectedBurnRate = computeBurnRate(operatorFees, networkFee, vUnits);
     const contractBurnRate = BigInt(await ctx.views.getBurnRate(cluster.owner.address, cluster.operatorIds, cluster.cluster));
     expect(expectedBurnRate).to.equal(contractBurnRate);
   }
@@ -210,18 +227,18 @@ export async function assertClusterBalance<S extends { cluster: ClusterRecord; o
 
     if (ctx.state.lastClusterBalance !== undefined) {
       const prev = ctx.state.lastClusterBalance;
-      const expectedBalance = computeClusterBalance(prev.balance, operatorFees, networkFee, prev.validatorCount, block - prev.block);
+      const expectedBalance = computeClusterBalance(prev.balance, operatorFees, networkFee, prev.vUnits, block - prev.block);
       expect(contractBalance).to.equal(expectedBalance);
     }
 
-    ctx.state.lastClusterBalance = { block, balance: contractBalance, validatorCount };
+    ctx.state.lastClusterBalance = { block, balance: contractBalance, vUnits };
   }
 }
 
 export interface PhaseAwareClusterBalanceSnapshot {
   block: bigint;
   balance: bigint;
-  validatorCount: bigint;
+  vUnits: bigint;
   phase: string;
 }
 
@@ -230,21 +247,21 @@ export async function assertPhaseAwareClusterBalance<S extends { cluster: Cluste
 ): Promise<void> {
   const block = BigInt(await ctx.provider.getBlockNumber());
   const { cluster, operators, phase } = ctx.state;
-  const validatorCount = BigInt(cluster.cluster.validatorCount);
+  const vUnits = BigInt(cluster.cluster.validatorCount) * BPS_DENOMINATOR;
   const operatorFees = operators.map(op => op.fee);
   const networkFee = BigInt(await ctx.views.getNetworkFee());
 
   if (phase === "liquidated") {
     expect(cluster.cluster.active).to.equal(false);
     expect(BigInt(cluster.cluster.balance)).to.equal(0n);
-    ctx.state.lastPhaseAwareClusterBalance = { block, balance: 0n, validatorCount, phase };
+    ctx.state.lastPhaseAwareClusterBalance = { block, balance: 0n, vUnits, phase };
     return;
   }
 
   expect(cluster.cluster.active).to.equal(true);
 
-  if (validatorCount > 0n) {
-    const expectedBurnRate = computeBurnRate(operatorFees, networkFee, validatorCount);
+  if (vUnits > 0n) {
+    const expectedBurnRate = computeBurnRate(operatorFees, networkFee, vUnits);
     const contractBurnRate = BigInt(await ctx.views.getBurnRate(cluster.owner.address, cluster.operatorIds, cluster.cluster));
     expect(expectedBurnRate).to.equal(contractBurnRate);
   }
@@ -253,17 +270,17 @@ export async function assertPhaseAwareClusterBalance<S extends { cluster: Cluste
 
   const prev = ctx.state.lastPhaseAwareClusterBalance;
   if (prev !== undefined && prev.phase === phase) {
-    const expectedBalance = computeClusterBalance(prev.balance, operatorFees, networkFee, prev.validatorCount, block - prev.block);
+    const expectedBalance = computeClusterBalance(prev.balance, operatorFees, networkFee, prev.vUnits, block - prev.block);
     expect(contractBalance).to.equal(expectedBalance);
   }
 
-  ctx.state.lastPhaseAwareClusterBalance = { block, balance: contractBalance, validatorCount, phase };
+  ctx.state.lastPhaseAwareClusterBalance = { block, balance: contractBalance, vUnits, phase };
 }
 
 export interface ClusterBalanceWithDeltasSnapshot {
   block: bigint;
   balance: bigint;
-  validatorCount: bigint;
+  vUnits: bigint;
   trackerDeposited: bigint;
   trackerWithdrawn: bigint;
 }
@@ -273,12 +290,12 @@ export async function assertClusterBalanceWithDeltas<S extends { cluster: Cluste
 ): Promise<void> {
   const block = BigInt(await ctx.provider.getBlockNumber());
   const { cluster, operators, tracker } = ctx.state;
-  const validatorCount = BigInt(cluster.cluster.validatorCount);
+  const vUnits = BigInt(cluster.cluster.validatorCount) * BPS_DENOMINATOR;
   const operatorFees = operators.map(op => op.fee);
   const networkFee = BigInt(await ctx.views.getNetworkFee());
 
-  if (validatorCount > 0n && cluster.cluster.active) {
-    const expectedBurnRate = computeBurnRate(operatorFees, networkFee, validatorCount);
+  if (vUnits > 0n && cluster.cluster.active) {
+    const expectedBurnRate = computeBurnRate(operatorFees, networkFee, vUnits);
     const contractBurnRate = BigInt(await ctx.views.getBurnRate(cluster.owner.address, cluster.operatorIds, cluster.cluster));
     expect(expectedBurnRate).to.equal(contractBurnRate);
   }
@@ -290,14 +307,14 @@ export async function assertClusterBalanceWithDeltas<S extends { cluster: Cluste
       const prev = ctx.state.lastClusterBalanceWithDeltas;
       const deposited = tracker.totalDeposited - prev.trackerDeposited;
       const withdrawn = tracker.totalWithdrawn - prev.trackerWithdrawn;
-      const expectedBalance = computeClusterBalance(prev.balance + deposited - withdrawn, operatorFees, networkFee, prev.validatorCount, block - prev.block);
+      const expectedBalance = computeClusterBalance(prev.balance + deposited - withdrawn, operatorFees, networkFee, prev.vUnits, block - prev.block);
       expect(contractBalance).to.equal(expectedBalance);
     }
 
     ctx.state.lastClusterBalanceWithDeltas = {
       block,
       balance: contractBalance,
-      validatorCount,
+      vUnits,
       trackerDeposited: tracker.totalDeposited,
       trackerWithdrawn: tracker.totalWithdrawn,
     };
@@ -307,12 +324,13 @@ export async function assertClusterBalanceWithDeltas<S extends { cluster: Cluste
 export interface NetworkEarningsSnapshot {
   block: bigint;
   earnings: bigint;
-  validatorCount: bigint;
+  vUnits: bigint;
 }
 
 export async function assertNetworkEarnings<S extends { cluster: ClusterRecord; operators: OperatorRecord[]; lastNetworkEarnings?: NetworkEarningsSnapshot }>(
   ctx: FuzzContext<S>,
 ): Promise<void> {
+  await guardImplicitEB(ctx);
   const block = BigInt(await ctx.provider.getBlockNumber());
   const { cluster } = ctx.state;
   const currentEarnings = BigInt(await ctx.views.getNetworkEarnings());
@@ -321,25 +339,25 @@ export async function assertNetworkEarnings<S extends { cluster: ClusterRecord; 
   if (ctx.state.lastNetworkEarnings !== undefined) {
     const prev = ctx.state.lastNetworkEarnings;
     const blocks = block - prev.block;
-    const vUnits = prev.validatorCount * BPS_DENOMINATOR;
     const packedNetFee = networkFee / ETH_DEDUCTED_DIGITS;
-    const expectedDelta = ((blocks * packedNetFee * vUnits) / BPS_DENOMINATOR) * ETH_DEDUCTED_DIGITS;
+    const expectedDelta = ((blocks * packedNetFee * prev.vUnits) / BPS_DENOMINATOR) * ETH_DEDUCTED_DIGITS;
     expect(currentEarnings).to.equal(prev.earnings + expectedDelta);
   }
 
-  ctx.state.lastNetworkEarnings = { block, earnings: currentEarnings, validatorCount: BigInt(cluster.cluster.validatorCount) };
+  ctx.state.lastNetworkEarnings = { block, earnings: currentEarnings, vUnits: BigInt(cluster.cluster.validatorCount) * BPS_DENOMINATOR };
 }
 
 export interface PhaseAwareNetworkEarningsSnapshot {
   block: bigint;
   earnings: bigint;
-  validatorCount: bigint;
+  vUnits: bigint;
   phase: string;
 }
 
-export async function assertPhaseAwareNetworkEarnings<S extends { cluster: ClusterRecord; phase: string; lastPhaseAwareNetworkEarnings?: PhaseAwareNetworkEarningsSnapshot }>(
+export async function assertPhaseAwareNetworkEarnings<S extends { cluster: ClusterRecord; operators: OperatorRecord[]; phase: string; lastPhaseAwareNetworkEarnings?: PhaseAwareNetworkEarningsSnapshot }>(
   ctx: FuzzContext<S>,
 ): Promise<void> {
+  if (ctx.state.phase !== "liquidated") await guardImplicitEB(ctx);
   const block = BigInt(await ctx.provider.getBlockNumber());
   const { cluster, phase } = ctx.state;
   const currentEarnings = BigInt(await ctx.views.getNetworkEarnings());
@@ -352,9 +370,8 @@ export async function assertPhaseAwareNetworkEarnings<S extends { cluster: Clust
     if (phase === "liquidated") {
       expect(currentEarnings).to.equal(prev.earnings);
     } else {
-      const vUnits = prev.validatorCount * BPS_DENOMINATOR;
       const packedNetFee = networkFee / ETH_DEDUCTED_DIGITS;
-      const expectedDelta = ((blocks * packedNetFee * vUnits) / BPS_DENOMINATOR) * ETH_DEDUCTED_DIGITS;
+      const expectedDelta = ((blocks * packedNetFee * prev.vUnits) / BPS_DENOMINATOR) * ETH_DEDUCTED_DIGITS;
       expect(currentEarnings).to.equal(prev.earnings + expectedDelta);
     }
   }
@@ -362,7 +379,7 @@ export async function assertPhaseAwareNetworkEarnings<S extends { cluster: Clust
   ctx.state.lastPhaseAwareNetworkEarnings = {
     block,
     earnings: currentEarnings,
-    validatorCount: BigInt(cluster.cluster.validatorCount),
+    vUnits: BigInt(cluster.cluster.validatorCount) * BPS_DENOMINATOR,
     phase,
   };
 }
@@ -598,7 +615,7 @@ export async function assertEBTransitionSettledAtVUnits<
   for (const fee of operatorFees) {
     packedTotal += fee / ETH_DEDUCTED_DIGITS;
   }
-  const expectedClusterBalance = computeClusterBalanceWithVUnits(
+  const expectedClusterBalance = computeClusterBalance(
     snapshot.clusterBalance,
     operatorFees,
     networkFee,
@@ -757,7 +774,7 @@ export async function assertClusterBalanceWithEB<S extends { cluster: ClusterRec
     if (prev.vUnits === currentVUnits) {
       const operatorFees = operators.map(op => op.fee);
       const networkFee = BigInt(await ctx.views.getNetworkFee());
-      const expectedBalance = computeClusterBalanceWithVUnits(prev.balance, operatorFees, networkFee, prev.vUnits, block - prev.block) + ctx.state.tickDepositDelta;
+      const expectedBalance = computeClusterBalance(prev.balance, operatorFees, networkFee, prev.vUnits, block - prev.block) + ctx.state.tickDepositDelta;
       expect(contractBalance).to.equal(expectedBalance);
     }
   }
@@ -925,7 +942,8 @@ export async function assertRemovedOperatorMigrationSkip<S extends {
   const { operatorIds } = ctx.state.cluster;
   const removedId = ctx.state.removedOperator.id;
   const activeIds = operatorIds.filter(id => id !== removedId);
-  const feeEvents = collectOperatorFeeExecutedEvents(ctx, migrateReceipt);
+
+  const feeEvents = parseFeeExecutedEvents(ctx.network, migrateReceipt);
 
   expect(feeEvents.length).to.equal(activeIds.length);
 
@@ -965,7 +983,8 @@ export async function assertAllOperatorsSkippedOnMigration<S extends {
   ctx: FuzzContext<S>,
 ): Promise<void> {
   const { migrateReceipt } = ctx.state.migrationSnapshot;
-  const feeEvents = collectOperatorFeeExecutedEvents(ctx, migrateReceipt);
+
+  const feeEvents = parseFeeExecutedEvents(ctx.network, migrateReceipt);
 
   expect(feeEvents.length).to.equal(0, "No OperatorFeeExecuted events expected when all operators are removed");
 
@@ -1000,7 +1019,8 @@ export async function assertZeroFeeOperatorsPostMigration<S extends {
 ): Promise<void> {
   const { migrateReceipt } = ctx.state.migrationSnapshot;
   const expectedEthCount = BigInt(ctx.state.cluster.cluster.validatorCount);
-  const feeEvents = collectOperatorFeeExecutedEvents(ctx, migrateReceipt);
+
+  const feeEvents = parseFeeExecutedEvents(ctx.network, migrateReceipt);
 
   expect(feeEvents.length).to.equal(0, "No OperatorFeeExecuted events expected for zero-fee operators");
 
@@ -1025,6 +1045,51 @@ export async function assertLegacyReactivationOnMigration<S extends { migrationS
   const foundReactivation = collectParsedEventsByName(ctx, migrateReceipt, Events.CLUSTER_REACTIVATED).length > 0;
   expect(foundReactivation, "ClusterReactivated event not emitted on liquidated cluster migration").to.equal(true);
   expect(ctx.state.cluster.cluster.active).to.equal(true);
+}
+
+export async function assertSSVConservation(
+  ctx: FuzzContext<any>,
+  ssvClusters: ClusterRecord[],
+  ssvOperatorIds: number[],
+): Promise<void> {
+  let totalClusterBalance = 0n;
+  for (const c of ssvClusters) {
+    if (!c.cluster.active || BigInt(c.cluster.validatorCount) === 0n) {
+      if (c.cluster.active) totalClusterBalance += BigInt(c.cluster.balance);
+      continue;
+    }
+    totalClusterBalance += BigInt(
+      await ctx.views.getBalanceSSV(c.owner.address, c.operatorIds, c.cluster),
+    );
+  }
+
+  const seenOps = new Set<number>();
+  let totalOperatorEarnings = 0n;
+  for (const id of ssvOperatorIds) {
+    if (seenOps.has(id)) continue;
+    seenOps.add(id);
+    totalOperatorEarnings += BigInt(await ctx.views.getOperatorEarningsSSV(id));
+  }
+
+  const networkEarnings = BigInt(await ctx.views.getNetworkEarningsSSV());
+
+  const contractAddress = await ctx.network.getAddress();
+  const contractSSVBalance = BigInt(await ctx.ssvToken.balanceOf(contractAddress));
+
+  const totalStaked = BigInt(await ctx.views.totalStaked());
+
+  expect(totalClusterBalance + totalOperatorEarnings + networkEarnings + totalStaked).to.equal(contractSSVBalance);
+}
+
+export async function assertVersionExclusivity(
+  ctx: FuzzContext<any>,
+  clusters: ClusterRecord[],
+  expectedVersion: bigint,
+): Promise<void> {
+  for (const c of clusters) {
+    const version = BigInt(await ctx.views.getClusterAssetType(c.owner.address, c.operatorIds));
+    expect(version).to.equal(expectedVersion);
+  }
 }
 
 export async function assertLargeClusterMigrationEvents<S extends {

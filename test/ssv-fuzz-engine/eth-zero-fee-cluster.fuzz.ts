@@ -59,7 +59,7 @@ describe("Fuzz: ETH cluster with zero-fee operators (CAT-2-9)", function () {
           const [, operatorOwner, clusterOwner] = ctx.signers;
 
           const fees = [0n, 0n, 0n, 0n];
-          const operators = await registerFuzzOperators(ctx, operatorOwner, 4, fees, false);
+          const operators = await registerFuzzOperators(ctx, operatorOwner, 4, fees, 1000, false);
           const operatorIds = operators.map((o) => o.id);
 
           const depositPerValidator = ctx.rng.nextInRange(
@@ -100,14 +100,14 @@ describe("Fuzz: ETH cluster with zero-fee operators (CAT-2-9)", function () {
 
               const networkFee = BigInt(await ctx.views.getNetworkFee());
               const validatorCount = BigInt(cluster.cluster.validatorCount);
+              const vUnits = validatorCount * BPS_DENOMINATOR;
               const operatorFees = operators.map((op) => op.fee);
-              const expectedBurnRate = computeBurnRate(operatorFees, networkFee, validatorCount);
+              const expectedBurnRate = computeBurnRate(operatorFees, networkFee, vUnits);
               const contractBurnRate = BigInt(
                 await ctx.views.getBurnRate(cluster.owner.address, cluster.operatorIds, cluster.cluster),
               );
               expect(expectedBurnRate).to.equal(contractBurnRate);
 
-              const vUnits = validatorCount * BPS_DENOMINATOR;
               const networkOnlyBurnRate = ((networkFee / ETH_DEDUCTED_DIGITS) * ETH_DEDUCTED_DIGITS * vUnits) / BPS_DENOMINATOR;
               expect(contractBurnRate).to.equal(networkOnlyBurnRate);
 

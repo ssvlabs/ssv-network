@@ -1,4 +1,3 @@
-
 import type { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/types";
 import type { Cluster } from "../../common/types.ts";
 import type { FuzzContext, OperatorRecord, ClusterRecord } from "./types.ts";
@@ -34,14 +33,15 @@ export async function registerFuzzOperators(
   owner: HardhatEthersSigner,
   count: number,
   fees: bigint[],
-  setPrivate: boolean = true,
+  keyOffset: number = 1000,
+  isETHOperator: boolean = true,
 ): Promise<OperatorRecord[]> {
   const records: OperatorRecord[] = [];
   for (let i = 0; i < count; i++) {
     const fee = fees[i] ?? MINIMAL_OPERATOR_ETH_FEE;
-    const key = makeOperatorKey(1000 + i);
-    const id = await ctx.network.connect(owner).registerOperator.staticCall(key, fee, setPrivate);
-    await ctx.network.connect(owner).registerOperator(key, fee, setPrivate);
+    const key = makeOperatorKey(keyOffset + i);
+    const id = await ctx.network.connect(owner).registerOperator.staticCall(key, fee, isETHOperator);
+    await ctx.network.connect(owner).registerOperator(key, fee, isETHOperator);
     records.push({ id: Number(id), fee, owner });
   }
   return records;
