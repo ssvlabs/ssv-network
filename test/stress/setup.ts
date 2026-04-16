@@ -53,7 +53,7 @@ export async function getSigner(
   const wallet = ethers.HDNodeWallet.fromMnemonic(mnemonic, `m/44'/60'/0'/0/${index}`);
   await provider.send('hardhat_setBalance', [
     wallet.address,
-    '0x' + (2000n * 10n ** 18n).toString(16),
+    '0x' + (100_000n * 10n ** 18n).toString(16),
   ]);
   await provider.send('hardhat_impersonateAccount', [wallet.address]);
   return provider.getSigner(wallet.address);
@@ -129,6 +129,7 @@ export async function setupStressTest(
     nextFreshWalletIndex: 0,
     totalClampingExcess: 0n,
     totalStakingDust: 0n,
+    defaultOperatorEthFee: DEFAULT_OPERATOR_ETH_FEE,
   };
 
   process.stdout.write(`  [setup] phase 2: registering ${STRESS_OPERATORS_PRE_UPGRADE} operators...\r`);
@@ -157,6 +158,7 @@ export async function setupStressTest(
       pendingFeeBlock:             0n,
       pendingFeeApprovalBeginTime: 0n,
       pendingFeeApprovalEndTime:   0n,
+      useDefaultEthFee: true,         // pre-migration: uses DEFAULT_OPERATOR_ETH_FEE
       isRemoved:        false,
       isPrivate,
       whitelistedAddresses: new Set<string>(),
@@ -730,6 +732,7 @@ export async function setupStressTest(
       pendingFeeBlock:             0n,
       pendingFeeApprovalBeginTime: 0n,
       pendingFeeApprovalEndTime:   0n,
+      useDefaultEthFee: false,        // post-upgrade: registered with custom fee
       isRemoved:        false,
       isPrivate,
       whitelistedAddresses: new Set<string>(),
@@ -842,7 +845,9 @@ export async function setupStressTest(
     simState.clusters.set(clusterId, clusterRec);
 
     for (const opId of opSet) {
-      simState.operators.get(opId)!.effectiveBalance += clusterEB;
+      const op = simState.operators.get(opId)!;
+      op.useDefaultEthFee = false; // ensureETHDefaults called on-chain during registerValidator
+      op.effectiveBalance += clusterEB;
     }
     simState.network.totalEffectiveBalance += clusterEB;
   }
@@ -906,7 +911,9 @@ export async function setupStressTest(
         simState.clusters.set(sacClusterId, sacRec);
 
         for (const opId of sacOpSet) {
-          simState.operators.get(opId)!.effectiveBalance += DEFAULT_EB;
+          const op = simState.operators.get(opId)!;
+          op.useDefaultEthFee = false; // ensureETHDefaults called on-chain
+          op.effectiveBalance += DEFAULT_EB;
         }
         simState.network.totalEffectiveBalance += DEFAULT_EB;
       }

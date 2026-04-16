@@ -551,7 +551,11 @@ describe('Stress Test', function () {
           validators: new Set([valKey]), lastStruct: parsedToStruct(parsed),
         };
         simState.clusters.set(clusterId, clusterRec);
-        for (const opId of testOpSet) simState.operators.get(opId)!.effectiveBalance += DEFAULT_EB;
+        for (const opId of testOpSet) {
+          const op = simState.operators.get(opId)!;
+          op.useDefaultEthFee = false; // ensureETHDefaults called on-chain
+          op.effectiveBalance += DEFAULT_EB;
+        }
         simState.network.totalEffectiveBalance += DEFAULT_EB;
         testClusters.push(clusterRec);
 
@@ -691,7 +695,10 @@ describe('Stress Test', function () {
 
           for (const opId of emptyCluster.operatorIds) {
             const op = setup.simState.operators.get(opId);
-            if (op && !op.isRemoved) op.effectiveBalance += addedEB;
+            if (op && !op.isRemoved) {
+              op.useDefaultEthFee = false; // ensureETHDefaults called on-chain
+              op.effectiveBalance += addedEB;
+            }
           }
           setup.simState.network.totalEffectiveBalance += addedEB;
 

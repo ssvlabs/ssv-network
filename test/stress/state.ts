@@ -21,6 +21,7 @@ export interface OperatorRecord {
   pendingFeeBlock:            bigint;  // block of declaration (0n if none)
   pendingFeeApprovalBeginTime: bigint; // Unix timestamp when execute window opens (0n if none)
   pendingFeeApprovalEndTime:   bigint; // Unix timestamp when execute window closes (0n if none)
+  useDefaultEthFee: boolean;       // true until operator executes a custom fee (tracks DEFAULT_OPERATOR_ETH_FEE dependency)
   isRemoved:      boolean;
   isPrivate:      boolean;
   whitelistedAddresses: Set<string>;
@@ -93,6 +94,7 @@ export interface SimState {
   nextFreshWalletIndex: number;
   totalClampingExcess: bigint;
   totalStakingDust: bigint;
+  defaultOperatorEthFee: bigint;   // current DEFAULT_OPERATOR_ETH_FEE (can change mid-run via module upgrade)
 }
 
 function advanceOperator(op: OperatorRecord, block: bigint): void {

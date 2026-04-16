@@ -1,3 +1,6 @@
+import * as fs from 'fs';
+import * as path from 'path';
+import { execSync } from 'child_process';
 import { assert } from 'chai';
 import type { StressSetup } from './setup.ts';
 import { makeValKey, parseOperatorId, parsedToStruct, toClusterStruct, getSigner } from './setup.ts';
@@ -26,6 +29,7 @@ import {
   _SL_CON_START,
   STRESS_STAKERS_CONTRACT,
   STRESS_TOTAL_SIGNERS,
+  DEFAULT_OPERATOR_ETH_FEE,
 } from './constants.ts';
 import {
   DEFAULT_SHARES,
@@ -146,6 +150,7 @@ export async function actRegisterOperator(
     pendingFeeBlock:             0n,
     pendingFeeApprovalBeginTime: 0n,
     pendingFeeApprovalEndTime:   0n,
+    useDefaultEthFee: false,        // registered with custom fee
     isRemoved:        false,
     isPrivate:        false,
     whitelistedAddresses: new Set(),
@@ -273,6 +278,7 @@ export async function actRegisterValidator(
 
     for (const opId of opSet) {
       const op = simState.operators.get(opId)!;
+      op.useDefaultEthFee = false; // ensureETHDefaults called on-chain
       op.effectiveBalance += DEFAULT_EB;
     }
     simState.network.totalEffectiveBalance += DEFAULT_EB;
@@ -324,6 +330,7 @@ export async function actRegisterValidator(
 
     for (const opId of cluster.operatorIds) {
       const op = simState.operators.get(opId)!;
+      op.useDefaultEthFee = false; // ensureETHDefaults called on-chain
       op.effectiveBalance += DEFAULT_EB;
     }
     simState.network.totalEffectiveBalance += DEFAULT_EB;
@@ -377,7 +384,9 @@ export async function actRemoveValidator(
 
   for (const opId of cluster.operatorIds) {
     const op = simState.operators.get(opId);
-    if (op && op.effectiveBalance >= DEFAULT_EB) op.effectiveBalance -= DEFAULT_EB;
+    if (!op) continue;
+    op.useDefaultEthFee = false; // ensureETHDefaults called on-chain
+    if (op.effectiveBalance >= DEFAULT_EB) op.effectiveBalance -= DEFAULT_EB;
   }
   if (simState.network.totalEffectiveBalance >= DEFAULT_EB) {
     simState.network.totalEffectiveBalance -= DEFAULT_EB;
@@ -749,7 +758,9 @@ export async function actBulkRegisterValidator(
   }
 
   for (const opId of opSet) {
-    simState.operators.get(opId)!.effectiveBalance += addedEB;
+    const op = simState.operators.get(opId)!;
+    op.useDefaultEthFee = false; // ensureETHDefaults called on-chain
+    op.effectiveBalance += addedEB;
   }
   simState.network.totalEffectiveBalance += addedEB;
 
@@ -807,7 +818,9 @@ export async function actBulkRemoveValidator(
 
   for (const opId of cluster.operatorIds) {
     const op = simState.operators.get(opId);
-    if (op && op.effectiveBalance >= removedEB) op.effectiveBalance -= removedEB;
+    if (!op) continue;
+    op.useDefaultEthFee = false; // ensureETHDefaults called on-chain
+    if (op.effectiveBalance >= removedEB) op.effectiveBalance -= removedEB;
   }
   if (simState.network.totalEffectiveBalance >= removedEB) {
     simState.network.totalEffectiveBalance -= removedEB;
@@ -872,6 +885,7 @@ export async function actDeclareOperatorFee(
   const declareTimestamp = BigInt(declareBlock.timestamp);
 
   advanceAll(simState, txBlock);
+  op.useDefaultEthFee = false; // ensureETHDefaults called on-chain during declare
   op.pendingFeeWei = newFee;
   op.pendingFeeBlock = txBlock;
   op.pendingFeeApprovalBeginTime = declareTimestamp + STRESS_FEE_PERIOD_SECS;
@@ -923,6 +937,7 @@ export async function actExecuteOperatorFee(
 
   const oldFee = op.feeWei;
   op.feeWei = op.pendingFeeWei;
+  op.useDefaultEthFee = false;
   op.pendingFeeWei = 0n;
   op.pendingFeeBlock = 0n;
   op.pendingFeeApprovalBeginTime = 0n;
@@ -1253,6 +1268,7 @@ export async function migrateClusterDirectly(
   for (const opId of cluster.operatorIds) {
     const op = simState.operators.get(opId);
     if (op && !op.isRemoved) {
+      op.useDefaultEthFee = false; // ensureETHDefaults called on-chain during migration
       if (!wasLiquidated && op.ssvValidatorCount >= cluster.validatorCount) op.ssvValidatorCount -= cluster.validatorCount;
       op.effectiveBalance += migratedEB;
     }
@@ -1330,7 +1346,10 @@ export async function reactivateClusterDirectly(
   const restoredEB = cluster.effectiveBalance;
   for (const opId of cluster.operatorIds) {
     const op = simState.operators.get(opId);
-    if (op && !op.isRemoved) op.effectiveBalance += restoredEB;
+    if (op && !op.isRemoved) {
+      op.useDefaultEthFee = false; // ensureETHDefaults called on-chain
+      op.effectiveBalance += restoredEB;
+    }
   }
   simState.network.totalEffectiveBalance += restoredEB;
 
@@ -2019,6 +2038,108 @@ async function actTransferCSSV(
   return true;
 }
 
+// ─── Change DEFAULT_OPERATOR_ETH_FEE via module upgrade ─────────────────────
+
+const _ACTIONS_DIR = path.dirname(new URL(import.meta.url).pathname);
+const CORE_TYPES_PATH = path.resolve(_ACTIONS_DIR, '../../contracts/libraries/SSVCoreTypes.sol');
+const PROJECT_ROOT = path.resolve(_ACTIONS_DIR, '../..');
+
+export async function actChangeDefaultOperatorEthFee(
+  setup: StressSetup,
+  rng: RNG,
+  report: RunReport,
+): Promise<boolean> {
+  const { simState, network, provider, connection } = setup;
+
+  // ── Pick new fee: ±10% of current default, rounded to ETH_DEDUCTED_DIGITS ──
+  const currentDefault = simState.defaultOperatorEthFee;
+  const deviationBps = 1000n; // 10%
+  const newFee = randFee(rng, currentDefault, deviationBps);
+  if (newFee === currentDefault) return false;
+
+  // ── Modify SSVCoreTypes.sol with the new constant value ──
+  const source = fs.readFileSync(CORE_TYPES_PATH, 'utf8');
+  const feeRegex = /uint256 constant DEFAULT_OPERATOR_ETH_FEE = \d[_\d]*;/;
+  if (!feeRegex.test(source)) {
+    throw new Error('[changeDefaultOperatorEthFee] cannot find DEFAULT_OPERATOR_ETH_FEE in SSVCoreTypes.sol');
+  }
+  const newSource = source.replace(feeRegex, `uint256 constant DEFAULT_OPERATOR_ETH_FEE = ${newFee.toString()};`);
+  fs.writeFileSync(CORE_TYPES_PATH, newSource, 'utf8');
+
+  // ── Recompile contracts ──
+  try {
+    execSync('npx hardhat compile --force', {
+      cwd: PROJECT_ROOT,
+      stdio: 'pipe',
+      timeout: 600_000, // 10 minutes
+    });
+  } catch (err) {
+    fs.writeFileSync(CORE_TYPES_PATH, source, 'utf8');
+    throw new Error(`[changeDefaultOperatorEthFee] compile failed: ${String((err as any)?.message ?? err)}`);
+  }
+
+  // ── Deploy new SSVOperators and SSVViews ──
+  const { deployContract, attachModule } = await import('../../scripts/common/helpers.ts');
+  const cssvAddress = await setup.cssvToken.getAddress();
+  const networkAddress = await network.getAddress();
+
+  let newOpsAddr: string;
+  let newViewsAddr: string;
+  try {
+    ({ address: newOpsAddr } = await deployContract(connection.ethers, 'SSVOperators', [0]));
+    ({ address: newViewsAddr } = await deployContract(connection.ethers, 'SSVViews', [cssvAddress]));
+  } finally {
+    // Restore original source immediately after deploy so the working tree stays clean
+    fs.writeFileSync(CORE_TYPES_PATH, source, 'utf8');
+  }
+
+  // ── Attach new modules to the proxy ──
+  await attachModule(connection.ethers, networkAddress, 'SSVOperators', newOpsAddr);
+  await attachModule(connection.ethers, networkAddress, 'SSVViews', newViewsAddr);
+
+  // ── Advance sim state to current block, then apply fee change ──
+  const block = BigInt(await provider.getBlockNumber());
+  advanceAll(simState, block);
+
+  const oldDefault = simState.defaultOperatorEthFee;
+  simState.defaultOperatorEthFee = newFee;
+
+  // Update all operators still using the default fee and track affected clusters
+  const affectedOps: bigint[] = [];
+  const affectedClusterIds = new Set<string>();
+
+  for (const op of simState.operators.values()) {
+    if (!op.useDefaultEthFee || op.isRemoved) continue;
+    const oldFee = op.feeWei;
+    op.feeWei = newFee;
+    affectedOps.push(op.id);
+
+    report.recordOperatorTx(op.owner, op.id, block, 'changeDefaultOperatorEthFee',
+      { oldFee: oldFee.toString(), newFee: newFee.toString() }, 'ModuleUpgraded');
+
+    // Update burn rate on every active ETH cluster that uses this operator
+    for (const cluster of simState.clusters.values()) {
+      if (!cluster.active || cluster.version !== VERSION_ETH) continue;
+      if (!cluster.operatorIds.includes(op.id)) continue;
+      cluster.burnRate = cluster.burnRate - oldFee + newFee;
+      affectedClusterIds.add(cluster.id);
+    }
+  }
+
+  // Record on each affected cluster's history
+  for (const clusterId of affectedClusterIds) {
+    const cluster = simState.clusters.get(clusterId)!;
+    report.recordClusterTx(clusterId, cluster.owner, cluster.operatorIds, block,
+      'changeDefaultOperatorEthFee',
+      { oldDefault: oldDefault.toString(), newFee: newFee.toString(), burnRate: cluster.burnRate.toString() },
+      'ModuleUpgraded');
+  }
+
+  report.record('changeDefaultOperatorEthFee', 0n, block);
+  console.log(`  [action] changeDefaultOperatorEthFee: ${oldDefault} → ${newFee} | ops=${affectedOps.length} clusters=${affectedClusterIds.size} (block ${block})`);
+  return true;
+}
+
 export interface WeightedAction {
   name:   string;
   weight: number;
@@ -2051,4 +2172,5 @@ export const ALL_ACTIONS: WeightedAction[] = [
   { name: 'withdrawUnlocked',   weight: 6,  fn: actWithdrawUnlocked },
   { name: 'transferCSSV',       weight: 7,  fn: actTransferCSSV },
   { name: 'claimEthRewards',    weight: 5,  fn: actClaimEthRewards },
+  { name: 'changeDefaultOperatorEthFee', weight: 1, fn: actChangeDefaultOperatorEthFee },
 ];
