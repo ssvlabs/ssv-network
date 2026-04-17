@@ -117,7 +117,7 @@
 | QUALITY-12 | ~~Unsafe `uint128 → uint64` casts in operator/DAO earnings accumulation~~ | Code Quality | P2 | ✅ Fixed |
 | QUALITY-13 | ~~Refactor tests, fixtures, helpers and migrate e2e tests to full fixtures~~ | Code Quality | P2 | ✅ Done |
 | OPS-1 | Create mainnet deployment runbook | Operational Readiness | P1 | M |
-| OPS-2 | Create emergency rollback procedure | Operational Readiness | P1 | M |
+| OPS-2 | ~~Create emergency rollback procedure~~ | Operational Readiness | P1 | ✅ Closed (documented in `deployments/EMERGENCY-ROLLBACK.md`) |
 | OPS-3 | Update `.env.example` for v2.0.0 | Operational Readiness | P2 | 🧹 Cleanup PR candidate |
 | OPS-4 | ~~Multisig batch tx method untested in sequential stage/prod/mainnet pipeline~~ | Operational Readiness | P1 | ✅ Done |
 | FUZZ-1 | ~~Strengthen 5 partially-covered echidna invariants~~ | Echidna Invariant Suite | P1 | ✅ Done |
@@ -3585,16 +3585,16 @@ No mainnet deployment checklist exists. The upgrade involves UUPS proxy upgrades
 - [ ] Sub-task 1: Write pre-flight checks section
 - [ ] Sub-task 2: Write deployment sequence
 - [ ] Sub-task 3: Write post-deployment verification
-- [ ] Sub-task 4: Write rollback procedures
+- [x] Sub-task 4: Write rollback procedures (covered by `deployments/EMERGENCY-ROLLBACK.md`)
 
 ---
 
-### [OPS-2] Create emergency rollback procedure
+### [OPS-2] ~~Create emergency rollback procedure~~
 - **Type:** Operational Readiness
 - **Priority:** P1
-- **Status:** Open
-- **Owner:** (unassigned)
-- **Timeline:** (empty)
+- **Status:** ✅ Closed
+- **Owner:** (resolved)
+- **Timeline:** 2026-03-12
 - **Github Link:** (empty)
 
 **Requirement:**
@@ -3603,11 +3603,21 @@ Document how to downgrade/rollback modules if critical issues are found post-dep
 **Context:**
 The UUPS proxy pattern allows module replacement. If a bug is found in a deployed module, the DAO owner can replace it with a patched version. But there's no documented procedure for this.
 
+**Resolution:**
+Added a dedicated rollback runbook at `deployments/EMERGENCY-ROLLBACK.md` and linked it from `deployments/README.md` and `scripts/deployment.md`.
+
+The runbook covers:
+- module replacement via `SSVNetwork.updateModule`
+- proxy implementation rollback for `SSVNetwork` and `SSVNetworkViews`
+- explicit confirmation that no global on-chain pause exists
+- recoverable vs. irreversible state after a live incident
+- communication steps for operators, users, and incident responders
+
 **Acceptance Criteria:**
-- [ ] Document covers: how to replace a module with a patched version
-- [ ] Covers: how to pause operations if needed (does a pause mechanism exist?)
-- [ ] Covers: which state is recoverable and which is not
-- [ ] Covers: communication plan for operators/users
+- [x] Document covers: how to replace a module with a patched version
+- [x] Covers: how to pause operations if needed (does a pause mechanism exist?)
+- [x] Covers: which state is recoverable and which is not
+- [x] Covers: communication plan for operators/users
 
 **Agent Instructions:**
 1. Read `contracts/SSVNetwork.sol` to understand `updateModule` function.
@@ -3616,9 +3626,9 @@ The UUPS proxy pattern allows module replacement. If a bug is found in a deploye
 4. Identify what state changes are irreversible (e.g., token transfers, oracle commits).
 
 #### Sub-items:
-- [ ] Sub-task 1: Document module replacement procedure
-- [ ] Sub-task 2: Document irrecoverable state changes
-- [ ] Sub-task 3: Document communication plan template
+- [x] Sub-task 1: Document module replacement procedure
+- [x] Sub-task 2: Document irrecoverable state changes
+- [x] Sub-task 3: Document communication plan template
 
 ---
 

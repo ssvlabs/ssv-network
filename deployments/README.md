@@ -2,6 +2,11 @@
 
 Per-environment deployment configs and results for SSV Network.
 
+Operational runbooks:
+
+- [Deployment & Upgrade Guide](../scripts/deployment.md)
+- [Emergency Rollback Procedure](./EMERGENCY-ROLLBACK.md)
+
 ## Environments
 
 | Env | Network | Owner | Purpose |
