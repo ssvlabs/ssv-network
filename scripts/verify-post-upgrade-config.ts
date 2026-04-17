@@ -74,9 +74,9 @@ async function main() {
   } catch {
     throw new Error(`Could not read on-chain version from proxy ${ssvNetworkProxy}`);
   }
-  if (onChainVersion !== config.currentVersion) {
+  if (onChainVersion !== config.targetVersion) {
     throw new Error(
-      `Version mismatch: config.currentVersion is "${config.currentVersion}" but proxy reports "${onChainVersion}". ` +
+      `Version mismatch: config.targetVersion is "${config.targetVersion}" but proxy reports "${onChainVersion}". ` +
       "Wrong config or proxy address?"
     );
   }

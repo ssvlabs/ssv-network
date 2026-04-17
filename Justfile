@@ -87,6 +87,15 @@ verify-upgrade env network="":
     npx hardhat compile --force
     npx tsx scripts/verify-post-upgrade-config.ts --env {{env}} {{ if network == "" { "" } else { "--network " + network } }}
 
+# Post-upgrade smoke test on a local fork of the just-upgraded network state.
+# Exercises register / deposit / stake / oracle commit / liquidate / unstake end-to-end.
+# Requires the mainnet fork to be running locally (or --network <fork> override).
+# Example: just smoke-test mainnet local
+#          just smoke-test hoodi-stage local
+smoke-test env network="":
+    npx hardhat compile --force
+    npx tsx scripts/smoke-test.ts --env {{env}} {{ if network == "" { "" } else { "--network " + network } }}
+
 # === One-off Utilities ===
 
 # Deploy a specific module contract (e.g., SSVOperators, SSVClusters)

@@ -326,6 +326,16 @@ Manual completion checks should then confirm:
 
 Note: `minBlocksBetweenUpdates` is configured during the upgrade flow, but it is not exposed through `SSVViews`, so `just verify-upgrade mainnet` cannot assert it directly.
 
+## Step 7: Post-Upgrade Smoke Test (fork)
+
+Run the end-to-end smoke test against a fork of the just-upgraded mainnet state:
+
+```bash
+just smoke-test mainnet
+```
+
+This exercises the full v2.0.0 happy path against the live state — register 4 public operators, register/deposit/bulk-register/remove/exit validators, declare+execute an operator fee change, withdraw operator ETH earnings, stake SSV (impersonating the SSV Foundation) + claim ETH rewards, oracle quorum commit of an EB root, `updateClusterBalance`, mine blocks until liquidatable, third-party liquidation, and request-unstake → cooldown → `withdrawUnlocked`. Finishes with ETH and SSV solvency checks. Unlike `verify-upgrade`, which only confirms configured state, this asserts that real operations succeed end-to-end.
+
 ## Artifacts to Preserve
 
 Archive the following for auditability:
