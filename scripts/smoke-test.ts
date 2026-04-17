@@ -325,10 +325,29 @@ async function main() {
     throw new Error(`Foundation has only ${foundationBalance} SSV, need ${stakeAmount}`);
   }
   await (await (ssvToken.connect(foundation) as any).transfer(staker.address, stakeAmount)).wait();
+  const stakerSsvBeforeStake = BigInt(await ssvToken.balanceOf(staker.address));
+  const stakerCssvBeforeStake = BigInt(await cssvToken.balanceOf(staker.address));
+  const contractSsvBeforeStake = BigInt(await ssvToken.balanceOf(ssvNetworkProxy));
   await (await (ssvToken.connect(staker) as any).approve(ssvNetworkProxy, stakeAmount)).wait();
   await (await network.connect(staker).stake(stakeAmount)).wait();
   const cssvBal = BigInt(await cssvToken.balanceOf(staker.address));
-  console.log(`    staker=${staker.address} staked=${stakeAmount} cssvMinted=${cssvBal}`);
+  const stakerSsvAfterStake = BigInt(await ssvToken.balanceOf(staker.address));
+  const contractSsvAfterStake = BigInt(await ssvToken.balanceOf(ssvNetworkProxy));
+  const cssvMinted = cssvBal - stakerCssvBeforeStake;
+  if (cssvMinted !== stakeAmount) {
+    throw new Error(`Stake minted ${cssvMinted} cSSV, expected ${stakeAmount}`);
+  }
+  if (stakerSsvBeforeStake - stakerSsvAfterStake !== stakeAmount) {
+    throw new Error(
+      `Stake debited ${stakerSsvBeforeStake - stakerSsvAfterStake} SSV from staker, expected ${stakeAmount}`,
+    );
+  }
+  if (contractSsvAfterStake - contractSsvBeforeStake !== stakeAmount) {
+    throw new Error(
+      `Stake credited ${contractSsvAfterStake - contractSsvBeforeStake} SSV to contract, expected ${stakeAmount}`,
+    );
+  }
+  console.log(`    staker=${staker.address} staked=${stakeAmount} cssvMinted=${cssvMinted}`);
 
   STEP(11, "Accrue protocol fees + check accEthPerShare > 0");
   // syncFees() updates the staking accumulator directly; no need to touch the cluster
@@ -341,6 +360,8 @@ async function main() {
 
   STEP(12, "Claim ETH rewards");
   const claimable = BigInt(await views.previewClaimableEth(staker.address));
+  const expectedMinPayout = claimable - (claimable % ETH_DEDUCTED_DIGITS);
+  const stakerEthBeforeClaim = BigInt(await ethers.provider.getBalance(staker.address));
   const proxyEthBalBefore = BigInt(await ethers.provider.getBalance(ssvNetworkProxy));
   console.log(`    claimable=${claimable} proxyETH=${proxyEthBalBefore}`);
   if (claimable > 0n) {
@@ -351,8 +372,21 @@ async function main() {
       console.error(`    claimEthRewards staticCall reverted — data=${e?.data ?? "(none)"}`);
       throw e;
     }
-    await (await network.connect(staker).claimEthRewards()).wait();
-    console.log(`    claimed = ${claimable} wei`);
+    const claimReceipt = await (await network.connect(staker).claimEthRewards()).wait();
+    const stakerEthAfterClaim = BigInt(await ethers.provider.getBalance(staker.address));
+    const claimGas = claimReceipt.gasUsed * claimReceipt.gasPrice;
+    const claimedDelta = stakerEthAfterClaim + claimGas - stakerEthBeforeClaim;
+    const claimableAfter = BigInt(await views.previewClaimableEth(staker.address));
+    if (claimedDelta % ETH_DEDUCTED_DIGITS !== 0n) {
+      throw new Error(`Claim transferred non-packed amount ${claimedDelta}`);
+    }
+    if (claimedDelta < expectedMinPayout) {
+      throw new Error(`Claim transferred ${claimedDelta} wei, below preview floor ${expectedMinPayout}`);
+    }
+    if (claimableAfter >= claimable) {
+      throw new Error(`Post-claim preview=${claimableAfter}, expected it to decrease from ${claimable}`);
+    }
+    console.log(`    claimed = ${claimedDelta} wei`);
   } else {
     console.log(`    (nothing claimable yet)`);
   }
@@ -419,6 +453,7 @@ async function main() {
     `    burnRate=${burnRate}/blk, target=${liquidationTarget}, balance=${cluster.balance}, jumping ${blocksNeeded} blocks`,
   );
   if (blocksNeeded > 0n) await mineBlocks(ethers.provider, Number(blocksNeeded));
+  const preLiqSettledBalance = BigInt(await views.getBalance(clusterOwner.address, operatorIds, cluster));
   const liquidatable = await views.isLiquidatable(clusterOwner.address, operatorIds, cluster);
   if (!liquidatable) throw new Error(`Cluster not liquidatable after jumping ${blocksNeeded} blocks`);
   console.log(`    liquidatable ✓`);
@@ -432,6 +467,12 @@ async function main() {
   const liqBalAfter = await ethers.provider.getBalance(liquidator.address);
   const gas = liqReceipt.gasUsed * liqReceipt.gasPrice;
   const bounty = liqBalAfter - liqBalBefore + gas;
+  if (bounty <= 0n) throw new Error(`Liquidation bounty must be positive, got ${bounty}`);
+  if (bounty > preLiqSettledBalance) {
+    throw new Error(`Liquidation bounty ${bounty} exceeds pre-liquidation balance ${preLiqSettledBalance}`);
+  }
+  if (cluster.active) throw new Error("Cluster should be inactive after liquidation");
+  if (cluster.balance !== 0n) throw new Error(`Liquidated cluster should have zero balance, got ${cluster.balance}`);
   console.log(`    liquidated — bounty ≈ ${bounty} wei, cluster.active=${cluster.active}`);
 
   STEP(17, "Request unstake → wait cooldown → withdrawUnlocked");
@@ -448,6 +489,8 @@ async function main() {
   STEP(18, "ETH conservation check");
   const contractEth = BigInt(await ethers.provider.getBalance(ssvNetworkProxy));
   console.log(`    SSVNetwork ETH balance = ${contractEth} wei`);
+  if (contractEth <= 0n) throw new Error("SSVNetwork ETH balance should remain positive");
+  if (cluster.active) throw new Error("Cluster should remain inactive after liquidation");
   // Contract ETH must be ≥ 0 and non-negative accounting components.
   // Full-precision invariant (sum of cluster/operator/network earnings == contractEth) would require
   // iterating all clusters — instead we assert contract is solvent and the post-liquidation cluster is zeroed.
@@ -458,10 +501,21 @@ async function main() {
   STEP(19, "SSV conservation check");
   const contractSsv = BigInt(await ssvToken.balanceOf(ssvNetworkProxy));
   const totalStaked = BigInt(await views.totalStaked());
+  const stakerCssvAfterUnstake = BigInt(await cssvToken.balanceOf(staker.address));
+  const stakerStakedBalanceAfterUnstake = BigInt(await views.stakedBalanceOf(staker.address));
+  const pendingUnstakeAfter = await views.pendingUnstake(staker.address);
   console.log(`    SSVNetwork SSV balance = ${contractSsv}, totalStaked = ${totalStaked}`);
-  // After unstake there should be no leftover of our stake locked.
-  // Remaining SSV on contract = legacy SSV cluster/operator balances + still-staked SSV from others.
-  if (totalStaked < 0n) throw new Error("totalStaked negative");
+  if (stakerCssvAfterUnstake !== 0n) {
+    throw new Error(`Staker still has ${stakerCssvAfterUnstake} cSSV after full unstake`);
+  }
+  if (stakerStakedBalanceAfterUnstake !== 0n) {
+    throw new Error(
+      `stakedBalanceOf(staker)=${stakerStakedBalanceAfterUnstake} after full unstake, expected 0`,
+    );
+  }
+  if (pendingUnstakeAfter.length !== 0) {
+    throw new Error(`pendingUnstake(staker) still has ${pendingUnstakeAfter.length} entries after withdrawUnlocked`);
+  }
 
   STEP(20, "SMOKE TEST PASSED ✓");
   console.log(`\n    SSV Network v${onChainVersion} smoke test completed successfully on ${targetNetwork}.`);
