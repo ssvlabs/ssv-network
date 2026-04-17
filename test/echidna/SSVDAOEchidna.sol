@@ -74,7 +74,23 @@ contract SSVDAOEchidna is SSVDAO {
     uint8 private dustyVoteCount;
     bool private dustyRoundSeeded;
     bool private dustyPrematureCommit;
+    uint256 private dustySeedNonce;
     bool private belowOracleCountCommitSucceeded;
+    bytes32 private failedQuorumKey;
+    uint64 private failedQuorumBlock;
+    bytes32 private failedQuorumRoot;
+    uint32 private failedQuorumOracleId;
+    bool private failedQuorumTracked;
+    bool private failedQuorumPersistenceViolation;
+    bool private revoteDifferentRootFailed;
+    bytes32 private generalizedDustRoot;
+    uint64 private generalizedDustBlock;
+    uint256 private generalizedDustSupply;
+    bool private generalizedDustRoundSeeded;
+    bool private generalizedDustTruncationViolation;
+    bytes32[] private generalizedDustCommitmentKeys;
+    mapping(bytes32 => bool) private generalizedDustCommitmentTracked;
+    mapping(bytes32 => uint256) private generalizedDustExpectedFrozen;
 
     mapping(bytes32 => mapping(uint32 => bool)) private localVotes;
 
@@ -314,7 +330,8 @@ contract SSVDAOEchidna is SSVDAO {
         _mockupdateQuorumBps(DUSTY_QUORUM_BPS);
         _setCssvSupply(DUSTY_RAW_SUPPLY);
 
-        dustyRoot = keccak256(abi.encodePacked("dusty-root", seed));
+        dustySeedNonce++;
+        dustyRoot = keccak256(abi.encodePacked("dusty-root", seed, dustySeedNonce));
         dustyBlock = _validBlock(seed);
         dustyVoteCount = 0;
         dustyRoundSeeded = true;
@@ -367,6 +384,121 @@ contract SSVDAOEchidna is SSVDAO {
 
         if (!votedBefore && localVotes[commitmentKey][oracleId]) {
             belowOracleCountCommitSucceeded = true;
+        }
+    }
+
+    function action_seed_failed_quorum_round(uint256 seed, uint8 oracleSeed) external trackFeeIndexMonotonicity {
+        _mockupdateQuorumBps(DUSTY_QUORUM_BPS);
+        _setCssvSupply(DUSTY_RAW_SUPPLY);
+
+        OracleUser oracle = _oracleUser(oracleSeed);
+        StorageStaking storage s = SSVStorageStaking.load();
+        StorageEB storage seb = SSVStorageEB.load();
+        uint32 oracleId = s.oracleIdOf[address(oracle)];
+        if (oracleId == 0) return;
+
+        dustySeedNonce++;
+        bytes32 root = keccak256(abi.encodePacked("failed-quorum-root", seed, dustySeedNonce));
+        uint64 blockNum = _validBlock(seed);
+        bytes32 commitmentKey = keccak256(abi.encodePacked(blockNum, root));
+        bool votedBefore = localVotes[commitmentKey][oracleId];
+
+        _attemptCommit(oracle, root, blockNum);
+
+        if (!votedBefore && localVotes[commitmentKey][oracleId]) {
+            if (seb.ebRoots[blockNum] == root) {
+                return;
+            }
+
+            failedQuorumTracked = true;
+            failedQuorumKey = commitmentKey;
+            failedQuorumBlock = blockNum;
+            failedQuorumRoot = root;
+            failedQuorumOracleId = oracleId;
+
+            if (seb.rootCommitments[commitmentKey] == 0 || seb.roundFrozenSupply[commitmentKey] == 0) {
+                failedQuorumPersistenceViolation = true;
+            }
+        }
+    }
+
+    function action_revote_different_root_same_block(uint256 seed, uint8 firstOracleSeed, uint8 secondOracleSeed)
+        external
+        trackFeeIndexMonotonicity
+    {
+        _mockupdateQuorumBps(DUSTY_QUORUM_BPS);
+        _setCssvSupply(DUSTY_RAW_SUPPLY);
+
+        OracleUser firstOracle = _oracleUser(firstOracleSeed);
+        OracleUser secondOracle = _oracleUser(secondOracleSeed);
+        if (address(firstOracle) == address(secondOracle)) {
+            secondOracle = _oracleUser(secondOracleSeed + 1);
+        }
+        if (address(firstOracle) == address(secondOracle)) return;
+
+        StorageStaking storage s = SSVStorageStaking.load();
+        uint32 firstOracleId = s.oracleIdOf[address(firstOracle)];
+        uint32 secondOracleId = s.oracleIdOf[address(secondOracle)];
+        if (firstOracleId == 0 || secondOracleId == 0) return;
+
+        dustySeedNonce++;
+        bytes32 rootA = keccak256(abi.encodePacked("revote-root-a", seed, dustySeedNonce));
+        bytes32 rootB = keccak256(abi.encodePacked("revote-root-b", seed, dustySeedNonce));
+        uint64 blockNum = _validBlock(seed);
+
+        _attemptCommit(firstOracle, rootA, blockNum);
+
+        bytes32 commitmentKeyB = keccak256(abi.encodePacked(blockNum, rootB));
+        bool votedBefore = localVotes[commitmentKeyB][secondOracleId];
+        _attemptCommit(secondOracle, rootB, blockNum);
+
+        if (!votedBefore && !localVotes[commitmentKeyB][secondOracleId]) {
+            revoteDifferentRootFailed = true;
+        }
+    }
+
+    function action_seed_general_dust_round(uint256 rawSupplySeed, uint256 seed) external trackFeeIndexMonotonicity {
+        StorageStaking storage s = SSVStorageStaking.load();
+        uint256 oracleCount = s.defaultOracleIds.length;
+        if (oracleCount == 0) return;
+
+        _mockupdateQuorumBps(DUSTY_QUORUM_BPS);
+
+        uint256 rawSupply = (rawSupplySeed % 1_000_000_000) + oracleCount;
+        _setCssvSupply(rawSupply);
+
+        dustySeedNonce++;
+        generalizedDustRoot = keccak256(abi.encodePacked("general-dust-root", seed, dustySeedNonce));
+        generalizedDustBlock = _validBlock(seed);
+        generalizedDustSupply = rawSupply;
+        generalizedDustRoundSeeded = true;
+
+        bytes32 commitmentKey = keccak256(abi.encodePacked(generalizedDustBlock, generalizedDustRoot));
+        uint256 expectedFrozen = rawSupply - (rawSupply % oracleCount);
+        generalizedDustExpectedFrozen[commitmentKey] = expectedFrozen;
+
+        if (!generalizedDustCommitmentTracked[commitmentKey]) {
+            generalizedDustCommitmentTracked[commitmentKey] = true;
+            generalizedDustCommitmentKeys.push(commitmentKey);
+        }
+    }
+
+    function action_commit_root_general_dust_shared(uint8 oracleSeed) external trackFeeIndexMonotonicity {
+        if (!generalizedDustRoundSeeded) return;
+
+        _mockupdateQuorumBps(DUSTY_QUORUM_BPS);
+        _setCssvSupply(generalizedDustSupply);
+
+        bytes32 commitmentKey = keccak256(abi.encodePacked(generalizedDustBlock, generalizedDustRoot));
+        OracleUser oracle = _oracleUser(oracleSeed);
+        _attemptCommit(oracle, generalizedDustRoot, generalizedDustBlock);
+
+        StorageEB storage seb = SSVStorageEB.load();
+        if (
+            seb.rootCommitments[commitmentKey] != 0 &&
+            seb.roundFrozenSupply[commitmentKey] != generalizedDustExpectedFrozen[commitmentKey]
+        ) {
+            generalizedDustTruncationViolation = true;
         }
     }
 
@@ -463,6 +595,40 @@ contract SSVDAOEchidna is SSVDAO {
         return seb.roundFrozenSupply[commitmentKey] == DUSTY_TRUNCATED_SUPPLY;
     }
 
+    function echidna_failed_quorum_persists() external view returns (bool) {
+        if (!failedQuorumTracked) return true;
+        if (failedQuorumPersistenceViolation) return false;
+
+        StorageEB storage seb = SSVStorageEB.load();
+        if (seb.ebRoots[failedQuorumBlock] == failedQuorumRoot) {
+            return true;
+        }
+
+        return seb.hasVoted[failedQuorumKey][failedQuorumOracleId] &&
+            seb.rootCommitments[failedQuorumKey] != 0 &&
+            seb.roundFrozenSupply[failedQuorumKey] != 0;
+    }
+
+    function echidna_revote_different_root_succeeds() external view returns (bool) {
+        return !revoteDifferentRootFailed;
+    }
+
+    function echidna_commit_root_dust_round_uses_truncated_supply_generalized() external view returns (bool) {
+        if (generalizedDustTruncationViolation) return false;
+
+        StorageEB storage seb = SSVStorageEB.load();
+        uint256 count = generalizedDustCommitmentKeys.length;
+        for (uint256 i; i < count; ++i) {
+            bytes32 commitmentKey = generalizedDustCommitmentKeys[i];
+            if (seb.rootCommitments[commitmentKey] == 0) continue;
+            if (seb.roundFrozenSupply[commitmentKey] != generalizedDustExpectedFrozen[commitmentKey]) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
     function echidna_commit_root_below_oracle_count_reverts() external view returns (bool) {
         return !belowOracleCountCommitSucceeded;
     }
@@ -535,25 +701,47 @@ contract SSVDAOEchidna is SSVDAO {
         return sp.ethDaoIndexBlockNumber <= block.number && sp.daoIndexBlockNumber <= block.number;
     }
     
+    function echidna_dao_earnings_formula_exact_in_range() external view returns (bool) {
+        (, bool expectRevert, uint64 expectedRaw) = _daoEarningsFormulaExpectation();
+        if (expectRevert) return true;
+
+        try this.exposedNetworkTotalEarningsRaw() returns (uint64 libRaw) {
+            return libRaw == expectedRaw;
+        } catch {
+            return false;
+        }
+    }
+
+    function echidna_dao_earnings_formula_overflow_path_safe() external view returns (bool) {
+        (, bool expectRevert, ) = _daoEarningsFormulaExpectation();
+        if (!expectRevert) return true;
+
+        try this.exposedNetworkTotalEarningsRaw() returns (uint64) {
+            return false;
+        } catch {
+            return true;
+        }
+    }
+
     function echidna_dao_earnings_matches_formula() external view returns (bool) {
-        StorageProtocol storage sp = SSVStorageProtocol.load();
+        (, bool expectRevert, uint64 expectedRaw) = _daoEarningsFormulaExpectation();
+        if (expectRevert) {
+            try this.exposedNetworkTotalEarningsRaw() returns (uint64) {
+                return false;
+            } catch {
+                return true;
+            }
+        }
 
-        if (sp.ethDaoIndexBlockNumber > block.number) return false;
+        try this.exposedNetworkTotalEarningsRaw() returns (uint64 libRaw) {
+            return libRaw == expectedRaw;
+        } catch {
+            return false;
+        }
+    }
 
-        uint128 blockDelta = uint64(block.number) - sp.ethDaoIndexBlockNumber;
-        uint128 rawFee = PackedETH.unwrap(sp.ethNetworkFee);
-        uint128 vUnits = sp.daoTotalEthVUnits;
-        uint128 rawBalance = PackedETH.unwrap(sp.ethDaoBalance);
-
-        uint128 earningsUnits = (blockDelta * rawFee * vUnits) / BPS_DENOMINATOR;
-
-        if (earningsUnits > type(uint64).max) return true;
-        if (rawBalance + earningsUnits > type(uint64).max) return true;
-
-        uint64 expectedRaw = uint64(rawBalance + earningsUnits);
-        PackedETH libResult = ProtocolLib.networkTotalEarnings(sp);
-
-        return PackedETH.unwrap(libResult) == expectedRaw;
+    function exposedNetworkTotalEarningsRaw() external view returns (uint64) {
+        return PackedETH.unwrap(ProtocolLib.networkTotalEarnings(SSVStorageProtocol.load()));
     }
 
     function _attemptCommit(OracleUser oracle, bytes32 root, uint64 blockNum) internal {
@@ -758,6 +946,32 @@ contract SSVDAOEchidna is SSVDAO {
 
         prevEthDaoEarningsUnits = ethEarningsUnits;
         prevSsvDaoEarningsUnits = ssvEarningsUnits;
+    }
+
+    function _daoEarningsFormulaExpectation() internal view returns (bool valid, bool expectRevert, uint64 expectedRaw) {
+        StorageProtocol storage sp = SSVStorageProtocol.load();
+        uint64 truncatedBlock = uint64(block.number);
+
+        // ProtocolLib uses uint64(block.number) - ethDaoIndexBlockNumber.
+        // If this underflows, the library call must revert.
+        if (sp.ethDaoIndexBlockNumber > truncatedBlock) {
+            return (true, true, 0);
+        }
+
+        uint256 blockDelta = uint256(truncatedBlock - sp.ethDaoIndexBlockNumber);
+        uint256 rawFee = uint256(PackedETH.unwrap(sp.ethNetworkFee));
+        uint256 vUnits = uint256(sp.daoTotalEthVUnits);
+        uint256 rawBalance = uint256(PackedETH.unwrap(sp.ethDaoBalance));
+        uint256 earningsUnits = (blockDelta * rawFee * vUnits) / BPS_DENOMINATOR;
+
+        if (earningsUnits > type(uint64).max) {
+            return (true, true, 0);
+        }
+        if (rawBalance > type(uint64).max - earningsUnits) {
+            return (true, true, 0);
+        }
+
+        return (true, false, uint64(rawBalance + earningsUnits));
     }
 
     function _mockSetToken(address tokenAddress) internal {

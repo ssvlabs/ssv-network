@@ -178,6 +178,7 @@ contract SSVClustersHarness is SSVClusters, SSVValidators {
         operator.fee = PACKED_SSV_ZERO;
         operator.ethValidatorCount = 0;
         operator.validatorCount = 0;
+        SSVStorageEB.load().operatorEthVUnits[operatorId] = 0;
     }
 
     /// @notice Simulates removeOperator() accounting + payout without owner checks.

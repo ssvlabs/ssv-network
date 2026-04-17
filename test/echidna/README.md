@@ -27,6 +27,7 @@ echidna test/echidna/SSVClustersEchidna.sol --contract SSVClustersEchidna --conf
 echidna test/echidna/SSVAccountingEchidna.sol --contract SSVAccountingEchidna --config test/echidna/echidna.yaml
 echidna test/echidna/SSVEdgeCasesEchidna.sol --contract SSVEdgeCasesEchidna --config test/echidna/echidna.yaml
 echidna test/echidna/SSVValidatorsEchidna.sol --contract SSVValidatorsEchidna --config test/echidna/echidna.yaml
+echidna test/echidna/SSVWhitelistValidatorsEchidna.sol --contract SSVWhitelistValidatorsEchidna --config test/echidna/echidna.yaml
 echidna test/echidna/SSVStakingEchidna.sol --contract SSVStakingEchidna --config test/echidna/echidna.yaml
 echidna test/echidna/SSVDAOEchidna.sol --contract SSVDAOEchidna --config test/echidna/echidna.yaml
 echidna test/echidna/SSVMigrationEchidna.sol --contract SSVMigrationEchidna --config test/echidna/echidna.yaml
@@ -42,13 +43,14 @@ test/echidna/
 ├── CSSVTokenEchidna.sol              # Core invariants (9 tests)
 ├── CSSVTokenAccessControlEchidna.sol # Access control (3 tests)
 ├── SSVOperatorsEchidna.sol           # Operators invariants (20 tests)
-├── SSVClustersEchidna.sol            # Clusters invariants (18 tests)
+├── SSVClustersEchidna.sol            # Clusters invariants (19 tests)
 ├── SSVAccountingEchidna.sol          # System accounting invariants (7 tests)
 ├── SSVEdgeCasesEchidna.sol           # Edge-case invariants (7 tests)
 ├── SSVValidatorsEchidna.sol          # Validators invariants (8 tests)
+├── SSVWhitelistValidatorsEchidna.sol # Private-operator registration invariants (5 tests)
 ├── SSVStakingEchidna.sol             # Staking invariants (16 tests)
 ├── SSVDAOEchidna.sol                 # DAO invariants (23 tests)
-├── SSVMigrationEchidna.sol           # Migration invariants (3 tests) [BUG-14]
+├── SSVMigrationEchidna.sol           # Migration invariants (6 tests) [BUG-14]
 ├── SSVEBProofEchidna.sol             # EB proof invariants (3 tests) [FUZZ-3 B6/B7/B8]
 ├── SSVOperatorFeeGovEchidna.sol      # Operator fee governance (1 test) [FUZZ-3 B19]
 ├── SSVLegacyClustersEchidna.sol      # Legacy SSV cluster liquidation (1 test) [FUZZ-3 B15]
@@ -104,7 +106,7 @@ test/echidna/
 | `echidna_remove_pays_out` | Removal pays out and reduces holdings |
 | `echidna_declare_fee_from_zero_reverts` | **[FUZZ-3 B17]** Declaring non-zero ETH fee when both fees are 0 reverts |
 
-## SSVClustersEchidna (18 Invariants)
+## SSVClustersEchidna (19 Invariants)
 
 This harness also instantiates staking claimants and operator owners so `echidna_eth_balance_accounting` is exercised through `claimEthRewards` and `withdrawOperatorEarnings`, not only cluster flows.
 
@@ -122,11 +124,12 @@ This harness also instantiates staking claimants and operator owners so `echidna
 | `echidna_eb_snapshot_block_lte_current` | EB snapshot update block never exceeds current block |
 | `echidna_eb_snapshot_root_monotonic` | Cluster EB root block number never decreases |
 | `echidna_eb_update_requires_root` | EB update cannot succeed without a committed root |
+| `echidna_eb_update_requires_latest_root` | EB update must use the latest committed root |
 | `echidna_eb_update_frequency` | EB update frequency limit is enforced |
 | `echidna_eb_update_staleness` | EB updates reject stale root block numbers |
+| `echidna_inactive_eb_update_skips_accounting` | Inactive/liquidated ETH EB updates only refresh the EB snapshot |
 | `echidna_fee_index_current_after_settle` | Cluster fee indices settle to current protocol indices |
 | `echidna_fee_uses_old_vunits_on_eb_change` | Fee settlement on EB change uses pre-update vUnits |
-| `echidna_liquidation_clears_eb_snapshot` | Liquidation clears EB snapshot vUnits |
 | `echidna_eth_balance_accounting` | ETH balance covers cluster, operator, DAO, and staking liabilities |
 
 ## SSVAccountingEchidna (7 Invariants)
@@ -155,6 +158,8 @@ This harness also instantiates staking claimants and operator owners so `echidna
 
 ## SSVValidatorsEchidna (8 Invariants)
 
+This harness now drives both single and bulk registration/removal/exit paths.
+
 | Property | Description |
 |----------|-------------|
 | `echidna_validator_hash_consistent` | Validator state matches stored operator ids |
@@ -165,6 +170,18 @@ This harness also instantiates staking claimants and operator owners so `echidna
 | `echidna_no_duplicate_validators` | Duplicate validators cannot be registered |
 | `echidna_owner_only_remove` | Only owner can remove validators |
 | `echidna_owner_only_exit` | Only owner can exit validators |
+
+## SSVWhitelistValidatorsEchidna (5 Invariants)
+
+This harness focuses on private-operator registration coverage across both single and bulk registration: direct whitelist address flow, whitelist-contract flow, mixed public/private clusters with a zero-fee private operator, and a legacy SSV private operator that is initialized for ETH fees before ETH-cluster registration.
+
+| Property | Description |
+|----------|-------------|
+| `echidna_private_registration_access_control` | Unauthorized callers cannot single-register or bulk-register clusters that include private operators |
+| `echidna_private_authorized_paths_consistent` | Authorized single-register and bulk-register mixed-cluster / whitelist-contract paths keep validator state and operator fee assumptions intact |
+| `echidna_legacy_private_eth_init_preserves_whitelist` | A legacy SSV private operator keeps its whitelist semantics after ETH defaults are initialized and it is used in a new ETH cluster through single or bulk registration |
+| `echidna_whitelist_operator_counts_consistent` | Operator ETH validator counts and DAO ETH validator totals stay consistent across private/public registration scenarios |
+| `echidna_whitelist_cluster_hashes_consistent` | Successful private-operator registrations keep stored ETH cluster hashes consistent, and unauthorized registrations do not create clusters |
 
 ## SSVStakingEchidna (16 Invariants)
 
@@ -244,16 +261,19 @@ Setup: two SSV operators with non-zero fees, one active SSV cluster, liquidator 
 |----------|-------------|
 | `echidna_ssv_liquidation_resets_and_pays` | **[B15]** After `liquidateSSV` succeeds: cluster is inactive with zeroed indexes/balance, and the SSV balance was fully transferred to the liquidator |
 
-## SSVMigrationEchidna (3 Invariants) — BUG-14
+## SSVMigrationEchidna (6 Invariants) — BUG-14
 
-Tests SSV→ETH migration accounting when operators were removed before migration and must keep their frozen SSV indices.
-Setup: one active SSV cluster with three operators, with harness actions for operator removal, block advancement, and ETH migration.
+Tests SSV→ETH migration accounting when operators were removed before migration and must keep their frozen SSV indices, plus the legacy `updateClusterBalance` snapshot-only path that prepares SSV clusters for future migration.
+Setup: one legacy SSV cluster with three operators, with harness actions for operator removal, block advancement, legacy EB updates, self-liquidation, and ETH migration from both active and liquidated states.
 
 | Property | Description |
 |----------|-------------|
 | `echidna_migration_removed_refund_exact` | On successful SSV→ETH migration, refunded SSV equals settlement computed with the full cumulative SSV index, including removed operators' frozen `snapshot.index` |
 | `echidna_migration_removed_operator_not_eth_initialized` | Operators removed before migration remain excluded from ETH initialization and ETH validator-count updates |
+| `echidna_migration_net_zero_validators` | Successful active-cluster migration shifts validator counts from SSV DAO accounting to ETH DAO accounting without changing the total |
 | `echidna_removed_operator_state_and_frozen_index_preserved` | Removed operators keep zeroed snapshot blocks while preserving their frozen `snapshot.index` across later actions |
+| `echidna_liquidated_migration_branch_correct` | Successful migration of an already-liquidated SSV cluster keeps SSV DAO counts unchanged, initializes the ETH cluster, and does not refund extra SSV |
+| `echidna_ssv_eb_update_only_snapshot` | Legacy `updateClusterBalance` updates only `clusterEB` and leaves SSV cluster/accounting state unchanged |
 
 ---
 
@@ -311,8 +331,8 @@ Directly testable with current harness patterns. High bug-catching value.
 
 | Planned Property | Type | Description | Ref |
 |---|---|---|---|
-| `echidna_eb_update_requires_latest_root` | Conditional | `updateClusterBalance(blockNum, ...)` with non-latest committed root must always revert (SSV-17 latest-root-only rule) | SSV-17 |
 | `echidna_eb_update_requires_root` | Conditional | `updateClusterBalance(blockNum, ...)` succeeds only if `ebRoots[blockNum] != 0` | B3 |
+| `echidna_eb_update_requires_latest_root` | Conditional | `updateClusterBalance(blockNum, ...)` with a valid but non-latest committed root must revert | SSV-17 |
 | `echidna_eb_update_frequency` | Conditional | Same cluster cannot update twice within `minBlocksBetweenUpdates` — second update reverts | B4 |
 | `echidna_eb_update_staleness` | Conditional | Successful update requires `blockNum > lastRootBlockNum` for that cluster | B5 |
 
@@ -327,7 +347,6 @@ Directly testable with current harness patterns. High bug-catching value.
 
 | Planned Property | Type | Description | Ref |
 |---|---|---|---|
-| `echidna_liquidation_clears_eb_snapshot` | Conditional | After liquidation, `clusterEB[clusterId].vUnits == 0` — catches stale EB after liquidation | B13 |
 | `echidna_liquidation_pays_exact_balance` | Conditional | ETH paid to liquidator equals cluster balance at liquidation time — catches over/underpayment | B14 |
 
 ### Medium Priority — New Invariants

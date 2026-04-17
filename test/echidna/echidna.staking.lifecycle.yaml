@@ -1,0 +1,28 @@
+cryticArgs: ["--compile-force-framework", "foundry"]
+
+testMode: property
+prefix: "echidna_"
+
+testLimit: 200000
+shrinkLimit: 5000
+seqLen: 140
+
+workers: 7
+
+corpusDir: "test/echidna/corpus/staking-lifecycle"
+coverageDir: "test/echidna/coverage/staking-lifecycle"
+
+filterBlacklist: false
+filterFunctions:
+  - "SSVStakingEchidna.action_claim_dust_positive_balance(uint256,uint256)"
+  - "SSVStakingEchidna.action_claim_dust_zero_balance(uint256,uint256)"
+  - "SSVStakingEchidna.action_claim_rewards(uint8)"
+  - "SSVStakingEchidna.action_request_unstake(uint256,uint8)"
+  - "SSVStakingEchidna.action_request_unstake_stops_accrual(uint256,uint256,uint256,uint256)"
+  - "SSVStakingEchidna.action_stake(uint256,uint8)"
+  - "SSVStakingEchidna.action_sync_fees_with_decrease(uint256)"
+  - "SSVStakingEchidna.action_sync_fees_with_increase(uint256)"
+  - "SSVStakingEchidna.action_transfer_cssv(uint256,uint8,uint8)"
+  - "SSVStakingEchidna.action_withdraw_unlocked(uint8)"
+  - "SSVStakingEchidna.action_withdraw_unlocked_batch_processing(uint256,uint8)"
+  - "SSVStakingEchidna.action_zero_cssv_no_accrual(uint256,uint256,uint256)"

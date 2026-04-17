@@ -4,7 +4,7 @@ pragma solidity 0.8.24;
 import "../../contracts/modules/SSVClusters.sol";
 import "../../contracts/modules/SSVOperators.sol";
 import "../../contracts/modules/SSVStaking.sol";
-import "../../contracts/interfaces/ISSVClusters.sol";
+import {ISSVClusters} from "../../contracts/interfaces/ISSVClusters.sol";
 import "../../contracts/interfaces/ISSVOperators.sol";
 import "../../contracts/interfaces/ISSVNetworkCore.sol";
 import "../../contracts/libraries/storage/SSVStorage.sol";
@@ -31,6 +31,22 @@ contract ClusterUser {
 
     receive() external payable {}
 
+    function deposit(address clusterOwner, uint64[] calldata operatorIds, ISSVNetworkCore.Cluster memory cluster)
+        external
+        payable
+    {
+        clusters.deposit{value: msg.value}(clusterOwner, operatorIds, cluster);
+    }
+
+    function depositFromBalance(
+        address clusterOwner,
+        uint64[] calldata operatorIds,
+        ISSVNetworkCore.Cluster memory cluster,
+        uint256 amount
+    ) external {
+        clusters.deposit{value: amount}(clusterOwner, operatorIds, cluster);
+    }
+
     function withdraw(uint64[] calldata operatorIds, uint256 amount, ISSVNetworkCore.Cluster memory cluster) external {
         clusters.withdraw(operatorIds, amount, cluster);
     }
@@ -43,6 +59,14 @@ contract ClusterUser {
 
     function reactivate(uint64[] calldata operatorIds, ISSVNetworkCore.Cluster memory cluster) external payable {
         clusters.reactivate{value: msg.value}(operatorIds, cluster);
+    }
+
+    function reactivateFromBalance(
+        uint64[] calldata operatorIds,
+        ISSVNetworkCore.Cluster memory cluster,
+        uint256 amount
+    ) external {
+        clusters.reactivate{value: amount}(operatorIds, cluster);
     }
 
     function updateClusterBalance(
@@ -66,6 +90,10 @@ contract OperatorUser {
 
     receive() external payable {}
 
+    function remove(uint64 operatorId) external {
+        operators.removeOperator(operatorId);
+    }
+
     function withdraw(uint64 operatorId, uint256 amount) external {
         operators.withdrawOperatorEarnings(operatorId, amount);
     }
@@ -85,7 +113,7 @@ contract SSVClustersEchidna is SSVClusters, SSVOperators(0), SSVStaking(address(
     uint64 private constant MIN_BLOCKS_BEFORE_LIQUIDATION = 2;
     uint32 private constant MAX_ADVANCE_BLOCKS = 8;
     uint32 private constant MIN_BLOCKS_BETWEEN_UPDATES = 2;
-    uint32 private constant SOLVENCY_BLOCK_WINDOW = 1_000_000;
+    uint32 private constant SOLVENCY_BLOCK_WINDOW = 5_000_000;
 
     MockToken private token;
     CSSVTokenMock private cssv;
@@ -112,6 +140,7 @@ contract SSVClustersEchidna is SSVClusters, SSVOperators(0), SSVStaking(address(
 
     bytes32[] private clusterIds;
     mapping(bytes32 => ClusterRecord) private clusters;
+    mapping(bytes32 => bool) private liquidatedClusters;
 
     uint256 private totalExpectedBalance;
 
@@ -122,13 +151,19 @@ contract SSVClustersEchidna is SSVClusters, SSVOperators(0), SSVStaking(address(
     bool private reactivateWhileActiveSucceeded;
     bool private dustLiquidationFailed;
     bool private ebUpdateWithoutRootSucceeded;
+    bool private ebUpdateNonLatestRootBypassed;
     bool private ebUpdateFrequencyBypassed;
     bool private ebUpdateStalenessBypassed;
+    bool private inactiveEbUpdateViolation;
     bool private feeIndexNotCurrentAfterSettle;
     bool private feeUsedNewVUnitsOnEbChange;
-    bool private liquidationDidNotClearEbSnapshot;
+    bool private implicitEbDefaultViolation;
     bool private ebSnapshotRootDecreased;
     bool private ebSnapshotFutureBlock;
+    bool private clusterBalanceFloorViolation;
+    bool private depositLiquidatedViolation;
+    bool private withdrawLiquidatedViolation;
+    bool private reactivateRemovedOperatorsViolation;
 
     constructor() {
         token = new MockToken();
@@ -177,11 +212,19 @@ contract SSVClustersEchidna is SSVClusters, SSVOperators(0), SSVStaking(address(
         uint256 available = _availableBalance();
         if (available != 0) {
             uint256 minRequired = _minimumActiveClusterBalance(operatorIds, validatorCount);
-            if (minRequired != 0 && minRequired <= available) {
-                StorageData storage s = SSVStorage.load();
+            StorageData storage s = SSVStorage.load();
+            bool allOperatorsActive = true;
+            uint256 operatorsLength = operatorIds.length;
+            for (uint256 i; i < operatorsLength; ++i) {
+                if (s.operators[operatorIds[i]].ethSnapshot.block == 0) {
+                    allOperatorsActive = false;
+                    break;
+                }
+            }
+
+            if (allOperatorsActive && minRequired != 0 && minRequired <= available) {
                 StorageProtocol storage sp = SSVStorageProtocol.load();
-                uint256 count = operatorIds.length;
-                for (uint256 i; i < count; ++i) {
+                for (uint256 i; i < operatorsLength; ++i) {
                     OperatorLib.updateSnapshotSt(s.operators[operatorIds[i]], operatorIds[i]);
                     s.operators[operatorIds[i]].ethValidatorCount += validatorCount;
                 }
@@ -205,6 +248,7 @@ contract SSVClustersEchidna is SSVClusters, SSVOperators(0), SSVStaking(address(
         SSVStorage.load().ethClusters[clusterId] = cluster.hashClusterData();
 
         clusters[clusterId] = ClusterRecord({cluster: cluster, owner: owner, operatorsKey: operatorsKey, exists: true});
+        liquidatedClusters[clusterId] = false;
         clusterIds.push(clusterId);
         totalExpectedBalance += balance;
     }
@@ -215,6 +259,7 @@ contract SSVClustersEchidna is SSVClusters, SSVOperators(0), SSVStaking(address(
 
         ClusterRecord storage record = clusters[clusterId];
         if (!record.exists || !record.cluster.active) return;
+        if (SSVStorage.load().ethClusters[clusterId] != record.cluster.hashClusterData()) return;
 
         uint256 available = _availableBalance();
         if (available == 0) return;
@@ -237,6 +282,7 @@ contract SSVClustersEchidna is SSVClusters, SSVOperators(0), SSVStaking(address(
 
         ClusterRecord storage record = clusters[clusterId];
         if (!record.exists || !record.cluster.active) return;
+        if (SSVStorage.load().ethClusters[clusterId] != record.cluster.hashClusterData()) return;
 
         uint32 blocks = uint32((seed >> 16) % MAX_ADVANCE_BLOCKS) + 1;
         uint64[] memory operatorIds = _operatorIdsForKey(record.operatorsKey);
@@ -247,7 +293,13 @@ contract SSVClustersEchidna is SSVClusters, SSVOperators(0), SSVStaking(address(
         sp.ethNetworkFeeIndex += uint64(blocks) * PackedETH.unwrap(sp.ethNetworkFee);
         sp.ethNetworkFeeIndexBlockNumber = uint32(block.number);
 
+        ISSVNetworkCore.Cluster memory beforeCluster = record.cluster;
+        (ISSVNetworkCore.Cluster memory expectedSettled, uint256 expectedBurned) =
+            _expectedSettledCluster(clusterId, beforeCluster, operatorIds);
         uint256 burned = _settleCluster(clusterId, record, operatorIds);
+        if (!_sameCluster(record.cluster, expectedSettled) || burned != expectedBurned) {
+            clusterBalanceFloorViolation = true;
+        }
         _decreaseExpected(burned);
 
         s.ethClusters[clusterId] = record.cluster.hashClusterData();
@@ -259,6 +311,8 @@ contract SSVClustersEchidna is SSVClusters, SSVOperators(0), SSVStaking(address(
 
         ClusterRecord storage record = clusters[clusterId];
         if (!record.exists || !record.cluster.active) return;
+        if (record.operatorsKey != 0) return;
+        if (SSVStorage.load().ethClusters[clusterId] != record.cluster.hashClusterData()) return;
 
         uint64[] memory operatorIds = _operatorIdsForKey(record.operatorsKey);
         uint64 burnRate = _burnRate(operatorIds);
@@ -305,10 +359,12 @@ contract SSVClustersEchidna is SSVClusters, SSVOperators(0), SSVStaking(address(
                 record.cluster.balance = 0;
                 record.cluster.index = 0;
                 record.cluster.networkFeeIndex = 0;
-
-                if (SSVStorageEB.load().clusterEB[clusterId].vUnits != 0) {
-                    liquidationDidNotClearEbSnapshot = true;
+                if (SSVStorage.load().ethClusters[clusterId] == record.cluster.hashClusterData()) {
+                    liquidatedClusters[clusterId] = true;
+                } else {
+                    clusterBalanceFloorViolation = true;
                 }
+
             } catch {
                 dustLiquidationFailed = true;
             }
@@ -331,6 +387,8 @@ contract SSVClustersEchidna is SSVClusters, SSVOperators(0), SSVStaking(address(
     }
 
     function action_claim_rewards(uint8 userSeed) external {
+        if (_sumProjectedClusterBalances() != 0) return;
+
         StakingUser user = _staker(userSeed);
         address userAddr = address(user);
 
@@ -340,6 +398,8 @@ contract SSVClustersEchidna is SSVClusters, SSVOperators(0), SSVStaking(address(
     }
 
     function action_withdraw_operator_eth(uint256 seed) external {
+        if (_sumProjectedClusterBalances() != 0) return;
+
         uint64 operatorId = _pickOperatorId(seed);
         if (operatorId == 0) return;
 
@@ -350,10 +410,10 @@ contract SSVClustersEchidna is SSVClusters, SSVOperators(0), SSVStaking(address(
         PackedETH balance = operator.ethSnapshot.balance;
         if (balance.eq(PACKED_ETH_ZERO)) return;
 
-        uint256 amount = PackedETHLib.unpack(PackedETH.wrap(uint64(seed % PackedETH.unwrap(balance)) + 1));
+        uint256 amount = PackedETHLib.unpack(balance);
         if (amount > address(this).balance) return;
 
-        try _operatorOwnerUser(operatorId).withdraw(operatorId, amount) {} catch {}
+        try _operatorOwnerUser(operatorId).withdraw(operatorId, 0) {} catch {}
     }
 
     function action_withdraw(uint256 seed) external {
@@ -362,6 +422,7 @@ contract SSVClustersEchidna is SSVClusters, SSVOperators(0), SSVStaking(address(
 
         ClusterRecord storage record = clusters[clusterId];
         if (!record.exists || !record.cluster.active) return;
+        if (SSVStorage.load().ethClusters[clusterId] != record.cluster.hashClusterData()) return;
 
         if (record.cluster.balance == 0) return;
         uint256 amount = _boundAmount(seed >> 8, record.cluster.balance);
@@ -371,6 +432,8 @@ contract SSVClustersEchidna is SSVClusters, SSVOperators(0), SSVStaking(address(
 
         uint64[] memory operatorIds = _operatorIdsForKey(record.operatorsKey);
         ISSVNetworkCore.Cluster memory cluster = record.cluster;
+        (ISSVNetworkCore.Cluster memory expectedSettled, uint256 expectedBurned) =
+            _expectedSettledCluster(clusterId, cluster, operatorIds);
         ClusterUser owner = _ownerUser(record.owner);
 
         uint256 ownerBefore = record.owner.balance;
@@ -378,14 +441,24 @@ contract SSVClustersEchidna is SSVClusters, SSVOperators(0), SSVStaking(address(
 
         try owner.withdraw(operatorIds, amount, cluster) {
             uint256 burned = _settleCluster(clusterId, record, operatorIds);
+            if (!_sameCluster(record.cluster, expectedSettled) || burned != expectedBurned) {
+                clusterBalanceFloorViolation = true;
+            }
             _decreaseExpected(burned);
 
             if (record.cluster.balance < amount) {
                 withdrawPayoutMismatch = true;
+                clusterBalanceFloorViolation = true;
                 return;
             }
 
             record.cluster.balance -= amount;
+            if (record.cluster.balance != expectedSettled.balance - amount) {
+                clusterBalanceFloorViolation = true;
+            }
+            if (SSVStorage.load().ethClusters[clusterId] != record.cluster.hashClusterData()) {
+                clusterBalanceFloorViolation = true;
+            }
             _decreaseExpected(amount);
 
             if (record.owner.balance != ownerBefore + amount) {
@@ -434,18 +507,130 @@ contract SSVClustersEchidna is SSVClusters, SSVOperators(0), SSVStaking(address(
         } catch {}
     }
 
+    function action_deposit_liquidated(uint256 seed) external {
+        bytes32 clusterId = _ensureLiquidatedCluster(seed, false);
+        if (clusterId == bytes32(0)) return;
+
+        ClusterRecord storage record = clusters[clusterId];
+        if (!record.exists || record.cluster.active) return;
+        if (!liquidatedClusters[clusterId]) return;
+        if (SSVStorage.load().ethClusters[clusterId] != record.cluster.hashClusterData()) return;
+
+        uint256 sourceCapacity = record.owner.balance;
+        if (sourceCapacity == 0) return;
+
+        uint256 amount = (seed >> 8) % sourceCapacity + 1;
+        uint64[] memory operatorIds = _operatorIdsForKey(record.operatorsKey);
+        _depositToLiquidatedCluster(clusterId, record, operatorIds, amount);
+    }
+
+    function action_withdraw_liquidated(uint256 seed) external {
+        bytes32 clusterId = _ensureLiquidatedCluster(seed, false);
+        if (clusterId == bytes32(0)) return;
+
+        ClusterRecord storage record = clusters[clusterId];
+        if (!record.exists || record.cluster.active) return;
+        if (!liquidatedClusters[clusterId]) return;
+        if (SSVStorage.load().ethClusters[clusterId] != record.cluster.hashClusterData()) return;
+
+        uint64[] memory operatorIds = _operatorIdsForKey(record.operatorsKey);
+        uint256 amount;
+
+        if (record.cluster.balance == 0) {
+            uint256 sourceCapacity = record.owner.balance;
+            if (sourceCapacity == 0) return;
+            amount = (seed >> 8) % sourceCapacity + 1;
+            if (!_depositToLiquidatedCluster(clusterId, record, operatorIds, amount)) return;
+        } else {
+            amount = (seed >> 8) % record.cluster.balance + 1;
+        }
+
+        ISSVNetworkCore.Cluster memory clusterBefore = record.cluster;
+        ClusterUser owner = _ownerUser(record.owner);
+
+        uint256 operatorEarningsBefore = _sumTrackedOperatorEarnings(operatorIds);
+        uint256 daoBefore = _daoEthBalance();
+        uint256 ownerBalanceBefore = record.owner.balance;
+        uint256 contractBalanceBefore = address(this).balance;
+
+        try owner.withdraw(operatorIds, amount, clusterBefore) {
+            ISSVNetworkCore.Cluster memory expectedCluster = ISSVNetworkCore.Cluster({
+                validatorCount: clusterBefore.validatorCount,
+                networkFeeIndex: clusterBefore.networkFeeIndex,
+                index: clusterBefore.index,
+                active: clusterBefore.active,
+                balance: clusterBefore.balance
+            });
+            expectedCluster.balance -= amount;
+
+            if (clusterBefore.balance < amount) {
+                withdrawLiquidatedViolation = true;
+                clusterBalanceFloorViolation = true;
+                return;
+            }
+            if (expectedCluster.balance != clusterBefore.balance - amount) {
+                clusterBalanceFloorViolation = true;
+            }
+            if (expectedCluster.active) {
+                withdrawLiquidatedViolation = true;
+            }
+            if (expectedCluster.index != clusterBefore.index) {
+                withdrawLiquidatedViolation = true;
+                clusterBalanceFloorViolation = true;
+            }
+            if (expectedCluster.networkFeeIndex != clusterBefore.networkFeeIndex) {
+                withdrawLiquidatedViolation = true;
+                clusterBalanceFloorViolation = true;
+            }
+
+            bytes32 expectedHash = expectedCluster.hashClusterData();
+            bool hashMatches = SSVStorage.load().ethClusters[clusterId] == expectedHash;
+            if (!hashMatches) {
+                withdrawLiquidatedViolation = true;
+                clusterBalanceFloorViolation = true;
+            }
+            if (record.owner.balance != ownerBalanceBefore + amount) {
+                withdrawLiquidatedViolation = true;
+            }
+            if (address(this).balance != contractBalanceBefore - amount) {
+                withdrawLiquidatedViolation = true;
+            }
+            if (_sumTrackedOperatorEarnings(operatorIds) != operatorEarningsBefore) {
+                withdrawLiquidatedViolation = true;
+            }
+            if (_daoEthBalance() != daoBefore) {
+                withdrawLiquidatedViolation = true;
+            }
+
+            if (!hashMatches) {
+                return;
+            }
+
+            record.cluster = expectedCluster;
+            if (record.cluster.balance != clusterBefore.balance - amount) {
+                clusterBalanceFloorViolation = true;
+            }
+            _decreaseExpected(amount);
+        } catch {
+            withdrawLiquidatedViolation = true;
+        }
+    }
+
     function action_liquidate(uint256 seed) external {
         bytes32 clusterId = _pickClusterId(seed);
         if (clusterId == bytes32(0)) return;
 
         ClusterRecord storage record = clusters[clusterId];
         if (!record.exists || !record.cluster.active) return;
+        if (SSVStorage.load().ethClusters[clusterId] != record.cluster.hashClusterData()) return;
 
         uint256 payout = record.cluster.balance;
         if (payout > address(this).balance) return;
 
         uint64[] memory operatorIds = _operatorIdsForKey(record.operatorsKey);
         ISSVNetworkCore.Cluster memory cluster = record.cluster;
+        (ISSVNetworkCore.Cluster memory expectedSettled, uint256 expectedBurned) =
+            _expectedSettledCluster(clusterId, cluster, operatorIds);
         ClusterUser owner = _ownerUser(record.owner);
 
         uint256 ownerBefore = record.owner.balance;
@@ -453,6 +638,9 @@ contract SSVClustersEchidna is SSVClusters, SSVOperators(0), SSVStaking(address(
 
         try owner.liquidate(record.owner, operatorIds, cluster) {
             uint256 burned = _settleCluster(clusterId, record, operatorIds);
+            if (!_sameCluster(record.cluster, expectedSettled) || burned != expectedBurned) {
+                clusterBalanceFloorViolation = true;
+            }
             _decreaseExpected(burned);
 
             payout = record.cluster.balance;
@@ -462,6 +650,11 @@ contract SSVClustersEchidna is SSVClusters, SSVOperators(0), SSVStaking(address(
             record.cluster.balance = 0;
             record.cluster.index = 0;
             record.cluster.networkFeeIndex = 0;
+            if (SSVStorage.load().ethClusters[clusterId] != record.cluster.hashClusterData()) {
+                clusterBalanceFloorViolation = true;
+            } else {
+                liquidatedClusters[clusterId] = true;
+            }
 
             if (record.owner.balance != ownerBefore + payout) {
                 liquidatePayoutMismatch = true;
@@ -519,7 +712,118 @@ contract SSVClustersEchidna is SSVClusters, SSVOperators(0), SSVStaking(address(
             record.cluster.index = _currentClusterIndex(operatorIds);
             record.cluster.networkFeeIndex = ProtocolLib.currentNetworkFeeIndex(SSVStorageProtocol.load());
             totalExpectedBalance += amount;
+            liquidatedClusters[clusterId] = false;
         } catch {}
+    }
+
+    function action_reactivate_with_removed_operators(uint256 seed) external {
+        bytes32 clusterId = _ensureLiquidatedCluster(seed, true);
+        if (clusterId == bytes32(0)) return;
+
+        ClusterRecord storage record = clusters[clusterId];
+        if (!record.exists || record.cluster.active) return;
+        if (!liquidatedClusters[clusterId]) return;
+        if (SSVStorage.load().ethClusters[clusterId] != record.cluster.hashClusterData()) return;
+
+        StorageData storage s = SSVStorage.load();
+        StorageProtocol storage sp = SSVStorageProtocol.load();
+        uint64[] memory operatorIds = _operatorIdsForKey(record.operatorsKey);
+        uint64[] memory activeBefore = _activeOperatorIds(operatorIds);
+        if (activeBefore.length < 2) return;
+        if (activeBefore.length != operatorIds.length) return;
+
+        uint64 removedOperatorId = activeBefore[activeBefore.length - 1];
+        address removedOwner = s.operators[removedOperatorId].owner;
+        uint64 removedFrozenIndex;
+
+        try _operatorOwnerUser(removedOperatorId).remove(removedOperatorId) {
+            if (s.operators[removedOperatorId].ethSnapshot.block != 0) {
+                reactivateRemovedOperatorsViolation = true;
+            }
+            if (s.operators[removedOperatorId].ethValidatorCount != 0) {
+                reactivateRemovedOperatorsViolation = true;
+            }
+            if (PackedETH.unwrap(s.operators[removedOperatorId].ethFee) != 0) {
+                reactivateRemovedOperatorsViolation = true;
+            }
+            if (s.operators[removedOperatorId].owner != removedOwner) {
+                reactivateRemovedOperatorsViolation = true;
+            }
+            removedFrozenIndex = s.operators[removedOperatorId].ethSnapshot.index;
+        } catch {
+            reactivateRemovedOperatorsViolation = true;
+            return;
+        }
+
+        uint64[] memory activeOperatorIds = _activeOperatorIds(operatorIds);
+        if (activeOperatorIds.length + 1 != activeBefore.length) {
+            reactivateRemovedOperatorsViolation = true;
+            return;
+        }
+
+        uint32[] memory activeCountsBefore = new uint32[](activeOperatorIds.length);
+        for (uint256 i; i < activeOperatorIds.length; ++i) {
+            activeCountsBefore[i] = s.operators[activeOperatorIds[i]].ethValidatorCount;
+        }
+
+        uint32 daoValidatorCountBefore = sp.ethDaoValidatorCount;
+        uint256 minBalance = _minimumActiveClusterBalance(activeOperatorIds, record.cluster.validatorCount);
+        uint256 amount = minBalance > record.cluster.balance ? minBalance - record.cluster.balance : 0;
+        if (record.owner.balance < amount) return;
+
+        ISSVNetworkCore.Cluster memory clusterBefore = record.cluster;
+        uint64 expectedClusterIndex = _currentClusterIndex(operatorIds);
+        uint64 expectedNetworkFeeIndex = ProtocolLib.currentNetworkFeeIndex(sp);
+        ClusterUser owner = _ownerUser(record.owner);
+
+        try owner.reactivateFromBalance(operatorIds, clusterBefore, amount) {
+            ISSVNetworkCore.Cluster memory expectedCluster = ISSVNetworkCore.Cluster({
+                validatorCount: clusterBefore.validatorCount,
+                networkFeeIndex: expectedNetworkFeeIndex,
+                index: expectedClusterIndex,
+                active: true,
+                balance: clusterBefore.balance + amount
+            });
+
+            bytes32 expectedHash = expectedCluster.hashClusterData();
+            bool hashMatches = SSVStorage.load().ethClusters[clusterId] == expectedHash;
+            if (!hashMatches) {
+                reactivateRemovedOperatorsViolation = true;
+            }
+            if (s.operators[removedOperatorId].ethSnapshot.block != 0) {
+                reactivateRemovedOperatorsViolation = true;
+            }
+            if (s.operators[removedOperatorId].ethValidatorCount != 0) {
+                reactivateRemovedOperatorsViolation = true;
+            }
+            if (PackedETH.unwrap(s.operators[removedOperatorId].ethFee) != 0) {
+                reactivateRemovedOperatorsViolation = true;
+            }
+            if (s.operators[removedOperatorId].owner != removedOwner) {
+                reactivateRemovedOperatorsViolation = true;
+            }
+            if (s.operators[removedOperatorId].ethSnapshot.index != removedFrozenIndex) {
+                reactivateRemovedOperatorsViolation = true;
+            }
+
+            for (uint256 i; i < activeOperatorIds.length; ++i) {
+                uint64 operatorId = activeOperatorIds[i];
+                if (s.operators[operatorId].ethValidatorCount != activeCountsBefore[i] + clusterBefore.validatorCount) {
+                    reactivateRemovedOperatorsViolation = true;
+                }
+            }
+            if (sp.ethDaoValidatorCount != daoValidatorCountBefore + clusterBefore.validatorCount) {
+                reactivateRemovedOperatorsViolation = true;
+            }
+
+            if (hashMatches) {
+                record.cluster = expectedCluster;
+                totalExpectedBalance += amount;
+                liquidatedClusters[clusterId] = false;
+            }
+        } catch {
+            reactivateRemovedOperatorsViolation = true;
+        }
     }
 
     function action_update_cluster_balance_valid(uint256 seed) external {
@@ -528,6 +832,7 @@ contract SSVClustersEchidna is SSVClusters, SSVOperators(0), SSVStaking(address(
 
         ClusterRecord storage record = clusters[clusterId];
         if (!record.exists || !record.cluster.active) return;
+        if (SSVStorage.load().ethClusters[clusterId] != record.cluster.hashClusterData()) return;
 
         uint64[] memory operatorIds = _operatorIdsForKey(record.operatorsKey);
         StorageProtocol storage sp = SSVStorageProtocol.load();
@@ -567,10 +872,13 @@ contract SSVClustersEchidna is SSVClusters, SSVOperators(0), SSVStaking(address(
         uint128 networkFeeUnitsOld = (idxNet * uint128(oldVUnits)) / BPS_DENOMINATOR;
         uint256 totalFeesOld = (uint256(operatorFeeUnitsOld) + uint256(networkFeeUnitsOld)) * ETH_DEDUCTED_DIGITS;
 
-        ISSVNetworkCore.Cluster memory expectedCluster = beforeCluster;
-        expectedCluster.index = clusterIndex;
-        expectedCluster.networkFeeIndex = networkFeeIndex;
-        expectedCluster.balance = expectedCluster.balance >= totalFeesOld ? expectedCluster.balance - totalFeesOld : 0;
+        ISSVNetworkCore.Cluster memory expectedCluster = ISSVNetworkCore.Cluster({
+            validatorCount: beforeCluster.validatorCount,
+            networkFeeIndex: networkFeeIndex,
+            index: clusterIndex,
+            active: beforeCluster.active,
+            balance: beforeCluster.balance >= totalFeesOld ? beforeCluster.balance - totalFeesOld : 0
+        });
 
         uint64 burnRate = _burnRate(operatorIds);
         bool shouldLiquidate = expectedCluster.validatorCount != 0
@@ -591,12 +899,53 @@ contract SSVClustersEchidna is SSVClusters, SSVOperators(0), SSVStaking(address(
             expectedCluster.networkFeeIndex = 0;
         }
 
+        bool checkImplicitEbDefault = ebBefore.vUnits == 0 && totalFeesOld != 0;
+        bytes32 wrongImplicitHash = bytes32(0);
+        bool wrongImplicitHashDistinct = false;
+        if (checkImplicitEbDefault) {
+            ISSVNetworkCore.Cluster memory wrongImplicitCluster = ISSVNetworkCore.Cluster({
+                validatorCount: beforeCluster.validatorCount,
+                networkFeeIndex: networkFeeIndex,
+                index: clusterIndex,
+                active: beforeCluster.active,
+                balance: beforeCluster.balance
+            });
+
+            bool wrongShouldLiquidate = wrongImplicitCluster.validatorCount != 0
+                && wrongImplicitCluster.isLiquidatableWithVUnits(
+                    newVUnits,
+                    burnRate,
+                    PackedETH.unwrap(sp.ethNetworkFee),
+                    sp.minimumBlocksBeforeLiquidation,
+                    sp.minimumLiquidationCollateral
+                );
+
+            if (wrongShouldLiquidate) {
+                wrongImplicitCluster.active = false;
+                wrongImplicitCluster.balance = 0;
+                wrongImplicitCluster.index = 0;
+                wrongImplicitCluster.networkFeeIndex = 0;
+            }
+
+            wrongImplicitHash = wrongImplicitCluster.hashClusterData();
+        }
+
         uint256 liquidatorBefore = address(attacker).balance;
         try attacker.updateClusterBalance(blockNum, record.owner, operatorIds, beforeCluster, effectiveBalance, proof) {
             bytes32 storedHash = SSVStorage.load().ethClusters[clusterId];
             bytes32 expectedHash = expectedCluster.hashClusterData();
+            if (checkImplicitEbDefault) {
+                wrongImplicitHashDistinct = wrongImplicitHash != expectedHash;
+            }
             if (storedHash != expectedHash) {
                 feeIndexNotCurrentAfterSettle = true;
+                if (checkImplicitEbDefault) {
+                    implicitEbDefaultViolation = true;
+                }
+            }
+
+            if (checkImplicitEbDefault && wrongImplicitHashDistinct && storedHash == wrongImplicitHash) {
+                implicitEbDefaultViolation = true;
             }
 
             if (!shouldLiquidate && newVUnits != oldVUnits) {
@@ -605,10 +954,13 @@ contract SSVClustersEchidna is SSVClusters, SSVOperators(0), SSVStaking(address(
                 uint256 totalFeesNew =
                     (uint256(operatorFeeUnitsNew) + uint256(networkFeeUnitsNew)) * ETH_DEDUCTED_DIGITS;
                 if (totalFeesNew != totalFeesOld) {
-                    ISSVNetworkCore.Cluster memory altCluster = beforeCluster;
-                    altCluster.index = clusterIndex;
-                    altCluster.networkFeeIndex = networkFeeIndex;
-                    altCluster.balance = altCluster.balance >= totalFeesNew ? altCluster.balance - totalFeesNew : 0;
+                    ISSVNetworkCore.Cluster memory altCluster = ISSVNetworkCore.Cluster({
+                        validatorCount: beforeCluster.validatorCount,
+                        networkFeeIndex: networkFeeIndex,
+                        index: clusterIndex,
+                        active: beforeCluster.active,
+                        balance: beforeCluster.balance >= totalFeesNew ? beforeCluster.balance - totalFeesNew : 0
+                    });
                     if (storedHash == altCluster.hashClusterData()) {
                         feeUsedNewVUnitsOnEbChange = true;
                     }
@@ -619,9 +971,6 @@ contract SSVClustersEchidna is SSVClusters, SSVOperators(0), SSVStaking(address(
                 uint256 payout = address(attacker).balance - liquidatorBefore;
                 if (payout != expectedPayout) {
                     liquidatePayoutMismatch = true;
-                }
-                if (seb.clusterEB[clusterId].vUnits != 0) {
-                    liquidationDidNotClearEbSnapshot = true;
                 }
             }
 
@@ -638,6 +987,9 @@ contract SSVClustersEchidna is SSVClusters, SSVOperators(0), SSVStaking(address(
                     _decreaseExpected(beforeCluster.balance - expectedCluster.balance);
                 }
                 record.cluster = expectedCluster;
+                if (shouldLiquidate) {
+                    liquidatedClusters[clusterId] = true;
+                }
             }
         } catch {}
     }
@@ -662,6 +1014,39 @@ contract SSVClustersEchidna is SSVClusters, SSVOperators(0), SSVStaking(address(
             blockNum, record.owner, operatorIds, record.cluster, effectiveBalance, proof
         ) {
             ebUpdateWithoutRootSucceeded = true;
+        } catch {}
+    }
+
+    function action_update_cluster_balance_non_latest_root(uint256 seed) external {
+        bytes32 clusterId = _pickInactiveClusterId(seed);
+        if (clusterId == bytes32(0)) return;
+
+        ClusterRecord storage record = clusters[clusterId];
+        uint64[] memory operatorIds = _operatorIdsForKey(record.operatorsKey);
+        StorageEB storage seb = SSVStorageEB.load();
+        ClusterEBSnapshot memory ebBefore = seb.clusterEB[clusterId];
+
+        uint64 oldBlock = seb.latestCommittedBlock;
+        uint64 minOldBlock = ebBefore.lastRootBlockNum + 1;
+        if (oldBlock < minOldBlock) {
+            oldBlock = minOldBlock;
+        }
+
+        uint64 newBlock = oldBlock + 1;
+        if (uint64(block.number) < newBlock) return;
+
+        uint32 effectiveBalance = record.cluster.validatorCount * uint32(DEFAULT_EB_PER_VALIDATOR / 1 ether);
+        bytes32 oldRoot = _singleLeafRoot(clusterId, effectiveBalance);
+        bytes32 newRoot = keccak256(abi.encodePacked(clusterId, seed, newBlock));
+        bytes32[] memory proof = new bytes32[](0);
+
+        _setCommittedRoot(seb, oldBlock, oldRoot);
+        _setCommittedRoot(seb, newBlock, newRoot);
+
+        try attacker.updateClusterBalance(
+            oldBlock, record.owner, operatorIds, record.cluster, effectiveBalance, proof
+        ) {
+            ebUpdateNonLatestRootBypassed = true;
         } catch {}
     }
 
@@ -725,6 +1110,79 @@ contract SSVClustersEchidna is SSVClusters, SSVOperators(0), SSVStaking(address(
         } catch {}
     }
 
+    function action_update_cluster_balance_inactive_valid(uint256 seed) external {
+        bytes32 clusterId = _pickInactiveClusterId(seed);
+        if (clusterId == bytes32(0)) return;
+
+        ClusterRecord storage record = clusters[clusterId];
+        if (!record.exists || record.cluster.active) return;
+
+        StorageData storage s = SSVStorage.load();
+        if (s.ethClusters[clusterId] != record.cluster.hashClusterData()) return;
+
+        uint64[] memory operatorIds = _operatorIdsForKey(record.operatorsKey);
+        StorageProtocol storage sp = SSVStorageProtocol.load();
+        StorageEB storage seb = SSVStorageEB.load();
+
+        ClusterEBSnapshot memory ebBefore = seb.clusterEB[clusterId];
+        if (uint64(block.number) < ebBefore.lastRootBlockNum + 1) return;
+        if (ebBefore.lastUpdateBlock != 0 && uint64(block.number) < ebBefore.lastUpdateBlock + seb.minBlocksBetweenUpdates)
+        {
+            return;
+        }
+
+        uint64 minBlockNum = ebBefore.lastRootBlockNum + 1;
+        uint64 blockNum = minBlockNum + uint64((seed >> 8) % (uint64(block.number) - minBlockNum + 1));
+
+        uint32 minEb = record.cluster.validatorCount * uint32(DEFAULT_EB_PER_VALIDATOR / 1 ether);
+        uint32 maxEb = minEb + (record.cluster.validatorCount * 16);
+        uint32 effectiveBalance = minEb;
+        if (maxEb > minEb) {
+            effectiveBalance = minEb + uint32((seed >> 24) % (maxEb - minEb + 1));
+        }
+
+        bytes32 storedHashBefore = s.ethClusters[clusterId];
+        uint64 daoTotalEthVUnitsBefore = sp.daoTotalEthVUnits;
+        bool wasMarkedLiquidated = liquidatedClusters[clusterId];
+        uint64[] memory operatorEthVUnitsBefore = new uint64[](operatorIds.length);
+        for (uint256 i; i < operatorIds.length; ++i) {
+            operatorEthVUnitsBefore[i] = seb.operatorEthVUnits[operatorIds[i]];
+        }
+
+        bytes32 root = _singleLeafRoot(clusterId, effectiveBalance);
+        _setCommittedRoot(seb, blockNum, root);
+        bytes32[] memory proof = new bytes32[](0);
+
+        try attacker.updateClusterBalance(blockNum, record.owner, operatorIds, record.cluster, effectiveBalance, proof) {
+            ClusterEBSnapshot storage ebAfter = seb.clusterEB[clusterId];
+            if (s.ethClusters[clusterId] != storedHashBefore) {
+                inactiveEbUpdateViolation = true;
+            }
+            if (sp.daoTotalEthVUnits != daoTotalEthVUnitsBefore) {
+                inactiveEbUpdateViolation = true;
+            }
+            if (liquidatedClusters[clusterId] != wasMarkedLiquidated) {
+                inactiveEbUpdateViolation = true;
+            }
+            for (uint256 i; i < operatorIds.length; ++i) {
+                if (seb.operatorEthVUnits[operatorIds[i]] != operatorEthVUnitsBefore[i]) {
+                    inactiveEbUpdateViolation = true;
+                }
+            }
+            if (ebAfter.vUnits != ClusterLib.ebToVUnits(effectiveBalance)) {
+                inactiveEbUpdateViolation = true;
+            }
+            if (ebAfter.lastRootBlockNum != blockNum) {
+                inactiveEbUpdateViolation = true;
+            }
+            if (ebAfter.lastUpdateBlock != uint64(block.number)) {
+                inactiveEbUpdateViolation = true;
+            }
+        } catch {
+            inactiveEbUpdateViolation = true;
+        }
+    }
+
     function echidna_cluster_hash_consistent() external view returns (bool) {
         StorageData storage s = SSVStorage.load();
         uint256 count = clusterIds.length;
@@ -744,7 +1202,6 @@ contract SSVClustersEchidna is SSVClusters, SSVOperators(0), SSVStaking(address(
             ClusterRecord storage record = clusters[clusterIds[i]];
             if (!record.exists) return false;
             if (!record.cluster.active) {
-                if (record.cluster.balance != 0) return false;
                 if (record.cluster.index != 0) return false;
                 if (record.cluster.networkFeeIndex != 0) return false;
             }
@@ -764,16 +1221,7 @@ contract SSVClustersEchidna is SSVClusters, SSVOperators(0), SSVStaking(address(
     }
 
     function echidna_eth_balance_accounting() external view returns (bool) {
-        (uint256 liabilities, bool ok) = _addNoOverflow(_sumProjectedClusterBalances(), _sumTrackedOperatorEthEarnings());
-        if (!ok) return false;
-
-        uint256 protocolEthLiability = _daoEthBalance();
-        uint256 stakingPoolLiability = _stakingEthPoolBalance();
-        if (stakingPoolLiability > protocolEthLiability) {
-            protocolEthLiability = stakingPoolLiability;
-        }
-
-        (liabilities, ok) = _addNoOverflow(liabilities, protocolEthLiability);
+        (uint256 liabilities, bool ok) = _currentEthLiabilities();
         if (!ok) return false;
 
         return address(this).balance >= liabilities;
@@ -822,6 +1270,10 @@ contract SSVClustersEchidna is SSVClusters, SSVOperators(0), SSVStaking(address(
         return !ebUpdateWithoutRootSucceeded;
     }
 
+    function echidna_eb_update_requires_latest_root() external view returns (bool) {
+        return !ebUpdateNonLatestRootBypassed;
+    }
+
     function echidna_eb_update_frequency() external view returns (bool) {
         return !ebUpdateFrequencyBypassed;
     }
@@ -830,16 +1282,36 @@ contract SSVClustersEchidna is SSVClusters, SSVOperators(0), SSVStaking(address(
         return !ebUpdateStalenessBypassed;
     }
 
+    function echidna_inactive_eb_update_skips_accounting() external view returns (bool) {
+        return !inactiveEbUpdateViolation;
+    }
+
     function echidna_fee_index_current_after_settle() external view returns (bool) {
         return !feeIndexNotCurrentAfterSettle;
+    }
+
+    function echidna_implicit_eb_default_used() external view returns (bool) {
+        return !implicitEbDefaultViolation;
     }
 
     function echidna_fee_uses_old_vunits_on_eb_change() external view returns (bool) {
         return !feeUsedNewVUnitsOnEbChange;
     }
 
-    function echidna_liquidation_clears_eb_snapshot() external view returns (bool) {
-        return !liquidationDidNotClearEbSnapshot;
+    function echidna_cluster_balance_non_negative() external view returns (bool) {
+        return !clusterBalanceFloorViolation;
+    }
+
+    function echidna_deposit_liquidated_succeeds() external view returns (bool) {
+        return !depositLiquidatedViolation;
+    }
+
+    function echidna_withdraw_liquidated_skips_fees() external view returns (bool) {
+        return !withdrawLiquidatedViolation;
+    }
+
+    function echidna_reactivate_with_removed_operators() external view returns (bool) {
+        return !reactivateRemovedOperatorsViolation;
     }
 
     function _initProtocolDefaults() internal {
@@ -927,6 +1399,183 @@ contract SSVClustersEchidna is SSVClusters, SSVOperators(0), SSVStaking(address(
         return bytes32(0);
     }
 
+    function _pickLiquidatedClusterId(uint256 seed, bool requireMultiOperator) internal view returns (bytes32) {
+        uint256 count = clusterIds.length;
+        if (count == 0) return bytes32(0);
+
+        uint256 start = seed % count;
+        for (uint256 i; i < count; ++i) {
+            bytes32 clusterId = clusterIds[(start + i) % count];
+            ClusterRecord storage record = clusters[clusterId];
+            if (!record.exists || record.cluster.active) continue;
+            if (!liquidatedClusters[clusterId]) continue;
+            if (requireMultiOperator && record.operatorsKey == 0) continue;
+            if (requireMultiOperator && !_isCanonicalRemovedOperatorCluster(clusterId, record)) continue;
+            if (SSVStorage.load().ethClusters[clusterId] != record.cluster.hashClusterData()) continue;
+            return clusterId;
+        }
+
+        return bytes32(0);
+    }
+
+    function _pickActiveClusterId(uint256 seed, bool requireMultiOperator) internal view returns (bytes32) {
+        uint256 count = clusterIds.length;
+        if (count == 0) return bytes32(0);
+
+        uint256 start = seed % count;
+        for (uint256 i; i < count; ++i) {
+            bytes32 clusterId = clusterIds[(start + i) % count];
+            ClusterRecord storage record = clusters[clusterId];
+            if (!record.exists || !record.cluster.active) continue;
+            if (requireMultiOperator && record.operatorsKey == 0) continue;
+            if (requireMultiOperator && !_isCanonicalRemovedOperatorCluster(clusterId, record)) continue;
+            return clusterId;
+        }
+
+        return bytes32(0);
+    }
+
+    function _ensureLiquidatedCluster(uint256 seed, bool requireMultiOperator) internal returns (bytes32) {
+        bytes32 clusterId = _pickLiquidatedClusterId(seed, requireMultiOperator);
+        if (clusterId != bytes32(0)) return clusterId;
+
+        clusterId = _pickActiveClusterId(seed, requireMultiOperator);
+        if (clusterId == bytes32(0)) {
+            clusterId = _bootstrapActiveCluster(seed, requireMultiOperator);
+            if (clusterId == bytes32(0)) return bytes32(0);
+        }
+
+        ClusterRecord storage record = clusters[clusterId];
+        if (!record.exists || !record.cluster.active) return bytes32(0);
+        if (requireMultiOperator && record.operatorsKey == 0) return bytes32(0);
+        if (SSVStorage.load().ethClusters[clusterId] != record.cluster.hashClusterData()) return bytes32(0);
+        if (record.cluster.balance > address(this).balance) return bytes32(0);
+
+        uint64[] memory operatorIds = _operatorIdsForKey(record.operatorsKey);
+        ISSVNetworkCore.Cluster memory clusterBefore = record.cluster;
+        (ISSVNetworkCore.Cluster memory expectedSettled, uint256 expectedBurned) =
+            _expectedSettledCluster(clusterId, clusterBefore, operatorIds);
+        ISSVNetworkCore.Cluster memory expectedLiquidated = ISSVNetworkCore.Cluster({
+            validatorCount: expectedSettled.validatorCount,
+            networkFeeIndex: 0,
+            index: 0,
+            active: false,
+            balance: 0
+        });
+        ClusterUser owner = _ownerUser(record.owner);
+        StorageData storage s = SSVStorage.load();
+        StorageProtocol storage sp = SSVStorageProtocol.load();
+        StorageEB storage seb = SSVStorageEB.load();
+        uint64[] memory activeBefore = _activeOperatorIds(operatorIds);
+        uint32[] memory activeCountsBefore = new uint32[](activeBefore.length);
+        uint64[] memory operatorDeviationsBefore = new uint64[](activeBefore.length);
+        for (uint256 i; i < activeBefore.length; ++i) {
+            activeCountsBefore[i] = s.operators[activeBefore[i]].ethValidatorCount;
+            operatorDeviationsBefore[i] = seb.operatorEthVUnits[activeBefore[i]];
+        }
+        uint32 daoValidatorCountBefore = sp.ethDaoValidatorCount;
+        uint64 daoTotalEthVUnitsBefore = sp.daoTotalEthVUnits;
+        uint64 storedVUnitsBefore = seb.clusterEB[clusterId].vUnits;
+
+        try owner.liquidate(record.owner, operatorIds, clusterBefore) {
+            if (SSVStorage.load().ethClusters[clusterId] != expectedLiquidated.hashClusterData()) {
+                clusterBalanceFloorViolation = true;
+                return bytes32(0);
+            }
+            for (uint256 i; i < activeBefore.length; ++i) {
+                if (s.operators[activeBefore[i]].ethValidatorCount != activeCountsBefore[i] - clusterBefore.validatorCount) {
+                    clusterBalanceFloorViolation = true;
+                    return bytes32(0);
+                }
+            }
+            if (sp.ethDaoValidatorCount != daoValidatorCountBefore - clusterBefore.validatorCount) {
+                clusterBalanceFloorViolation = true;
+                return bytes32(0);
+            }
+            if (storedVUnitsBefore == 0) {
+                uint64 baselineDelta = uint64(clusterBefore.validatorCount) * BPS_DENOMINATOR;
+                if (sp.daoTotalEthVUnits != daoTotalEthVUnitsBefore - baselineDelta) {
+                    clusterBalanceFloorViolation = true;
+                    return bytes32(0);
+                }
+                for (uint256 i; i < activeBefore.length; ++i) {
+                    if (seb.operatorEthVUnits[activeBefore[i]] != operatorDeviationsBefore[i]) {
+                        clusterBalanceFloorViolation = true;
+                        return bytes32(0);
+                    }
+                }
+            }
+            _decreaseExpected(expectedBurned);
+            _decreaseExpected(expectedSettled.balance);
+            record.cluster = expectedLiquidated;
+            liquidatedClusters[clusterId] = true;
+
+            return clusterId;
+        } catch {
+            return bytes32(0);
+        }
+    }
+
+    function _bootstrapActiveCluster(uint256 seed, bool requireMultiOperator) internal returns (bytes32) {
+        if (clusterIds.length >= MAX_CLUSTERS) return bytes32(0);
+
+        uint8 operatorsKey = requireMultiOperator ? 1 : 0;
+        uint64[] memory operatorIds = _operatorIdsForKey(operatorsKey);
+        StorageData storage s = SSVStorage.load();
+        uint256 operatorsLength = operatorIds.length;
+        for (uint256 i; i < operatorsLength; ++i) {
+            if (s.operators[operatorIds[i]].ethSnapshot.block == 0) {
+                return bytes32(0);
+            }
+        }
+
+        uint32 validatorCount = 1;
+        uint256 minRequired = _minimumActiveClusterBalance(operatorIds, validatorCount);
+        if (minRequired == 0 || minRequired > _availableBalance()) return bytes32(0);
+
+        address firstOwner = (seed % 2 == 0) ? address(owner1) : address(owner2);
+        bytes32 clusterId = _createBootstrapCluster(firstOwner, operatorsKey, operatorIds, validatorCount, minRequired);
+        if (clusterId != bytes32(0)) return clusterId;
+
+        address secondOwner = firstOwner == address(owner1) ? address(owner2) : address(owner1);
+        return _createBootstrapCluster(secondOwner, operatorsKey, operatorIds, validatorCount, minRequired);
+    }
+
+    function _createBootstrapCluster(
+        address owner,
+        uint8 operatorsKey,
+        uint64[] memory operatorIds,
+        uint32 validatorCount,
+        uint256 balance
+    ) internal returns (bytes32 clusterId) {
+        clusterId = keccak256(abi.encodePacked(owner, operatorIds));
+        if (clusters[clusterId].exists) return bytes32(0);
+
+        StorageData storage s = SSVStorage.load();
+        StorageProtocol storage sp = SSVStorageProtocol.load();
+        uint256 operatorsLength = operatorIds.length;
+
+        for (uint256 i; i < operatorsLength; ++i) {
+            OperatorLib.updateSnapshotSt(s.operators[operatorIds[i]], operatorIds[i]);
+            s.operators[operatorIds[i]].ethValidatorCount += validatorCount;
+        }
+        sp.updateDAO(true, validatorCount);
+
+        ISSVNetworkCore.Cluster memory cluster = ISSVNetworkCore.Cluster({
+            validatorCount: validatorCount,
+            networkFeeIndex: ProtocolLib.currentNetworkFeeIndex(sp),
+            index: _currentClusterIndex(operatorIds),
+            active: true,
+            balance: balance
+        });
+
+        s.ethClusters[clusterId] = cluster.hashClusterData();
+        clusters[clusterId] = ClusterRecord({cluster: cluster, owner: owner, operatorsKey: operatorsKey, exists: true});
+        liquidatedClusters[clusterId] = false;
+        clusterIds.push(clusterId);
+        totalExpectedBalance += balance;
+    }
+
     function _staker(uint8 seed) internal view returns (StakingUser) {
         if (seed % 2 == 0) return staker1;
         return staker2;
@@ -945,8 +1594,9 @@ contract SSVClustersEchidna is SSVClusters, SSVOperators(0), SSVStaking(address(
     }
 
     function _availableBalance() internal view returns (uint256) {
-        if (address(this).balance <= totalExpectedBalance) return 0;
-        return address(this).balance - totalExpectedBalance;
+        (uint256 reserved, bool ok) = _currentProjectedEthReservations();
+        if (!ok || address(this).balance <= reserved) return 0;
+        return address(this).balance - reserved;
     }
 
     function _minimumActiveClusterBalance(uint64[] memory operatorIds, uint32 validatorCount) internal view returns (uint256) {
@@ -968,6 +1618,21 @@ contract SSVClustersEchidna is SSVClusters, SSVOperators(0), SSVStaking(address(
         }
 
         return sum;
+    }
+
+    function _sumTrackedOperatorEarnings(uint64[] memory operatorIds) internal view returns (uint256 sum) {
+        StorageData storage s = SSVStorage.load();
+        uint256 count = operatorIds.length;
+        for (uint256 i; i < count; ++i) {
+            sum += PackedETHLib.unpack(s.operators[operatorIds[i]].ethSnapshot.balance);
+        }
+    }
+
+    function _sumProjectedOperatorEthEarnings() internal view returns (uint256 sum) {
+        uint64[3] memory ids = [op1, op2, op3];
+        for (uint256 i; i < ids.length; ++i) {
+            sum += _projectedOperatorEthBalance(ids[i]);
+        }
     }
 
     function _sumProjectedClusterBalances() internal view returns (uint256 sum) {
@@ -1002,6 +1667,36 @@ contract SSVClustersEchidna is SSVClusters, SSVOperators(0), SSVStaking(address(
 
     function _stakingEthPoolBalance() internal view returns (uint256) {
         return PackedETHLib.unpack(SSVStorageStaking.load().stakingEthPoolBalance);
+    }
+
+    function _projectedDaoEthBalance() internal view returns (uint256) {
+        return PackedETHLib.unpack(ProtocolLib.networkTotalEarnings(SSVStorageProtocol.load()));
+    }
+
+    function _currentEthLiabilities() internal view returns (uint256 liabilities, bool ok) {
+        (liabilities, ok) = _addNoOverflow(_sumProjectedClusterBalances(), _sumTrackedOperatorEthEarnings());
+        if (!ok) return (0, false);
+
+        uint256 protocolEthLiability = _daoEthBalance();
+        uint256 stakingPoolLiability = _stakingEthPoolBalance();
+        if (stakingPoolLiability > protocolEthLiability) {
+            protocolEthLiability = stakingPoolLiability;
+        }
+
+        return _addNoOverflow(liabilities, protocolEthLiability);
+    }
+
+    function _currentProjectedEthReservations() internal view returns (uint256 liabilities, bool ok) {
+        (liabilities, ok) = _addNoOverflow(_sumProjectedClusterBalances(), _sumProjectedOperatorEthEarnings());
+        if (!ok) return (0, false);
+
+        uint256 protocolEthLiability = _projectedDaoEthBalance();
+        uint256 stakingPoolLiability = _stakingEthPoolBalance();
+        if (stakingPoolLiability > protocolEthLiability) {
+            protocolEthLiability = stakingPoolLiability;
+        }
+
+        return _addNoOverflow(liabilities, protocolEthLiability);
     }
 
     function _addNoOverflow(uint256 a, uint256 b) internal pure returns (uint256 sum, bool ok) {
@@ -1042,6 +1737,41 @@ contract SSVClustersEchidna is SSVClusters, SSVOperators(0), SSVStaking(address(
 
         if (beforeBalance > cluster.balance) {
             burned = beforeBalance - cluster.balance;
+        }
+    }
+
+    function _sameCluster(
+        ISSVNetworkCore.Cluster memory lhs,
+        ISSVNetworkCore.Cluster memory rhs
+    ) internal pure returns (bool) {
+        return lhs.validatorCount == rhs.validatorCount && lhs.networkFeeIndex == rhs.networkFeeIndex
+            && lhs.index == rhs.index && lhs.active == rhs.active && lhs.balance == rhs.balance;
+    }
+
+    function _expectedSettledCluster(
+        bytes32 clusterId,
+        ISSVNetworkCore.Cluster memory beforeCluster,
+        uint64[] memory operatorIds
+    ) internal view returns (ISSVNetworkCore.Cluster memory expectedCluster, uint256 burned) {
+        expectedCluster = ISSVNetworkCore.Cluster({
+            validatorCount: beforeCluster.validatorCount,
+            networkFeeIndex: beforeCluster.networkFeeIndex,
+            index: beforeCluster.index,
+            active: beforeCluster.active,
+            balance: beforeCluster.balance
+        });
+
+        uint64 clusterIndex = _currentClusterIndex(operatorIds);
+        uint64 networkFeeIndex = ProtocolLib.currentNetworkFeeIndex(SSVStorageProtocol.load());
+        if (clusterIndex < beforeCluster.index || networkFeeIndex < beforeCluster.networkFeeIndex) {
+            return (expectedCluster, 0);
+        }
+
+        expectedCluster.updateBalanceWithEB(clusterId, clusterIndex, networkFeeIndex);
+        expectedCluster.index = clusterIndex;
+        expectedCluster.networkFeeIndex = networkFeeIndex;
+        if (beforeCluster.balance > expectedCluster.balance) {
+            burned = beforeCluster.balance - expectedCluster.balance;
         }
     }
 
@@ -1091,6 +1821,122 @@ contract SSVClustersEchidna is SSVClusters, SSVOperators(0), SSVStaking(address(
             burnRate += PackedETH.unwrap(s.operators[operatorIds[i]].ethFee);
         }
         return burnRate;
+    }
+
+    function _projectedOperatorEthBalance(uint64 operatorId) internal view returns (uint256) {
+        StorageData storage s = SSVStorage.load();
+        ISSVNetworkCore.Operator storage operator = s.operators[operatorId];
+        uint256 balance = PackedETHLib.unpack(operator.ethSnapshot.balance);
+        if (operator.ethSnapshot.block == 0) {
+            return balance;
+        }
+
+        uint64 blockDiffFee = (uint64(block.number) - uint64(operator.ethSnapshot.block)) * PackedETH.unwrap(operator.ethFee);
+        if (blockDiffFee == 0) {
+            return balance;
+        }
+
+        uint64 storedDeviation = SSVStorageEB.load().operatorEthVUnits[operatorId];
+        uint64 effectiveVUnits = storedDeviation + (operator.ethValidatorCount * BPS_DENOMINATOR);
+        if (effectiveVUnits == 0) {
+            return balance;
+        }
+
+        uint128 deltaUnits = (uint128(blockDiffFee) * uint128(effectiveVUnits)) / BPS_DENOMINATOR;
+        return balance + uint256(deltaUnits) * ETH_DEDUCTED_DIGITS;
+    }
+
+    function _activeOperatorIds(uint64[] memory operatorIds) internal view returns (uint64[] memory activeOperatorIds) {
+        StorageData storage s = SSVStorage.load();
+        uint256 count = operatorIds.length;
+        uint256 activeCount = 0;
+        for (uint256 i; i < count; ++i) {
+            if (s.operators[operatorIds[i]].ethSnapshot.block != 0) {
+                activeCount++;
+            }
+        }
+
+        activeOperatorIds = new uint64[](activeCount);
+        uint256 next = 0;
+        for (uint256 i; i < count; ++i) {
+            uint64 operatorId = operatorIds[i];
+            if (s.operators[operatorId].ethSnapshot.block != 0) {
+                activeOperatorIds[next++] = operatorId;
+            }
+        }
+    }
+
+    function _reactivationMinRequired(uint64[] memory activeOperatorIds, ClusterRecord storage record)
+        internal
+        view
+        returns (uint256)
+    {
+        StorageProtocol storage sp = SSVStorageProtocol.load();
+        uint64 burnRate = _burnRate(activeOperatorIds);
+        uint64[] memory operatorIds = _operatorIdsForKey(record.operatorsKey);
+        bytes32 clusterId = keccak256(abi.encodePacked(record.owner, operatorIds));
+
+        uint64 baselineVUnits = uint64(record.cluster.validatorCount) * BPS_DENOMINATOR;
+        uint64 storedVUnits = SSVStorageEB.load().clusterEB[clusterId].vUnits;
+        uint64 effectiveVUnits = storedVUnits > 0 ? storedVUnits : baselineVUnits;
+        uint256 threshold = (
+            uint256(sp.minimumBlocksBeforeLiquidation) * uint256(burnRate + PackedETH.unwrap(sp.ethNetworkFee))
+                * uint256(effectiveVUnits)
+        ) / BPS_DENOMINATOR;
+        threshold *= ETH_DEDUCTED_DIGITS;
+
+        if (threshold <= record.cluster.balance) {
+            return 0;
+        }
+        return threshold - record.cluster.balance;
+    }
+
+    function _isCanonicalRemovedOperatorCluster(bytes32 clusterId, ClusterRecord storage record) internal view returns (bool) {
+        return record.cluster.validatorCount == 1 && SSVStorageEB.load().clusterEB[clusterId].vUnits == 0;
+    }
+
+    function _depositToLiquidatedCluster(
+        bytes32 clusterId,
+        ClusterRecord storage record,
+        uint64[] memory operatorIds,
+        uint256 amount
+    ) internal returns (bool) {
+        if (!record.exists || record.cluster.active || amount == 0) return false;
+        if (record.owner.balance < amount) return false;
+        if (SSVStorage.load().ethClusters[clusterId] != record.cluster.hashClusterData()) return false;
+
+        ISSVNetworkCore.Cluster memory clusterBefore = record.cluster;
+        uint256 contractBalanceBefore = address(this).balance;
+        ClusterUser owner = _ownerUser(record.owner);
+
+        try owner.depositFromBalance(record.owner, operatorIds, clusterBefore, amount) {
+            ISSVNetworkCore.Cluster memory expectedCluster = ISSVNetworkCore.Cluster({
+                validatorCount: clusterBefore.validatorCount,
+                networkFeeIndex: clusterBefore.networkFeeIndex,
+                index: clusterBefore.index,
+                active: clusterBefore.active,
+                balance: clusterBefore.balance + amount
+            });
+
+            bytes32 expectedHash = expectedCluster.hashClusterData();
+            bool hashMatches = SSVStorage.load().ethClusters[clusterId] == expectedHash;
+            if (!hashMatches) {
+                depositLiquidatedViolation = true;
+                return false;
+            }
+            if (expectedCluster.active) {
+                depositLiquidatedViolation = true;
+            }
+            if (address(this).balance != contractBalanceBefore + amount) {
+                depositLiquidatedViolation = true;
+            }
+            record.cluster = expectedCluster;
+            totalExpectedBalance += amount;
+            return true;
+        } catch {
+            depositLiquidatedViolation = true;
+            return false;
+        }
     }
 
     function _decreaseExpected(uint256 amount) internal {

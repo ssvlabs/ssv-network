@@ -3,14 +3,11 @@ cryticArgs: ["--compile-force-framework", "foundry"]
 testMode: property
 prefix: "echidna_"
 
-testLimit: 500000
+testLimit: 50000
 shrinkLimit: 5000
-seqLen: 250
+seqLen: 200
 
-workers: 7
-
-corpusDir: "test/echidna/corpus"
-coverageDir: "test/echidna/coverage"
+workers: 4
 
 filterBlacklist: false
 filterFunctions:

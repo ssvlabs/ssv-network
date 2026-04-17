@@ -1,0 +1,41 @@
+cryticArgs: ["--compile-force-framework", "foundry"]
+
+testMode: property
+prefix: "echidna_"
+
+testLimit: 200000
+shrinkLimit: 5000
+seqLen: 160
+
+workers: 7
+
+corpusDir: "test/echidna/corpus/operators-activation"
+coverageDir: "test/echidna/coverage/operators-activation"
+
+filterBlacklist: false
+filterFunctions:
+  - "SSVOperatorsEchidna.action_advance_time(uint256)"
+  - "SSVOperatorsEchidna.action_assign_validators(uint256,uint256,bool)"
+  - "SSVOperatorsEchidna.action_declare_fee(uint256,uint256)"
+  - "SSVOperatorsEchidna.action_execute_fee(uint256)"
+  - "SSVOperatorsEchidna.action_execute_fee_settlement_order(uint256,uint256,uint256,uint256)"
+  - "SSVOperatorsEchidna.action_fee_change_latency(uint256,uint256,uint256)"
+  - "SSVOperatorsEchidna.action_fund(uint256)"
+  - "SSVOperatorsEchidna.action_fund_ssv(uint256)"
+  - "SSVOperatorsEchidna.action_reduce_fee(uint256,uint256)"
+  - "SSVOperatorsEchidna.action_reduce_legacy_ensure_eth_defaults(uint256)"
+  - "SSVOperatorsEchidna.action_reduce_fee_settlement_order(uint256,uint256,uint256,uint256)"
+  - "SSVOperatorsEchidna.action_register(uint256,uint256,uint8,bool)"
+  - "SSVOperatorsEchidna.action_remove(uint256)"
+  - "SSVOperatorsEchidna.action_seed_legacy_operator(uint256,uint256)"
+  - "SSVOperatorsEchidna.action_set_max_fee(uint256)"
+  - "SSVOperatorsEchidna.action_set_min_operator_eth_fee(uint256)"
+  - "SSVOperatorsEchidna.action_set_ssv_fee(uint256,uint256)"
+  - "SSVOperatorsEchidna.action_trigger_ensure_eth_defaults(uint256)"
+  - "SSVOperatorsEchidna.action_withdraw(uint256,uint256)"
+  - "SSVOperatorsEchidna.action_withdraw_all(uint256)"
+  - "SSVOperatorsEchidna.action_withdraw_all_ssv(uint256)"
+  - "SSVOperatorsEchidna.action_withdraw_all_version(uint256)"
+  - "SSVOperatorsEchidna.action_withdraw_over(uint256)"
+  - "SSVOperatorsEchidna.action_withdraw_over_ssv(uint256)"
+  - "SSVOperatorsEchidna.action_withdraw_ssv(uint256,uint256)"
