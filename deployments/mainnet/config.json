@@ -12,14 +12,14 @@
   "quorumBps": 7500,
   "defaultOracleIds": [1, 2, 3, 4],
   "protocolParams": {
-    "networkFeeEth": "3557600000",
+    "networkFeeEth": "3366600000",
     "maxOperatorEthFee": "5336500000",
     "minOperatorEthFee": "10000000",
-    "minimumLiquidationCollateralEth": "644852000000000",
-    "liquidationThresholdPeriod": "21480",
+    "minimumLiquidationCollateralEth": "324862599900000",
+    "liquidationThresholdPeriod": "50120",
     "minBlocksBetweenUpdates": "0",
-    "minimumLiquidationCollateralSSV": "673652000000000000",
-    "liquidationThresholdPeriodSSV": "50120"
+    "minimumLiquidationCollateralSSV": "385795451000000000",
+    "liquidationThresholdPeriodSSV": "100240"
   },
   "initialStakeAmount": "1000000000000000000",
   "oracles": {
