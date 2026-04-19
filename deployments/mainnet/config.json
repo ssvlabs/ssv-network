@@ -16,10 +16,10 @@
     "maxOperatorEthFee": "5336500000",
     "minOperatorEthFee": "10000000",
     "minimumLiquidationCollateralEth": "324862599900000",
-    "liquidationThresholdPeriod": "50190",
+    "liquidationThresholdPeriod": "42960",
     "minBlocksBetweenUpdates": "0",
     "minimumLiquidationCollateralSSV": "385795451000000000",
-    "liquidationThresholdPeriodSSV": "100800"
+    "liquidationThresholdPeriodSSV": "100240"
   },
   "initialStakeAmount": "1000000000000000000",
   "oracles": {
