@@ -96,6 +96,14 @@ smoke-test env network="":
     npx hardhat compile --force
     npx tsx scripts/smoke-test.ts --env {{env}} {{ if network == "" { "" } else { "--network " + network } }}
 
+# Check historical mainnet migrateClusterToETH calls and cluster accounting.
+# Defaults to scanning all ClusterMigratedToETH events from block 24920727 to latest.
+# Accepts the same `env network` shape as smoke-test.
+# Example: just check-mainnet-migrations
+#          just check-mainnet-migrations mainnet local
+check-mainnet-migrations env="mainnet" network="":
+    npx tsx scripts/check-mainnet-migrate-clusters.ts --env {{env}} {{ if network == "" { "" } else { "--network " + network } }}
+
 # === One-off Utilities ===
 
 # Deploy a specific module contract (e.g., SSVOperators, SSVClusters)
