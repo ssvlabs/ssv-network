@@ -338,6 +338,32 @@ async function discoverMigrationTxHashes(
   return txHashes;
 }
 
+async function getNetworkActivityForBlock(
+  provider: JsonRpcProvider,
+  networkAddress: string,
+  blockNumber: number,
+): Promise<Array<{ txHash: string; transactionIndex: number }>> {
+  const logs = await provider.getLogs({
+    address: networkAddress,
+    fromBlock: blockNumber,
+    toBlock: blockNumber,
+  });
+
+  const byTxHash = new Map<string, number>();
+  for (const log of logs) {
+    const txHash = String(log.transactionHash);
+    const txIndex = Number(log.transactionIndex);
+    const previous = byTxHash.get(txHash);
+    if (previous === undefined || txIndex < previous) {
+      byTxHash.set(txHash, txIndex);
+    }
+  }
+
+  return [...byTxHash.entries()]
+    .map(([txHash, transactionIndex]) => ({ txHash, transactionIndex }))
+    .sort((a, b) => a.transactionIndex - b.transactionIndex);
+}
+
 async function main(): Promise<void> {
   if (process.argv.includes("--help") || process.argv.includes("-h")) {
     usage();
@@ -433,14 +459,12 @@ async function main(): Promise<void> {
     }
     const targetBlockTx = blockTransactions[targetIndex];
     const targetTxIndex = Number(targetBlockTx.transactionIndex);
-    const proxyBlockTxs = blockTransactions.filter(
-      (item: any) => normalizeAddress(item.to) === normalizeAddress(networkAddress),
-    );
+    const proxyBlockTxs = await getNetworkActivityForBlock(provider, networkAddress, blockNumber);
     const earlierProxyTxs = proxyBlockTxs.filter(
-      (item: any) => Number(item.transactionIndex) < targetTxIndex,
+      (item) => item.transactionIndex < targetTxIndex,
     );
     const laterProxyTxs = proxyBlockTxs.filter(
-      (item: any) => Number(item.transactionIndex) > targetTxIndex,
+      (item) => item.transactionIndex > targetTxIndex,
     );
     const isolatedProxyTx = proxyBlockTxs.length === 1;
     const exactRefundReplay = earlierProxyTxs.length === 0;

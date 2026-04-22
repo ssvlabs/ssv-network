@@ -104,6 +104,14 @@ smoke-test env network="":
 check-mainnet-migrations env="mainnet" network="":
     npx tsx scripts/check-mainnet-migrate-clusters.ts --env {{env}} {{ if network == "" { "" } else { "--network " + network } }}
 
+# Check historical mainnet stake/requestUnstake calls and staking accounting.
+# Defaults to scanning block transactions from block 24920727 to latest.
+# Accepts the same `env network` shape as smoke-test.
+# Example: just check-mainnet-staking
+#          just check-mainnet-staking mainnet local
+check-mainnet-staking env="mainnet" network="":
+    npx tsx scripts/check-mainnet-staking.ts --env {{env}} {{ if network == "" { "" } else { "--network " + network } }}
+
 # === One-off Utilities ===
 
 # Deploy a specific module contract (e.g., SSVOperators, SSVClusters)
