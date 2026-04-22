@@ -1,43 +1,58 @@
-
 # SSV Network Smart Contracts
-    
-### Intro | [Architecture](./docs/architecture.md) | [Setup](./docs/setup.md) | [Tasks](./docs/tasks.md) | [Local development](./docs/local-dev.md) | [Roles](./docs/roles.md) | [Publish](./docs/publish.md) | [Operator owners](./docs/operators.md)
 
-This repository contains the Solidity smart contracts for the SSV Network. The SSV Network is a decentralized network for the operation of Ethereum validators. It allows for secure, scalable, and decentralized staking on the Ethereum blockchain. The key elements of this system are represented through several Ethereum smart contracts, all of which are outlined below.
+### Intro | [Architecture](./docs/architecture.md) | [Setup](./docs/setup.md) | [Tasks](./docs/tasks.md) | [Local development](./docs/local-dev.md) | [Roles](./docs/roles.md) | [Operator owners](./docs/operators.md)
+### Deep docs | [Specification](./docs/SPEC.md) | [Flows](./docs/FLOWS.md) | [Mainnet upgrade playbook](./docs/UPGRADE_PLAYBOOK.md) | [Deployments](./deployments/README.md)
+
+This repository contains the Solidity smart contracts for the SSV Network `v2.0.0`.
+
+The upgraded system keeps the modular SSV Network architecture while adding ETH-based fee accounting for new clusters, effective-balance-aware charging, an oracle-driven effective balance update flow, SSV staking through `cSSV`, and one-way migration for legacy SSV clusters.
 
 The documentation is divided into different sections:
 
-- **Architecture** Provides an overview of the system and all its components.
-- **Setup** The basic setup of the repository to be able to compile the contracts, run tests, etc.
-- **Tasks** Detailed instructions to run useful tools, deploy, and upgrade the contracts.
-- **Local development** Guide to setup the local environment to work with the contracts.
-- **Roles** Detailed information about the privileged roles in the system.
+- **Architecture** explains the system layout, the contract modules, the v2 feature set, the legacy-to-ETH migration model, and the main design assumptions to keep in mind.
+- **Setup** covers local prerequisites, environment configuration, and the minimum steps needed to compile and test the repository.
+- **Tasks** lists the `just` recipes used for day-to-day development, testing, deployment support, and verification.
+- **Local development** focuses on local deployment, fork-based upgrade validation, smoke tests, and where environment-specific configuration lives.
+- **Roles** summarizes the operational actors in the system, including the owner, deployer, oracle set, operator owners, cluster owners, and stakers.
+- **Operator owners** documents operator registration, privacy and whitelisting, ETH fee management, and earnings withdrawal.
+- **Specification / Flows** remain the deep technical source of truth for rules, invariants, and exact execution behavior.
 
-## SSV Documentation
+## Quick start
 
-Check the **[Smart contracts](https://docs.ssv.network/developers/smart-contracts)** official documentation for more information about contracts' functionalities, official releases, etc.
+```bash
+npm install
+cp .env.example .env
+just build
+just test-unit
+```
+
+For environment-driven deployments, upgrades, SAFE batch generation, and post-upgrade verification, use [deployments/README.md](./deployments/README.md).
+
+## Repository map
+
+- `contracts/` core contracts, modules, storage libraries, interfaces, and upgrade entrypoints
+- `contracts/modules/` protocol logic split across operators, clusters, validators, DAO, staking, views, and whitelisting modules
+- `contracts/upgrades/mainnet/` dedicated upgrade implementation used for the v2 mainnet rollout
+- `deployments/` per-environment config, results, attestations, and SAFE batch artifacts
+- `scripts/` deployment, upgrade, verification, and support scripts used by the `just` recipes
+- `test/` unit, integration, fork, sanity, and Echidna test suites
+
+## SSV documentation
+
+Check the official [SSV Network smart contracts documentation](https://docs.ssv.network/developers/smart-contracts) for protocol-facing documentation, releases, and higher-level integration guidance.
 
 ## How to contribute
 
-### Join the Buidlers
+### Join the builders
 
-Start getting familiar with DVT staking, go to [SSV Discord](https://discord.gg/5vT22pRBrf) and check out `#dev-support` channel. If you cannot see it claim a role.
-
-### Fix errors
-
-We love to receive feedback and input from the community, so if you found a potential bug or have an enhancement you want to share, please **Open a PR!**.
+Start getting familiar with DVT staking in the [SSV Discord](https://discord.gg/5vT22pRBrf) and use the `#dev-support` channel for protocol and repository questions.
 
 ### Suggest improvements
 
-Do you think some things could be done better in the repo or have new ideas?
-**Open an issue** in the repo and share it in the `#dev-support channel`.
+If you have an improvement for the contracts, tests, or deployment flow, open an issue or PR and include the protocol or operational context behind the suggestion.
 
-## Bug Bounty Program
+## Bug bounty program
 
-SSV Network is committed to ensuring the security of our smart contracts. We've partnered with [Immunefi](https://immunefi.com/) to host a dedicated bug bounty program.
+SSV Network runs its smart contract bug bounty program through [Immunefi](https://immunefi.com/bounty/ssvnetwork/).
 
-If you believe you've identified a vulnerability in our smart contracts, we encourage you to report it via our [Immunefi Bug Bounty page](https://immunefi.com/bounty/ssvnetwork/). All submissions and communications regarding vulnerabilities will be managed by the Immunefi team.
-
-Visit our [bounty page](https://immunefi.com/bounty/ssvnetwork/) to get detailed information on the types of vulnerabilities we're interested in, potential reward amounts, and the guidelines for participation.
-
-Please note: Failing to abide by the participation guidelines may result in disqualification from the program and forfeiture of potential rewards.
+If you believe you found a vulnerability, report it through the [SSV Network Immunefi page](https://immunefi.com/bounty/ssvnetwork/). Follow the program rules there to stay eligible for review and rewards.

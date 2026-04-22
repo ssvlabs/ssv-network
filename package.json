@@ -1,12 +1,12 @@
 {
   "name": "ssv-network",
-  "version": "1.2.0",
+  "version": "2.0.0",
   "description": "Solidity smart contracts for the SSV Network",
   "author": "SSV.Network",
   "type": "module",
   "repository": {
     "type": "git",
-    "url": "https://github.com/bloxapp/ssv-network.git"
+    "url": "https://github.com/ssvlabs/ssv-network.git"
   },
   "license": "MIT",
   "keywords": [
@@ -21,10 +21,21 @@
     "!contracts/**/mocks/**",
     "!contracts/**/test/**",
     "!contracts/**/upgrades/**",
-    "abis/*.json",
-    "tasks/",
+    "abis/CSSVToken.json",
+    "abis/ISSVStaking.json",
+    "abis/SSVClusters.json",
+    "abis/SSVDAO.json",
+    "abis/SSVNetwork.json",
+    "abis/SSVNetworkViews.json",
+    "abis/SSVOperators.json",
+    "abis/SSVOperatorsWhitelist.json",
+    "abis/SSVStaking.json",
+    "abis/SSVToken.json",
+    "abis/SSVValidators.json",
+    "abis/SSVViews.json",
     "docs/",
     "README.md",
+    "RELEASE_NOTES.md",
     "LICENSE",
     "CHANGELOG.md"
   ],
@@ -62,7 +73,6 @@
     "chai": "^5.3.3",
     "dotenv": "^17.2.3",
     "ethers": "^6.16.0",
-    "forge-std": "github:foundry-rs/forge-std#v1.9.4",
     "hardhat": "^3.1.0",
     "mocha": "^11.7.5",
     "solhint": "^5.0.0",
