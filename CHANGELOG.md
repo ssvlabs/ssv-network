@@ -6,6 +6,47 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 
 ## [Released]
+### [v2.0.0] 2026-03-23
+
+Major protocol upgrade introducing ETH-based accounting, effective-balance-aware fee charging, SSV staking, and the legacy SSV-to-ETH migration path.
+
+See also:
+
+- [RELEASE_NOTES.md](RELEASE_NOTES.md)
+- [docs/SPEC.md](docs/SPEC.md)
+- [docs/FLOWS.md](docs/FLOWS.md)
+- [docs/UPGRADE_PLAYBOOK.md](docs/UPGRADE_PLAYBOOK.md)
+
+#### Added
+
+- ETH-based cluster accounting for new clusters
+- Effective-balance-aware fee accounting through `vUnits`
+- Oracle-committed Merkle root flow for effective balance updates
+- SSV staking with `cSSV`, including stake, unstake-request, unlock-withdraw, fee sync, and ETH reward claim flows
+- One-way `migrateClusterToETH` flow for legacy SSV clusters
+- Expanded deployment, SAFE-batch, attestation, smoke-test, and verification tooling for staged and mainnet rollout
+
+#### Changed
+
+- New clusters now use ETH as the fee asset instead of SSV
+- Legacy SSV clusters continue in a restricted compatibility mode rather than as full-featured pre-upgrade clusters
+- ETH cluster solvency, liquidation, and fee burn are now tied to effective balance rather than flat validator-count-only charging
+- Environment-driven operations are centered on `just` recipes and `deployments/<env>/config.json`
+- The repository documentation is reorganized around architecture, setup, tasks, local development, roles, operators, specification, flows, and upgrade playbooks
+
+#### Behavioral changes
+
+- Depositing into a liquidated ETH cluster is allowed
+- Withdrawing from a liquidated ETH cluster is allowed
+- Reactivation can depend on a stale on-chain effective balance snapshot until the next valid EB update
+- Removed operators may be skipped during migration or reactivation flows, allowing continued operation with reduced operator coverage where valid
+
+#### Operational notes
+
+- The production upgrade path is designed around the `v1.2.0 -> v2.0.0` rollout
+- Mainnet rollout uses the repository deployment scripts, deployment attestation, and SAFE batch generation flow
+- Post-upgrade verification is part of the intended release process, not an optional follow-up step
+
 ### [v1.2.0] 2024-07-01
 - [b7cfe2f] (https://github.com/ssvlabs/ssv-network/commit/11b4e67) - Support for mulitple whitelist addresses for operators (see [docs/operators.md](docs/operators.md)).
 - [b7cfe2f] (https://github.com/ssvlabs/ssv-network/commit/11b4e67) - Support for external whitelisting contracts (see [docs/operators.md](docs/operators.md)).
