@@ -281,7 +281,7 @@ Tenderly also publishes a public status page with per-product and per-network up
 
 #### SSV PoC Fit
 
-For the current rollout, the first Tenderly artifact in this repository is a simple Hoodi stage alert pack for direct ETH-outflow functions on the `SSVNetwork` proxy. The implementation notes live in [direct-eth-outflow-basic-alert.md](../scripts/monitoring/direct-eth-outflow-basic-alert.md).
+For the current rollout, the first Tenderly artifact in this repository is a simple Hoodi stage alert pack for withdrawal and reward-claim ETH-outflow functions on the `SSVNetwork` proxy. Liquidation ETH outflows are intentionally excluded from this starter pack and need a separate monitor. The implementation notes live in [direct-eth-outflow-basic-alert.md](../scripts/monitoring/direct-eth-outflow-basic-alert.md).
 
 ### OpenZeppelin Defender and Monitor
 

@@ -4,7 +4,7 @@ Last reviewed: 2026-04-28
 
 ## Goal
 
-Set up the simplest possible Tenderly alerting layer for direct ETH leaving the SSV Hoodi stage contract.
+Set up the simplest possible Tenderly alerting layer for withdrawal and reward-claim ETH outflows from the SSV Hoodi stage contract.
 
 This is intentionally smaller than the full monitoring suite:
 
@@ -14,7 +14,7 @@ This is intentionally smaller than the full monitoring suite:
 
 ## Scope
 
-This alert pack covers only the direct ETH-outflow functions on the Hoodi stage `SSVNetwork` proxy.
+This alert pack covers only withdrawal and reward-claim ETH outflows on the Hoodi stage `SSVNetwork` proxy.
 
 Functions covered:
 
@@ -24,9 +24,19 @@ Functions covered:
 - `withdrawAllVersionOperatorEarnings` -> `OperatorWithdrawn` for the ETH leg
 - `claimEthRewards` -> `RewardsClaimed`
 
+Explicitly excluded from this pack:
+
+- `liquidate`
+- auto-liquidation triggered by `updateClusterBalance`
+
+Why excluded:
+
+- liquidation is a native ETH-outflow path, but it emits `ClusterLiquidated`, which is shared with `liquidateSSV`
+- that path needs its own monitor or Web3 Action logic to distinguish ETH liquidation from SSV liquidation
+
 ## Why Event Alerts, Not Function Alerts
 
-Management asked for direct ETH-outflow functions. For the first Tenderly setup, the cleanest implementation is still event-based:
+Management asked for direct ETH-outflow functions. For this first pass, the pack is intentionally narrower than all ETH-outflow paths and focuses only on withdrawal and reward-claim functions. Within that scope, the cleanest Tenderly setup is still event-based:
 
 - the contract emits the relevant events on the ETH-outflow paths we care about
 - several functions collapse into the same ETH-out event
@@ -36,14 +46,24 @@ So the first alert pack is function-driven in scope, but event-driven in impleme
 
 ## Contract Target
 
-Current Hoodi stage deployment:
+Do not copy contract addresses from this document by hand.
 
-- `SSVNetwork` proxy: `0xc07B3E9671f884FDa67E1e7D43d952E0e1369fd8`
-- `SSVNetworkViews`: `0x3234e84b7d1eE1AF8b586E26814d4e268336D142`
-- `SSV token`: `0x746C33ccC28b1363c35c09baDAF41b2FFa7E6D56`
-- `cSSV token`: `0x6455a0d83FeB099182Fb6D024B9Ae0c2E26C0859`
+Resolve the current Hoodi stage deployment from the config-backed spec:
 
-This is the contract address the basic alert should watch.
+```bash
+npx tsx scripts/monitoring/direct-eth-outflow-basic-alert-spec.ts
+```
+
+Use these fields from the printed JSON:
+
+- `deployment.ssvNetworkProxy`
+- `deployment.ssvNetworkViews`
+- `deployment.ssvToken`
+- `deployment.cssvToken`
+
+The spec reads from:
+
+- `deployments/hoodi-stage/config.json`
 
 ## Alert Pack
 
@@ -95,15 +115,16 @@ References:
 4. Click `New Alert`.
 5. Select trigger type: `Event Emitted`.
 6. Set target type to `Address`.
-7. Paste contract address:
-   - `0xc07B3E9671f884FDa67E1e7D43d952E0e1369fd8`
-8. Select event:
+7. Run:
+   - `npx tsx scripts/monitoring/direct-eth-outflow-basic-alert-spec.ts`
+8. Paste `deployment.ssvNetworkProxy` from the printed JSON.
+9. Select event:
    - `ClusterWithdrawn`
-9. Name the alert:
+10. Name the alert:
    - `SSV Hoodi Stage - Cluster ETH Withdrawn`
-10. Set destination:
+11. Set destination:
    - Slack or email
-11. Save and test.
+12. Save and test.
 
 ### Alert 2: Operator ETH Withdrawn
 
@@ -180,11 +201,12 @@ Stage rollout:
 
 Before considering the alert live:
 
-1. Confirm the contract address is `0xc07B3E9671f884FDa67E1e7D43d952E0e1369fd8`.
-2. Confirm each alert is watching the correct event.
-3. Confirm the destination receives a test notification.
-4. Confirm the team understands that this first version is event-only and not amount-aware.
-5. Confirm the Hoodi project is watching the same proxy that emits the writes.
+1. Run `npx tsx scripts/monitoring/direct-eth-outflow-basic-alert-spec.ts`.
+2. Confirm the Tenderly target address matches `deployment.ssvNetworkProxy` from the printed JSON.
+3. Confirm each alert is watching the correct event.
+4. Confirm the destination receives a test notification.
+5. Confirm the team understands that this first version is event-only and not amount-aware.
+6. Confirm the Hoodi project is watching the same proxy that emits the writes.
 
 ## Limitations
 
@@ -210,4 +232,4 @@ That second step can classify:
 - burst frequency
 - cluster inactive/active context
 
-For now, this document is the minimal setup to satisfy "direct ETH-outflow functions only on our Hoodi stage contract."
+For now, this document is the minimal setup to satisfy "withdrawal and reward-claim ETH outflows only on our Hoodi stage contract."
