@@ -1,0 +1,25 @@
+{
+  "deployer": "0xC564AF154621Ee8D0589758d535511aEc8f67b40",
+  "chainId": "560048",
+  "network": "hoodi",
+  "deployedAt": "2026-03-17T12:18:01.926Z",
+  "blockNumber": 2434756,
+  "implementations": {
+    "SSVNetworkSSVStakingUpgrade": "0x80Be9D66831Ab6a40f16c10f78a81e6CDfB15057",
+    "SSVNetworkViews": "0xf70E9396a801BabDfe972D74ECce9716f164335b"
+  },
+  "cssvToken": {
+    "address": "0x6e1a5d27361c666f681af06535c8Ac773E571d4d",
+    "deployed": false
+  },
+  "modules": {
+    "SSVOperators": "0x6D4AeD4a18fAb66733EE3C52Eeb795b1ef660a85",
+    "SSVClusters": "0xD2E740424D339F36a6912e53684d901db2dfD236",
+    "SSVDAO": "0xf3929A559Aa14C75F41Bc59BfeB5BdCEd0e2ea1D",
+    "SSVViews": "0xc3d2F9eBa309a666C8c3Fd8580365366530FC1AF",
+    "SSVOperatorsWhitelist": "0xCd273a679f617144f290B5DBe81575E221965060",
+    "SSVStaking": "0x6C9aae90F5AFF6d282cE529aEFe258EaF7bd4d70",
+    "SSVValidators": "0x023Af0382D4243637F4b5264bebA97Ab81AE27A6"
+  },
+  "updatedAt": "2026-04-07T12:17:51.362Z"
+}

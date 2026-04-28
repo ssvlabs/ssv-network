@@ -1,6 +1,6 @@
 name: Run tests
 
-on: [push]
+on: [push, pull_request]
 
 jobs:
   ci:
@@ -8,10 +8,113 @@ jobs:
     name: Hardhat unit test
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v3
+
+      - uses: actions/setup-node@v4
         with:
-          node-version: '20.x'
+          node-version: '22.x'
+          cache: 'npm'
+
       - run: npm ci
         env:
           GH_TOKEN: ${{ secrets.github_token }}
-      - run: npx hardhat test --parallel
+
+      - name: Compile contracts
+        run: npx hardhat compile
+        env:
+          FORK_BLOCK_NUMBER: ${{ secrets.fork_block_number }}
+          HOODI_RPC_URL: ${{ secrets.hoodi_rpc_url }}
+
+      - name: Run tests with gas tracking
+        run: npx hardhat test
+        env:
+          REPORT_GAS: 'true'
+          NO_GAS_ENFORCE: '1'
+          FORK_BLOCK_NUMBER: ${{ secrets.fork_block_number }}
+          HOODI_RPC_URL: ${{ secrets.hoodi_rpc_url }}
+          MAINNET_RPC_URL: ${{ secrets.mainnet_rpc_url }}
+
+      - name: Compare gas usage with limits
+        id: gas-compare
+        run: npx tsx scripts/gas-compare.ts
+        continue-on-error: false
+
+      - name: Upload gas report
+        uses: actions/upload-artifact@v4
+        with:
+          name: gas-report
+          path: gas-report.json
+          retention-days: 30
+
+      - name: Upload gas comparison report
+        uses: actions/upload-artifact@v4
+        with:
+          name: gas-compare
+          path: gas-compare.txt
+          retention-days: 30
+
+      - name: Comment on PR with gas report
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+
+            let report;
+            try {
+              report = JSON.parse(fs.readFileSync('gas-report.json', 'utf8'));
+            } catch (e) {
+              console.log('No gas report found');
+              return;
+            }
+
+            const exceeded = report.entries.filter(e => e.txCount > 0 && !e.withinLimit);
+
+            let body = `## Gas Usage Report\n\n`;
+            body += `**Commit:** \`${report.commit || 'unknown'}\`\n`;
+            body += `**Branch:** \`${report.branch || 'unknown'}\`\n`;
+            body += `**All within limits:** ${report.summary.allWithinLimits ? 'Yes' : 'No'}\n\n`;
+
+            if (exceeded.length === 0) {
+              body += `All operations are within gas limits.\n`;
+            } else {
+              body += `### Exceeded Limits\n\n`;
+              body += `| Operation | Limit | Actual | Over by |\n`;
+              body += `|-----------|-------|--------|--------|\n`;
+              for (const e of exceeded) {
+                const over = e.average - e.maxLimit;
+                const pct = ((over / e.maxLimit) * 100).toFixed(2);
+                body += `| ${e.name} | ${e.maxLimit.toLocaleString()} | ${e.average.toLocaleString()} | +${pct}% |\n`;
+              }
+            }
+
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+
+            const botComment = comments.find(c =>
+              c.user.type === 'Bot' && c.body.includes('## Gas Usage Report')
+            );
+
+            if (botComment) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: botComment.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body,
+              });
+            }
+
+      - name: Fail on gas limit exceeded
+        if: steps.gas-compare.outcome == 'failure'
+        run: |
+          echo "Gas limits exceeded! See the comparison output above."
+          exit 1

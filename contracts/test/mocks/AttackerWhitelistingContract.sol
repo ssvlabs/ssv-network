@@ -2,7 +2,7 @@
 pragma solidity 0.8.24;
 
 import "../../interfaces/external/ISSVWhitelistingContract.sol";
-import "../../interfaces/ISSVClusters.sol";
+import "../../interfaces/ISSVValidators.sol";
 import "./BeneficiaryContract.sol";
 import "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 
@@ -17,9 +17,8 @@ contract AttackerContract {
         bytes calldata _publicKey,
         uint64[] memory _operatorIds,
         bytes calldata _sharesData,
-        uint256 _amount,
-        ISSVNetworkCore.Cluster memory _cluserData
+        ISSVNetworkCore.Cluster memory _clusterData
     ) external {
-        ISSVClusters(ssvContract).registerValidator(_publicKey, _operatorIds, _sharesData, _amount, _cluserData);
+        ISSVValidators(ssvContract).registerValidator(_publicKey, _operatorIds, _sharesData, _clusterData);
     }
 }

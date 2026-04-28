@@ -7,10 +7,23 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22.x'
+
+      - name: Install dependencies
+        run: npm ci
+        env:
+          GH_TOKEN: ${{ secrets.github_token }}
+
+      - name: Compile contracts (Hardhat)
+        run: npx hardhat compile --force
+
       - name: Run Slither
         uses: crytic/slither-action@v0.3.2
         id: slither
         with:
-          node-version: 20
           fail-on: high
-          slither-args: --exclude controlled-delegatecall,incorrect-return
+          target: .
+          slither-args: --hardhat-ignore-compile --exclude controlled-delegatecall,incorrect-return --filter-paths "contracts/test/" --exclude-informational --exclude-dependencies

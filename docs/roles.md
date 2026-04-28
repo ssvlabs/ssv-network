@@ -1,54 +1,76 @@
 # SSV Network
 
-### [Intro](../README.md) | [Architecture](architecture.md) | [Setup](setup.md) | [Tasks](tasks.md) | [Local development](local-dev.md) | Roles | [Publish](publish.md) | [Operator owners](operators.md)
+### [Intro](../README.md) | [Architecture](architecture.md) | [Setup](setup.md) | [Tasks](tasks.md) | [Local development](local-dev.md) | Roles | [Operator owners](operators.md)
+### [Specification](SPEC.md) | [Flows](FLOWS.md) | [Mainnet upgrade playbook](UPGRADE_PLAYBOOK.md) | [Deployments](../deployments/README.md)
+
+## Protocol roles
+
+The upgraded system has more operational roles than the earlier network versions because the protocol now includes oracle-fed effective balance accounting and staking.
 
 ## Contract owner
 
-The contract owner can perform operational actions over the contract and protocol updates.
+The contract owner is the governance authority over the deployed protocol. In production this is expected to be a SAFE multisig.
 
-### Contract operations
+Owner-controlled responsibilities include:
 
-- Upgrade `SSVNetwork` and `SSVNetworkViews`
-- `SSVNetwork.upgradeModule()` - Update any module
+- Upgrading `SSVNetwork` and `SSVNetworkViews`
+- Updating attached module addresses through `updateModule`
+- Updating protocol parameters such as network fees, operator fee bounds, liquidation thresholds, cooldowns, and EB update rate limits
+- Replacing oracle addresses and updating quorum
+- Withdrawing protocol-controlled SSV earnings and invoking owner-only recovery paths
 
-### Protocol updates
+The exact owner-only access surface is defined in [SPEC.md](SPEC.md).
 
-- `SSVNetwork.updateNetworkFee()` - Updates the network fee
-- `SSVNetwork.withdrawNetworkEarnings()` - Withdraws network earnings
-- `SSVNetwork.updateOperatorFeeIncreaseLimit()` - Updates the limit on the percentage increase in operator fees
-- `SSVNetwork.updateDeclareOperatorFeePeriod()` - Updates the period for declaring operator fees
-- `SSVNetwork.updateExecuteOperatorFeePeriod()` - Updates the period for executing operator fees
-- `SSVNetwork.updateLiquidationThresholdPeriod()` - Updates the liquidation threshold period
-- `SSVNetwork.updateMinimumLiquidationCollateral()` - Updates the minimum collateral required to prevent liquidation
-- `SSVNetwork.updateMaximumOperatorFee()` - Updates the maximum fee an operator can set
+## Deployer / release operator
+
+The deployer is not a protocol role in the accounting model, but it is an operational role for this repository.
+
+Typical deployer responsibilities:
+
+- Deploying new implementations and modules
+- Generating deployment attestations
+- Generating SAFE batch payloads
+- Running fork validation and post-upgrade verification
+
+These workflows are documented in [deployments/README.md](../deployments/README.md) and [UPGRADE_PLAYBOOK.md](UPGRADE_PLAYBOOK.md).
+
+## Oracle
+
+Registered oracle addresses can submit effective-balance Merkle roots through `commitRoot`. Oracles do not own cluster funds, but they do affect when the on-chain system can consume fresh EB data.
+
+Oracle administration remains owner-controlled through `replaceOracle` and `updateQuorumBps`.
 
 ## Operator owner
 
-Only the owner of an operator can execute these functions:
+An operator owner controls a specific operator record and can:
 
-- `SSVNetwork.removeOperator` - Removes an existing operator
-- `SSVNetwork.setOperatorsWhitelists` - Sets a list of whitelisted addresses (EOAs or generic contracts) for a list of operators
-- `SSVNetwork.removeOperatorsWhitelists` - Removes a list of whitelisted addresses (EOAs or generic contracts) for a list of operators
-- `SSVNetwork.setOperatorsWhitelistingContract` - Sets a whitelisting contract for a list of operators
-- `SSVNetwork.removeOperatorsWhitelistingContract` - Removes the whitelisting contract set for a list of operators
-- `SSVNetwork.setOperatorsPrivateUnchecked` - Set the list of operators as private without checking for any whitelisting address
-- `SSVNetwork.setOperatorsPublicUnchecked` - Set the list of operators as public without removing any whitelisting address
-- `SSVNetwork.declareOperatorFee` - Declares the operator's fee change
-- `SSVNetwork.executeOperatorFee` - Executes the operator's fee change
-- `SSVNetwork.cancelDeclaredOperatorFee` - Cancels the declared operator's fee
-- `SSVNetwork.reduceOperatorFee` - Reduces the operator's fee
-- `SSVNetwork.withdrawOperatorEarnings` - Withdraws operator earnings
-- `SSVNetwork.withdrawAllOperatorEarnings` - Withdraws all operator earnings
+- Register and remove operators
+- Manage private/public status and whitelisting
+- Declare, execute, reduce, or cancel operator fee changes
+- Withdraw operator earnings in ETH or legacy SSV paths where applicable
+
+Operator-specific details are documented in [operators.md](operators.md).
 
 ## Cluster owner
 
-Only the owner of a cluster can execute these functions:
+A cluster owner controls validator and cluster lifecycle actions for a cluster, including:
 
-- `SSVNetwork.registerValidator` - Registers a new validator on the SSV Network
-- `SSVNetwork.bulkRegisterValidator` - Registers a set of validators in the same cluster on the SSV Network
-- `SSVNetwork.removeValidator` - Removes an existing validator from the SSV Network
-- `SSVNetwork.bulkRemoveValidator` - Bulk removes a set of existing validators in the same cluster from the SSV Network
-- `SSVNetwork.reactivate` - Reactivates a cluster
-- `SSVNetwork.withdraw` - Withdraws tokens from a cluster
-- `SSVNetwork.exitValidator` - Starts the exit protocol for an exisiting validator
-- `SSVNetwork.bulkExitValidator` - Starts the exit protocol for a set of existing validators
+- Registering validators into ETH clusters
+- Removing validators
+- Signaling validator exit
+- Depositing ETH, withdrawing ETH, and reactivating ETH clusters
+- Migrating a legacy SSV cluster to ETH
+
+Some actions are intentionally permissionless:
+
+- `deposit` can be called by anyone on behalf of a cluster owner
+- `updateClusterBalance` is permissionless when the caller has a valid proof against a committed root
+- liquidation can be triggered by third parties when the protocol rules allow it
+
+## Staker
+
+Any address with SSV can stake into the protocol, receive `cSSV`, request unstake, withdraw unlocked SSV, and claim ETH rewards.
+
+## Read-only integrator
+
+Integrators and indexers generally consume the protocol through `SSVNetworkViews`. `SSVNetworkViews` is treated as the canonical consolidated read surface.

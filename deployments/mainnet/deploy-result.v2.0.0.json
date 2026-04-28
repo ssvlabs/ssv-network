@@ -1,0 +1,24 @@
+{
+  "deployer": "0x3187a42658417a4d60866163A4534Ce00D40C0C8",
+  "chainId": "1",
+  "network": "mainnet",
+  "deployedAt": "2026-04-19T08:25:37.577Z",
+  "blockNumber": 24912723,
+  "implementations": {
+    "SSVNetworkSSVStakingUpgrade": "0xa72a8F31163d74D708664493d09167dfa13008E9",
+    "SSVNetworkViews": "0xAdEb99eb2307F874D72b1F814fCa106f6BFaA8E9"
+  },
+  "cssvToken": {
+    "address": "0xe018D31F120A637828F46aFD6c64EC099d960546",
+    "deployed": false
+  },
+  "modules": {
+    "SSVOperators": "0x38DaA3fC4B1E5c02742b67F241B27Dceb8BFFA45",
+    "SSVClusters": "0x5DD8980c3c8B48BAce3A2Ec481bD61f7dE1523a9",
+    "SSVDAO": "0x94ef691dAa32cC2d31897aE8767e02988f1add4F",
+    "SSVViews": "0xf73954Ad8C96647c2238e6B7A435557Def23c19F",
+    "SSVOperatorsWhitelist": "0xE8CEac3f59EF0214c957Fd72F003bc9671a7196B",
+    "SSVStaking": "0x238C9C4f6026924c7B51400fa63452FAFF8e959A",
+    "SSVValidators": "0xCFA765F971B1D10b7bf989aad80cab817b92Fe1e"
+  }
+}

@@ -8,10 +8,13 @@ jobs:
     name: Solidity code coverage
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v3
+      - uses: actions/setup-node@v4
         with:
-          node-version: '20.x'
+          node-version: '22.x'
       - run: npm ci
         env:
           GH_TOKEN: ${{ secrets.github_token }}
-      - run: SOLIDITY_COVERAGE=true NO_GAS_ENFORCE=1 npx hardhat coverage
+      - run: npx hardhat test --coverage
+        env:
+          NO_GAS_ENFORCE: '1'
+          COVERAGE: 'true'

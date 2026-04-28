@@ -1,0 +1,5 @@
+contracts/**/test/**
+contracts/**/tests/**
+contracts/**/harness/**
+contracts/**/mocks/**
+contracts/**/deprecated/**

@@ -1,0 +1,508 @@
+{
+  "_format": "hh3-artifact-1",
+  "contractName": "SSVDAO",
+  "sourceName": "contracts/modules/SSVDAO.sol",
+  "abi": [
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "contractAddress",
+          "type": "address"
+        }
+      ],
+      "name": "AddressIsWhitelistingContract",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "ApprovalNotWithinTimeframe",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "CallerNotOwner",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "caller",
+          "type": "address"
+        },
+        {
+          "internalType": "address",
+          "name": "owner",
+          "type": "address"
+        }
+      ],
+      "name": "CallerNotOwnerWithData",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "CallerNotWhitelisted",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint64",
+          "name": "operatorId",
+          "type": "uint64"
+        }
+      ],
+      "name": "CallerNotWhitelistedWithData",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "ClusterAlreadyEnabled",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "ClusterDoesNotExists",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "ClusterIsLiquidated",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "ClusterNotLiquidatable",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "EmptyPublicKeysList",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint64",
+          "name": "operatorId",
+          "type": "uint64"
+        }
+      ],
+      "name": "ExceedValidatorLimit",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint64",
+          "name": "operatorId",
+          "type": "uint64"
+        }
+      ],
+      "name": "ExceedValidatorLimitWithData",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "FeeExceedsIncreaseLimit",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "FeeIncreaseNotAllowed",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "FeeTooHigh",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "FeeTooLow",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "IncorrectClusterState",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "IncorrectValidatorState",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes",
+          "name": "publicKey",
+          "type": "bytes"
+        }
+      ],
+      "name": "IncorrectValidatorStateWithData",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "InsufficientBalance",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "InvalidContractAddress",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "InvalidOperatorIdsLength",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "InvalidPublicKeyLength",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "InvalidWhitelistAddressesLength",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "contractAddress",
+          "type": "address"
+        }
+      ],
+      "name": "InvalidWhitelistingContract",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "MaxValueExceeded",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "NewBlockPeriodIsBelowMinimum",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "NoFeeDeclared",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "NotAuthorized",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "OperatorAlreadyExists",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "OperatorDoesNotExist",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "OperatorsListNotUnique",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "PublicKeysSharesLengthMismatch",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "SameFeeChangeNotAllowed",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "TargetModuleDoesNotExist",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint8",
+          "name": "moduleId",
+          "type": "uint8"
+        }
+      ],
+      "name": "TargetModuleDoesNotExistWithData",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "TokenTransferFailed",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "UnsortedOperatorsList",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "ValidatorAlreadyExists",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes",
+          "name": "publicKey",
+          "type": "bytes"
+        }
+      ],
+      "name": "ValidatorAlreadyExistsWithData",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "ValidatorDoesNotExist",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "ZeroAddressNotAllowed",
+      "type": "error"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": false,
+          "internalType": "uint64",
+          "name": "value",
+          "type": "uint64"
+        }
+      ],
+      "name": "DeclareOperatorFeePeriodUpdated",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": false,
+          "internalType": "uint64",
+          "name": "value",
+          "type": "uint64"
+        }
+      ],
+      "name": "ExecuteOperatorFeePeriodUpdated",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": false,
+          "internalType": "uint64",
+          "name": "value",
+          "type": "uint64"
+        }
+      ],
+      "name": "LiquidationThresholdPeriodUpdated",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "value",
+          "type": "uint256"
+        }
+      ],
+      "name": "MinimumLiquidationCollateralUpdated",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "value",
+          "type": "uint256"
+        },
+        {
+          "indexed": false,
+          "internalType": "address",
+          "name": "recipient",
+          "type": "address"
+        }
+      ],
+      "name": "NetworkEarningsWithdrawn",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "oldFee",
+          "type": "uint256"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "newFee",
+          "type": "uint256"
+        }
+      ],
+      "name": "NetworkFeeUpdated",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": false,
+          "internalType": "uint64",
+          "name": "value",
+          "type": "uint64"
+        }
+      ],
+      "name": "OperatorFeeIncreaseLimitUpdated",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": false,
+          "internalType": "uint64",
+          "name": "maxFee",
+          "type": "uint64"
+        }
+      ],
+      "name": "OperatorMaximumFeeUpdated",
+      "type": "event"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint64",
+          "name": "timeInSeconds",
+          "type": "uint64"
+        }
+      ],
+      "name": "updateDeclareOperatorFeePeriod",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint64",
+          "name": "timeInSeconds",
+          "type": "uint64"
+        }
+      ],
+      "name": "updateExecuteOperatorFeePeriod",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint64",
+          "name": "blocks",
+          "type": "uint64"
+        }
+      ],
+      "name": "updateLiquidationThresholdPeriod",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint64",
+          "name": "maxFee",
+          "type": "uint64"
+        }
+      ],
+      "name": "updateMaximumOperatorFee",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "amount",
+          "type": "uint256"
+        }
+      ],
+      "name": "updateMinimumLiquidationCollateral",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "fee",
+          "type": "uint256"
+        }
+      ],
+      "name": "updateNetworkFee",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint64",
+          "name": "percentage",
+          "type": "uint64"
+        }
+      ],
+      "name": "updateOperatorFeeIncreaseLimit",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "amount",
+          "type": "uint256"
+        }
+      ],
+      "name": "withdrawNetworkEarnings",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    }
+  ],
+  "bytecode": "0x6080806040523461001657610a31908161001b8239f35b5f80fdfe604060808152600480361015610013575f80fd5b5f3560e01c80631f1f9fd5146106a85780633631983f146106075780636512447d1461053357806379e3e4e41461047a578063b4c9c408146103d6578063d2231741146101a6578063e39c6744146100fa5763eb60802214610073575f80fd5b346100f65760203660031901126100f657359067ffffffffffffffff82168092036100f6577f0f1d85405047bdb6b0a60e27531f52a1f7a948613527b9b83a7552558207aa17805467ffffffffffffffff191683179055519081527ff6b8a2b45d0a60381de51a7b980c4660d9e5b82db6e07a4d342bfc17a6ff96bf90602090a1005b5f80fd5b50346100f65760203660031901126100f6573567ffffffffffffffff81168082036100f6577f38552bed8df52ac76c5de6da688eafcda7d7b070f6c987f391a07dd69986d783926020927f0f1d85405047bdb6b0a60e27531f52a1f7a948613527b9b83a7552558207aa17907fffffffffffffffff0000000000000000ffffffffffffffffffffffffffffffff67ffffffffffffffff60801b83549260801b16911617905551908152a1005b5090346100f6576020806003193601126100f6578235906101c68261087a565b6101ce61096a565b9067ffffffffffffffff91828116838316116103ae5782916101ef9161084c565b167f0f1d85405047bdb6b0a60e27531f52a1f7a948613527b9b83a7552558207aa169067ffffffffffffffff198254161790557f0f1d85405047bdb6b0a60e27531f52a1f7a948613527b9b83a7552558207aa1580546bffffffff000000000000000043871b16906bffffffff000000000000000019161790555f8273ffffffffffffffffffffffffffffffffffffffff7fd56c4f4aab8ca22f9fde432777379f436593c6027698a6995e2daea890bed10b541660448751809481937fa9059cbb000000000000000000000000000000000000000000000000000000008352338c8401528960248401525af19182156103a4575f92610348575b505015610320577f370342c3bb9245e20bffe6dced02ba2fceca979701f881d5adc72d838e83f1c5935082519182523390820152a1005b5050517f045c4b02000000000000000000000000000000000000000000000000000000008152fd5b90915082903d841161039c575b601f8201601f191683019081118382101761038957839183918752810103126100f6575180151581036100f6575f806102e9565b604187634e487b7160e01b5f525260245ffd5b3d9150610355565b85513d5f823e3d90fd5b8686517ff4d678b8000000000000000000000000000000000000000000000000000000008152fd5b50346100f65760203660031901126100f6577fd363ab4392efaf967a89d8616cba1ff0c6f05a04c2f214671be365f0fab059609160209135906104188261087a565b7f0f1d85405047bdb6b0a60e27531f52a1f7a948613527b9b83a7552558207aa16907fffffffffffffffff0000000000000000ffffffffffffffffffffffffffffffff67ffffffffffffffff60801b83549260801b16911617905551908152a1005b50346100f65760203660031901126100f6573567ffffffffffffffff81168082036100f6577f5fbd75d987b37490f91aa1909db948e7ff14c6ffb495b2f8e0b2334da9b192f1926020927f0f1d85405047bdb6b0a60e27531f52a1f7a948613527b9b83a7552558207aa169077ffffffffffffffffffffffffffffffffffffffffffffffff7fffffffffffffffff00000000000000000000000000000000000000000000000083549260c01b16911617905551908152a1005b5090346100f65760203660031901126100f657813567ffffffffffffffff8116928382036100f657620189c084106105e0577f0f1d85405047bdb6b0a60e27531f52a1f7a948613527b9b83a7552558207aa1680546fffffffffffffffff0000000000000000191683851b6fffffffffffffffff00000000000000001617905582518481527f42af14411036d7a50e5e92daf825781450fc8fac8fb65cbdb04720ff08efb84f90602090a1005b82517f6e6c9cac000000000000000000000000000000000000000000000000000000008152fd5b50346100f65760203660031901126100f6573567ffffffffffffffff81168082036100f6577f2fff7e5a48a4befc2c2be4d77e141f6d97907798977ce452429ec55c2658a342926020927f0f1d85405047bdb6b0a60e27531f52a1f7a948613527b9b83a7552558207aa17906fffffffffffffffff0000000000000000196fffffffffffffffff0000000000000000835492851b16911617905551908152a1005b5090346100f65760203660031901126100f65781357f0f1d85405047bdb6b0a60e27531f52a1f7a948613527b9b83a7552558207aa159081549167ffffffffffffffff92838160801c1693806106fc61096a565b167f0f1d85405047bdb6b0a60e27531f52a1f7a948613527b9b83a7552558207aa169067ffffffffffffffff1982541617905563ffffffff906bffffffff000000000000000043881b1690816bffffffff00000000000000001985161790838516430390438211610839579161079e6107a792847fffffffffffffffff000000000000000000000000000000000000000000000000958460801c16911661092f565b9060c01c61094e565b60c01b16906fffffffff00000000ffffffff0000000067ffffffffffffffff60801b6107d28861087a565b60801b1694161717904316171790556298968091828102928184041490151715610826577f8f49a76c5d617bd72673d92d3a019ff8f04f204536aae7a3d10e7ca85603f3cc935082519182526020820152a1005b601184634e487b7160e01b5f525260245ffd5b60118b634e487b7160e01b5f525260245ffd5b67ffffffffffffffff918216908216039190821161086657565b634e487b7160e01b5f52601160045260245ffd5b6a98968000000000000000008110156108eb57629896808082066108a75767ffffffffffffffff91041690565b606460405162461bcd60e51b815260206004820152601660248201527f4d617820707265636973696f6e206578636565646564000000000000000000006044820152fd5b606460405162461bcd60e51b815260206004820152601260248201527f4d61782076616c756520657863656564656400000000000000000000000000006044820152fd5b91909167ffffffffffffffff8080941691160291821691820361086657565b91909167ffffffffffffffff8080941691160191821161086657565b6109f867ffffffffffffffff6109f2817f0f1d85405047bdb6b0a60e27531f52a1f7a948613527b9b83a7552558207aa165416917f0f1d85405047bdb6b0a60e27531f52a1f7a948613527b9b83a7552558207aa1554906109e763ffffffff916109db838560401c1682431661084c565b908460801c169061092f565b9160201c169061092f565b9061094e565b9056fea26469706673582212202fc1bf69a1064c557b42f4a3acbd7d6ebb1172e42d7d5f1b75c60415edd1a95264736f6c63430008180033",
+  "deployedBytecode": "0x604060808152600480361015610013575f80fd5b5f3560e01c80631f1f9fd5146106a85780633631983f146106075780636512447d1461053357806379e3e4e41461047a578063b4c9c408146103d6578063d2231741146101a6578063e39c6744146100fa5763eb60802214610073575f80fd5b346100f65760203660031901126100f657359067ffffffffffffffff82168092036100f6577f0f1d85405047bdb6b0a60e27531f52a1f7a948613527b9b83a7552558207aa17805467ffffffffffffffff191683179055519081527ff6b8a2b45d0a60381de51a7b980c4660d9e5b82db6e07a4d342bfc17a6ff96bf90602090a1005b5f80fd5b50346100f65760203660031901126100f6573567ffffffffffffffff81168082036100f6577f38552bed8df52ac76c5de6da688eafcda7d7b070f6c987f391a07dd69986d783926020927f0f1d85405047bdb6b0a60e27531f52a1f7a948613527b9b83a7552558207aa17907fffffffffffffffff0000000000000000ffffffffffffffffffffffffffffffff67ffffffffffffffff60801b83549260801b16911617905551908152a1005b5090346100f6576020806003193601126100f6578235906101c68261087a565b6101ce61096a565b9067ffffffffffffffff91828116838316116103ae5782916101ef9161084c565b167f0f1d85405047bdb6b0a60e27531f52a1f7a948613527b9b83a7552558207aa169067ffffffffffffffff198254161790557f0f1d85405047bdb6b0a60e27531f52a1f7a948613527b9b83a7552558207aa1580546bffffffff000000000000000043871b16906bffffffff000000000000000019161790555f8273ffffffffffffffffffffffffffffffffffffffff7fd56c4f4aab8ca22f9fde432777379f436593c6027698a6995e2daea890bed10b541660448751809481937fa9059cbb000000000000000000000000000000000000000000000000000000008352338c8401528960248401525af19182156103a4575f92610348575b505015610320577f370342c3bb9245e20bffe6dced02ba2fceca979701f881d5adc72d838e83f1c5935082519182523390820152a1005b5050517f045c4b02000000000000000000000000000000000000000000000000000000008152fd5b90915082903d841161039c575b601f8201601f191683019081118382101761038957839183918752810103126100f6575180151581036100f6575f806102e9565b604187634e487b7160e01b5f525260245ffd5b3d9150610355565b85513d5f823e3d90fd5b8686517ff4d678b8000000000000000000000000000000000000000000000000000000008152fd5b50346100f65760203660031901126100f6577fd363ab4392efaf967a89d8616cba1ff0c6f05a04c2f214671be365f0fab059609160209135906104188261087a565b7f0f1d85405047bdb6b0a60e27531f52a1f7a948613527b9b83a7552558207aa16907fffffffffffffffff0000000000000000ffffffffffffffffffffffffffffffff67ffffffffffffffff60801b83549260801b16911617905551908152a1005b50346100f65760203660031901126100f6573567ffffffffffffffff81168082036100f6577f5fbd75d987b37490f91aa1909db948e7ff14c6ffb495b2f8e0b2334da9b192f1926020927f0f1d85405047bdb6b0a60e27531f52a1f7a948613527b9b83a7552558207aa169077ffffffffffffffffffffffffffffffffffffffffffffffff7fffffffffffffffff00000000000000000000000000000000000000000000000083549260c01b16911617905551908152a1005b5090346100f65760203660031901126100f657813567ffffffffffffffff8116928382036100f657620189c084106105e0577f0f1d85405047bdb6b0a60e27531f52a1f7a948613527b9b83a7552558207aa1680546fffffffffffffffff0000000000000000191683851b6fffffffffffffffff00000000000000001617905582518481527f42af14411036d7a50e5e92daf825781450fc8fac8fb65cbdb04720ff08efb84f90602090a1005b82517f6e6c9cac000000000000000000000000000000000000000000000000000000008152fd5b50346100f65760203660031901126100f6573567ffffffffffffffff81168082036100f6577f2fff7e5a48a4befc2c2be4d77e141f6d97907798977ce452429ec55c2658a342926020927f0f1d85405047bdb6b0a60e27531f52a1f7a948613527b9b83a7552558207aa17906fffffffffffffffff0000000000000000196fffffffffffffffff0000000000000000835492851b16911617905551908152a1005b5090346100f65760203660031901126100f65781357f0f1d85405047bdb6b0a60e27531f52a1f7a948613527b9b83a7552558207aa159081549167ffffffffffffffff92838160801c1693806106fc61096a565b167f0f1d85405047bdb6b0a60e27531f52a1f7a948613527b9b83a7552558207aa169067ffffffffffffffff1982541617905563ffffffff906bffffffff000000000000000043881b1690816bffffffff00000000000000001985161790838516430390438211610839579161079e6107a792847fffffffffffffffff000000000000000000000000000000000000000000000000958460801c16911661092f565b9060c01c61094e565b60c01b16906fffffffff00000000ffffffff0000000067ffffffffffffffff60801b6107d28861087a565b60801b1694161717904316171790556298968091828102928184041490151715610826577f8f49a76c5d617bd72673d92d3a019ff8f04f204536aae7a3d10e7ca85603f3cc935082519182526020820152a1005b601184634e487b7160e01b5f525260245ffd5b60118b634e487b7160e01b5f525260245ffd5b67ffffffffffffffff918216908216039190821161086657565b634e487b7160e01b5f52601160045260245ffd5b6a98968000000000000000008110156108eb57629896808082066108a75767ffffffffffffffff91041690565b606460405162461bcd60e51b815260206004820152601660248201527f4d617820707265636973696f6e206578636565646564000000000000000000006044820152fd5b606460405162461bcd60e51b815260206004820152601260248201527f4d61782076616c756520657863656564656400000000000000000000000000006044820152fd5b91909167ffffffffffffffff8080941691160291821691820361086657565b91909167ffffffffffffffff8080941691160191821161086657565b6109f867ffffffffffffffff6109f2817f0f1d85405047bdb6b0a60e27531f52a1f7a948613527b9b83a7552558207aa165416917f0f1d85405047bdb6b0a60e27531f52a1f7a948613527b9b83a7552558207aa1554906109e763ffffffff916109db838560401c1682431661084c565b908460801c169061092f565b9160201c169061092f565b9061094e565b9056fea26469706673582212202fc1bf69a1064c557b42f4a3acbd7d6ebb1172e42d7d5f1b75c60415edd1a95264736f6c63430008180033",
+  "linkReferences": {},
+  "deployedLinkReferences": {},
+  "immutableReferences": {},
+  "inputSourceName": "project/contracts/modules/SSVDAO.sol",
+  "buildInfoId": "solc-0_8_24-dc3260967516f45b660c2554111e2a58f5f3b385"
+}

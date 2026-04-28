@@ -1,0 +1,18 @@
+{
+  "currentVersion": "",
+  "targetVersion": "",
+  "owner": "",
+  "ssvNetworkProxy": "",
+  "ssvNetworkViews": "",
+  "ssvToken": "",
+  "cooldownDuration": 604800,
+  "upgradeTimestamp": 0,
+  "quorumBps": 7500,
+  "defaultOracleIds": [1, 2, 3, 4],
+  "cssvToken": "",
+  "protocolParams": {
+    "liquidationThresholdPeriodSSV": "100380",
+    "minBlocksBetweenUpdates": "7200"
+  },
+  "oracles": {}
+}

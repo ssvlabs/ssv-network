@@ -1,0 +1,138 @@
+import { expect } from "chai";
+import type { NetworkConnection } from "hardhat/types/network";
+import type { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/types";
+import { defaultDAOFixture } from "../../helpers/fixture-presets.ts";
+import type { NetworkHelpersType } from "../../common/types.ts";
+import { Events } from "../../common/events.ts";
+import { Errors } from '../../common/errors.js';
+import { ethers } from "ethers";
+import { setupTestContext } from "../../common/helpers.ts";
+import { trackGasFromReceipt, GasGroup } from "../../helpers/gas-usage.ts";
+import { ETH_DEDUCTED_DIGITS } from "../../common/constants.ts";
+
+describe("SSVDAO function `updateMinimumLiquidationCollateral()`", async () => {
+  let connection: NetworkConnection<"generic">;
+  let networkHelpers: NetworkHelpersType;
+
+  let owner: HardhatEthersSigner;
+
+  before(async function () {
+    ({ connection, networkHelpers, signers: [owner] } = await setupTestContext());
+  });
+
+  const deployDAOFixture = async () => defaultDAOFixture(connection);
+
+  it("Updates the minimum liquidation collateral and emits event", async function () {
+    const { dao } = await networkHelpers.loadFixture(deployDAOFixture);
+
+    const newCollateral = ethers.parseEther("1");
+
+    const tx = await dao.updateMinimumLiquidationCollateral(newCollateral);
+    const receipt = await tx.wait();
+    await trackGasFromReceipt(receipt, [GasGroup.CHANGE_MINIMUM_COLLATERAL]);
+
+    await expect(tx)
+      .to.emit(dao, Events.MINIMUM_LIQUIDATION_COLLATERAL_UPDATED)
+      .withArgs(newCollateral);
+  });
+
+  it("Is reverted when collateral is not a multiple of 1e7 (shrink precision)", async function () {
+    const { dao } = await networkHelpers.loadFixture(deployDAOFixture);
+
+    await expect(dao.updateMinimumLiquidationCollateral(1n))
+      .to.be.revertedWithCustomError(dao, Errors.MAX_PRECISION_EXCEEDED);
+  });
+
+  it("Stores the new minimum liquidation collateral in storage", async function () {
+    const { dao } = await networkHelpers.loadFixture(deployDAOFixture);
+
+    const newCollateral = ethers.parseEther("2");
+
+    await dao.updateMinimumLiquidationCollateral(newCollateral);
+
+    const storedCollateral = await dao.getMinimumLiquidationCollateral();
+    expect(storedCollateral).to.equal(newCollateral / ETH_DEDUCTED_DIGITS);
+  });
+
+  it("Can set minimum liquidation collateral to zero", async function () {
+    const { dao } = await networkHelpers.loadFixture(deployDAOFixture);
+
+    await dao.updateMinimumLiquidationCollateral(ethers.parseEther("1"));
+    const tx = await dao.updateMinimumLiquidationCollateral(0n);
+
+    await expect(tx)
+      .to.emit(dao, Events.MINIMUM_LIQUIDATION_COLLATERAL_UPDATED)
+      .withArgs(0n);
+
+    const storedCollateral = await dao.getMinimumLiquidationCollateral();
+    expect(storedCollateral).to.equal(0n);
+  });
+
+  it("Can update from one collateral to another", async function () {
+    const { dao } = await networkHelpers.loadFixture(deployDAOFixture);
+
+    const firstCollateral = ethers.parseEther("1");
+    const secondCollateral = ethers.parseEther("5");
+
+    await dao.updateMinimumLiquidationCollateral(firstCollateral);
+    const tx = await dao.updateMinimumLiquidationCollateral(secondCollateral);
+
+    await expect(tx)
+      .to.emit(dao, Events.MINIMUM_LIQUIDATION_COLLATERAL_UPDATED)
+      .withArgs(secondCollateral);
+  });
+});
+
+describe("SSVDAO function `updateMinimumLiquidationCollateralSSV()`", async () => {
+  let connection: NetworkConnection<"generic">;
+  let networkHelpers: NetworkHelpersType;
+
+  let owner: HardhatEthersSigner;
+
+  before(async function () {
+    ({ connection, networkHelpers, signers: [owner] } = await setupTestContext());
+  });
+
+  const deployDAOFixture = async () => defaultDAOFixture(connection);
+
+  it("Updates the SSV minimum liquidation collateral and emits event", async function () {
+    const { dao } = await networkHelpers.loadFixture(deployDAOFixture);
+
+    const newCollateral = ethers.parseEther("1");
+
+    const tx = await dao.updateMinimumLiquidationCollateralSSV(newCollateral);
+
+    await expect(tx)
+      .to.emit(dao, Events.MINIMUM_LIQUIDATION_COLLATERAL_UPDATED_SSV)
+      .withArgs(newCollateral);
+  });
+
+  it("Is reverted when SSV collateral is not a multiple of 1e7 (shrink precision)", async function () {
+    const { dao } = await networkHelpers.loadFixture(deployDAOFixture);
+
+    await expect(dao.updateMinimumLiquidationCollateralSSV(1n))
+      .to.be.revertedWithCustomError(dao, Errors.MAX_PRECISION_EXCEEDED);
+  });
+
+  it("Stores the new SSV minimum liquidation collateral in storage", async function () {
+    const { dao } = await networkHelpers.loadFixture(deployDAOFixture);
+
+    const newCollateral = ethers.parseEther("3");
+
+    await dao.updateMinimumLiquidationCollateralSSV(newCollateral);
+
+    const storedCollateral = await dao.getMinimumLiquidationCollateralSSV();
+    expect(storedCollateral).to.equal(newCollateral / 10_000_000n);
+  });
+
+  it("Can set SSV minimum liquidation collateral to zero", async function () {
+    const { dao } = await networkHelpers.loadFixture(deployDAOFixture);
+
+    await dao.updateMinimumLiquidationCollateralSSV(ethers.parseEther("1"));
+    const tx = await dao.updateMinimumLiquidationCollateralSSV(0n);
+
+    await expect(tx)
+      .to.emit(dao, Events.MINIMUM_LIQUIDATION_COLLATERAL_UPDATED_SSV)
+      .withArgs(0n);
+  });
+});
