@@ -2,17 +2,15 @@
 pragma solidity 0.8.24;
 
 import "./interfaces/ISSVViews.sol";
-import "./libraries/Types.sol";
 import "./libraries/ClusterLib.sol";
 import "./libraries/OperatorLib.sol";
 import "./libraries/ProtocolLib.sol";
+import {MAX_DELEGATION_SLOTS} from "./libraries/storage/SSVStorageStaking.sol";
 
 import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
 
 contract SSVNetworkViews is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVViews {
-    using Types256 for uint256;
-    using Types64 for uint64;
     using ClusterLib for Cluster;
     using OperatorLib for Operator;
 
@@ -31,7 +29,7 @@ contract SSVNetworkViews is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVViews 
 
     function initialize(ISSVViews ssvNetwork_) external initializer onlyProxy {
         __UUPSUpgradeable_init();
-        __Ownable_init_unchained();
+        __Ownable2Step_init();
         ssvNetwork = ssvNetwork_;
     }
 
@@ -51,14 +49,24 @@ contract SSVNetworkViews is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVViews 
         return ssvNetwork.getOperatorFee(operatorId);
     }
 
-    function getOperatorDeclaredFee(uint64 operatorId) external view override returns (bool, uint256, uint64, uint64) {
+    function getOperatorFeeSSV(uint64 operatorId) external view override returns (uint256) {
+        return ssvNetwork.getOperatorFeeSSV(operatorId);
+    }
+
+    function getOperatorDeclaredFee(uint64 operatorId) external view override returns (OperatorDeclaredFeeData memory) {
         return ssvNetwork.getOperatorDeclaredFee(operatorId);
     }
 
     function getOperatorById(
         uint64 operatorId
-    ) external view override returns (address, uint256, uint32, address, bool, bool) {
+    ) external view override returns (OperatorData memory) {
         return ssvNetwork.getOperatorById(operatorId);
+    }
+
+    function getOperatorByIdSSV(
+        uint64 operatorId
+    ) external view override returns (OperatorData memory) {
+        return ssvNetwork.getOperatorByIdSSV(operatorId);
     }
 
     function getWhitelistedOperators(
@@ -92,6 +100,14 @@ contract SSVNetworkViews is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVViews 
         return ssvNetwork.isLiquidatable(clusterOwner, operatorIds, cluster);
     }
 
+    function isLiquidatableSSV(
+        address clusterOwner,
+        uint64[] calldata operatorIds,
+        Cluster memory cluster
+    ) external view override returns (bool) {
+        return ssvNetwork.isLiquidatableSSV(clusterOwner, operatorIds, cluster);
+    }
+
     function isLiquidated(
         address clusterOwner,
         uint64[] calldata operatorIds,
@@ -104,8 +120,16 @@ contract SSVNetworkViews is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVViews 
         address clusterOwner,
         uint64[] calldata operatorIds,
         Cluster memory cluster
-    ) external view returns (uint256) {
+    ) external view override returns (uint256) {
         return ssvNetwork.getBurnRate(clusterOwner, operatorIds, cluster);
+    }
+
+    function getBurnRateSSV(
+        address clusterOwner,
+        uint64[] calldata operatorIds,
+        Cluster memory cluster
+    ) external view override returns (uint256) {
+        return ssvNetwork.getBurnRateSSV(clusterOwner, operatorIds, cluster);
     }
 
     /***********************************/
@@ -116,12 +140,32 @@ contract SSVNetworkViews is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVViews 
         return ssvNetwork.getOperatorEarnings(id);
     }
 
+    function getOperatorEarningsSSV(uint64 id) external view override returns (uint256) {
+        return ssvNetwork.getOperatorEarningsSSV(id);
+    }
+
     function getBalance(
         address clusterOwner,
         uint64[] calldata operatorIds,
         Cluster memory cluster
-    ) external view override returns (uint256) {
+    ) external view override returns (uint256 balance) {
         return ssvNetwork.getBalance(clusterOwner, operatorIds, cluster);
+    }
+
+    function getBalanceSSV(
+        address clusterOwner,
+        uint64[] calldata operatorIds,
+        Cluster memory cluster
+    ) external view override returns (uint256 balance) {
+        return ssvNetwork.getBalanceSSV(clusterOwner, operatorIds, cluster);
+    }
+
+    function getEffectiveBalance(
+        address clusterOwner,
+        uint64[] calldata operatorIds,
+        Cluster memory cluster
+    ) external view returns (uint32 effectiveBalance) {
+        return ssvNetwork.getEffectiveBalance(clusterOwner, operatorIds, cluster);
     }
 
     /*******************************/
@@ -136,15 +180,31 @@ contract SSVNetworkViews is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVViews 
         return ssvNetwork.getNetworkEarnings();
     }
 
+    function getNetworkFeeSSV() external view override returns (uint256) {
+        return ssvNetwork.getNetworkFeeSSV();
+    }
+
+    function getNetworkEarningsSSV() external view override returns (uint256) {
+        return ssvNetwork.getNetworkEarningsSSV();
+    }
+
     function getOperatorFeeIncreaseLimit() external view override returns (uint64) {
         return ssvNetwork.getOperatorFeeIncreaseLimit();
     }
 
-    function getMaximumOperatorFee() external view override returns (uint64) {
+    function getMaximumOperatorFee() external view override returns (uint256) {
         return ssvNetwork.getMaximumOperatorFee();
     }
 
-    function getOperatorFeePeriods() external view override returns (uint64, uint64) {
+    function getMaximumOperatorFeeSSV() external view override returns (uint256) {
+        return ssvNetwork.getMaximumOperatorFeeSSV();
+    }
+
+    function getMinimumOperatorEthFee() external view override returns (uint256) {
+        return ssvNetwork.getMinimumOperatorEthFee();
+    }
+
+    function getOperatorFeePeriods() external view override returns (OperatorFeePeriodsData memory) {
         return ssvNetwork.getOperatorFeePeriods();
     }
 
@@ -152,8 +212,16 @@ contract SSVNetworkViews is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVViews 
         return ssvNetwork.getLiquidationThresholdPeriod();
     }
 
+    function getLiquidationThresholdPeriodSSV() external view override returns (uint64) {
+        return ssvNetwork.getLiquidationThresholdPeriodSSV();
+    }
+
     function getMinimumLiquidationCollateral() external view override returns (uint256) {
         return ssvNetwork.getMinimumLiquidationCollateral();
+    }
+
+    function getMinimumLiquidationCollateralSSV() external view override returns (uint256) {
+        return ssvNetwork.getMinimumLiquidationCollateralSSV();
     }
 
     function getValidatorsPerOperatorLimit() external view override returns (uint32) {
@@ -162,6 +230,58 @@ contract SSVNetworkViews is UUPSUpgradeable, Ownable2StepUpgradeable, ISSVViews 
 
     function getNetworkValidatorsCount() external view override returns (uint32) {
         return ssvNetwork.getNetworkValidatorsCount();
+    }
+
+    function getClusterAssetType(address owner, uint64[] calldata operatorIds) external view override returns (uint8) {
+        return ssvNetwork.getClusterAssetType(owner, operatorIds);
+    }
+
+    function cooldownDuration() external view override returns (uint256) {
+        return ssvNetwork.cooldownDuration();
+    }
+
+    function totalStaked() external view override returns (uint256) {
+        return ssvNetwork.totalStaked();
+    }
+
+    function stakedBalanceOf(address user) external view override returns (uint256) {
+        return ssvNetwork.stakedBalanceOf(user);
+    }
+
+    function pendingUnstake(address user) external view override returns (UnstakeRequestsData[] memory) {
+        return ssvNetwork.pendingUnstake(user);
+    }
+
+    function accEthPerShare() external view override returns (uint256) {
+        return ssvNetwork.accEthPerShare();
+    }
+
+    function stakingEthPoolBalance() external view override returns (uint256) {
+        return ssvNetwork.stakingEthPoolBalance();
+    }
+
+    function previewClaimableEth(address user) external view override returns (uint256) {
+        return ssvNetwork.previewClaimableEth(user);
+    }
+
+    function getOracle(uint32 oracleId) external view override returns (address) {
+        return ssvNetwork.getOracle(oracleId);
+    }
+
+    function getOracleWeight(uint32 oracleId) external view override returns (uint256) {
+        return ssvNetwork.getOracleWeight(oracleId);
+    }
+
+    function getActiveOracleIds() external view override returns (uint32[MAX_DELEGATION_SLOTS] memory) {
+        return ssvNetwork.getActiveOracleIds();
+    }
+
+    function getQuorumBps() external view override returns (uint16) {
+        return ssvNetwork.getQuorumBps();
+    }
+
+    function getCommittedRoot(uint64 blockNum) external view override returns (bytes32) {
+        return ssvNetwork.getCommittedRoot(blockNum);
     }
 
     function getVersion() external view override returns (string memory) {

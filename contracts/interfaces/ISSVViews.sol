@@ -2,160 +2,451 @@
 pragma solidity ^0.8.20;
 
 import {ISSVNetworkCore} from "./ISSVNetworkCore.sol";
+import {MAX_DELEGATION_SLOTS} from "../libraries/storage/SSVStorageStaking.sol";
 
-interface ISSVViews is ISSVNetworkCore {
-    /// @notice Gets the validator status
-    /// @param owner The address of the validator's owner
-    /// @param publicKey The public key of the validator
-    /// @return active A boolean indicating if the validator is active. If it does not exist, returns false.
+/**
+ * @title SSV Views Types Interface
+ * @author SSV Labs
+ * @notice Interface providing strict data types to be used as return values in SSV Views getters
+ */
+interface ISSVViewsTypes {
+    /// @notice Contains data about a declared (pending) operator fee change
+    struct OperatorDeclaredFeeData {
+        /// @dev Whether the operator has an active fee declaration
+        bool isFeeDeclared;
+        /// @dev The fee value that was declared
+        uint256 fee;
+        /// @dev Timestamp when the approval window for this declaration begins
+        uint64 approvalBeginTime;
+        /// @dev Timestamp when the approval window for this declaration ends
+        uint64 approvalEndTime;
+    }
+
+    /// @notice Contains core information about an operator
+    struct OperatorData {
+        /// @dev The address that owns and manages the operator
+        address owner;
+        /// @dev The current fee charged by the operator
+        uint256 fee;
+        /// @dev The number of validators currently registered to this operator
+        uint32 validatorCount;
+        /// @dev The address whitelisted for this operator
+        address whitelistedAddress;
+        /// @dev Whether the operator is private
+        bool isPrivate;
+        /// @dev Whether the operator is currently active
+        bool isActive;
+    }
+
+    /// @notice Contains the time periods used for operator fee change workflow
+    struct OperatorFeePeriodsData {
+        /// @dev Duration (in seconds) of the declaration period
+        uint64 declarePeriod;
+        /// @dev Duration (in seconds) of the approval/execution period
+        uint64 executePeriod;
+    }
+
+    /// @notice Represents a single pending unstake request
+    struct UnstakeRequestsData {
+        /// @dev The amount of SSV requested to be unstaked
+        uint256 amount;
+        /// @dev Timestamp after which the unstaked amount becomes withdrawable
+        uint256 unlockTime;
+    }
+}
+
+/**
+ * @title SSV Views Interface
+ * @author SSV Labs
+ * @notice Interface providing view functions to retrieve network state, operator data, validator status, cluster information, fees, and staking details
+ */
+interface ISSVViews is ISSVNetworkCore, ISSVViewsTypes {
+    /**
+     * @notice Returns whether a validator is active
+     * @param owner Owner of the validator
+     * @param publicKey Validator public key
+     * @return active True if validator exists and is active
+     */
     function getValidator(address owner, bytes calldata publicKey) external view returns (bool);
 
-    /// @notice Gets the operator fee
-    /// @param operatorId The ID of the operator
-    /// @return fee The fee associated with the operator (SSV). If the operator does not exist, the returned value is 0.
+    /**
+     * @notice Returns the current ETH fee of an operator
+     * @param operatorId The operator ID
+     * @return fee Current operator fee in ETH
+     */
     function getOperatorFee(uint64 operatorId) external view returns (uint256 fee);
 
-    /// @notice Gets the declared operator fee
-    /// @param operatorId The ID of the operator
-    /// @return isFeeDeclared A boolean indicating if the fee is declared
-    /// @return fee The declared operator fee (SSV)
-    /// @return approvalBeginTime The time when the fee approval process begins
-    /// @return approvalEndTime The time when the fee approval process ends
+    /**
+     * @notice Returns the legacy SSV fee of an operator
+     * @param operatorId The operator ID
+     * @return fee Current operator fee in SSV
+     */
+    function getOperatorFeeSSV(uint64 operatorId) external view returns (uint256 fee);
+
+    /**
+     * @notice Gets the declared operator fee
+     * @param operatorId The ID of the operator
+     * @return data Declaration data
+     */
     function getOperatorDeclaredFee(
         uint64 operatorId
-    ) external view returns (bool isFeeDeclared, uint256 fee, uint64 approvalBeginTime, uint64 approvalEndTime);
+    ) external view returns (OperatorDeclaredFeeData memory);
 
-    /// @notice Gets operator details by ID
-    /// @param operatorId The ID of the operator
-    /// @return owner The owner of the operator
-    /// @return fee The fee associated with the operator (SSV)
-    /// @return validatorCount The count of validators associated with the operator
-    /// @return whitelistedAddress The whitelisted address of the operator. It can be and EOA or generic contract (legacy) or a whitelisting contract
-    /// @return isPrivate A boolean indicating if the operator is private (uses whitelisting contract or SSV Whitelisting module)
-    /// @return active A boolean indicating if the operator is active
+    /**
+     * @notice Gets operator details by ID
+     * @param operatorId The ID of the operator
+     * @return The struct with operator details
+     */
     function getOperatorById(
         uint64 operatorId
     )
         external
         view
-        returns (
-            address owner,
-            uint256 fee,
-            uint32 validatorCount,
-            address whitelistedAddress,
-            bool isPrivate,
-            bool active
-        );
+        returns (OperatorData memory);
 
-    /// @notice Gets the list of operators that have the given whitelisted address (EOA or generic contract)
-    /// @param operatorIds The list of operator IDs to check
-    /// @param whitelistedAddress The address whitelisted for the operators
-    /// @return whitelistedOperatorIds The list of operator IDs that have the given whitelisted address
+    /**
+     * @notice Gets legacy SSV operator details by ID
+     * @param operatorId The ID of the operator
+     * @return The struct with operator details
+     */
+    function getOperatorByIdSSV(
+        uint64 operatorId
+    )
+        external
+        view
+        returns (OperatorData memory);
+
+    /**
+     * @notice Returns which operators have the given address whitelisted
+     * @param operatorIds List of operator IDs to check
+     * @param whitelistedAddress Address to check
+     * @return whitelistedOperatorIds List of operators where address is whitelisted
+     */
     function getWhitelistedOperators(
         uint64[] calldata operatorIds,
         address whitelistedAddress
     ) external view returns (uint64[] memory whitelistedOperatorIds);
 
-    /// @notice Checks if the given address is a whitelisting contract (implements ISSVWhitelistingContract)
-    /// @param contractAddress The address to check
-    /// @return isWhitelistingContract A boolean indicating if the address is a whitelisting contract
-    function isWhitelistingContract(address contractAddress) external view returns (bool isWhitelistingContract);
+    /**
+     * @notice Checks if an address is a valid whitelisting contract
+     * @param contractAddress Address to check
+     * @return isWhitelistingContract True if address implements ISSVWhitelistingContract
+     */
+    function isWhitelistingContract(address contractAddress) external view returns (bool);
 
-    /// @notice Checks if the given address is whitelisted in a specific whitelisting contract.
-    /// @notice It's up to the whitelisting contract implementation to use the operatorId parameter or not.
-    /// @param addressToCheck The address to check
-    /// @param operatorId The operator ID to check in combination with addressToCheck
-    /// @param whitelistingContract The whitelisting contract address
-    /// @return isWhitelisted A boolean indicating if the address is whitelisted in the given whitelisting contract for the given operator
+    /**
+     * @notice Checks if an address is whitelisted in a specific whitelisting contract
+     * @param addressToCheck Address to verify
+     * @param operatorId Operator ID (usage depends on contract implementation)
+     * @param whitelistingContract Whitelisting contract address
+     * @return isWhitelisted Whether the address is whitelisted
+     */
     function isAddressWhitelistedInWhitelistingContract(
         address addressToCheck,
         uint256 operatorId,
         address whitelistingContract
     ) external view returns (bool isWhitelisted);
 
-    /// @notice Checks if the cluster can be liquidated
-    /// @param owner The owner address of the cluster
-    /// @param operatorIds The IDs of the operators in the cluster
-    /// @return isLiquidatable A boolean indicating if the cluster can be liquidated
+    /**
+     * @notice Checks if a cluster is eligible for liquidation
+     * @param owner Cluster owner
+     * @param operatorIds Operator IDs in the cluster
+     * @param cluster Cluster data
+     * @return isLiquidatable True if cluster can be liquidated
+     */
     function isLiquidatable(
         address owner,
         uint64[] calldata operatorIds,
         Cluster memory cluster
     ) external view returns (bool isLiquidatable);
 
-    /// @notice Checks if the cluster is liquidated
-    /// @param owner The owner address of the cluster
-    /// @param operatorIds The IDs of the operators in the cluster
-    /// @return isLiquidated A boolean indicating if the cluster is liquidated
+    /**
+     * @notice Checks if a legacy SSV cluster is eligible for liquidation
+     * @param owner Cluster owner
+     * @param operatorIds Operator IDs in the cluster
+     * @param cluster Cluster data
+     * @return isLiquidatable True if cluster can be liquidated
+     */
+    function isLiquidatableSSV(
+        address owner,
+        uint64[] calldata operatorIds,
+        Cluster memory cluster
+    ) external view returns (bool isLiquidatable);
+
+    /**
+     * @notice Checks if a cluster is already liquidated
+     * @param owner Cluster owner
+     * @param operatorIds Operator IDs in the cluster
+     * @param cluster Cluster data
+     * @return isLiquidated True if cluster is liquidated
+     */
     function isLiquidated(
         address owner,
         uint64[] memory operatorIds,
         Cluster memory cluster
     ) external view returns (bool isLiquidated);
 
-    /// @notice Gets the burn rate of the cluster
-    /// @param owner The owner address of the cluster
-    /// @param operatorIds The IDs of the operators in the cluster
-    /// @return burnRate The burn rate of the cluster (SSV)
+    /**
+     * @notice Returns the current burn rate of a cluster
+     * @param owner Cluster owner
+     * @param operatorIds Operator IDs in the cluster
+     * @param cluster Cluster data
+     * @return burnRate Current burn rate in SSV per block
+     */
     function getBurnRate(
         address owner,
         uint64[] memory operatorIds,
         Cluster memory cluster
     ) external view returns (uint256 burnRate);
 
-    /// @notice Gets operator earnings
-    /// @param operatorId The ID of the operator
-    /// @return earnings The earnings associated with the operator (SSV)
+    /**
+     * @notice Returns the burn rate of a legacy SSV cluster
+     * @param owner Cluster owner
+     * @param operatorIds Operator IDs in the cluster
+     * @param cluster Cluster data
+     * @return burnRate Current burn rate in SSV per block
+     */
+    function getBurnRateSSV(
+        address owner,
+        uint64[] calldata operatorIds,
+        Cluster memory cluster
+    ) external view returns (uint256 burnRate);
+
+    /**
+     * @notice Returns accumulated operator earnings (ETH)
+     * @param operatorId The operator ID
+     * @return earnings Total ETH earnings
+     */
     function getOperatorEarnings(uint64 operatorId) external view returns (uint256 earnings);
 
-    /// @notice Gets the balance of the cluster
-    /// @param owner The owner address of the cluster
-    /// @param operatorIds The IDs of the operators in the cluster
-    /// @return balance The balance of the cluster (SSV)
+    /**
+     * @notice Returns accumulated operator earnings (legacy SSV)
+     * @param operatorId The operator ID
+     * @return earnings Total SSV earnings
+     */
+    function getOperatorEarningsSSV(uint64 operatorId) external view returns (uint256 earnings);
+
+    /**
+     * @notice Returns the balance of a cluster
+     * @param owner Cluster owner
+     * @param operatorIds Operator IDs in the cluster
+     * @param cluster Cluster data
+     * @return balance Cluster balance in ETH
+     */
     function getBalance(
         address owner,
         uint64[] memory operatorIds,
         Cluster memory cluster
     ) external view returns (uint256 balance);
 
-    /// @notice Gets the network fee
-    /// @return networkFee The fee associated with the network (SSV)
+    /**
+     * @notice Returns the balance of a legacy SSV cluster
+     * @param owner Cluster owner
+     * @param operatorIds Operator IDs in the cluster
+     * @param cluster Cluster data
+     * @return balance Cluster balance in SSV
+     */
+    function getBalanceSSV(
+        address owner,
+        uint64[] calldata operatorIds,
+        Cluster memory cluster
+    ) external view returns (uint256 balance);
+
+    /**
+     * @notice Returns the effective balance of a cluster
+     * @param owner Cluster owner
+     * @param operatorIds Operator IDs in the cluster
+     * @param cluster Cluster data
+     * @return effectiveBalance Effective balance
+     */
+    function getEffectiveBalance(
+        address owner,
+        uint64[] calldata operatorIds,
+        Cluster memory cluster
+    ) external view returns (uint32 effectiveBalance);
+
+    /**
+     * @notice Returns the asset type/version of a cluster
+     * @param owner Cluster owner
+     * @param operatorIds Operator IDs in the cluster
+     * @return version Cluster version (ETH or SSV)
+     */
+    function getClusterAssetType(
+        address owner,
+        uint64[] calldata operatorIds
+    ) external view returns (uint8 version);
+
+    /**
+     * @notice Returns the current network fee
+     * @return networkFee Current network fee in ETH
+     */
     function getNetworkFee() external view returns (uint256 networkFee);
 
-    /// @notice Gets the network earnings
-    /// @return networkEarnings The earnings associated with the network (SSV)
+    /**
+     * @notice Returns the total network earnings
+     * @return networkEarnings Total network earnings in ETH
+     */
     function getNetworkEarnings() external view returns (uint256 networkEarnings);
 
-    /// @notice Gets the operator fee increase limit
-    /// @return The maximum limit of operator fee increase
+    /**
+     * @notice Returns the legacy network fee (SSV)
+     * @return networkFee Current network fee in SSV
+     */
+    function getNetworkFeeSSV() external view returns (uint256 networkFee);
+
+    /**
+     * @notice Returns the legacy network earnings (SSV)
+     * @return networkEarnings Total network earnings in SSV
+     */
+    function getNetworkEarningsSSV() external view returns (uint256 networkEarnings);
+
+    /**
+     * @notice Returns the maximum allowed operator fee increase percentage
+     * @return Maximum fee increase limit
+     */
     function getOperatorFeeIncreaseLimit() external view returns (uint64);
 
-    /// @notice Gets the operator maximum fee for operators that use SSV token
-    /// @return The maximum fee value (SSV)
-    function getMaximumOperatorFee() external view returns (uint64);
+    /**
+     * @notice Returns the maximum allowed operator fee (ETH)
+     * @return Maximum operator fee
+     */
+    function getMaximumOperatorFee() external view returns (uint256);
 
-    /// @notice Gets the periods of operator fee declaration and execution
-    /// @return The period for declaring operator fee
-    /// @return The period for executing operator fee
-    function getOperatorFeePeriods() external view returns (uint64, uint64);
+    /**
+     * @notice Returns the maximum allowed operator fee (SSV)
+     * @return Maximum operator fee
+     */
+    function getMaximumOperatorFeeSSV() external view returns (uint256);
 
-    /// @notice Gets the liquidation threshold period
-    /// @return blocks The number of blocks for the liquidation threshold period
+    /**
+     * @notice Returns the minimum operator ETH fee set by DAO
+     * @return Minimum operator fee in ETH
+     */
+    function getMinimumOperatorEthFee() external view returns (uint256);
+
+    /**
+     * @notice Returns the declaration and execution periods for operator fee changes
+     * @return The struct with operator fee periods
+     */
+    function getOperatorFeePeriods() external view returns (OperatorFeePeriodsData memory);
+
+    /**
+     * @notice Returns the liquidation threshold period (ETH)
+     * @return blocks Number of blocks
+     */
     function getLiquidationThresholdPeriod() external view returns (uint64 blocks);
 
-    /// @notice Gets the minimum liquidation collateral
-    /// @return amount The minimum amount of collateral for liquidation (SSV)
+    /**
+     * @notice Returns the liquidation threshold period (SSV)
+     * @return blocks Number of blocks
+     */
+    function getLiquidationThresholdPeriodSSV() external view returns (uint64 blocks);
+
+    /**
+     * @notice Returns the minimum liquidation collateral
+     * @return amount Minimum collateral in SSV
+     */
     function getMinimumLiquidationCollateral() external view returns (uint256 amount);
 
-    /// @notice Gets the maximum limit of validators per operator
-    /// @return validators The maximum number of validators per operator
+    /**
+     * @notice Returns the minimum liquidation collateral (SSV)
+     * @return amount Minimum collateral in SSV
+     */
+    function getMinimumLiquidationCollateralSSV() external view returns (uint256 amount);
+
+    /**
+     * @notice Returns the maximum number of validators per operator
+     * @return validators Maximum validators allowed
+     */
     function getValidatorsPerOperatorLimit() external view returns (uint32 validators);
 
-    /// @notice Gets the total number of validators in the network
-    /// @return validatorsCount The total number of validators in the network
+    /**
+     * @notice Returns total number of registered validators in the network
+     * @return validatorsCount Total validator count
+     */
     function getNetworkValidatorsCount() external view returns (uint32 validatorsCount);
 
-    /// @notice Gets the version of the contract
-    /// @return The version of the contract
+    /**
+     * @notice Returns the unstaking cooldown duration
+     * @return Cooldown period in seconds
+     */
+    function cooldownDuration() external view returns (uint256);
+
+    /**
+     * @notice Returns total SSV tokens currently staked
+     * @return Total staked amount
+     */
+    function totalStaked() external view returns (uint256);
+
+    /**
+     * @notice Returns the staked balance of a user
+     * @param user User address
+     * @return Staked balance
+     */
+    function stakedBalanceOf(address user) external view returns (uint256);
+
+    /**
+     * @notice Returns pending unstake requests for a user
+     * @param user User address
+     * @return Array of pending amounts and unstake requests
+     */
+    function pendingUnstake(address user) external view returns (UnstakeRequestsData[] memory);
+
+    /**
+     * @notice Returns current accumulated ETH per share
+     * @return Accumulated ETH per share
+     */
+    function accEthPerShare() external view returns (uint256);
+
+    /**
+     * @notice Returns current ETH balance in the staking pool
+     * @return ETH pool balance
+     */
+    function stakingEthPoolBalance() external view returns (uint256);
+
+    /**
+     * @notice Returns claimable ETH rewards for a user
+     * @param user User address
+     * @return Claimable ETH amount
+     */
+    function previewClaimableEth(address user) external view returns (uint256);
+
+    /**
+     * @notice Returns oracle address by ID
+     * @param oracleId Oracle ID
+     * @return Oracle address
+     */
+    function getOracle(uint32 oracleId) external view returns (address);
+
+    /**
+     * @notice Returns weight of a specific oracle
+     * @param oracleId Oracle ID
+     * @return Oracle weight
+     */
+    function getOracleWeight(uint32 oracleId) external view returns (uint256);
+
+    /**
+     * @notice Returns currently active oracle IDs
+     * @return Array of active oracle IDs
+     */
+    function getActiveOracleIds() external view returns (uint32[MAX_DELEGATION_SLOTS] memory);
+
+    /**
+     * @notice Returns the required quorum in basis points
+     * @return Quorum in bps
+     */
+    function getQuorumBps() external view returns (uint16);
+
+    /**
+     * @notice Returns the committed merkle root for a given block
+     * @param blockNum Block number
+     * @return merkleRoot Committed merkle root
+     */
+    function getCommittedRoot(uint64 blockNum) external view returns (bytes32 merkleRoot);
+
+    /**
+     * @notice Returns the current contract version
+     * @return Contract version string
+     */
     function getVersion() external view returns (string memory);
 }

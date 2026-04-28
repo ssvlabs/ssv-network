@@ -2,53 +2,60 @@
 pragma solidity 0.8.24;
 
 import {ISSVOperators} from "../interfaces/ISSVOperators.sol";
-import {Types64, Types256} from "../libraries/Types.sol";
-import {SSVStorage, StorageData} from "../libraries/SSVStorage.sol";
-import {SSVStorageProtocol, StorageProtocol} from "../libraries/SSVStorageProtocol.sol";
-import "../libraries/OperatorLib.sol";
-import "../libraries/CoreLib.sol";
+import {PackedSSV, PackedETH, VERSION_ETH, VERSION_SSV, PACKED_ETH_ZERO, PACKED_SSV_ZERO, BPS_DENOMINATOR} from "../libraries/SSVCoreTypes.sol";
+import {PackedSSVLib, PackedETHLib} from "../libraries/SSVPackedLib.sol";
+import {SSVStorage, StorageData} from "../libraries/storage/SSVStorage.sol";
+import {SSVStorageProtocol, StorageProtocol} from "../libraries/storage/SSVStorageProtocol.sol";
+import {OperatorLib} from "../libraries/OperatorLib.sol";
+import {CoreLib} from "../libraries/CoreLib.sol";
+import {SSVStorageEB, StorageEB} from "../libraries/storage/SSVStorageEB.sol";
+import {SSVReentrancyGuard} from "../abstract/SSVReentrancyGuard.sol";
 
 import {Counters} from "@openzeppelin/contracts/utils/Counters.sol";
 
-contract SSVOperators is ISSVOperators {
-    uint64 private constant MINIMAL_OPERATOR_FEE = 1_000_000_000;
-    uint64 private constant PRECISION_FACTOR = 10_000;
+contract SSVOperators is ISSVOperators, SSVReentrancyGuard {
+    uint256 public immutable UPGRADE_TIMESTAMP;
 
-    using Types256 for uint256;
-    using Types64 for uint64;
     using Counters for Counters.Counter;
     using OperatorLib for Operator;
+    using PackedETHLib for PackedETH;
+    using PackedSSVLib for PackedSSV;
 
-    /*******************************/
-    /* Operator External Functions */
-    /*******************************/
+    constructor(uint256 upgradeTimestamp) {
+        UPGRADE_TIMESTAMP = upgradeTimestamp;
+    }
 
+    /**
+     * @inheritdoc ISSVOperators
+     */
     function registerOperator(
         bytes calldata publicKey,
         uint256 fee,
         bool setPrivate
     ) external override returns (uint64 id) {
-        if (fee != 0 && fee < MINIMAL_OPERATOR_FEE) {
-            revert ISSVNetworkCore.FeeTooLow();
+        StorageProtocol storage sp = SSVStorageProtocol.load();
+
+        if (fee != 0 && fee < PackedETHLib.unpack(sp.minimumOperatorEthFee)) {
+            revert FeeTooLow();
         }
-        if (fee > SSVStorageProtocol.load().operatorMaxFee) {
-            revert ISSVNetworkCore.FeeTooHigh();
+        if (fee > PackedETHLib.unpack(sp.operatorMaxFee)) {
+            revert FeeTooHigh();
         }
 
         StorageData storage s = SSVStorage.load();
 
         bytes32 hashedPk = keccak256(publicKey);
-        if (s.operatorsPKs[hashedPk] != 0) revert ISSVNetworkCore.OperatorAlreadyExists();
+        if (s.operatorsPKs[hashedPk] != 0) revert OperatorAlreadyExists();
 
         s.lastOperatorId.increment();
         id = uint64(s.lastOperatorId.current());
-        s.operators[id] = Operator({
-            owner: msg.sender,
-            snapshot: ISSVNetworkCore.Snapshot({block: uint32(block.number), index: 0, balance: 0}),
-            validatorCount: 0,
-            fee: fee.shrink(),
-            whitelisted: setPrivate
-        });
+        Operator storage op = s.operators[id];
+
+        op.owner = msg.sender;
+        op.whitelisted = setPrivate;
+        op.ethFee = PackedETHLib.pack(fee);
+
+        op.ethSnapshot.block = uint32(block.number);
         s.operatorsPKs[hashedPk] = id;
 
         uint64[] memory operatorIds = new uint64[](1);
@@ -58,69 +65,95 @@ contract SSVOperators is ISSVOperators {
         emit OperatorPrivacyStatusUpdated(operatorIds, setPrivate);
     }
 
-    function removeOperator(uint64 operatorId) external override {
+    /**
+     * @inheritdoc ISSVOperators
+     */
+    function removeOperator(uint64 operatorId) external override nonReentrant {
         StorageData storage s = SSVStorage.load();
+        Operator storage operator = s.operators[operatorId];
+        StorageEB storage seb = SSVStorageEB.load();
 
-        Operator memory operator = s.operators[operatorId];
         operator.checkOwner();
 
-        operator.updateSnapshot();
-        uint64 currentBalance = operator.snapshot.balance;
+        PackedETH currentBalanceETH = PACKED_ETH_ZERO;
+        PackedSSV currentBalanceSSV = PACKED_SSV_ZERO;
 
-        operator.snapshot.block = 0;
-        operator.snapshot.balance = 0;
-        operator.validatorCount = 0;
-        operator.fee = 0;
+        if (operator.snapshot.block != 0) {
+            OperatorLib.updateSnapshotStSSV(operator);
+            currentBalanceSSV = operator.snapshot.balance;
+        }
 
-        s.operators[operatorId] = operator;
+        if (operator.ethSnapshot.block != 0) {
+            OperatorLib.updateSnapshotSt(operator, operatorId);
+            currentBalanceETH = operator.ethSnapshot.balance;
+        }
 
+        _resetOperatorState(operator);
+
+        delete seb.operatorEthVUnits[operatorId];
+        delete s.operatorFeeChangeRequests[operatorId];
         delete s.operatorsWhitelist[operatorId];
 
-        if (currentBalance > 0) {
-            _transferOperatorBalanceUnsafe(operatorId, currentBalance.expand());
+        if (PackedETHLib.raw(currentBalanceETH) > 0) {
+            _transferOperatorBalanceUnsafe(operatorId, PackedETHLib.unpack(currentBalanceETH));
+        }
+        if (PackedSSVLib.raw(currentBalanceSSV) > 0) {
+            _transferOperatorTokenBalanceUnsafe(operatorId, PackedSSVLib.unpack(currentBalanceSSV));
         }
         emit OperatorRemoved(operatorId);
     }
 
+    /**
+     * @inheritdoc ISSVOperators
+     */
     function declareOperatorFee(uint64 operatorId, uint256 fee) external override {
         StorageData storage s = SSVStorage.load();
         s.operators[operatorId].checkOwner();
 
         StorageProtocol storage sp = SSVStorageProtocol.load();
 
-        if (fee != 0 && fee < MINIMAL_OPERATOR_FEE) revert FeeTooLow();
-        if (fee > sp.operatorMaxFee) revert FeeTooHigh();
+        if (fee != 0 && fee < PackedETHLib.unpack(sp.minimumOperatorEthFee)) revert FeeTooLow();
+        if (fee > PackedETHLib.unpack(sp.operatorMaxFee)) revert FeeTooHigh();
+        if (s.operators[operatorId].ethSnapshot.block == 0) {
+            s.operators[operatorId].ensureETHDefaults(operatorId);
+        }
+        PackedSSV operatorSSVFee = s.operators[operatorId].fee;
+        PackedETH operatorFee = s.operators[operatorId].ethFee;
+        PackedETH shrunkFee = PackedETHLib.pack(fee);
 
-        uint64 operatorFee = s.operators[operatorId].fee;
-        uint64 shrunkFee = fee.shrink();
-
-        if (operatorFee == shrunkFee) {
+        if (operatorFee.eq(shrunkFee)) {
             revert SameFeeChangeNotAllowed();
-        } else if (shrunkFee != 0 && operatorFee == 0) {
+        } else if (shrunkFee.raw() != 0 && operatorFee.raw() == 0 && operatorSSVFee.raw() == 0) {
             revert FeeIncreaseNotAllowed();
         }
 
         // @dev 100%  =  10000, 10% = 1000 - using 10000 to represent 2 digit precision
-        uint64 maxAllowedFee = (operatorFee * (PRECISION_FACTOR + sp.operatorMaxFeeIncrease)) / PRECISION_FACTOR;
+        uint64 maxAllowedFee = (operatorFee.raw() * (BPS_DENOMINATOR + sp.operatorMaxFeeIncrease) + BPS_DENOMINATOR - 1) / BPS_DENOMINATOR;
 
-        if (shrunkFee > maxAllowedFee) revert FeeExceedsIncreaseLimit();
+        if (shrunkFee.raw() > maxAllowedFee) revert FeeExceedsIncreaseLimit();
 
         s.operatorFeeChangeRequests[operatorId] = OperatorFeeChangeRequest(
-            shrunkFee,
+            PackedETH.unwrap(shrunkFee),
             uint64(block.timestamp) + sp.declareOperatorFeePeriod,
             uint64(block.timestamp) + sp.declareOperatorFeePeriod + sp.executeOperatorFeePeriod
         );
         emit OperatorFeeDeclared(msg.sender, operatorId, block.number, fee);
     }
 
+    /**
+     * @inheritdoc ISSVOperators
+     */
     function executeOperatorFee(uint64 operatorId) external override {
         StorageData storage s = SSVStorage.load();
-        Operator memory operator = s.operators[operatorId];
-        operator.checkOwner();
+        s.operators[operatorId].checkOwner();
 
         OperatorFeeChangeRequest memory feeChangeRequest = s.operatorFeeChangeRequests[operatorId];
 
         if (feeChangeRequest.approvalBeginTime == 0) revert NoFeeDeclared();
+
+        if (feeChangeRequest.approvalBeginTime <= UPGRADE_TIMESTAMP) {
+            revert LegacyOperatorFeeDeclarationInvalid();
+        }
 
         if (
             block.timestamp < feeChangeRequest.approvalBeginTime || block.timestamp > feeChangeRequest.approvalEndTime
@@ -128,17 +161,22 @@ contract SSVOperators is ISSVOperators {
             revert ApprovalNotWithinTimeframe();
         }
 
-        if (feeChangeRequest.fee.expand() > SSVStorageProtocol.load().operatorMaxFee) revert FeeTooHigh();
+        StorageProtocol storage sp = SSVStorageProtocol.load();
+        if (PackedETH.wrap(feeChangeRequest.fee).gt(sp.operatorMaxFee)) revert FeeTooHigh();
+        if (feeChangeRequest.fee != 0 && feeChangeRequest.fee < PackedETH.unwrap(sp.minimumOperatorEthFee)) revert FeeTooLow();
 
-        operator.updateSnapshot();
-        operator.fee = feeChangeRequest.fee;
-        s.operators[operatorId] = operator;
+        Operator storage operator = s.operators[operatorId];
+        OperatorLib.updateSnapshotSt(operator, operatorId);
+        operator.ethFee = PackedETH.wrap(feeChangeRequest.fee);
 
         delete s.operatorFeeChangeRequests[operatorId];
 
-        emit OperatorFeeExecuted(msg.sender, operatorId, block.number, feeChangeRequest.fee.expand());
+        emit OperatorFeeExecuted(msg.sender, operatorId, block.number, PackedETHLib.unpack(PackedETH.wrap(feeChangeRequest.fee)));
     }
 
+    /**
+     * @inheritdoc ISSVOperators
+     */
     function cancelDeclaredOperatorFee(uint64 operatorId) external override {
         StorageData storage s = SSVStorage.load();
         s.operators[operatorId].checkOwner();
@@ -150,18 +188,26 @@ contract SSVOperators is ISSVOperators {
         emit OperatorFeeDeclarationCancelled(msg.sender, operatorId);
     }
 
+    /**
+     * @inheritdoc ISSVOperators
+     */
     function reduceOperatorFee(uint64 operatorId, uint256 fee) external override {
         StorageData storage s = SSVStorage.load();
-        Operator memory operator = s.operators[operatorId];
-        operator.checkOwner();
+        s.operators[operatorId].checkOwner();
 
-        if (fee != 0 && fee < MINIMAL_OPERATOR_FEE) revert FeeTooLow();
+        if (fee != 0 && fee < PackedETHLib.unpack(SSVStorageProtocol.load().minimumOperatorEthFee)) revert FeeTooLow();
 
-        uint64 shrunkAmount = fee.shrink();
-        if (shrunkAmount >= operator.fee) revert FeeIncreaseNotAllowed();
+        if (s.operators[operatorId].ethSnapshot.block == 0) {
+            s.operators[operatorId].ensureETHDefaults(operatorId);
+        }
 
-        operator.updateSnapshot();
-        operator.fee = shrunkAmount;
+        Operator memory operator = s.operators[operatorId]; 
+
+        PackedETH shrunkAmount = PackedETHLib.pack(fee);
+        if (shrunkAmount.gte(operator.ethFee)) revert FeeIncreaseNotAllowed();
+
+        operator.updateSnapshot(operatorId);
+        operator.ethFee = shrunkAmount;
         s.operators[operatorId] = operator;
 
         delete s.operatorFeeChangeRequests[operatorId];
@@ -169,52 +215,157 @@ contract SSVOperators is ISSVOperators {
         emit OperatorFeeExecuted(msg.sender, operatorId, block.number, fee);
     }
 
+    /**
+     * @inheritdoc ISSVOperators
+     */
     function setOperatorsPrivateUnchecked(uint64[] calldata operatorIds) external override {
         OperatorLib.updatePrivacyStatus(operatorIds, true, SSVStorage.load());
         emit OperatorPrivacyStatusUpdated(operatorIds, true);
     }
 
+    /**
+     * @inheritdoc ISSVOperators
+     */
     function setOperatorsPublicUnchecked(uint64[] calldata operatorIds) external override {
         OperatorLib.updatePrivacyStatus(operatorIds, false, SSVStorage.load());
         emit OperatorPrivacyStatusUpdated(operatorIds, false);
     }
 
-    function withdrawOperatorEarnings(uint64 operatorId, uint256 amount) external override {
-        _withdrawOperatorEarnings(operatorId, amount);
+    /**
+     * @inheritdoc ISSVOperators
+     */
+    function withdrawOperatorEarnings(uint64 operatorId, uint256 amount) external override nonReentrant {
+        _withdrawOperatorEarnings(operatorId, amount, VERSION_ETH);
     }
 
-    function withdrawAllOperatorEarnings(uint64 operatorId) external override {
-        _withdrawOperatorEarnings(operatorId, 0);
+    /**
+     * @inheritdoc ISSVOperators
+     */
+    function withdrawAllOperatorEarnings(uint64 operatorId) external override nonReentrant {
+        _withdrawOperatorEarnings(operatorId, 0, VERSION_ETH);
+    }
+
+    /**
+     * @inheritdoc ISSVOperators
+     */
+    function withdrawAllVersionOperatorEarnings(uint64 operatorId) external override nonReentrant {
+        StorageData storage s = SSVStorage.load();
+        Operator storage operator = s.operators[operatorId];
+        operator.checkOwner();
+
+        PackedETH ethBalance = PACKED_ETH_ZERO;
+        PackedSSV ssvBalance = PACKED_SSV_ZERO;
+
+        if (operator.snapshot.block != 0) {
+            OperatorLib.updateSnapshotStSSV(operator);
+            ssvBalance = operator.snapshot.balance;
+            operator.snapshot.balance = PACKED_SSV_ZERO;
+        }
+
+        if (operator.ethSnapshot.block != 0) {
+            OperatorLib.updateSnapshotSt(operator, operatorId);
+            ethBalance = operator.ethSnapshot.balance;
+            operator.ethSnapshot.balance = PACKED_ETH_ZERO;
+        }
+
+        if (PackedETHLib.raw(ethBalance) > 0) {
+            _transferOperatorBalanceUnsafe(operatorId, PackedETHLib.unpack(ethBalance));
+        }
+        if (PackedSSVLib.raw(ssvBalance) > 0) {
+            _transferOperatorTokenBalanceUnsafe(operatorId, PackedSSVLib.unpack(ssvBalance));
+        }
+    }
+
+    /**
+     * @inheritdoc ISSVOperators
+     */
+    function withdrawOperatorEarningsSSV(uint64 operatorId, uint256 amount) external override nonReentrant {
+        _withdrawOperatorEarnings(operatorId, amount, VERSION_SSV);
+    }
+
+    /**
+     * @inheritdoc ISSVOperators
+     */
+    function withdrawAllOperatorEarningsSSV(uint64 operatorId) external override nonReentrant {
+        _withdrawOperatorEarnings(operatorId, 0, VERSION_SSV);
     }
 
     // private functions
-    function _withdrawOperatorEarnings(uint64 operatorId, uint256 amount) private {
+    function _withdrawOperatorEarnings(
+        uint64 operatorId,
+        uint256 amount,
+        uint8 version
+    ) private {
         StorageData storage s = SSVStorage.load();
-        Operator memory operator = s.operators[operatorId];
+        Operator storage operator = s.operators[operatorId];
+
         operator.checkOwner();
 
-        operator.updateSnapshot();
+        if (version == VERSION_ETH) {
+            if (operator.ethSnapshot.block == 0) revert InsufficientBalance();
+            
+            PackedETH shrunkWithdrawn;
+            PackedETH shrunkAmount = PackedETHLib.pack(amount);
+            OperatorLib.updateSnapshotSt(operator, operatorId);
 
-        uint64 shrunkWithdrawn;
-        uint64 shrunkAmount = amount.shrink();
+            PackedETH balance = operator.ethSnapshot.balance;
 
-        if (amount == 0 && operator.snapshot.balance > 0) {
-            shrunkWithdrawn = operator.snapshot.balance;
-        } else if (amount > 0 && operator.snapshot.balance >= shrunkAmount) {
-            shrunkWithdrawn = shrunkAmount;
+            if (amount == 0) {
+                if (PackedETHLib.raw(balance) == 0) revert InsufficientBalance();
+                shrunkWithdrawn = balance;
+            } else {
+                if (PackedETHLib.raw(balance) < PackedETHLib.raw(shrunkAmount)) revert InsufficientBalance();
+                shrunkWithdrawn = shrunkAmount;
+            }
+
+            operator.ethSnapshot.balance = balance.sub(shrunkWithdrawn);
+            _transferOperatorBalanceUnsafe(operatorId, PackedETHLib.unpack(shrunkWithdrawn));
+
+        } else if (version == VERSION_SSV) {
+            if (operator.snapshot.block == 0) revert InsufficientBalance();
+
+            PackedSSV shrunkWithdrawn;
+            PackedSSV shrunkAmount = PackedSSVLib.pack(amount);
+            OperatorLib.updateSnapshotStSSV(operator);
+
+            PackedSSV balance = operator.snapshot.balance;
+
+            if (amount == 0) {
+                if (PackedSSVLib.raw(balance) == 0) revert InsufficientBalance();
+                shrunkWithdrawn = balance;
+            } else {
+                if (PackedSSVLib.raw(balance) < PackedSSVLib.raw(shrunkAmount)) revert InsufficientBalance();
+                shrunkWithdrawn = shrunkAmount;
+            }
+
+            operator.snapshot.balance = balance.sub(shrunkWithdrawn);
+            _transferOperatorTokenBalanceUnsafe(operatorId, PackedSSVLib.unpack(shrunkWithdrawn));
+
         } else {
-            revert InsufficientBalance();
+            revert IncorrectOperatorVersion(version);
         }
+    }
 
-        operator.snapshot.balance -= shrunkWithdrawn;
-
-        s.operators[operatorId] = operator;
-
-        _transferOperatorBalanceUnsafe(operatorId, shrunkWithdrawn.expand());
+    function _resetOperatorState(Operator storage operator) private returns (Operator memory) {
+        operator.ethSnapshot.block = 0;
+        operator.ethSnapshot.balance = PACKED_ETH_ZERO;
+        operator.ethFee = PACKED_ETH_ZERO;
+        operator.snapshot.block = 0;
+        operator.snapshot.balance = PACKED_SSV_ZERO;
+        operator.fee = PACKED_SSV_ZERO;
+        operator.ethValidatorCount = 0;
+        operator.validatorCount = 0;
+        
+        return operator;
     }
 
     function _transferOperatorBalanceUnsafe(uint64 operatorId, uint256 amount) private {
-        CoreLib.transferBalance(msg.sender, amount);
+        CoreLib.transferBalance(payable(msg.sender), amount);
         emit OperatorWithdrawn(msg.sender, operatorId, amount);
+    }
+
+    function _transferOperatorTokenBalanceUnsafe(uint64 operatorId, uint256 amount) private {
+        CoreLib.transferTokenBalance(msg.sender, amount);
+        emit OperatorWithdrawnSSV(msg.sender, operatorId, amount);
     }
 }

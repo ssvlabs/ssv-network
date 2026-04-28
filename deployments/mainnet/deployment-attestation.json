@@ -1,0 +1,109 @@
+{
+  "generatedAt": "2026-04-19T08:28:07.811Z",
+  "deployment": {
+    "deployer": "0x3187a42658417a4d60866163A4534Ce00D40C0C8",
+    "chainId": "1",
+    "network": "mainnet",
+    "deployedAt": "2026-04-19T08:25:37.577Z",
+    "blockNumber": 24912723
+  },
+  "config": {
+    "currentVersion": "v1.2.0",
+    "targetVersion": "v2.0.0",
+    "ssvNetworkProxy": "0xDD9BC35aE942eF0cFa76930954a156B3fF30a4E1",
+    "ssvNetworkViews": "0xafE830B6Ee262ba11cce5F32fDCd760FFE6a66e4",
+    "ssvToken": "0x9D65fF81a3c488d585bBfb0Bfe3c7707c7917f54",
+    "cooldownDuration": 604800,
+    "upgradeTimestamp": 1776672000,
+    "quorumBps": 7500,
+    "defaultOracleIds": [
+      1,
+      2,
+      3,
+      4
+    ],
+    "initialStakeAmount": "1000000000000000000",
+    "protocolParams": {
+      "networkFeeEth": "3366600000",
+      "maxOperatorEthFee": "5336500000",
+      "minOperatorEthFee": "10000000",
+      "minimumLiquidationCollateralEth": "324862599900000",
+      "liquidationThresholdPeriod": "42960",
+      "minBlocksBetweenUpdates": "0",
+      "minimumLiquidationCollateralSSV": "385795451000000000",
+      "liquidationThresholdPeriodSSV": "100240"
+    },
+    "oracles": {
+      "1": "0xc61f7bd9ee5a3d011caf47aa0e5411f720593920",
+      "2": "0xc07332e05cec1c4896555a6d10361233fdf14422",
+      "3": "0x28bEa5B242362974d5DDb8f17a1E0e525446960B",
+      "4": "0x3A98EE5f80268Ed91F8A5880d93468b76a9F3bB4"
+    }
+  },
+  "contracts": {
+    "SSVNetworkSSVStakingUpgrade": {
+      "address": "0xa72a8F31163d74D708664493d09167dfa13008E9",
+      "constructorArgs": {},
+      "initializerArgs": {
+        "function": "initializeSSVStaking(uint64,uint32[4],uint16)",
+        "cooldownDuration": "604800",
+        "defaultOracleIds": "[1,2,3,4]",
+        "quorumBps": "7500"
+      },
+      "bytecodeHash": "0xf518bf4bb8fa630874f0c6cc737b963750d3ce081575b508da337f2d740f076b"
+    },
+    "SSVNetworkViews": {
+      "address": "0xAdEb99eb2307F874D72b1F814fCa106f6BFaA8E9",
+      "constructorArgs": {},
+      "bytecodeHash": "0x17be0b90b7000e63338b7d5361038883ed7463f353d8579bd6f5193e61a15b9b"
+    },
+    "CSSVToken": {
+      "address": "0xe018D31F120A637828F46aFD6c64EC099d960546",
+      "constructorArgs": {},
+      "bytecodeHash": "0x9d14ddbf6e0224f9863297ad56c10f06121aba20c32e2c5b3f62def709362861"
+    },
+    "SSVOperators": {
+      "address": "0x38DaA3fC4B1E5c02742b67F241B27Dceb8BFFA45",
+      "constructorArgs": {
+        "upgradeTimestamp": "1776672000"
+      },
+      "bytecodeHash": "0x0035847a1166dc0f4a1969768ee4e51364067dde0dc910f02864fb64c316fd2e"
+    },
+    "SSVClusters": {
+      "address": "0x5DD8980c3c8B48BAce3A2Ec481bD61f7dE1523a9",
+      "constructorArgs": {},
+      "bytecodeHash": "0xb5afe06362a4f0e1b5538a720b489a3a8fea3efc6bae3f43756e7b3b48e324db"
+    },
+    "SSVDAO": {
+      "address": "0x94ef691dAa32cC2d31897aE8767e02988f1add4F",
+      "constructorArgs": {
+        "cssvToken": "0xe018D31F120A637828F46aFD6c64EC099d960546"
+      },
+      "bytecodeHash": "0xd8d314f21c630ea5e35e8082dc307bb550bffc57c8003c18cbef0eb023379243"
+    },
+    "SSVViews": {
+      "address": "0xf73954Ad8C96647c2238e6B7A435557Def23c19F",
+      "constructorArgs": {
+        "cssvToken": "0xe018D31F120A637828F46aFD6c64EC099d960546"
+      },
+      "bytecodeHash": "0x7be703041ec8617d01aebe6079a64fbbc3a5de5875c9c1cc657891caadd906f3"
+    },
+    "SSVOperatorsWhitelist": {
+      "address": "0xE8CEac3f59EF0214c957Fd72F003bc9671a7196B",
+      "constructorArgs": {},
+      "bytecodeHash": "0x7c8400041759248263c5f791e1123b23cc760e77f5da9b46daca5ef4d2815fe6"
+    },
+    "SSVStaking": {
+      "address": "0x238C9C4f6026924c7B51400fa63452FAFF8e959A",
+      "constructorArgs": {
+        "cssvToken": "0xe018D31F120A637828F46aFD6c64EC099d960546"
+      },
+      "bytecodeHash": "0x2036caa06ba7cbcab9fb947944b43a8e307e3c525a14bfaf5acf18180c0797f7"
+    },
+    "SSVValidators": {
+      "address": "0xCFA765F971B1D10b7bf989aad80cab817b92Fe1e",
+      "constructorArgs": {},
+      "bytecodeHash": "0x7b381a0ae9014ff93fec90fa96ab9dd5ba3cc3e5501a5d6182e74e3b63bf0a34"
+    }
+  }
+}

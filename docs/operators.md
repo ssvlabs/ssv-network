@@ -1,75 +1,72 @@
 # SSV Network
 
-### [Intro](../README.md) | [Architecture](architecture.md) | [Setup](setup.md) | [Tasks](tasks.md) | [Local development](local-dev.md) | [Roles](roles.md) | [Publish](publish.md) | Operator owners
+### [Intro](../README.md) | [Architecture](architecture.md) | [Setup](setup.md) | [Tasks](tasks.md) | [Local development](local-dev.md) | [Roles](roles.md) | Operator owners
+### [Specification](SPEC.md) | [Flows](FLOWS.md) | [Mainnet upgrade playbook](UPGRADE_PLAYBOOK.md) | [Deployments](../deployments/README.md)
+
+## Operator owners
+
+The operator lifecycle remains a core part of the SSV Network, but in `v2.0.0` operators now participate in both legacy SSV accounting and the new ETH fee model depending on cluster type and migration state.
 
 ## Registering an operator
-The function `SSVNetwork.registerOperator()` is used to register a validator.
-Input parameters:
-`publicKey`: The public key of the operator
-`fee`: Should be `0` or greater than `100000000` and less than the value returned by `SSVNetworkViews.getMaximumOperatorFee()`
-`setPrivate`: Flag to set the privacy status of the operator. Public means anyone can use the operator for registering validators. Private means only the operator's whitelisted addresses can.
 
-After the operator is registered, the caller becomes the `owner`, the `fee` is set and the `whitelisted` status is set to `false`.
-The `whitelisted` flag of the operator indicates if the operator is private (when set to `true`) or public (`false`),
+Operators are registered through `SSVNetwork.registerOperator(...)`.
 
-## Whitelisted operators
-An operator owner can restrict the usage of it to specific EOAs, generic contracts and whitelisting contracts. 
-A whitelisting contract is the one that implements the [ISSVWhitelistingContract](../contracts/interfaces/external/ISSVWhitelistingContract.sol) interface.
+At registration time, the operator owner chooses:
 
-The restriction is only effective when the operator owner sets the privacy status of the operator to *private*.
+- the operator public key
+- the initial fee
+- whether the operator starts as private or public
 
-To manage the whitelisted addresses, these 2 data structures are used:
+For the precise fee constraints and execution behavior, use [SPEC.md](SPEC.md) and [FLOWS.md](FLOWS.md).
 
-`mapping(uint64 => address) operatorsWhitelist`: Keeps the relation between an operator and a whitelisting contract.
-`mapping(address => mapping(uint256 => uint256)) addressWhitelistedForOperators`: Links an address (EOA/generic contract) to a list of operators identified by its `operatorId` using bitmaps.
+## Public and private operators
 
-### What is a Whitelisting Contract?
-The operators can choose to whitelist an external contract with custom logic to manage authorized addresses externally. To be used in SSV contracts, it needs to implement the [ISSVWhitelistingContract](../contracts/interfaces/external/ISSVWhitelistingContract.sol) interface, that requires to implement the `isWhitelisted(address account, uint256 operatorId)` function. This function is called in the register validator process, that must return `true/false` to indicate if the caller (`msg.sender`) is whitelisted for the operator.
+Operators can be public or private:
 
-It's up to the implementation of the whitelisting contract to use the `operatorId` parameter in the `isWhitelisted` function.
+- **Public** operators can be used by any eligible caller
+- **Private** operators can only be used by addresses authorized through the protocol whitelist mechanisms
 
-To check if a contact is a valid whitelisting contract, use the function `SSVNetworkViews.isWhitelistingContract(address contractAddress)`.
+Whitelisting can be managed through:
 
-To check if an account is whitelisted in a whitelisting contract, use the function `SSVNetworkViews.isAddressWhitelistedInWhitelistingContract(address account, uint256 operatorId, address whitelistingContract)`.
+- direct address-based whitelists
+- an external whitelisting contract implementing `ISSVWhitelistingContract`
 
-### Legacy whitelisted addresses transition process
-Up until v1.1.1, operators use the `operatorsWhitelist` mapping to save EOAs and generic contracts. Now in v1.2.0, those type of addresses are stored in `addressWhitelistedForOperators`, leaving `operatorsWhitelist` to save only whitelisting contracts.
-When whitelisting a new whitelisting contract, the current address stored in `operatorsWhitelist` will be moved to `addressWhitelistedForOperators`, and the new address stored in `operatorsWhitelist`.
-When whitelisting a new EOA/generic contract, it will be saved in `addressWhitelistedForOperators`, leaving the previous address in `operatorsWhitelist` intact.
+This design lets operator owners keep policy on-chain while still supporting custom authorization logic when needed.
 
-### Operator whitelist states
-The following table shows all possible combinations of whitelisted addresses for a given operator.
-| Use legacy EOA/generic contract  | Use whitelisting contract  | Use EOAs/generic contracts |
-|---|---|---|
-| Y  |   |   |
-| Y  |   | Y  |
-|   | Y  |   |
-|   |   | Y  |
-|   | Y  | Y  |
+## Whitelisting flows
 
-The operarator status changes to private (`Operator.whitelisted == true`), so only the whitelisted addresses can use the operator's services when the operator owner explicitly sets the *private* status calling `SSVNetwork.setOperatorsPrivateUnchecked()`, no matter if it has whitelisted addresses.
+Relevant functions include:
 
-The operarator status changes to public (`Operator.whitelisted == false`), so anyone can use the operator's services when the operator owner explicitly sets the public status calling `SSVNetwork.setOperatorsPublicUnchecked()`, no matter if it still has whitelisted addresses.
+- `setOperatorsWhitelists`
+- `removeOperatorsWhitelists`
+- `setOperatorsWhitelistingContract`
+- `removeOperatorsWhitelistingContract`
+- `setOperatorsPrivateUnchecked`
+- `setOperatorsPublicUnchecked`
 
-### Registering whitelist addresses
-Functions related to whitelisting contracts:
-- Register: `SSVNetwork.setOperatorsWhitelistingContract(uint64[] calldata operatorIds, ISSVWhitelistingContract whitelistingContract)`
-- Remove: `SSVNetwork.removeOperatorsWhitelistingContract(uint64[] calldata operatorIds)`
+When a validator is registered against a private operator, the protocol checks whether the caller is authorized for that operator. Existing validators are not retroactively removed if whitelist settings later change.
 
-Functions related to EOAs/generic contracts:
-- Register multiple addresses to multiple operators: `SSVNetwork.setOperatorsWhitelists(uint64[] calldata operatorIds, address[] calldata whitelistAddresses)`
-- Remove multiple addresses for multiple operators: `SSVNetwork.removeOperatorsWhitelists(uint64[] calldata operatorIds, address[] calldata whitelistAddresses)`
+## ETH fee model for operators
 
-### Registering validators using whitelisted operators
-When registering validators using `SSVNetwork.registerValidator` or `SSVNetwork.registerValidator`, the flow to check if the caller is authorized to use a whitelisted operator is the following:
-1. Check if the operator is whitelisted via the SSV whitelisting module, using `addressWhitelistedForOperators`.
-2. Check if the operator has a whitelisted address in `operatorsWhitelist`.
-    1. Check if the caller is the whitelisted address. In this step we keep the whitelisting system backward compatible with previous whitelisted EOAs/generic contracts.
-    2. Check if the address is a whitelisting contract. Then call its `isWhitelisted()` function.
+In the upgraded system, ETH is the fee asset for new clusters. Operator owners should understand:
 
-If the caller is not authorized for any of the whitelisted operators, the transaction will revert with the `CallerNotWhitelistedWithData(<operatorId>)` error.
+- ETH fee changes follow a declare/execute or immediate-reduce model
+- earnings may exist on both ETH and legacy SSV branches depending on operator history
+- legacy operators can transition into ETH flows as clusters migrate or register under the new model
 
-**Important**: Changes to an operator's whitelist will not impact existing validators registered with that operator. Only new validator registrations will adhere to the updated whitelist rules.
+Detailed fee-settlement rules, default ETH fee behavior, and earnings accounting are defined in [SPEC.md](SPEC.md).
 
+## Earnings withdrawal
 
+Operator owners can withdraw:
 
+- ETH earnings through the ETH withdrawal functions
+- legacy SSV earnings through the SSV withdrawal functions where applicable
+
+The repo keeps both branches because the system must support pre-upgrade state while moving the active network model toward ETH.
+
+## Practical notes
+
+- Removing an operator does not erase the historical owner address used for read-side visibility.
+- Removed operators may still matter to cluster history and migration logic, so operator removal should be treated as a protocol event, not just a UI cleanup action.
+- Private operator policy affects future validator registration attempts, not historical validator membership.

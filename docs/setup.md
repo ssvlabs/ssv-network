@@ -1,34 +1,55 @@
 # SSV Network
 
-### [Intro](../README.md) | [Architecture](architecture.md) | Setup | [Tasks](tasks.md) | [Local development](local-dev.md) | [Roles](roles.md) | [Publish](publish.md) | [Operator owners](operators.md)
+### [Intro](../README.md) | [Architecture](architecture.md) | Setup | [Tasks](tasks.md) | [Local development](local-dev.md) | [Roles](roles.md) | [Operator owners](operators.md)
+### [Specification](SPEC.md) | [Flows](FLOWS.md) | [Mainnet upgrade playbook](UPGRADE_PLAYBOOK.md) | [Deployments](../deployments/README.md)
 
-## Developer Setup
+## Developer setup
 
-The stack is a simple one:
+This repository uses Solidity, Hardhat, TypeScript scripts, npm dependencies, and `just` recipes as the main local workflow.
 
-- Solidity
-- JavaScript
-- Node/NPM
-- HardHat
-- Ethers
+## Prerequisites
 
-### Install Node (also installs NPM)
+- Node.js LTS
+- npm
+- [`just`](https://github.com/casey/just) for running the repository workflows
 
-- Use the latest [LTS (long-term support) version](https://nodejs.org/en/download/).
+Optional but useful:
 
-### Install required Node modules
+- Anvil for fork-based testing and upgrade validation
+- Slither for static analysis
+- Echidna for invariant fuzzing
 
-All NPM resources are project local. No global installs are required.
+## Install dependencies
 
-```
-cd path/to/ssv-network
+```bash
 npm install
 ```
 
-### Configure Environment
+## Configure the environment
 
-- Copy [.env.example](../.env.example) to `.env` and edit to suit.
-- API keys are only needed for deploying to public networks.
-- `.env` is included in `.gitignore` and will not be committed to the repo.
+Copy the example file and fill in the values needed for the environments you use:
 
-At this moment you are ready to run tests, compile contracts and run coverage tests.
+```bash
+cp .env.example .env
+```
+
+Common variables:
+
+- `MAINNET_RPC_URL` and `HOODI_RPC_URL` for RPC access
+- `MAINNET_PRIVATE_KEY` and `HOODI_PRIVATE_KEY` for live owner or deployer actions
+- `ETHERSCAN_KEY` for block-explorer verification
+
+The environment-specific deployment source of truth lives under `deployments/<env>/config.json`. The `.env` file mainly supplies RPC and signer credentials.
+
+## Compile and test
+
+```bash
+just build
+just test-unit
+```
+
+Useful next steps:
+
+- See [tasks.md](tasks.md) for the full `just` recipe list
+- See [local-dev.md](local-dev.md) for local deployment and fork flows
+- See [deployments/README.md](../deployments/README.md) for environment-driven deployment and upgrade workflows

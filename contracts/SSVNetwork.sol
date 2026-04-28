@@ -4,21 +4,21 @@ pragma solidity 0.8.24;
 import "./interfaces/ISSVNetwork.sol";
 
 import "./interfaces/ISSVClusters.sol";
+import "./interfaces/ISSVValidators.sol";
 import "./interfaces/ISSVOperators.sol";
 import "./interfaces/ISSVOperatorsWhitelist.sol";
 import "./interfaces/ISSVDAO.sol";
 import "./interfaces/ISSVViews.sol";
-
+import "./interfaces/ISSVStaking.sol";
 import "./interfaces/external/ISSVWhitelistingContract.sol";
 
-import "./libraries/Types.sol";
-import "./libraries/CoreLib.sol";
-import "./libraries/SSVStorage.sol";
-import "./libraries/SSVStorageProtocol.sol";
+import {PackedETHLib} from "./libraries/SSVPackedLib.sol";
+import {CoreLib} from "./libraries/CoreLib.sol";
+import {StorageProtocol, SSVStorageProtocol} from "./libraries/storage/SSVStorageProtocol.sol";
+import {StorageData, SSVModules} from "./libraries/storage/SSVStorage.sol";
+import {SSVStorageStaking, StorageStaking} from "./libraries/storage/SSVStorageStaking.sol";
 
 import "./SSVProxy.sol";
-
-import {SSVModules} from "./libraries/SSVStorage.sol";
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
@@ -31,11 +31,11 @@ contract SSVNetwork is
     ISSVOperators,
     ISSVOperatorsWhitelist,
     ISSVClusters,
+    ISSVValidators,
     ISSVDAO,
+    ISSVStaking,
     SSVProxy
 {
-    using Types256 for uint256;
-
     /****************/
     /* Initializers */
     /****************/
@@ -46,27 +46,17 @@ contract SSVNetwork is
         ISSVClusters ssvClusters_,
         ISSVDAO ssvDAO_,
         ISSVViews ssvViews_,
-        uint64 minimumBlocksBeforeLiquidation_,
-        uint256 minimumLiquidationCollateral_,
-        uint32 validatorsPerOperatorLimit_,
-        uint64 declareOperatorFeePeriod_,
-        uint64 executeOperatorFeePeriod_,
-        uint64 operatorMaxFeeIncrease_
+        NetworkInitParams calldata params
     ) external override initializer onlyProxy {
         __UUPSUpgradeable_init();
-        __Ownable_init_unchained();
+        __Ownable2Step_init();
         __SSVNetwork_init_unchained(
             token_,
             ssvOperators_,
             ssvClusters_,
             ssvDAO_,
             ssvViews_,
-            minimumBlocksBeforeLiquidation_,
-            minimumLiquidationCollateral_,
-            validatorsPerOperatorLimit_,
-            declareOperatorFeePeriod_,
-            executeOperatorFeePeriod_,
-            operatorMaxFeeIncrease_
+            params
         );
     }
 
@@ -76,26 +66,24 @@ contract SSVNetwork is
         ISSVClusters ssvClusters_,
         ISSVDAO ssvDAO_,
         ISSVViews ssvViews_,
-        uint64 minimumBlocksBeforeLiquidation_,
-        uint256 minimumLiquidationCollateral_,
-        uint32 validatorsPerOperatorLimit_,
-        uint64 declareOperatorFeePeriod_,
-        uint64 executeOperatorFeePeriod_,
-        uint64 operatorMaxFeeIncrease_
+        NetworkInitParams calldata params
     ) internal onlyInitializing {
         StorageData storage s = SSVStorage.load();
         StorageProtocol storage sp = SSVStorageProtocol.load();
+        StorageStaking storage ss = SSVStorageStaking.load();
         s.token = token_;
         s.ssvContracts[SSVModules.SSV_OPERATORS] = address(ssvOperators_);
         s.ssvContracts[SSVModules.SSV_CLUSTERS] = address(ssvClusters_);
         s.ssvContracts[SSVModules.SSV_DAO] = address(ssvDAO_);
         s.ssvContracts[SSVModules.SSV_VIEWS] = address(ssvViews_);
-        sp.minimumBlocksBeforeLiquidation = minimumBlocksBeforeLiquidation_;
-        sp.minimumLiquidationCollateral = minimumLiquidationCollateral_.shrink();
-        sp.validatorsPerOperatorLimit = validatorsPerOperatorLimit_;
-        sp.declareOperatorFeePeriod = declareOperatorFeePeriod_;
-        sp.executeOperatorFeePeriod = executeOperatorFeePeriod_;
-        sp.operatorMaxFeeIncrease = operatorMaxFeeIncrease_;
+        sp.minimumBlocksBeforeLiquidation = params.minimumBlocksBeforeLiquidation;
+        sp.minimumLiquidationCollateral = PackedETHLib.pack(params.minimumLiquidationCollateral);
+        sp.validatorsPerOperatorLimit = params.validatorsPerOperatorLimit;
+        sp.declareOperatorFeePeriod = params.declareOperatorFeePeriod;
+        sp.executeOperatorFeePeriod = params.executeOperatorFeePeriod;
+        sp.operatorMaxFeeIncrease = params.operatorMaxFeeIncrease;
+        ss.defaultOracleIds = params.defaultOracleIds;
+        ss.quorumBps = params.quorumBps;
     }
 
     /// @custom:oz-upgrades-unsafe-allow constructor
@@ -158,7 +146,7 @@ contract SSVNetwork is
         _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_OPERATORS]);
     }
 
-    function setOperatorsPublicUnchecked(uint64[] calldata operatorIds) external {
+    function setOperatorsPublicUnchecked(uint64[] calldata operatorIds) external override {
         _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_OPERATORS]);
     }
 
@@ -190,12 +178,56 @@ contract SSVNetwork is
         _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_OPERATORS]);
     }
 
+    function withdrawAllVersionOperatorEarnings(uint64 operatorId) external override {
+        _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_OPERATORS]);
+    }
+
+    function withdrawOperatorEarningsSSV(uint64 operatorId, uint256 amount) external override {
+        _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_OPERATORS]);
+    }
+
+    function withdrawAllOperatorEarningsSSV(uint64 operatorId) external override {
+        _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_OPERATORS]);
+    }
+
     /*******************************/
     /* Address External Functions */
     /*******************************/
 
     function setFeeRecipientAddress(address recipientAddress) external override {
         emit FeeRecipientAddressUpdated(msg.sender, recipientAddress);
+    }
+
+    /*******************************/
+    /* Staking External Functions */
+    /*******************************/
+
+    function syncFees() external {
+        _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_STAKING]);
+    }
+
+    function stake(uint256 amount) external {
+        _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_STAKING]);
+    }
+
+    function requestUnstake(uint256 amount) external {
+        _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_STAKING]);
+    }
+
+    function withdrawUnlocked() external {
+        _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_STAKING]);
+    }
+
+    function claimEthRewards() external {
+        _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_STAKING]);
+    }
+
+    function rescueERC20(address token, address to, uint256 amount) external onlyOwner {
+        _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_STAKING]);
+    }
+
+    function onCSSVTransfer(address from, address to, uint256 amount) external {
+        _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_STAKING]);
     }
 
     /*******************************/
@@ -206,20 +238,18 @@ contract SSVNetwork is
         bytes calldata publicKey,
         uint64[] calldata operatorIds,
         bytes calldata sharesData,
-        uint256 amount,
         ISSVNetworkCore.Cluster memory cluster
-    ) external override {
-        _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_CLUSTERS]);
+    ) external payable override {
+        _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_VALIDATORS]);
     }
 
     function bulkRegisterValidator(
         bytes[] calldata publicKeys,
         uint64[] calldata operatorIds,
         bytes[] calldata sharesData,
-        uint256 amount,
         ISSVNetworkCore.Cluster memory cluster
-    ) external override {
-        _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_CLUSTERS]);
+    ) external payable override {
+        _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_VALIDATORS]);
     }
 
     function removeValidator(
@@ -227,7 +257,7 @@ contract SSVNetwork is
         uint64[] calldata operatorIds,
         ISSVNetworkCore.Cluster memory cluster
     ) external override {
-        _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_CLUSTERS]);
+        _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_VALIDATORS]);
     }
 
     function bulkRemoveValidator(
@@ -235,31 +265,37 @@ contract SSVNetwork is
         uint64[] calldata operatorIds,
         Cluster memory cluster
     ) external override {
-        _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_CLUSTERS]);
+        _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_VALIDATORS]);
     }
 
     function liquidate(
         address clusterOwner,
         uint64[] calldata operatorIds,
         ISSVNetworkCore.Cluster memory cluster
-    ) external {
+    ) external override {
+        _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_CLUSTERS]);
+    }
+
+    function liquidateSSV(
+        address clusterOwner,
+        uint64[] calldata operatorIds,
+        ISSVNetworkCore.Cluster memory cluster
+    ) external override {
         _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_CLUSTERS]);
     }
 
     function reactivate(
         uint64[] calldata operatorIds,
-        uint256 amount,
         ISSVNetworkCore.Cluster memory cluster
-    ) external override {
+    ) external payable override {
         _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_CLUSTERS]);
     }
 
     function deposit(
         address clusterOwner,
         uint64[] calldata operatorIds,
-        uint256 amount,
         ISSVNetworkCore.Cluster memory cluster
-    ) external override {
+    ) external payable override {
         _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_CLUSTERS]);
     }
 
@@ -271,19 +307,41 @@ contract SSVNetwork is
         _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_CLUSTERS]);
     }
 
-    function exitValidator(bytes calldata publicKey, uint64[] calldata operatorIds) external override {
+    function updateClusterBalance(
+        uint64 blockNum,
+        address clusterOwner,
+        uint64[] calldata operatorIds,
+        ISSVNetworkCore.Cluster memory cluster,
+        uint32 effectiveBalance,
+        bytes32[] calldata merkleProof
+    ) external override {
         _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_CLUSTERS]);
     }
 
-    function bulkExitValidator(bytes[] calldata publicKeys, uint64[] calldata operatorIds) external override {
+    function migrateClusterToETH(
+        uint64[] calldata operatorIds,
+        ISSVNetworkCore.Cluster memory cluster
+    ) external payable override {
         _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_CLUSTERS]);
+    }
+
+    function exitValidator(bytes calldata publicKey, uint64[] calldata operatorIds) external override {
+        _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_VALIDATORS]);
+    }
+
+    function bulkExitValidator(bytes[] calldata publicKeys, uint64[] calldata operatorIds) external override {
+        _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_VALIDATORS]);
     }
 
     function updateNetworkFee(uint256 fee) external override onlyOwner {
         _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_DAO]);
     }
 
-    function withdrawNetworkEarnings(uint256 amount) external override onlyOwner {
+    function updateNetworkFeeSSV(uint256 fee) external override onlyOwner {
+        _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_DAO]);
+    }
+
+    function withdrawNetworkSSVEarnings(uint256 amount) external override onlyOwner {
         _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_DAO]);
     }
 
@@ -303,11 +361,43 @@ contract SSVNetwork is
         _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_DAO]);
     }
 
+    function updateLiquidationThresholdPeriodSSV(uint64 blocks) external onlyOwner {
+        _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_DAO]);
+    }
+
     function updateMinimumLiquidationCollateral(uint256 amount) external override onlyOwner {
         _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_DAO]);
     }
 
-    function updateMaximumOperatorFee(uint64 maxFee) external override onlyOwner {
+    function updateMinimumLiquidationCollateralSSV(uint256 amount) external onlyOwner {
+        _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_DAO]);
+    }
+
+    function updateMaximumOperatorFee(uint256 maxFee) external override onlyOwner {
+        _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_DAO]);
+    }
+
+    function updateMinimumOperatorEthFee(uint256 minFee) external override onlyOwner {
+        _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_DAO]);
+    }
+
+    function commitRoot(bytes32 merkleRoot, uint64 blockNum) external override {
+        _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_DAO]);
+    }
+
+    function updateUnstakeCooldownDuration(uint64 duration) external onlyOwner {
+        _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_DAO]);
+    }
+
+    function updateMinBlocksBetweenUpdates(uint32 blocks) external override onlyOwner {
+        _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_DAO]);
+    }
+
+    function replaceOracle(uint32 oracleId, address newOracle) external override onlyOwner {
+        _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_DAO]);
+    }
+
+    function updateQuorumBps(uint16 quorum) external override onlyOwner {
         _delegate(SSVStorage.load().ssvContracts[SSVModules.SSV_DAO]);
     }
 

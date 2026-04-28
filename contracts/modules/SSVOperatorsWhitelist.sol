@@ -3,19 +3,15 @@ pragma solidity 0.8.24;
 
 import {ISSVOperatorsWhitelist} from "../interfaces/ISSVOperatorsWhitelist.sol";
 import {ISSVWhitelistingContract} from "../interfaces/external/ISSVWhitelistingContract.sol";
-import {Types64, Types256} from "../libraries/Types.sol";
-import {StorageData, SSVStorage} from "../libraries/SSVStorage.sol";
+import {StorageData, SSVStorage} from "../libraries/storage/SSVStorage.sol";
 import {OperatorLib} from "../libraries/OperatorLib.sol";
 
 contract SSVOperatorsWhitelist is ISSVOperatorsWhitelist {
-    using Types256 for uint256;
-    using Types64 for uint64;
     using OperatorLib for Operator;
 
-    /*******************************/
-    /* Operator External Functions */
-    /*******************************/
-
+    /**
+     * @inheritdoc ISSVOperatorsWhitelist
+     */
     function setOperatorsWhitelists(
         uint64[] calldata operatorIds,
         address[] calldata whitelistAddresses
@@ -24,6 +20,9 @@ contract SSVOperatorsWhitelist is ISSVOperatorsWhitelist {
         emit OperatorMultipleWhitelistUpdated(operatorIds, whitelistAddresses);
     }
 
+    /**
+     * @inheritdoc ISSVOperatorsWhitelist
+     */
     function removeOperatorsWhitelists(
         uint64[] calldata operatorIds,
         address[] calldata whitelistAddresses
@@ -32,6 +31,9 @@ contract SSVOperatorsWhitelist is ISSVOperatorsWhitelist {
         emit OperatorMultipleWhitelistRemoved(operatorIds, whitelistAddresses);
     }
 
+    /**
+     * @inheritdoc ISSVOperatorsWhitelist
+     */
     function setOperatorsWhitelistingContract(
         uint64[] calldata operatorIds,
         ISSVWhitelistingContract whitelistingContract
@@ -67,6 +69,9 @@ contract SSVOperatorsWhitelist is ISSVOperatorsWhitelist {
         emit OperatorWhitelistingContractUpdated(operatorIds, address(whitelistingContract));
     }
 
+    /**
+     * @inheritdoc ISSVOperatorsWhitelist
+     */
     function removeOperatorsWhitelistingContract(uint64[] calldata operatorIds) external {
         uint256 operatorsLength = OperatorLib.checkOperatorsLength(operatorIds);
 

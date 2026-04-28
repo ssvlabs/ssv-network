@@ -1,0 +1,24 @@
+{
+  "deployer": "0xC564AF154621Ee8D0589758d535511aEc8f67b40",
+  "chainId": "560048",
+  "network": "hoodi",
+  "deployedAt": "2026-02-19T00:07:50.289Z",
+  "blockNumber": 2262983,
+  "ssvToken": "0x9F5d4Ec84fC4785788aB44F9de973cF34F7A038e",
+  "ssvNetworkProxy": "0x58410Bef803ECd7E63B23664C586A6DB72DAf59c",
+  "ssvNetworkViews": "0x5AdDb3f1529C5ec70D77400499eE4bbF328368fe",
+  "cssvToken": "0x6e1a5d27361c666f681af06535c8Ac773E571d4d",
+  "implementations": {
+    "SSVNetworkSSVStakingUpgrade": "0xc51b63d68188936d71EF82b3794d6157bc351B89",
+    "SSVNetworkViews": "0xdf0355E29F9288ae922cC863977A9aE3cE94B6a1"
+  },
+  "modules": {
+    "SSVOperators": "0x2E3F725C5B3954978FA5fc6f05195B32f2Cc6657",
+    "SSVClusters": "0xddA2b40DE56b1a3e7F2868580A431b8044d89b20",
+    "SSVDAO": "0xa47Be8062aCbB3Bc816bf7e186d3cE11537F1A66",
+    "SSVViews": "0xcF4074E0cfF1F41aa49117b4E3447AD8356bc199",
+    "SSVOperatorsWhitelist": "0xfb71359DA4b2268cB2950740abD994407E241483",
+    "SSVStaking": "0x871d5A127C7FAA5070E36A364BCED3E5728d5614",
+    "SSVValidators": "0x579cA021C1C9DAc52Fd61D36E7730CeA5c8ddd5b"
+  }
+}

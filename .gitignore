@@ -4,10 +4,14 @@ node_modules
 # Hardhat files
 /cache
 /artifacts
+/types
 
 # TypeChain files
 /typechain
 /typechain-types
+
+# IDE related files
+.idea
 
 # solidity-coverage files
 /coverage
@@ -16,4 +20,23 @@ node_modules
 .DS_Store
 .history
 .dccache
-abis
+out/
+
+gas-report.json
+crytic-export/combined_solc.json
+
+# local release / agent scratch files
+.claude/
+
+# generated / local-only ABI extras
+abis/Mock*.json
+abis/Std*.json
+abis/Test.json
+abis/Vm*.json
+abis/std*.json
+
+# subtask working files
+.subtask/
+
+# internal review workspace
+ssv-review/
