@@ -7,8 +7,8 @@ jobs:
     runs-on: ubuntu-latest
     name: Solidity code coverage
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v6.0.2
+      - uses: actions/setup-node@v6.3.0
         with:
           node-version: '22.x'
       - run: npm ci
