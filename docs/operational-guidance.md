@@ -10,6 +10,7 @@ This page collects the main operational caveats and recommended workflows for cl
 Use this document as an operator runbook for edge cases that are valid by design but easy to mishandle in production:
 
 - legacy SSV cluster migration and effective-balance (EB) snapshots
+- active ETH cluster validator changes around periodic oracle roots
 - liquidated cluster deposits, withdrawals, and reactivation
 - operator removal and reduced operator coverage
 - private operator whitelist expectations
@@ -20,6 +21,7 @@ Use this document as an operator runbook for edge cases that are valid by design
 ## Core principles
 
 - Treat on-chain EB snapshots as protocol state, not as a complete substitute for beacon-chain-aware tooling.
+- Treat committed EB roots as periodic snapshots. A latest root can be valid while still reflecting cluster membership from before a recent validator addition or removal.
 - Treat validator-count changes, operator removals, liquidation, and migration as separate state transitions. They do not always become visible to every subsystem at the same time.
 - Do not assume that changing an operator's whitelist or removing an operator retroactively changes existing validator membership.
 - Prefer explicit operator and cluster monitoring over UI assumptions. Several important transitions are detectable off-chain even when there is no dedicated on-chain warning event.
@@ -42,7 +44,69 @@ This matters most for:
 - `migrateClusterToETH`
 - workflows that depend on a recently changed validator count or EB
 
-### 2. For legacy SSV clusters, avoid validator removal immediately before migration
+### 2. Manage active ETH clusters around oracle-root windows
+
+EB roots are committed periodically by the oracle process. In production this cadence is expected to be around every 8 hours. A committed root is therefore a valid snapshot, not a synchronous statement about validator membership after every cluster transaction.
+
+For active ETH clusters, this creates an intentional timing trade-off:
+
+- `updateClusterBalance` is permissionless when the caller has a valid proof against the latest committed root
+- validator additions and removals update on-chain validator count immediately and add or remove the 32 ETH baseline EB for those validators
+- the latest committed root may still contain EB from before that validator-count change
+- any EB deviation above baseline is not removed proportionally by validator removal, so large removals can leave the cluster's effective EB high relative to the new validator count until a fresh oracle root catches up
+- if updating the cluster with a proof from that latest valid root makes it liquidatable, any caller can trigger the protocol-defined auto-liquidation and receive the remaining cluster balance
+
+This is not a reason to treat every validator-count change as unsafe. It means large changes should be sequenced with the latest unconsumed EB root in mind.
+
+#### Dangerous sequence: remove validators, then withdraw too aggressively
+
+```text
+T0  Oracle snapshots cluster at high EB
+    Example: 10,000 ETH EB, 100 validators
+
+T1  Root is committed
+    latestCommittedBlock now points to the high-EB snapshot
+
+T2  Owner removes many validators
+    On-chain validatorCount falls immediately
+
+T3  Owner withdraws ETH based only on the lower validator count
+    Cluster is left near the liquidation threshold
+
+T4  Anyone calls updateClusterBalance with the latest root
+    The root is valid, but still reports the high EB from T0
+
+T5  Auto-liquidation can pay the remaining cluster balance to the caller
+```
+
+Operational guidance:
+
+- before large removals, check whether there is a latest committed root that has not yet been consumed by the cluster
+- after large removals, do not withdraw down near the liquidation threshold until a fresh post-removal root has been committed and consumed
+- when sizing a withdrawal after removals, evaluate runway using the latest unconsumed root EB, not only the new validator count or the value returned by `SSVNetworkViews.getEffectiveBalance`
+- for high-EB clusters, keep a conservative buffer through at least the next oracle round if the latest root may still reflect pre-removal EB
+
+#### Benign trade-off: add validators before the next oracle round
+
+The opposite direction can be favorable to the owner for a limited time:
+
+```text
+T0  Root is committed and consumed
+    clusterEB is aligned with the current validator set
+
+T1  Owner registers new validators
+    On-chain validatorCount increases immediately, with 32 ETH baseline EB added per validator
+
+T2  Until the next oracle root is committed and consumed,
+    new validators are effectively accounted at the baseline 32 ETH EB
+
+T3  Next oracle root includes the updated beacon-chain EB
+    updateClusterBalance moves the cluster to explicit EB for the new state
+```
+
+This is an accepted latency trade-off in the design. Owners should not rely on it as a permanent fee state, and should fund the cluster for the EB that will apply once the next root catches up.
+
+### 3. For legacy SSV clusters, avoid validator removal immediately before migration
 
 For legacy SSV clusters, `updateClusterBalance` stores an EB snapshot for future migration. If validator count changes and the owner migrates in the same stale-root window, the stored snapshot can be out of date relative to the post-removal cluster.
 
@@ -53,7 +117,9 @@ Recommended sequence:
 
 This is primarily an owner sequencing issue, not a steady-state accounting issue. Owners should not rely on immediate post-removal migration if the migration funding depends on an exact EB assumption.
 
-### 3. Understand liquidated-cluster behavior
+For active ETH clusters, the analogous validator-count/oracle-root timing concern is covered in §2.
+
+### 4. Understand liquidated-cluster behavior
 
 Liquidated clusters have a few non-obvious but intentional behaviors:
 
@@ -68,7 +134,7 @@ Operational guidance:
 - do not assume a deposit alone restores service
 - if you are preparing a reactivation, keep track of both deposited ETH and the expected reactivation amount
 
-### 4. Check operator state before reactivation or migration
+### 5. Check operator state before reactivation or migration
 
 If one or more operators in a cluster were removed, the cluster may still reactivate or migrate, but removed operators are skipped in the relevant update paths and the cluster can continue with reduced operator coverage.
 
@@ -78,7 +144,7 @@ Operational guidance:
 - do not assume a 4-operator cluster will still reactivate as 4-of-4 after removals
 - treat reduced operator coverage as an operational and fault-tolerance event, not just a fee change
 
-### 5. Treat legacy SSV clusters as migration-focused
+### 6. Treat legacy SSV clusters as migration-focused
 
 Legacy SSV clusters are no longer the general-purpose path. Some actions remain available, but the intended direction is migration to ETH accounting.
 
@@ -88,7 +154,7 @@ Operational guidance:
 - treat `updateClusterBalance` on an SSV cluster as migration preparation, not as SSV fee settlement
 - if you need long-term operational flexibility, plan around migration instead of extending reliance on the legacy path
 
-### 6. Whitelist changes are not retroactive
+### 7. Whitelist changes are not retroactive
 
 Private-operator authorization is checked when validators are registered. Changing whitelist settings later does not retroactively remove already registered validators.
 
@@ -97,7 +163,7 @@ Operational guidance:
 - treat whitelist changes as controls for future registrations only
 - if access policy changes, review existing validator membership separately
 
-### 7. Treat the implicit-to-explicit EB flip as a solvency checkpoint
+### 8. Treat the implicit-to-explicit EB flip as a solvency checkpoint
 
 ETH clusters start with an implicit EB assumption (`validatorCount * 32 ETH`) and switch to an explicit stored snapshot the first time an oracle root includes them. The burn rate and liquidation threshold recompute against the explicit value at that moment, so a cluster that is comfortable under the implicit assumption can become liquidatable immediately after the first update if the real EB is materially above 32 ETH per validator.
 
@@ -109,7 +175,7 @@ Operational guidance:
 
 See the EB accounting section in the [Specification](./SPEC.md) for the exact burn rate and liquidation formula.
 
-### 8. `migrateClusterToETH` is one-way
+### 9. `migrateClusterToETH` is one-way
 
 Migration deletes the legacy SSV cluster record and creates an ETH-accounted cluster in its place. There is no supported path back to SSV accounting once the migration transaction has executed.
 
@@ -121,7 +187,7 @@ Operational guidance:
 
 See the migration flow in [Flows](./FLOWS.md) for the full state transitions.
 
-### 9. Do not expect to force an EB refresh on a liquidated cluster
+### 10. Do not expect to force an EB refresh on a liquidated cluster
 
 Liquidated clusters are excluded from committed oracle roots by design, so the on-chain EB snapshot cannot be refreshed while the cluster is inactive. There is no supported mechanism to submit a proof out of band for an inactive cluster.
 
@@ -204,6 +270,7 @@ At minimum, operators and cluster owners should monitor:
 - `RootCommitted` updates from the oracle
 - cluster liquidation status
 - validator-count changes
+- active clusters with a newer `RootCommitted` event than their latest `ClusterBalanceUpdated` event
 - operator removals
 - migration attempts for legacy SSV clusters
 - the first `ClusterBalanceUpdated` for each cluster (implicit → explicit EB flip)
@@ -212,7 +279,10 @@ At minimum, operators and cluster owners should monitor:
 Recommended automation:
 
 - surface the latest committed root age and reference block
+- surface whether each active ETH cluster has consumed the latest committed root by comparing `RootCommitted` and `ClusterBalanceUpdated` events; use `SSVNetworkViews.getCommittedRoot(blockNum)` to verify a root by block number when needed
 - warn when a cluster is liquidated and its EB snapshot may be stale
+- warn when an owner tries to withdraw aggressively after large validator removals but before a fresh post-removal EB update
+- simulate latest-root consumption before high-impact withdrawals or validator removals
 - warn when an owner tries to migrate shortly after validator removal
 - warn when a cluster's operator set includes removed operators
 - warn when a cluster first switches from implicit to explicit EB and the new burn rate moves it close to the liquidation threshold
