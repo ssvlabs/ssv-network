@@ -39,14 +39,14 @@ jobs:
         continue-on-error: false
 
       - name: Upload gas report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: gas-report
           path: gas-report.json
           retention-days: 30
 
       - name: Upload gas comparison report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: gas-compare
           path: gas-compare.txt
