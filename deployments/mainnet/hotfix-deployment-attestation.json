@@ -1,0 +1,44 @@
+{
+  "generatedAt": "2026-05-06T17:21:30.504Z",
+  "hotfix": {
+    "env": "mainnet",
+    "network": "mainnet",
+    "chainId": "1",
+    "ssvNetworkProxy": "0xDD9BC35aE942eF0cFa76930954a156B3fF30a4E1",
+    "owner": "0xb35096b074fdb9bBac63E3AdaE0Bbde512B2E6b6",
+    "description": "Hotfix deployment attestation for replacing only SSVClusters and SSVValidators module pointers."
+  },
+  "contracts": {
+    "SSVClusters": {
+      "address": "0x3611D36A7C052211D6f3B1a39326ad38A02832B4",
+      "moduleId": 1,
+      "constructorArgs": {},
+      "bytecodeHash": "0x2711afb14d4a81c44ea925939951ba37c5b3dfd49dd78ed4b235eb3052332e90"
+    },
+    "SSVValidators": {
+      "address": "0x9122Fded65Ed6b562243efDC9E55ff0bEF5E7499",
+      "moduleId": 6,
+      "constructorArgs": {},
+      "bytecodeHash": "0x91b323fa83a049400037c0d0e04843850719c1598385c2780df8bfc2d1a0d2b1"
+    }
+  },
+  "intendedSafeTransactions": [
+    {
+      "target": "0xDD9BC35aE942eF0cFa76930954a156B3fF30a4E1",
+      "function": "updateModule(uint8,address)",
+      "moduleName": "SSVClusters",
+      "moduleId": 1,
+      "moduleAddress": "0x3611D36A7C052211D6f3B1a39326ad38A02832B4"
+    },
+    {
+      "target": "0xDD9BC35aE942eF0cFa76930954a156B3fF30a4E1",
+      "function": "updateModule(uint8,address)",
+      "moduleName": "SSVValidators",
+      "moduleId": 6,
+      "moduleAddress": "0x9122Fded65Ed6b562243efDC9E55ff0bEF5E7499"
+    }
+  ],
+  "relatedFileHashes": {
+    "hotfix-multisig-batch.json": "0xff5ea2ace65e5738340bf7d6512ebd1ebb574325f8cc27c2344575c313ff8bc2"
+  }
+}
