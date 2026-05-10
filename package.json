@@ -65,7 +65,7 @@
     "@nomicfoundation/hardhat-toolbox-mocha-ethers": "^3.0.2",
     "@nomicfoundation/hardhat-verify": "^3.0.8",
     "@openzeppelin/contracts": "^4.9.6",
-    "@openzeppelin/contracts-upgradeable": "^4.9.6",
+    "@openzeppelin/contracts-upgradeable": "^5.0.0",
     "@types/chai": "^4.3.20",
     "@types/chai-as-promised": "^8.0.2",
     "@types/mocha": "^10.0.10",
