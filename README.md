@@ -1,6 +1,6 @@
 # SSV Network Smart Contracts
 
-### Intro | [Architecture](./docs/architecture.md) | [Setup](./docs/setup.md) | [Tasks](./docs/tasks.md) | [Local development](./docs/local-dev.md) | [Roles](./docs/roles.md) | [Operator owners](./docs/operators.md)
+### Intro | [Architecture](./docs/architecture.md) | [Setup](./docs/setup.md) | [Tasks](./docs/tasks.md) | [Local development](./docs/local-dev.md) | [Roles](./docs/roles.md) | [Operator owners](./docs/operators.md) | [Operational guidance](./docs/operational-guidance.md)
 ### Deep docs | [Specification](./docs/SPEC.md) | [Flows](./docs/FLOWS.md) | [Mainnet upgrade playbook](./docs/UPGRADE_PLAYBOOK.md) | [Deployments](./deployments/README.md)
 
 This repository contains the Solidity smart contracts for the SSV Network `v2.0.0`.
