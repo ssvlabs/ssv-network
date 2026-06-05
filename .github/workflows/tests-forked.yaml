@@ -12,7 +12,7 @@ jobs:
       HOODI_RPC_URL: ${{ secrets.hoodi_rpc_url }}
       MAINNET_RPC_URL: ${{ secrets.mainnet_rpc_url }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
 
       - uses: actions/setup-node@v4
         with:
