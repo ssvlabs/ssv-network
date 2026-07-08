@@ -82,5 +82,6 @@ export function resolveRpcUrl(targetNetwork: string): string | undefined {
   if (isLocalNetwork) return "http://127.0.0.1:8545";
   if (targetNetwork === "hoodi") return process.env.HOODI_RPC_URL;
   if (targetNetwork === "mainnet") return process.env.MAINNET_RPC_URL;
+  if (targetNetwork === "sepolia") return process.env.SEPOLIA_RPC_URL ?? process.env.SEPOLIA_RPC;
   return undefined;
 }

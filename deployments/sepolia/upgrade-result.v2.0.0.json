@@ -1,0 +1,70 @@
+{
+  "currentVersion": "v1.2.0",
+  "targetVersion": "v2.0.0",
+  "skipInitializer": false,
+  "owner": "0xC564AF154621Ee8D0589758d535511aEc8f67b40",
+  "ssvNetworkProxy": "0x261419B48F36EdF420743E9f91bABF4856e76f99",
+  "ssvNetworkViews": "0xa2A44482e752D3D956AAFaA94CFDD21Aacfc2959",
+  "ssvToken": "0x116522F4D00b42Efce0aA77f7ddAd1d27705F36b",
+  "cooldownDuration": 604800,
+  "upgradeTimestamp": 1783500000,
+  "quorumBps": 7500,
+  "defaultOracleIds": [
+    1,
+    2,
+    3,
+    4
+  ],
+  "protocolParams": {
+    "networkFeeEth": "3550900000",
+    "maxOperatorEthFee": "5326300000",
+    "minOperatorEthFee": "1065200000",
+    "minimumLiquidationCollateralEth": "940000000000000",
+    "liquidationThresholdPeriod": "35800",
+    "minBlocksBetweenUpdates": 0,
+    "operatorFeeIncreaseLimit": "1000",
+    "declareOperatorFeePeriod": "604800",
+    "executeOperatorFeePeriod": "604800",
+    "networkFeeSSV": "0",
+    "liquidationThresholdPeriodSSV": "214800",
+    "minimumLiquidationCollateralSSV": "1000000000000000000",
+    "validatorsPerOperatorLimit": "1000",
+    "unstakeCooldownDuration": "604800"
+  },
+  "initialStakeAmount": "1000000000000000000",
+  "oracles": {
+    "1": "0x011684890d10eCC4473F2A4A8B0F2cb7F19C66EB",
+    "2": "0x0CBA9a4c9B2Ea64827C101946E8979c1023fE15C",
+    "3": "0xaBE4A01beDF8f0B5984648f2fE64a7A120Dab800",
+    "4": "0xa70d0d0BE1F02cF646D5CDB6716a509A937f3EE5"
+  },
+  "cssvToken": "0xDAaeb8f1fbE25433aAcd296888B77165e6F5e3bA",
+  "deployBlockNumber": 11229372,
+  "modules": {
+    "SSVOperators": "0x1fBc1D8Fb9c6BD04a46370F984deAe5C709B1D5F",
+    "SSVClusters": "0x254469ffDf985DcDFaB468fC3B027cFf8c025AF4",
+    "SSVDAO": "0x2BDfC067C860DeB5Db4367F063c579dD868A2708",
+    "SSVViews": "0x6bfaEaCF997BaFc696070F15ED82a5750d8247C8",
+    "SSVOperatorsWhitelist": "0x7291563A48cb408e551a3529f8bd7C1413E8122D",
+    "SSVStaking": "0x6dC10514716C96F34550e04cf059f73bBF229f4E",
+    "SSVValidators": "0xfCD7243D8fBb441497fEd67e19B7681C27BB20aD"
+  },
+  "deployments": {
+    "ssvNetworkStakingUpgradeImplementation": "0x1C88912Ea7705D8C8747DF7C50617cD29AF62fe6",
+    "ssvNetworkViewsImplementation": "0xbC126c20D3B47C334Ed70b910e79a4F2428fecCc",
+    "cssvToken": "0xDAaeb8f1fbE25433aAcd296888B77165e6F5e3bA",
+    "modules": {
+      "SSVOperators": "0x1fBc1D8Fb9c6BD04a46370F984deAe5C709B1D5F",
+      "SSVClusters": "0x254469ffDf985DcDFaB468fC3B027cFf8c025AF4",
+      "SSVDAO": "0x2BDfC067C860DeB5Db4367F063c579dD868A2708",
+      "SSVViews": "0x6bfaEaCF997BaFc696070F15ED82a5750d8247C8",
+      "SSVOperatorsWhitelist": "0x7291563A48cb408e551a3529f8bd7C1413E8122D",
+      "SSVStaking": "0x6dC10514716C96F34550e04cf059f73bBF229f4E",
+      "SSVValidators": "0xfCD7243D8fBb441497fEd67e19B7681C27BB20aD"
+    },
+    "targetNetwork": "sepolia",
+    "deployBlockNumber": 11229372,
+    "chainId": "11155111",
+    "updatedAt": "2026-07-08T12:30:50.352Z"
+  }
+}
