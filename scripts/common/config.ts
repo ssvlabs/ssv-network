@@ -123,6 +123,7 @@ export function resolveNetworkFromEnv(env: string | undefined): string | undefin
   if (env === "mainnet") return "mainnet";
   if (env === "local") return "local";
   if (env.startsWith("hoodi")) return "hoodi";
+  if (env.startsWith("sepolia")) return "sepolia";
   return undefined;
 }
 
