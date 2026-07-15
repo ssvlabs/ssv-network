@@ -35,6 +35,8 @@ struct StorageStaking {
     uint16 quorumBps;
     /// @notice The mapping of address to their unstake requests
     mapping(address => UnstakeRequest[]) withdrawalRequests;
+    /// @notice Fractional reward numerator carried between settlements (always less than PRECISION)
+    mapping(address => uint256) rewardRemainder;
 }
 
 library SSVStorageStaking {
