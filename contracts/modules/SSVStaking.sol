@@ -215,12 +215,16 @@ contract SSVStaking is ISSVStaking, SSVReentrancyGuard {
         uint256 idx = s.accEthPerShare;
         uint256 userIdx = s.userIndex[user];
 
-        uint256 pending;
+        uint256 scaledPending = s.rewardRemainder[user];
         if (bal != 0 && idx != userIdx) {
-            pending = (bal * (idx - userIdx)) / PRECISION;
-            if (pending != 0) {
-                s.accrued[user] += pending;
-            }
+            scaledPending += bal * (idx - userIdx);
+        }
+
+        uint256 pending = scaledPending / PRECISION;
+        s.rewardRemainder[user] = scaledPending % PRECISION;
+
+        if (pending != 0) {
+            s.accrued[user] += pending;
         }
 
         s.userIndex[user] = idx;
