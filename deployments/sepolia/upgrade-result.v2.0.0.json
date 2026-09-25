@@ -42,12 +42,12 @@
   "deployBlockNumber": 11229372,
   "modules": {
     "SSVOperators": "0x1fBc1D8Fb9c6BD04a46370F984deAe5C709B1D5F",
-    "SSVClusters": "0x254469ffDf985DcDFaB468fC3B027cFf8c025AF4",
+    "SSVClusters": "0x42de9c795C482f1CA917AfD58e703427898e10c1",
     "SSVDAO": "0x2BDfC067C860DeB5Db4367F063c579dD868A2708",
     "SSVViews": "0x6bfaEaCF997BaFc696070F15ED82a5750d8247C8",
     "SSVOperatorsWhitelist": "0x7291563A48cb408e551a3529f8bd7C1413E8122D",
     "SSVStaking": "0x6dC10514716C96F34550e04cf059f73bBF229f4E",
-    "SSVValidators": "0xfCD7243D8fBb441497fEd67e19B7681C27BB20aD"
+    "SSVValidators": "0x92be223D5A9ea48d88B9ac10135144db0E1Bb8F0"
   },
   "deployments": {
     "ssvNetworkStakingUpgradeImplementation": "0x1C88912Ea7705D8C8747DF7C50617cD29AF62fe6",
@@ -55,12 +55,12 @@
     "cssvToken": "0xDAaeb8f1fbE25433aAcd296888B77165e6F5e3bA",
     "modules": {
       "SSVOperators": "0x1fBc1D8Fb9c6BD04a46370F984deAe5C709B1D5F",
-      "SSVClusters": "0x254469ffDf985DcDFaB468fC3B027cFf8c025AF4",
+      "SSVClusters": "0x42de9c795C482f1CA917AfD58e703427898e10c1",
       "SSVDAO": "0x2BDfC067C860DeB5Db4367F063c579dD868A2708",
       "SSVViews": "0x6bfaEaCF997BaFc696070F15ED82a5750d8247C8",
       "SSVOperatorsWhitelist": "0x7291563A48cb408e551a3529f8bd7C1413E8122D",
       "SSVStaking": "0x6dC10514716C96F34550e04cf059f73bBF229f4E",
-      "SSVValidators": "0xfCD7243D8fBb441497fEd67e19B7681C27BB20aD"
+      "SSVValidators": "0x92be223D5A9ea48d88B9ac10135144db0E1Bb8F0"
     },
     "targetNetwork": "sepolia",
     "deployBlockNumber": 11229372,
