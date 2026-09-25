@@ -449,7 +449,7 @@ describe("SSVClusters function `removeValidator()`", async () => {
     expect(await clusters.getClusterHash(clusterId)).to.not.equal(ethers.ZeroHash);
   });
 
-  it("SSV remove path leaves orphaned EB snapshot untouched (defensive behavior)", async function () {
+  it("SSV remove path removes EB snapshot if the amount of validators becomes zero", async function () {
     const { clusters, operatorIds } =
       await networkHelpers.loadFixture(deploySSVClustersAndPrepareOperatorsFixture);
 
@@ -466,7 +466,7 @@ describe("SSVClusters function `removeValidator()`", async () => {
     const clusterAfterRemove = parseClusterFromEvent(clusters, removeReceipt, Events.VALIDATOR_REMOVED);
 
     expect(clusterAfterRemove.validatorCount).to.equal(0n);
-    expect(await clusters.getClusterVUnits(clusterId)).to.equal(50_000n);
+    expect(await clusters.getClusterVUnits(clusterId)).to.equal(0);
   });
 
   it("Processes SSV and ETH removals in the same block without storage/counter collision", async function () {

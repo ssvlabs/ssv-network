@@ -247,6 +247,12 @@ contract SSVValidators is ISSVValidators {
             }
 
             cluster.validatorCount -= validatorsRemoved;
+
+            if (cluster.validatorCount == 0) {
+                StorageEB storage seb = SSVStorageEB.load();
+                seb.clusterEB[hashedCluster].vUnits = 0;
+            }
+
             s.clusters[hashedCluster] = cluster.hashClusterData();
         } else {
             revert IncorrectClusterVersion();
