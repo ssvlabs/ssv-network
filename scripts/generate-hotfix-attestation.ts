@@ -48,6 +48,7 @@ type HotfixAttestation = {
 function resolveRpcUrl(targetNetwork: string): string | undefined {
   if (targetNetwork === "mainnet") return process.env.MAINNET_RPC_URL;
   if (targetNetwork === "hoodi") return process.env.HOODI_RPC_URL;
+  if (targetNetwork === "sepolia") return process.env.SEPOLIA_RPC_URL ?? process.env.SEPOLIA_RPC;
   if (targetNetwork === "local" || targetNetwork === "localhost") return "http://127.0.0.1:8545";
   return undefined;
 }
@@ -84,7 +85,7 @@ async function main() {
   if (!rpcUrl) {
     throw new Error(
       `Missing RPC URL for network '${targetNetwork}'. ` +
-      "Set MAINNET_RPC_URL/HOODI_RPC_URL or pass --rpc-url <url>.",
+      "Set MAINNET_RPC_URL/HOODI_RPC_URL/SEPOLIA_RPC_URL or pass --rpc-url <url>.",
     );
   }
 
