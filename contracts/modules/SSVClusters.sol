@@ -307,6 +307,10 @@ contract SSVClusters is ISSVClusters, SSVReentrancyGuard {
         // Deviation-only model: baseline added via ethValidatorCount (in updateClusterOperatorsMigration above)
         // Only add deviation if cluster has explicit EB tracking
         uint64 vUnitsCluster = ebSnapshot.vUnits;
+        if (cluster.validatorCount == 0 && vUnitsCluster > 0) {
+            ebSnapshot.vUnits = 0;
+            vUnitsCluster = 0;
+        }
         if (vUnitsCluster > 0) {
             uint64 baseline = uint64(cluster.validatorCount) * BPS_DENOMINATOR;
             

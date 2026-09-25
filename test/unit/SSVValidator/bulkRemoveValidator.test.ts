@@ -431,4 +431,80 @@ describe("SSVClusters function `bulkRemoveValidator()`", async () => {
       clusters.connect(clusterOwner).reactivate(operatorIds, clusterAfterRemove, { value: DEFAULT_ETH_REGISTER_VALUE })
     ).to.be.revertedWithCustomError(clusters, Errors.INCORRECT_CLUSTER_VERSION);
   });
+
+  it("SSV active cluster bulk-removes all 2 validators with explicit vUnits=640_000 — clears to 0", async function () {
+    const { clusters, operatorIds } =
+      await networkHelpers.loadFixture(deploySSVClustersAndPrepareOperatorsFixture);
+
+    const key1 = makePublicKey(51);
+    const key2 = makePublicKey(52);
+    const ssvCluster = createLegacySSVCluster({ validatorCount: 2n });
+
+    await clusters.mockRegisterSSVValidator(key1, operatorIds, clusterOwner.address, ssvCluster);
+    await clusters.mockRegisterSSVValidator(key2, operatorIds, clusterOwner.address, ssvCluster);
+
+    const clusterId = computeClusterId(clusterOwner.address, operatorIds);
+    await clusters.mockSetClusterVUnits(clusterId, 640_000n);
+
+    const removeTx = await clusters
+      .connect(clusterOwner)
+      .bulkRemoveValidator([key1, key2], operatorIds, ssvCluster);
+    const removeReceipt = await removeTx.wait();
+    const clusterAfterRemove = parseClusterFromEvent(clusters, removeReceipt, Events.VALIDATOR_REMOVED);
+
+    expect(clusterAfterRemove.validatorCount).to.equal(0n);
+    expect(await clusters.getClusterVUnits(clusterId)).to.equal(0n);
+  });
+
+  it("SSV active cluster bulk-removes 1 of 2 validators — vUnits snapshot unchanged", async function () {
+    const { clusters, operatorIds } =
+      await networkHelpers.loadFixture(deploySSVClustersAndPrepareOperatorsFixture);
+
+    const key1 = makePublicKey(61);
+    const key2 = makePublicKey(62);
+    const ssvCluster = createLegacySSVCluster({ validatorCount: 2n });
+
+    await clusters.mockRegisterSSVValidator(key1, operatorIds, clusterOwner.address, ssvCluster);
+    await clusters.mockRegisterSSVValidator(key2, operatorIds, clusterOwner.address, ssvCluster);
+
+    const clusterId = computeClusterId(clusterOwner.address, operatorIds);
+    const storedVUnits = 640_000n;
+    await clusters.mockSetClusterVUnits(clusterId, storedVUnits);
+
+    const removeTx = await clusters
+      .connect(clusterOwner)
+      .bulkRemoveValidator([key1], operatorIds, ssvCluster);
+    await removeTx.wait();
+
+    expect(await clusters.getClusterVUnits(clusterId)).to.equal(storedVUnits);
+  });
+
+  it("SSV liquidated cluster bulk-removes all 2 validators — clears vUnits to 0, operator/DAO SSV counts not decremented", async function () {
+    const { clusters, operatorIds } =
+      await networkHelpers.loadFixture(deploySSVClustersAndPrepareOperatorsFixture);
+
+    const key1 = makePublicKey(71);
+    const key2 = makePublicKey(72);
+    const ssvClusterLiquidated = createLegacySSVCluster({ validatorCount: 2n, active: false });
+
+    await clusters.mockRegisterSSVValidator(key1, operatorIds, clusterOwner.address, ssvClusterLiquidated);
+    await clusters.mockRegisterSSVValidator(key2, operatorIds, clusterOwner.address, ssvClusterLiquidated);
+
+    const clusterId = computeClusterId(clusterOwner.address, operatorIds);
+    await clusters.mockSetClusterVUnits(clusterId, 640_000n);
+
+    const operatorCountBefore = await clusters.getOperatorValidatorCount(operatorIds[0]);
+    const daoCountBefore = await clusters.getDaoValidatorCount();
+
+    const removeTx = await clusters
+      .connect(clusterOwner)
+      .bulkRemoveValidator([key1, key2], operatorIds, ssvClusterLiquidated);
+    const removeReceipt = await removeTx.wait();
+    const clusterAfterRemove = parseClusterFromEvent(clusters, removeReceipt, Events.VALIDATOR_REMOVED);
+
+    expect(clusterAfterRemove.validatorCount).to.equal(0n);
+    expect(await clusters.getClusterVUnits(clusterId)).to.equal(0n);
+    expect(await clusters.getOperatorValidatorCount(operatorIds[0])).to.equal(operatorCountBefore);
+    expect(await clusters.getDaoValidatorCount()).to.equal(daoCountBefore);
+  });
 });

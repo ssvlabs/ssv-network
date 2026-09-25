@@ -78,6 +78,14 @@ upgrade env network="":
 generate-safe-batch env="mainnet":
     npx tsx scripts/generate-safe-batch.ts --env {{env}}
 
+# Generate hotfix deployment attestation for a two-module mainnet hotfix
+generate-hotfix-attestation env clusters validators network="":
+    npx tsx scripts/generate-hotfix-attestation.ts --env {{env}} --clusters {{clusters}} --validators {{validators}} {{ if network == "" { "" } else { "--network " + network } }}
+
+# Generate hotfix SAFE batch with exactly SSVClusters and SSVValidators updateModule calls
+generate-hotfix-safe-batch env clusters validators:
+    npx tsx scripts/generate-hotfix-safe-batch.ts --env {{env}} --clusters {{clusters}} --validators {{validators}}
+
 # Generate deployment attestation (bytecode hashes + config summary for committee review)
 generate-attestation env="mainnet" network="":
     npx tsx scripts/generate-deployment-attestation.ts --env {{env}} {{ if network == "" { "" } else { "--network " + network } }}
@@ -107,6 +115,12 @@ deploy-module module network *args:
 attach-module env module module-address network="":
     npx hardhat compile --force
     npx tsx scripts/attach-module.ts --env {{env}} --module {{module}} --module-address {{module-address}} {{ if network == "" { "" } else { "--network " + network } }}
+
+# Deploy a new module implementation and attach it to the proxy in one step
+# Example: just update-module SSVValidators 0xProxyAddress hoodi
+update-module module proxy network:
+    npx hardhat compile --force
+    npx tsx scripts/update-module.ts --module {{module}} --proxy-address {{proxy}} --network {{network}}
 
 # Upgrade a contract via UUPS proxy pattern (optionally with pre-deployed impl)
 upgrade-contract contract proxy network *impl:
