@@ -1,151 +1,49 @@
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: GPL-3.0
 pragma solidity 0.8.24;
 
 import {ISSVNetworkCore} from "../interfaces/ISSVNetworkCore.sol";
-import {PackedSSV, PackedETH, BPS_DENOMINATOR, _safeUint64} from "../libraries/SSVCoreTypes.sol";
-import {PackedSSVLib, PackedETHLib} from "../libraries/SSVPackedLib.sol";
-import {StorageProtocol} from "./storage/SSVStorageProtocol.sol";
+import {SSVStorage, SSVStorageProtocol} from "./storage/SSVStorageProtocol.sol";
+import {Types256} from "./Types256.sol";
 
-/**
- * @title SSV Protocol Library
- * @author SSV Labs
- * @notice Library functions for managing SSV protocol including network fees, DAO earnings and validator updates
- */
 library ProtocolLib {
-    using PackedETHLib for PackedETH;
+    using Types256 for uint256;
+    using SSVStorageProtocol for SSVStorage;
 
-    /**
-     * @notice Returns current network fee index
-     * @param sp Storage protocol
-     * @return Current network fee index
-     */
-    function currentNetworkFeeIndex(StorageProtocol storage sp) internal view returns (uint64) {
-        return sp.ethNetworkFeeIndex + uint64(block.number - sp.ethNetworkFeeIndexBlockNumber) * PackedETH.unwrap(sp.ethNetworkFee);
+    error ProtocolAlreadyExists();
+    error ProtocolDoesNotExist();
+    error ProtocolNotUpgradable();
+    error InvalidProtocolVersion();
+
+    event ProtocolUpgraded(bytes32 indexed protocolId, uint64 version);
+    event ProtocolUpgradedBatch(bytes32[] protocolIds);
+
+    function upgradeProtocol(SSVStorage storage s, bytes32 protocolId) internal {
+        if (!s.protocolExists(protocolId)) revert ProtocolDoesNotExist();
+        s.upgradeProtocolVersion(protocolId);
+        emit ProtocolUpgraded(protocolId, s.getProtocolVersion(protocolId));
     }
 
-    /**
-     * @notice Returns current SSV network fee index
-     * @param sp Storage protocol
-     * @return Current SSV network fee index
-     */
-    function currentNetworkFeeIndexSSV(StorageProtocol storage sp) internal view returns (uint64) {
-        return sp.networkFeeIndex + uint64(block.number - sp.networkFeeIndexBlockNumber) * PackedSSV.unwrap(sp.networkFee);
-    }
-
-    /**
-     * @notice Updates ETH network fee
-     * @param sp Storage protocol
-     * @param fee New fee
-     */
-    function updateNetworkFee(StorageProtocol storage sp, uint256 fee) internal {
-        updateDAOEarnings(sp);
-
-        sp.ethNetworkFeeIndex = currentNetworkFeeIndex(sp);
-        sp.ethNetworkFeeIndexBlockNumber = uint32(block.number);
-        sp.ethNetworkFee = PackedETHLib.pack(fee);
-    }
-
-    /**
-     * @notice Updates SSV network fee
-     * @param sp Storage protocol
-     * @param fee New fee
-     */
-    function updateNetworkFeeSSV(StorageProtocol storage sp, uint256 fee) internal {
-        updateDAOEarningsSSV(sp);
-
-        sp.networkFeeIndex = currentNetworkFeeIndexSSV(sp);
-        sp.networkFeeIndexBlockNumber = uint32(block.number);
-        sp.networkFee = PackedSSVLib.pack(fee);
-    }
-
-    /**
-     * @notice Updates DAO earnings
-     * @param sp Storage protocol
-     */
-    function updateDAOEarnings(StorageProtocol storage sp) internal {
-        sp.ethDaoBalance = networkTotalEarnings(sp);
-        sp.ethDaoIndexBlockNumber = uint32(block.number);
-    }
-
-    /**
-     * @notice Updates SSV DAO earnings
-     * @param sp Storage protocol
-     */
-    function updateDAOEarningsSSV(StorageProtocol storage sp) internal {
-        sp.daoBalance = networkTotalEarningsSSV(sp);
-        sp.daoIndexBlockNumber = uint32(block.number);
-    }
-
-    /**
-     * @notice Returns total network earnings
-     * @param sp Storage protocol
-     * @return Total earnings
-     */
-    function networkTotalEarnings(StorageProtocol storage sp) internal view returns (PackedETH) {
-        uint128 units = sp.daoTotalEthVUnits;
-        uint128 idx = uint64(block.number) - sp.ethDaoIndexBlockNumber;
-
-        uint128 earningsUnits = (idx * PackedETH.unwrap(sp.ethNetworkFee) * units) / BPS_DENOMINATOR;
-        return sp.ethDaoBalance.add(PackedETH.wrap(_safeUint64(earningsUnits)));
-    }
-
-    /**
-     * @notice Returns total SSV network earnings
-     * @param sp Storage protocol
-     * @return Total earnings
-     */
-    function networkTotalEarningsSSV(StorageProtocol storage sp) internal view returns (PackedSSV) {
-        return PackedSSV.wrap(PackedSSV.unwrap(sp.daoBalance) + (uint64(block.number) - sp.daoIndexBlockNumber) * PackedSSV.unwrap(sp.networkFee) * sp.daoValidatorCount);
-    }
-
-    /**
-     * @notice Updates DAO validator count
-     * @param sp Storage protocol
-     * @param increaseValidatorCount Increase flag
-     * @param deltaValidatorCount Validator count delta
-     */
-    function updateDAO(StorageProtocol storage sp, bool increaseValidatorCount, uint32 deltaValidatorCount) internal {
-        updateDAOEarnings(sp);
-        uint64 vUnitsDelta = uint64(deltaValidatorCount) * BPS_DENOMINATOR;
-        if (!increaseValidatorCount) {
-            sp.ethDaoValidatorCount -= deltaValidatorCount;
-            sp.daoTotalEthVUnits -= vUnitsDelta;
-        } else {
-            if ((sp.ethDaoValidatorCount += deltaValidatorCount) > type(uint32).max) {
-                revert ISSVNetworkCore.MaxValueExceeded();
-            } 
-            sp.daoTotalEthVUnits += vUnitsDelta;
+    function upgradeProtocols(SSVStorage storage s, bytes32[] memory protocolIds) internal {
+        uint256 length = protocolIds.length;
+        for (uint256 i; i < length; ) {
+            if (!s.protocolExists(protocolIds[i])) revert ProtocolDoesNotExist();
+            s.upgradeProtocolVersion(protocolIds[i]);
+            unchecked { ++i; }
         }
+        emit ProtocolUpgradedBatch(protocolIds);
     }
 
-    /**
-     * @notice Updates SSV DAO validator count
-     * @param sp Storage protocol
-     * @param increaseValidatorCount Increase flag
-     * @param deltaValidatorCount Validator count delta
-     */
-    function updateDAOSSV(StorageProtocol storage sp, bool increaseValidatorCount, uint32 deltaValidatorCount) internal {
-        updateDAOEarningsSSV(sp);
-        if (!increaseValidatorCount) {
-            sp.daoValidatorCount -= deltaValidatorCount;
-        } else if ((sp.daoValidatorCount += deltaValidatorCount) > type(uint32).max) {
-            revert ISSVNetworkCore.MaxValueExceeded();
-        }
+    function deleteProtocol(SSVStorage storage s, bytes32 protocolId) internal {
+        if (!s.protocolExists(protocolId)) revert ProtocolDoesNotExist();
+        s.deleteProtocol(protocolId);
     }
 
-    /**
-     * @notice Updates DAO ETH v units
-     * @param sp Storage protocol
-     * @param oldVUnits Old v units
-     * @param newVUnits New v units
-     */
-    function updateDAOEthVUnits(StorageProtocol storage sp, uint64 oldVUnits, uint64 newVUnits) internal {
-        updateDAOEarnings(sp);  // Settle ETH earnings first
+    function getProtocolVersion(SSVStorage storage s, bytes32 protocolId) internal view returns (uint64) {
+        if (!s.protocolExists(protocolId)) revert ProtocolDoesNotExist();
+        return s.getProtocolVersion(protocolId);
+    }
 
-        if (newVUnits > oldVUnits) {
-            sp.daoTotalEthVUnits += newVUnits - oldVUnits;
-        } else {
-            sp.daoTotalEthVUnits -= oldVUnits - newVUnits;
-        }
+    function protocolExists(SSVStorage storage s, bytes32 protocolId) internal view returns (bool) {
+        return s.protocolExists(protocolId);
     }
 }
