@@ -1,18 +1,138 @@
-// SPDX-License-Identifier: GPL-3.0-only
-pragma solidity 0.8.23;
+// SPDX-License-Identifier: GPL-3.0-or-later
+pragma solidity 0.8.24;
 
-import {SSVStorageProtocol, SSVStorageStaking} from "../libraries/SSVStorage.sol";
-import {PackedETH, PackedETHLib} from "../libraries/PackedETH.sol";
-import {ICSSVToken} from "../interfaces/ICSSVToken.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+
 import {ISSVStaking} from "../interfaces/ISSVStaking.sol";
+import {ICSSVToken} from "../interfaces/ICSSVToken.sol";
+import {CoreLib} from "../libraries/CoreLib.sol";
+import {ProtocolLib} from "../libraries/ProtocolLib.sol";
+import {SSVStorage} from "../libraries/storage/SSVStorage.sol";
+import {SSVStorageStaking, StorageStaking, UnstakeRequest} from "../libraries/storage/SSVStorageStaking.sol";
+import {SSVStorageProtocol, StorageProtocol} from "../libraries/storage/SSVStorageProtocol.sol";
+import {SSVReentrancyGuard} from "../abstract/SSVReentrancyGuard.sol";
+import {PackedETH} from "../libraries/SSVCoreTypes.sol";
+import {PackedETHLib} from "../libraries/SSVPackedLib.sol";
+import {PRECISION, ETH_DEDUCTED_DIGITS} from "../libraries/SSVCoreTypes.sol";
 
-contract SSVStaking is ISSVStaking {
-    uint256 private constant PRECISION = 1e18;
-    address private constant CSSV_ADDRESS = 0x7d65c7595b7f22b7b4d5a9a1d3d8b7c9e0a1b2c3d;
+contract SSVStaking is ISSVStaking, SSVReentrancyGuard {
+    using SafeERC20 for IERC20;
+    using ProtocolLib for StorageProtocol;
+    using PackedETHLib for PackedETH;
 
-    function _syncFees() internal {
-        SSVStorageProtocol storage sp = SSVStorageProtocol.load();
-        SSVStorageStaking storage s = SSVStorageStaking.load();
+    uint64 private constant MINIMAL_STAKING_AMOUNT = 1_000_000_000;
+    uint256 private constant MAX_PENDING_REQUESTS = 2000;
+
+    address public immutable CSSV_ADDRESS;
+
+    constructor(address _cssv) {
+        CSSV_ADDRESS = _cssv;
+    }
+
+    function syncFees() external nonReentrant {
+        _syncFees(SSVStorageStaking.load());
+    }
+
+    function stake(uint256 amount) external nonReentrant {
+        if (amount < MINIMAL_STAKING_AMOUNT) {
+            revert StakeTooLow();
+        }
+        StorageStaking storage s = SSVStorageStaking.load();
+        _syncFees(s);
+        _settle(msg.sender, s);
+        if (!SSVStorage.load().token.transferFrom(msg.sender, address(this), amount)) {
+            revert TokenTransferFailed();
+        }
+        ICSSVToken(CSSV_ADDRESS).mint(msg.sender, amount);
+        emit Staked(msg.sender, amount);
+    }
+
+    function requestUnstake(uint256 amount) external nonReentrant {
+        if (amount == 0) {
+            revert ZeroAmount();
+        }
+        StorageStaking storage s = SSVStorageStaking.load();
+        _syncFees(s);
+        uint256 bal = ICSSVToken(CSSV_ADDRESS).balanceOf(msg.sender);
+        _settleWithBalance(msg.sender, bal, s);
+        if (amount > bal) {
+            revert UnstakeAmountExceedsBalance();
+        }
+        UnstakeRequest[] storage requests = s.withdrawalRequests[msg.sender];
+        if (requests.length == MAX_PENDING_REQUESTS) {
+            revert MaxRequestsAmountReached();
+        }
+        uint64 unlockTime = uint64(block.timestamp + s.cooldownDuration);
+        requests.push(UnstakeRequest({amount: uint192(amount), unlockTime: unlockTime}));
+        ICSSVToken(CSSV_ADDRESS).burn(msg.sender, amount);
+        emit UnstakeRequested(msg.sender, amount, unlockTime);
+    }
+
+    function withdrawUnlocked() external nonReentrant {
+        StorageStaking storage s = SSVStorageStaking.load();
+        uint256 amount = calculateTotalUnfrozenBalance(s);
+        if (amount == 0) revert NothingToWithdraw();
+        if (!SSVStorage.load().token.transfer(msg.sender, amount)) {
+            revert TokenTransferFailed();
+        }
+        emit UnstakedWithdrawn(msg.sender, amount);
+    }
+
+    function claimEthRewards() external nonReentrant {
+        StorageStaking storage s = SSVStorageStaking.load();
+        _syncFees(s);
+        _settle(msg.sender, s);
+        uint256 claimable = s.accrued[msg.sender];
+        if (claimable == 0) revert NothingToClaim();
+        uint256 payout = claimable - (claimable % ETH_DEDUCTED_DIGITS);
+        uint256 userBalance = ICSSVToken(CSSV_ADDRESS).balanceOf(msg.sender);
+        if (payout == 0) {
+            if (userBalance == 0) {
+                s.accrued[msg.sender] = 0;
+                emit RewardsClaimed(msg.sender, 0);
+                return;
+            }
+            revert NothingToClaim();
+        }
+        PackedETH packedPayout = PackedETHLib.pack(payout);
+        StorageProtocol storage sp = SSVStorageProtocol.load();
+        if (packedPayout.gt(s.stakingEthPoolBalance)) {
+            revert InsufficientBalance();
+        }
+        if (packedPayout.gt(sp.ethDaoBalance)) {
+            revert InsufficientBalance();
+        }
+        uint256 remainder = claimable - payout;
+        s.accrued[msg.sender] = (remainder!= 0 && userBalance == 0)? 0 : remainder;
+        s.stakingEthPoolBalance = s.stakingEthPoolBalance.sub(packedPayout);
+        sp.ethDaoBalance = sp.ethDaoBalance.sub(packedPayout);
+        CoreLib.transferBalance(msg.sender, payout);
+        emit RewardsClaimed(msg.sender, payout);
+    }
+
+    function rescueERC20(address token, address to, uint256 amount) external nonReentrant {
+        if (token == address(0) || to == address(0)) revert ZeroAddress();
+        if (token == address(SSVStorage.load().token) || token == CSSV_ADDRESS) {
+            revert InvalidToken();
+        }
+        if (amount == 0) {
+            revert ZeroAmount();
+        }
+        IERC20(token).safeTransfer(to, amount);
+        emit ERC20Rescued(token, to, amount);
+    }
+
+    function onCSSVTransfer(address from, address to, uint256 amount) external virtual {
+        if (msg.sender!= CSSV_ADDRESS) revert NotCSSV();
+        StorageStaking storage s = SSVStorageStaking.load();
+        _syncFees(s);
+        _settle(from, s);
+        _settle(to, s);
+    }
+
+    function _syncFees(StorageStaking storage s) internal {
+        StorageProtocol storage sp = SSVStorageProtocol.load();
 
         PackedETH current = sp.networkTotalEarnings();
         sp.ethDaoBalance = current;
@@ -25,46 +145,50 @@ contract SSVStaking is ISSVStaking {
         }
 
         PackedETH packedNewFees = current.sub(previous);
-        uint256 totalStaked = ICSSVToken(CSSV_ADDRESS).totalSupply();
+        uint256 newFeesWei;
 
-        // FIX: Don't advance watermark when totalStaked == 0
-        // Otherwise fees accrued while supply=0 are frozen forever
-        if (totalStaked != 0) {
-            uint256 newFeesWei = PackedETHLib.unpack(packedNewFees);
+        uint256 totalStaked = ICSSVToken(CSSV_ADDRESS).totalSupply();
+        if (totalStaked!= 0) {
+            newFeesWei = PackedETHLib.unpack(packedNewFees);
             s.accEthPerShare += uint128((newFeesWei * PRECISION) / totalStaked);
             s.stakingEthPoolBalance = current;
         }
+
+        emit FeesSynced(newFeesWei, s.accEthPerShare);
     }
 
-    function syncFees() external {
-        _syncFees();
+    function _settle(address user, StorageStaking storage s) internal {
+        uint256 bal = ICSSVToken(CSSV_ADDRESS).balanceOf(user);
+        _settleWithBalance(user, bal, s);
     }
 
-    function stake(uint256 amount) external {
-        _syncFees();
-        // original stake logic
+    function _settleWithBalance(address user, uint256 bal, StorageStaking storage s) internal {
+        uint256 idx = s.accEthPerShare;
+        uint256 userIdx = s.userIndex[user];
+        uint256 pending;
+        if (bal!= 0 && idx!= userIdx) {
+            pending = (bal * (idx - userIdx)) / PRECISION;
+            if (pending!= 0) {
+                s.accrued[user] += pending;
+            }
+        }
+        s.userIndex[user] = idx;
+        emit RewardsSettled(user, pending, s.accrued[user], idx);
     }
 
-    function requestUnstake(uint256 amount) external {
-        _syncFees();
-        // original requestUnstake logic
-    }
-
-    function withdrawUnlocked() external {
-        // original withdrawUnlocked logic
-    }
-
-    function claimEthRewards() external {
-        _syncFees();
-        // original claimEthRewards logic
-    }
-
-    function onCSSVTransfer(address from, address to, uint256 amount) external {
-        _syncFees();
-        // original onCSSVTransfer logic
-    }
-
-    function rescueERC20(address token, address to, uint256 amount) external {
-        // original rescueERC20 logic
+    function calculateTotalUnfrozenBalance(StorageStaking storage s) internal returns (uint256) {
+        UnstakeRequest[] storage requests = s.withdrawalRequests[msg.sender];
+        uint256 total = 0;
+        uint256 i = 0;
+        while (i < requests.length) {
+            if (requests[i].unlockTime <= block.timestamp) {
+                total += requests[i].amount;
+                requests[i] = requests[requests.length - 1];
+                requests.pop();
+            } else {
+                i++;
+            }
+        }
+        return total;
     }
 }
