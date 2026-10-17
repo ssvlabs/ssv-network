@@ -1,0 +1,7 @@
+# Native Echidna CI toolchain for ubuntu x86_64 (CP2A-F1). One row per artifact:
+# name<TAB>version<TAB>sha256<TAB>url
+# sha256 = GitHub release asset digest (echidna, foundry; foundry also equals its release .sha256 file)
+# or binaries.soliditylang.org linux-amd64 list.json (solc). Re-verified by download on 2026-10-16.
+echidna	2.3.3	436d26cb5af34c6c525812b857ac53f218c7f6ad07d69495ef88bc4cdc85c764	https://github.com/crytic/echidna/releases/download/v2.3.3/echidna-2.3.3-x86_64-linux.tar.gz
+foundry	1.8.5	6c66ffcc55fa4249197721baa3098bc208014ea1d8aa04b2ed50ac6bccffb226	https://github.com/foundry-rs/foundry/releases/download/v1.8.5/foundry_v1.8.5_linux_amd64.tar.gz
+solc	0.8.24	fb03a29a517452b9f12bcf459ef37d0a543765bb3bbc911e70a87d6a37c30d5f	https://binaries.soliditylang.org/linux-amd64/solc-linux-amd64-v0.8.24+commit.e11b9ed9
