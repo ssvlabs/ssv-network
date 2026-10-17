@@ -1,0 +1,125 @@
+# storage-structs v2 solc=0.8.24+commit.e11b9ed9
+source contracts/libraries/storage/SSVStorage.sol
+  struct StorageData members=11
+    0 validatorPKs : mapping(bytes32 => bytes32)
+    1 clusters : mapping(bytes32 => bytes32)
+    2 operatorsPKs : mapping(bytes32 => uint64)
+    3 ssvContracts : mapping(enum SSVModules => address)
+    4 operatorsWhitelist : mapping(uint64 => address)
+    5 operatorFeeChangeRequests : mapping(uint64 => struct ISSVNetworkCore.OperatorFeeChangeRequest)
+    6 operators : mapping(uint64 => struct ISSVNetworkCore.Operator)
+    7 token : interface IERC20
+    8 lastOperatorId : struct Counters.Counter
+    9 addressWhitelistedForOperators : mapping(address => mapping(uint256 => uint256))
+    10 ethClusters : mapping(bytes32 => bytes32)
+  const SSVStorage.SSV_STORAGE_POSITION : uint256 = uint256(keccak256("ssv.network.storage.main")) - 1 => 0xd56c4f4aab8ca22f9fde432777379f436593c6027698a6995e2daea890bed104
+  load SSVStorage.load -> struct StorageData storage .slot := SSVStorage.SSV_STORAGE_POSITION => 0xd56c4f4aab8ca22f9fde432777379f436593c6027698a6995e2daea890bed104
+source contracts/libraries/storage/SSVStorageEB.sol
+  struct ClusterEBSnapshot members=3
+    0 vUnits : uint64
+    1 lastRootBlockNum : uint64
+    2 lastUpdateBlock : uint64
+  struct StorageEB members=8
+    0 ebRoots : mapping(uint64 => bytes32)
+    1 clusterEB : mapping(bytes32 => struct ClusterEBSnapshot)
+    2 operatorEthVUnits : mapping(uint64 => uint64)
+    3 latestCommittedBlock : uint64
+    4 minBlocksBetweenUpdates : uint32
+    5 rootCommitments : mapping(bytes32 => uint256)
+    6 hasVoted : mapping(bytes32 => mapping(uint32 => bool))
+    7 roundFrozenSupply : mapping(bytes32 => uint256)
+  const SSVStorageEB.SSV_STORAGE_POSITION : uint256 = uint256(keccak256("ssv.network.storage.eb")) - 1 => 0x390cbedbff243e70d145a8af984af2a57b7d76f69a06b091131b3e7df1c83452
+  load SSVStorageEB.load -> struct StorageEB storage .slot := SSVStorageEB.SSV_STORAGE_POSITION => 0x390cbedbff243e70d145a8af984af2a57b7d76f69a06b091131b3e7df1c83452
+source contracts/libraries/storage/SSVStorageProtocol.sol
+  struct StorageProtocol members=24
+    0 networkFeeIndexBlockNumber : uint32
+    1 daoValidatorCount : uint32
+    2 daoIndexBlockNumber : uint32
+    3 validatorsPerOperatorLimit : uint32
+    4 networkFee : udvt PackedSSV
+    5 networkFeeIndex : uint64
+    6 daoBalance : udvt PackedSSV
+    7 minimumBlocksBeforeLiquidationSSV : uint64
+    8 minimumLiquidationCollateralSSV : udvt PackedSSV
+    9 declareOperatorFeePeriod : uint64
+    10 executeOperatorFeePeriod : uint64
+    11 operatorMaxFeeIncrease : uint64
+    12 operatorMaxFeeSSV : uint64
+    13 ethNetworkFeeIndexBlockNumber : uint32
+    14 ethDaoValidatorCount : uint32
+    15 ethDaoIndexBlockNumber : uint32
+    16 ethNetworkFee : udvt PackedETH
+    17 ethNetworkFeeIndex : uint64
+    18 ethDaoBalance : udvt PackedETH
+    19 minimumLiquidationCollateral : udvt PackedETH
+    20 minimumBlocksBeforeLiquidation : uint64
+    21 operatorMaxFee : udvt PackedETH
+    22 daoTotalEthVUnits : uint64
+    23 minimumOperatorEthFee : udvt PackedETH
+  const SSVStorageProtocol.SSV_STORAGE_POSITION : uint256 = uint256(keccak256("ssv.network.storage.protocol")) - 1 => 0x0f1d85405047bdb6b0a60e27531f52a1f7a948613527b9b83a7552558207aa15
+  load SSVStorageProtocol.load -> struct StorageProtocol storage .slot := SSVStorageProtocol.SSV_STORAGE_POSITION => 0x0f1d85405047bdb6b0a60e27531f52a1f7a948613527b9b83a7552558207aa15
+source contracts/libraries/storage/SSVStorageReentrancy.sol
+  struct StorageReentrancy members=1
+    0 status : uint256
+  const SSVStorageReentrancy.SSV_REENTRANCY_POSITION : uint256 = uint256(keccak256("ssv.network.storage.reentrancy")) - 1 => 0xd4c6b196e6a2516cc14bdd40fec0692209fb64e8d91ae743b5f084c55ae0ce65
+  load SSVStorageReentrancy.load -> struct StorageReentrancy storage .slot := SSVStorageReentrancy.SSV_REENTRANCY_POSITION => 0xd4c6b196e6a2516cc14bdd40fec0692209fb64e8d91ae743b5f084c55ae0ce65
+source contracts/libraries/storage/SSVStorageStaking.sol
+  const MAX_DELEGATION_SLOTS : uint256 = 4 => 0x0000000000000000000000000000000000000000000000000000000000000004
+  struct UnstakeRequest members=2
+    0 amount : uint192
+    1 unlockTime : uint64
+  struct StorageStaking members=10
+    0 cooldownDuration : uint64
+    1 stakingEthPoolBalance : udvt PackedETH
+    2 accEthPerShare : uint128
+    3 userIndex : mapping(address => uint256)
+    4 accrued : mapping(address => uint256)
+    5 oracles : mapping(uint32 => address)
+    6 oracleIdOf : mapping(address => uint32)
+    7 defaultOracleIds : uint32[4]
+    8 quorumBps : uint16
+    9 withdrawalRequests : mapping(address => struct UnstakeRequest[])
+  const SSVStorageStaking.SSV_STORAGE_POSITION : uint256 = uint256(keccak256("ssv.network.storage.staking")) - 1 => 0x42a40d4f240cbf0c19443bafd2ba44f8a87081a52700ad1ed0edd76039240dbc
+  load SSVStorageStaking.load -> struct StorageStaking storage .slot := SSVStorageStaking.SSV_STORAGE_POSITION => 0x42a40d4f240cbf0c19443bafd2ba44f8a87081a52700ad1ed0edd76039240dbc
+reached types
+  struct ClusterEBSnapshot members=3
+    0 vUnits : uint64
+    1 lastRootBlockNum : uint64
+    2 lastUpdateBlock : uint64
+  struct Counters.Counter members=1
+    0 _value : uint256
+  struct ISSVNetworkCore.EthSnapshot members=3
+    0 block : uint32
+    1 index : uint64
+    2 balance : udvt PackedETH
+  struct ISSVNetworkCore.Operator members=8
+    0 validatorCount : uint32
+    1 fee : udvt PackedSSV
+    2 owner : address
+    3 whitelisted : bool
+    4 snapshot : struct ISSVNetworkCore.Snapshot
+    5 ethValidatorCount : uint32
+    6 ethFee : udvt PackedETH
+    7 ethSnapshot : struct ISSVNetworkCore.EthSnapshot
+  struct ISSVNetworkCore.OperatorFeeChangeRequest members=3
+    0 fee : uint64
+    1 approvalBeginTime : uint64
+    2 approvalEndTime : uint64
+  struct ISSVNetworkCore.Snapshot members=3
+    0 block : uint32
+    1 index : uint64
+    2 balance : udvt PackedSSV
+  udvt PackedETH = uint64
+  udvt PackedSSV = uint64
+  enum SSVModules values=7
+    0 SSV_OPERATORS
+    1 SSV_CLUSTERS
+    2 SSV_DAO
+    3 SSV_VIEWS
+    4 SSV_OPERATORS_WHITELIST
+    5 SSV_STAKING
+    6 SSV_VALIDATORS
+  struct UnstakeRequest members=2
+    0 amount : uint192
+    1 unlockTime : uint64
+# sources=5 structs=7 constants=6 loads=5 reached_types=10

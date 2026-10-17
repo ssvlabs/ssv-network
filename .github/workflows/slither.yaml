@@ -1,29 +1,59 @@
 name: Slither Analysis
 on: [push]
+permissions:
+  contents: read
 jobs:
   analyze:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: '22.x'
+          node-version-file: '.nvmrc'
+
+      # Canonical toolchain: .nvmrc Node + npm 11.21.0 (see scripts/ci/check-toolchain.sh).
+      - name: Pin canonical npm
+        run: |
+          npm install --global npm@11.21.0
+          bash scripts/ci/check-toolchain.sh
 
       - name: Install dependencies
         run: npm ci
         env:
           GH_TOKEN: ${{ secrets.github_token }}
 
-      - name: Compile contracts (Hardhat)
-        run: npx hardhat compile --force
+      # crytic-compile selects its Foundry platform (foundry.toml present), so Slither analyses a forge
+      # build, not the Hardhat artifacts. Without ignore-compile, slither-action v0.4.2 runs foundryup
+      # with no version inside its container (unpinned Foundry, CP1FR-2) plus Node latest and its own
+      # npm ci. Instead build here with the pinned Foundry and let the action only analyse.
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@908c540300062bd5a7e473851cdb4282204cee09 # v1.9.1
+        with:
+          version: v1.8.5
+
+      - name: Check Foundry version
+        run: |
+          forge --version | tee "$RUNNER_TEMP/forge-version.txt"
+          grep -Fxq 'forge Version: 1.8.5' "$RUNNER_TEMP/forge-version.txt"
+          grep -Fxq 'Commit SHA: 51a52c59cffd940f76eddd0b4bb1791aa4b5ac7f' "$RUNNER_TEMP/forge-version.txt"
+
+      # Same command crytic-compile 0.3.11 runs for this foundry.toml (test=test, script=script).
+      - name: Compile contracts (Foundry build-info for Slither)
+        run: |
+          forge clean
+          forge build --build-info --skip './test/**' './script/**' --force
 
       - name: Run Slither
-        uses: crytic/slither-action@v0.3.2
+        uses: crytic/slither-action@b52cc1cbfee9ca3e8722dd5224299d16c9a6b80f # v0.4.2
         id: slither
         with:
           fail-on: high
           target: .
-          slither-args: --hardhat-ignore-compile --exclude controlled-delegatecall,incorrect-return --filter-paths "contracts/test/" --exclude-informational --exclude-dependencies
+          slither-version: 0.11.4
+          ignore-compile: true
+          slither-args: --compile-force-framework foundry --exclude controlled-delegatecall,incorrect-return --filter-paths "contracts/test/" --exclude-informational --exclude-dependencies

@@ -10,22 +10,65 @@ clean:
 test:
     NO_GAS_ENFORCE=true npx hardhat test
 
-# Run unit tests only (test/unit/)
+# Run unit tests only (test/unit/, recursive)
 test-unit:
-    NO_GAS_ENFORCE=true npx hardhat test $(find test/unit -name "*.test.ts" | xargs)
+    NO_GAS_ENFORCE=true bash scripts/ci/run-test-family.sh unit
 
-# Run integration tests only (test/integration/)
+# Run integration tests only (test/integration/, recursive)
 test-integration:
-    NO_GAS_ENFORCE=true npx hardhat test $(find test/integration -maxdepth 1 -name "*.test.ts" | xargs)
+    NO_GAS_ENFORCE=true bash scripts/ci/run-test-family.sh integration
 
-# Run fork tests against mainnet state (requires MAINNET_RPC_URL in .env)
+# Run e2e tests only (test/e2e/, recursive)
+test-e2e:
+    NO_GAS_ENFORCE=true bash scripts/ci/run-test-family.sh e2e
+
+# Run sanity tests only (test/sanity/, every .ts including effective-balance.ts)
+test-sanity:
+    NO_GAS_ENFORCE=true bash scripts/ci/run-test-family.sh sanity
+
+# Fail if a test file belongs to no family (or to several)
+test-families-check:
+    bash scripts/ci/test-family-files.sh --check
+
+# Full suite with in-test gas limits enforced. NO_GAS_ENFORCE must be ABSENT:
+# any value, including "false" or "0", disables enforcement (test/helpers/gas-usage.ts).
+test-gas-enforced:
+    env -u NO_GAS_ENFORCE REPORT_GAS=true npx hardhat test mocha
+    npx tsx scripts/gas-compare.ts --mode limits --expected-ops scripts/ci/gas-expected-ops.txt
+
+# Frozen-graph equivalence: current gas report must equal the reference report exactly (operation
+# set, limits, min/max/average/txCount, summary; only timestamp/commit/branch ignored).
+# Example: just gas-exact reference/gas-report.json
+gas-exact baseline current="gas-report.json":
+    npx tsx scripts/gas-compare.ts --mode exact --expected-ops scripts/ci/gas-expected-ops.txt --baseline {{baseline}} --current {{current}}
+
+# Run the canonical fork suite (test/test-forked) with the in-test upgrade fixture
+# (requires MAINNET_RPC_URL in .env)
 test-forked:
-    NO_GAS_ENFORCE=true RUN_FORK=true npx hardhat test $(find test/forked -name "*.test.ts" | xargs)
+    NO_GAS_ENFORCE=true RUN_FORK=true FORK_USE_DEPLOYED_STATE=false bash scripts/ci/run-test-family.sh fork
 
-# Run tests with coverage report, then generate HTML report
+# Run the older test/forked suite, kept as a separate regression row
+test-forked-legacy:
+    NO_GAS_ENFORCE=true RUN_FORK=true FORK_USE_DEPLOYED_STATE=false bash scripts/ci/run-test-family.sh fork-legacy
+
+# Run tests with coverage report, restore the normal (non-instrumented) build, then generate HTML report
 coverage:
-    COVERAGE=true npx hardhat test --coverage
+    bash scripts/ci/coverage-and-restore.sh coverage/fingerprints
     genhtml coverage/lcov.info -o coverage/html
+
+# Auxiliary storage-layout fingerprint from the frozen 0.8.24 build input (Hardhat config unchanged)
+# Example: just storage-layout ~/Library/Caches/hardhat-nodejs/compilers-v3/macosx-amd64/solc-macosx-amd64-v0.8.24+commit.e11b9ed9
+storage-layout solc out="storage-layout.tsv":
+    npx hardhat compile --force
+    node scripts/ci/storage-layout.mjs . {{solc}} {{out}}
+
+# Diamond-storage struct/slot fingerprint vs the pristine reference (build-info AST, no recompile)
+storage-structs out="storage-structs.txt":
+    node scripts/ci/storage-structs.mjs . {{out}} --reference scripts/ci/storage-structs.reference.txt
+
+# Check npm package contents (dry run; no publish)
+pack-check:
+    bash scripts/ci/check-pack.sh
 
 # Compile contracts and display contract bytecode sizes
 sizes:
@@ -56,6 +99,11 @@ deploy env network="":
 upgrade-fork env="hoodi-stage":
     npx hardhat compile --force
     npx tsx scripts/upgrade.ts --env {{env}} --fork --network local
+
+# Check a fork run's mocha log: nonzero passing, no failing/unexpected pending, no missing expected test
+# Example: just check-fork-log fork.log
+check-fork-log log expected="scripts/ci/fork-expected-tests.txt":
+    npx tsx scripts/ci/check-test-log.ts --log {{log}} --expected {{expected}} --max-pending 0
 
 # Fork tests
 test-fork env="hoodi-stage":
