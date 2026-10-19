@@ -1,9 +1,9 @@
 // usage: node scripts/ci/storage-structs.mjs <projectDir> <out.txt> [--reference <reference.txt>]
 //
 // Structural fingerprint of the diamond-storage layout (CP1R-6), from the existing 0.8.24 Hardhat
-// build-info AST: no recompilation, no Hardhat config or artifact change. Complements the
-// auxiliary solc storageLayout (scripts/ci/storage-layout.mjs), which reports 0 slots for these
-// assembly-positioned structs and so cannot see a same-size field reorder.
+// build-info AST: no recompilation, no Hardhat config or artifact change. solc's own storageLayout
+// output reports 0 slots for these assembly-positioned structs and so cannot see a same-size field
+// reorder; this fingerprint can.
 //
 // Emits, for every source under contracts/libraries/storage/:
 //   - each struct in declaration order with its ordered members (index, name, full type);
