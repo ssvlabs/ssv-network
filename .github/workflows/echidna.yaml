@@ -56,6 +56,9 @@ jobs:
       fail-fast: false
       matrix:
         contract: ${{ fromJSON(needs.discover-contracts.outputs.contracts) }}
+    # Run steps read the harness name from this variable; it is never templated into script text.
+    env:
+      CONTRACT: ${{ matrix.contract }}
 
     steps:
       - name: Checkout repository
@@ -93,23 +96,23 @@ jobs:
         run: bash scripts/ci/check-fuzz-tools.sh
 
       - name: Prepare Echidna output directory
-        run: mkdir -p "echidna-corpus/${{ matrix.contract }}"
+        run: mkdir -p "echidna-corpus/$CONTRACT"
 
       # Builds the harness with forge + FUZZ_SOLC, then runs Echidna on that build-info at the
       # unchanged echidna-ci.yaml; a failed Slither guidance step fails this step.
       - name: Run Echidna
-        run: bash scripts/ci/run-echidna-harness.sh "${{ matrix.contract }}" "${{ github.run_id }}" "echidna-corpus/${{ matrix.contract }}"
+        run: bash scripts/ci/run-echidna-harness.sh "$CONTRACT" "$GITHUB_RUN_ID" "echidna-corpus/$CONTRACT"
 
       - name: Record seed
         if: always()
         run: |
-          mkdir -p "echidna-corpus/${{ matrix.contract }}"
-          echo "seed=${{ github.run_id }} contract=${{ matrix.contract }} commit=${{ github.sha }}" > "echidna-corpus/${{ matrix.contract }}/seed.txt"
+          mkdir -p "echidna-corpus/$CONTRACT"
+          echo "seed=$GITHUB_RUN_ID contract=$CONTRACT commit=$GITHUB_SHA" > "echidna-corpus/$CONTRACT/seed.txt"
 
       - name: Check corpus artifacts exist
         if: always()
         run: |
-          dir="echidna-corpus/${{ matrix.contract }}"
+          dir="echidna-corpus/$CONTRACT"
           test -s "$dir/echidna-output.txt" || { echo "missing Echidna output in $dir"; exit 1; }
           n=$(find "$dir" -path '*coverage*' -o -path '*reproducers*' | wc -l)
           test "$n" -gt 0 || { echo "missing Echidna corpus/coverage data in $dir"; exit 1; }
