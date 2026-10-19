@@ -51,16 +51,12 @@ test-forked:
 test-forked-legacy:
     NO_GAS_ENFORCE=true RUN_FORK=true FORK_USE_DEPLOYED_STATE=false bash scripts/ci/run-test-family.sh fork-legacy
 
-# Run tests with coverage report, restore the normal (non-instrumented) build, then generate HTML report
+# Run tests with coverage report, then generate HTML report. Hardhat's --coverage writes an
+# instrumented build into artifacts/, so the normal build is recompiled afterwards.
 coverage:
-    bash scripts/ci/coverage-and-restore.sh coverage/fingerprints
-    genhtml coverage/lcov.info -o coverage/html
-
-# Auxiliary storage-layout fingerprint from the frozen 0.8.24 build input (Hardhat config unchanged)
-# Example: just storage-layout ~/Library/Caches/hardhat-nodejs/compilers-v3/macosx-amd64/solc-macosx-amd64-v0.8.24+commit.e11b9ed9
-storage-layout solc out="storage-layout.tsv":
+    COVERAGE=true NO_GAS_ENFORCE=1 npx hardhat test mocha --coverage
     npx hardhat compile --force
-    node scripts/ci/storage-layout.mjs . {{solc}} {{out}}
+    genhtml coverage/lcov.info -o coverage/html
 
 # Diamond-storage struct/slot fingerprint vs the pristine reference (build-info AST, no recompile)
 storage-structs out="storage-structs.txt":
