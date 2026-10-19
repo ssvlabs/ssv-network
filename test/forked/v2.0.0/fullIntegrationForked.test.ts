@@ -1820,10 +1820,64 @@ suite("SSVNetwork full integration tests made on forked contract", () => {
             expect(claimableBefore).to.be.greaterThan(0n);
 
             const provider = connection.ethers.provider;
+            const networkAddress = await network.getAddress();
+
+            // Independent payout oracle: replay ProtocolLib.networkTotalEarnings and SSVStaking _syncFees/_settle/claim
+            // rounding on raw storage read at the pre-transaction block (B-1), evaluated at the intended mined block B.
+            const preBlock = await provider.getBlockNumber();
+            const minedBlock = BigInt(preBlock) + 1n;
+            const { keccak256, toUtf8Bytes, AbiCoder } = connection.ethers;
+            const U64 = (1n << 64n) - 1n;
+            const BPS = 10_000n, ETH_DIGITS = 100_000n, PRECISION = 10n ** 18n;
+            const protocolBase = BigInt(keccak256(toUtf8Bytes("ssv.network.storage.protocol"))) - 1n;
+            const stakingBase = BigInt(keccak256(toUtf8Bytes("ssv.network.storage.staking"))) - 1n;
+            const userSlot = (base: bigint) => keccak256(AbiCoder.defaultAbiCoder().encode(["address", "uint256"], [randomUser.address, base]));
+            const readSlot = async (slot: bigint | string, blockTag: number | string = preBlock) => BigInt(await provider.getStorage(networkAddress, slot, blockTag));
+            const p3 = await readSlot(protocolBase + 3n);
+            const p4 = await readSlot(protocolBase + 4n);
+            const s0 = await readSlot(stakingBase);
+            const ethDaoIndexBlockNumber = p3 & 0xffffffffn;
+            const ethNetworkFee = (p3 >> 32n) & U64;
+            const ethDaoBalance = (p3 >> 160n) & U64;
+            const daoTotalEthVUnits = p4 >> 192n;
+            const poolBalance = (s0 >> 64n) & U64;
+            const accEthPerShare = s0 >> 128n;
+            const userIndex = await readSlot(userSlot(stakingBase + 1n));
+            const accrued = await readSlot(userSlot(stakingBase + 2n));
+            const totalStaked = await views.totalStaked({ blockTag: preBlock });
+            const userStake = await views.stakedBalanceOf(randomUser.address, { blockTag: preBlock });
+
+            // Storage layout guards: every decoded neighbour field must match its public view at B-1.
+            expect(ethNetworkFee * ETH_DIGITS).to.equal(await views.getNetworkFee({ blockTag: preBlock }));
+            expect((p4 & U64) * ETH_DIGITS).to.equal(await views.getMinimumLiquidationCollateral({ blockTag: preBlock }));
+            expect((p4 >> 64n) & U64).to.equal(await views.getLiquidationThresholdPeriod({ blockTag: preBlock }));
+            expect(((p4 >> 128n) & U64) * ETH_DIGITS).to.equal(await views.getMaximumOperatorFee({ blockTag: preBlock }));
+            expect(poolBalance * ETH_DIGITS).to.equal(await views.stakingEthPoolBalance({ blockTag: preBlock }));
+            expect(accEthPerShare).to.equal(await views.accEthPerShare({ blockTag: preBlock }));
+            expect(totalStaked).to.be.greaterThan(0n);
+
+            const predictClaimable = (blockNumber: bigint) => {
+                const earnings = ethDaoBalance + ((blockNumber - ethDaoIndexBlockNumber) * ethNetworkFee * daoTotalEthVUnits) / BPS;
+                expect(earnings <= U64).to.equal(true);
+                const newFeesWei = earnings > poolBalance ? (earnings - poolBalance) * ETH_DIGITS : 0n;
+                const acc = accEthPerShare + (newFeesWei * PRECISION) / totalStaked;
+                expect(acc < 1n << 128n).to.equal(true);
+                return { earnings, claimable: accrued + (userStake * (acc - userIndex)) / PRECISION };
+            };
+            // The model reproduces the B-1 views exactly; only the evaluation block differs for the mined claim.
+            expect(predictClaimable(BigInt(preBlock)).earnings * ETH_DIGITS).to.equal(await views.getNetworkEarnings({ blockTag: preBlock }));
+            expect(predictClaimable(BigInt(preBlock)).claimable).to.equal(claimableBefore);
+            const { earnings: earningsAtB, claimable: claimableAtB } = predictClaimable(minedBlock);
+            const expectedPayout = claimableAtB - (claimableAtB % ETH_DIGITS);
+            expect(expectedPayout).to.be.greaterThan(0n);
+            // Packed payout must fit both synced pool and DAO balances (each equals earningsAtB), otherwise InsufficientBalance.
+            expect(expectedPayout / ETH_DIGITS <= earningsAtB).to.equal(true);
+            // Zero remainder: the first claim leaves accrued == 0, so the same-block second claim has nothing to pay.
+            expect(claimableAtB % ETH_DIGITS).to.equal(0n);
+
             const startingBalance = await provider.getBalance(randomUser.address);
             const pendingNonce = await provider.getTransactionCount(randomUser.address, "pending");
             const claimData = network.interface.encodeFunctionData("claimEthRewards");
-            const networkAddress = await network.getAddress();
 
             await provider.send("evm_setAutomine", [false]);
 
@@ -1844,17 +1898,27 @@ suite("SSVNetwork full integration tests made on forked contract", () => {
                 await provider.send("evm_mine", []);
 
                 const firstReceipt = await firstClaim.wait();
-                const secondReceipt = await secondClaim.wait();
+                // wait() throws CALL_EXCEPTION on a reverted tx; read the mined receipt directly to inspect it.
+                const secondReceipt = await provider.getTransactionReceipt(secondClaim.hash);
 
+                expect(firstReceipt).to.not.equal(null);
+                expect(secondReceipt).to.not.equal(null);
+                expect(secondReceipt!.hash).to.equal(secondClaim.hash);
+                expect(BigInt(firstReceipt!.blockNumber)).to.equal(minedBlock);
+                expect(secondReceipt!.blockNumber).to.equal(firstReceipt!.blockNumber);
                 expect(firstReceipt!.status).to.equal(1);
                 expect(secondReceipt!.status).to.equal(0);
+                const secondTrace = await provider.send("debug_traceTransaction", [secondClaim.hash, { disableStorage: true, disableStack: true, disableMemory: true }]);
+                expect("0x" + String(secondTrace.returnValue).replace(/^0x/, "")).to.equal(network.interface.getError("NothingToClaim")!.selector);
 
                 const firstGasCost = BigInt(firstReceipt!.gasUsed) * BigInt(firstReceipt!.gasPrice);
                 const secondGasCost = BigInt(secondReceipt!.gasUsed) * BigInt(secondReceipt!.gasPrice);
                 const balanceAfter = await provider.getBalance(randomUser.address);
 
-                expect(balanceAfter + firstGasCost + secondGasCost - startingBalance).to.equal(claimableBefore);
+                expect(balanceAfter + firstGasCost + secondGasCost - startingBalance).to.equal(expectedPayout);
                 expect(await views.previewClaimableEth(randomUser.address)).to.equal(0n);
+                // userIndex mapping-slot guard: after settlement it equals the global accumulator.
+                expect(await readSlot(userSlot(stakingBase + 1n), "latest")).to.equal(await views.accEthPerShare());
             } finally {
                 await provider.send("evm_setAutomine", [true]);
             }

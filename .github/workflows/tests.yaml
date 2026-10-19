@@ -2,21 +2,35 @@ name: Run tests
 
 on: [push, pull_request]
 
+permissions:
+  contents: read
+
 jobs:
   ci:
     runs-on: ubuntu-latest
     name: Hardhat unit test
+    # pull-requests: write is only for the gas-report PR comment below.
+    permissions:
+      contents: read
+      pull-requests: write
     steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          node-version: '22.x'
+          persist-credentials: false
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: '.nvmrc'
           cache: 'npm'
 
+      # Canonical toolchain: .nvmrc Node + npm 11.21.0 (Node 22.23.3 bundles npm 10.9.9, which is
+      # only a historical parity row). npm 11 default lifecycle-script policy, no overrides.
+      - name: Pin canonical npm
+        run: |
+          npm install --global npm@11.21.0
+          bash scripts/ci/check-toolchain.sh
+
       - run: npm ci
-        env:
-          GH_TOKEN: ${{ secrets.github_token }}
 
       - name: Compile contracts
         run: npx hardhat compile
@@ -24,37 +38,54 @@ jobs:
           FORK_BLOCK_NUMBER: ${{ secrets.fork_block_number }}
           HOODI_RPC_URL: ${{ secrets.hoodi_rpc_url }}
 
-      - name: Run tests with gas tracking
-        run: npx hardhat test
+      # Ordered diamond-storage struct members, reached types and slot constants must equal the
+      # pristine reference (scripts/ci/storage-structs.reference.txt); reads the build-info AST only.
+      - name: Check storage struct fingerprint
+        run: node scripts/ci/storage-structs.mjs . storage-structs.txt --reference scripts/ci/storage-structs.reference.txt
+
+      - name: Check test family discovery
+        run: bash scripts/ci/test-family-files.sh --check
+
+      # In-test gas limits are enforced only while NO_GAS_ENFORCE is absent; any value
+      # (including 'false' or '0') disables them, so it is deliberately not set here.
+      - name: Run tests with gas tracking and enforced limits
+        run: npx hardhat test mocha
         env:
           REPORT_GAS: 'true'
-          NO_GAS_ENFORCE: '1'
           FORK_BLOCK_NUMBER: ${{ secrets.fork_block_number }}
           HOODI_RPC_URL: ${{ secrets.hoodi_rpc_url }}
           MAINNET_RPC_URL: ${{ secrets.mainnet_rpc_url }}
 
-      - name: Compare gas usage with limits
+      - name: Check gas report against limits
         id: gas-compare
-        run: npx tsx scripts/gas-compare.ts
-        continue-on-error: false
+        run: npx tsx scripts/gas-compare.ts --mode limits --expected-ops scripts/ci/gas-expected-ops.txt
+        continue-on-error: true
+
+      # Historical v1.2.0 comparison: informational only, always exits 0.
+      - name: Compare gas usage with v1.2.0 (informational)
+        if: always()
+        run: npx tsx scripts/gas-compare.ts --mode informational
 
       - name: Upload gas report
-        uses: actions/upload-artifact@v4
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: gas-report
           path: gas-report.json
           retention-days: 30
 
       - name: Upload gas comparison report
-        uses: actions/upload-artifact@v4
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: gas-compare
           path: gas-compare.txt
           retention-days: 30
 
+      # Fork PRs get a read-only token, so commenting would fail the job (#560); skip it there.
       - name: Comment on PR with gas report
-        if: github.event_name == 'pull_request'
-        uses: actions/github-script@v7
+        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         with:
           script: |
             const fs = require('fs');
