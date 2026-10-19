@@ -24,8 +24,6 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
-        env:
-          GH_TOKEN: ${{ secrets.github_token }}
 
       # crytic-compile selects its Foundry platform (foundry.toml present), so Slither analyses a forge
       # build, not the Hardhat artifacts. Without ignore-compile, slither-action v0.4.2 runs foundryup

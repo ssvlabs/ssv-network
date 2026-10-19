@@ -79,8 +79,6 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
-        env:
-          GH_TOKEN: ${{ secrets.github_token }}
 
       # CP2A-F1: Echidna runs natively on the runner, not in echidna-action's container (whose image
       # bundles an unpinned foundryup forge and unpinned Slither). scripts/ci/fuzz-tools/ pins the exact

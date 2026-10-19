@@ -23,6 +23,4 @@ jobs:
           npm install --global npm@11.21.0
           bash scripts/ci/check-toolchain.sh
       - run: npm ci
-        env:
-          GH_TOKEN: ${{ secrets.github_token }}
       - run: npx solhint 'contracts/**/*.sol' --ignore-path .solhintignore
