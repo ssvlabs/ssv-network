@@ -10,7 +10,6 @@ jobs:
     runs-on: ubuntu-latest
     name: Hardhat fork tests
     env:
-      GH_TOKEN: ${{ secrets.github_token }}
       FORK_BLOCK_NUMBER: '24920726'
       HOODI_RPC_URL: ${{ secrets.hoodi_rpc_url }}
       # Keyless HTTPS archive endpoint verified at the pinned block below.
@@ -33,8 +32,6 @@ jobs:
           bash scripts/ci/check-toolchain.sh
 
       - run: npm ci
-        env:
-          GH_TOKEN: ${{ secrets.github_token }}
       
       - name: Compile contracts
         run: npx hardhat compile

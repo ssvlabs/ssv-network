@@ -31,8 +31,6 @@ jobs:
           bash scripts/ci/check-toolchain.sh
 
       - run: npm ci
-        env:
-          GH_TOKEN: ${{ secrets.github_token }}
 
       - name: Compile contracts
         run: npx hardhat compile
