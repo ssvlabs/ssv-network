@@ -47,6 +47,5 @@ ssv-review/
 /gas-compare.txt
 /echidna-corpus/
 
-# maintenance/coordination records stay local; the .npmignore publish guard stays tracked
-/docs/maintenance/*
-!/docs/maintenance/.npmignore
+# maintenance/coordination records stay local
+/docs/maintenance/

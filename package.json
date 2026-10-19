@@ -34,6 +34,7 @@
     "abis/SSVValidators.json",
     "abis/SSVViews.json",
     "docs/",
+    "!docs/maintenance/**",
     "README.md",
     "RELEASE_NOTES.md",
     "LICENSE",

@@ -11,12 +11,5 @@
     "outDir": "dist",
     "allowImportingTsExtensions": true,
     "noEmit": true
-  },
-  "exclude": [
-    "node_modules",
-    "bower_components",
-    "jspm_packages",
-    "dist",
-    "docs/maintenance/dependency-cleanup/evidence"
-  ]
+  }
 }
