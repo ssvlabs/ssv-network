@@ -26,11 +26,17 @@ else
   json=$(npm pack --dry-run --json --ignore-scripts 2>/dev/null)
 fi
 
+# npm 11 prints an array of packages, npm 12 an object keyed by package name.
 files=$(printf '%s' "$json" | node -e '
   let s = "";
   process.stdin.on("data", (d) => (s += d)).on("end", () => {
-    const pkg = JSON.parse(s)[0];
-    for (const f of pkg.files.map((x) => x.path).sort()) console.log(f);
+    const parsed = JSON.parse(s);
+    const pkgs = Array.isArray(parsed) ? parsed : Object.values(parsed);
+    if (pkgs.length !== 1 || !Array.isArray(pkgs[0]?.files)) {
+      console.error("unexpected npm pack --json output: expected exactly one package with a files list");
+      process.exit(1);
+    }
+    for (const f of pkgs[0].files.map((x) => x.path).sort()) console.log(f);
   });')
 
 status=0
