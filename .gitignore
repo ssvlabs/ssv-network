@@ -23,7 +23,7 @@ node_modules
 out/
 
 gas-report.json
-crytic-export/combined_solc.json
+crytic-export/
 
 # local release / agent scratch files
 .claude/
@@ -40,3 +40,13 @@ abis/std*.json
 
 # internal review workspace
 ssv-review/
+
+# local outputs of scripts/ci checks and their CI-equivalent runs
+/storage-structs.txt
+/fork-test.log
+/gas-compare.txt
+/echidna-corpus/
+
+# maintenance/coordination records stay local; the .npmignore publish guard stays tracked
+/docs/maintenance/*
+!/docs/maintenance/.npmignore
