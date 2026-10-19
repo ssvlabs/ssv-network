@@ -1,6 +1,6 @@
 # Hash-locked Slither/crytic-compile closure for Echidna's guidance step on the CI Linux runner.
-# Target: CPython 3.12 (>=3.12.1; crytic-compile 0.3.11 excludes 3.12.0), manylinux x86_64. Same 49 versions as
-# docs/maintenance/dependency-cleanup/evidence/cp1-tools/requirements-slither.lock.txt; hashes are the Linux cp312 wheels.
+# Target: CPython 3.12 (>=3.12.1; crytic-compile 0.3.11 excludes 3.12.0), manylinux x86_64. 49 pinned versions;
+# hashes are the Linux cp312 wheels.
 # Install only with: pip install --require-hashes --no-deps --only-binary=:all: -r <this file>
 aiohappyeyeballs==2.6.1 \
     --hash=sha256:f349ba8f4b75cb25c99c5c2d84e997e485204d2902a9597802b0371f09331fb8
