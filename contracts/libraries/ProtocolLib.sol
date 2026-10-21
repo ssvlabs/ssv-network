@@ -2,12 +2,13 @@
 pragma solidity 0.8.24;
 
 import {ISSVNetworkCore} from "../interfaces/ISSVNetworkCore.sol";
-import {SSVStorage, SSVStorageProtocol} from "./storage/SSVStorageProtocol.sol";
+import {SSVStorage} from "./storage/SSVStorage.sol";
+import {SSVStorageProtocol} from "./storage/SSVStorageProtocol.sol";
 import {Types256} from "./Types256.sol";
 
 library ProtocolLib {
     using Types256 for uint256;
-    using SSVStorageProtocol for SSVStorage;
+    using SSVStorageProtocol for SSVStorage.Data;
 
     error ProtocolAlreadyExists();
     error ProtocolDoesNotExist();
@@ -17,33 +18,44 @@ library ProtocolLib {
     event ProtocolUpgraded(bytes32 indexed protocolId, uint64 version);
     event ProtocolUpgradedBatch(bytes32[] protocolIds);
 
-    function upgradeProtocol(SSVStorage storage s, bytes32 protocolId) internal {
-        if (!s.protocolExists(protocolId)) revert ProtocolDoesNotExist();
-        s.upgradeProtocolVersion(protocolId);
-        emit ProtocolUpgraded(protocolId, s.getProtocolVersion(protocolId));
+    function upgradeProtocol(SSVStorage.Data storage s, bytes32 protocol, uint64 newVersion) internal {
+        if (!s.protocolExists(protocol)) revert ProtocolDoesNotExist();
+        if (!s.isProtocolUpgradable(protocol)) revert ProtocolNotUpgradable();
+        if (newVersion == 0) revert InvalidProtocolVersion();
+        s.upgradeProtocolVersion(protocol, newVersion);
+        emit ProtocolUpgraded(protocol, newVersion);
     }
 
-    function upgradeProtocols(SSVStorage storage s, bytes32[] memory protocolIds) internal {
-        uint256 length = protocolIds.length;
-        for (uint256 i; i < length; ) {
-            if (!s.protocolExists(protocolIds[i])) revert ProtocolDoesNotExist();
-            s.upgradeProtocolVersion(protocolIds[i]);
+    function upgradeProtocols(SSVStorage.Data storage s, bytes32[] memory protocols, uint64[] memory newVersions) internal {
+        uint256 length = protocols.length;
+        if (length != newVersions.length) revert InvalidProtocolVersion();
+        
+        for (uint256 i; i < length;) {
+            if (!s.protocolExists(protocols[i])) revert ProtocolDoesNotExist();
+            if (!s.isProtocolUpgradable(protocols[i])) revert ProtocolNotUpgradable();
+            if (newVersions[i] == 0) revert InvalidProtocolVersion();
+            
+            for (uint256 j; j < i; ++j) {
+                if (protocols[i] == protocols[j]) revert ProtocolAlreadyExists();
+            }
+            
+            s.upgradeProtocolVersion(protocols[i], newVersions[i]);
             unchecked { ++i; }
         }
-        emit ProtocolUpgradedBatch(protocolIds);
+        emit ProtocolUpgradedBatch(protocols);
     }
 
-    function deleteProtocol(SSVStorage storage s, bytes32 protocolId) internal {
-        if (!s.protocolExists(protocolId)) revert ProtocolDoesNotExist();
-        s.deleteProtocol(protocolId);
+    function deleteProtocol(SSVStorage.Data storage s, bytes32 protocol) internal {
+        if (!s.protocolExists(protocol)) revert ProtocolDoesNotExist();
+        s.deleteProtocol(protocol);
     }
 
-    function getProtocolVersion(SSVStorage storage s, bytes32 protocolId) internal view returns (uint64) {
-        if (!s.protocolExists(protocolId)) revert ProtocolDoesNotExist();
-        return s.getProtocolVersion(protocolId);
+    function getProtocolVersion(SSVStorage.Data storage s, bytes32 protocol) internal view returns (uint256) {
+        if (!s.protocolExists(protocol)) revert ProtocolDoesNotExist();
+        return s.getProtocolVersion(protocol);
     }
 
-    function protocolExists(SSVStorage storage s, bytes32 protocolId) internal view returns (bool) {
-        return s.protocolExists(protocolId);
+    function protocolExists(SSVStorage.Data storage s, bytes32 protocol) internal view returns (bool) {
+        return s.protocolExists(protocol);
     }
 }
