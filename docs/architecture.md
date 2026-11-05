@@ -1,4 +1,4 @@
-# SSV Network
+.# SSV Network
 
 ### [Intro](../README.md) | Architecture | [Setup](setup.md) | [Tasks](tasks.md) | [Local development](local-dev.md) | [Roles](roles.md) | [Operator owners](operators.md)
 ### [Specification](SPEC.md) | [Flows](FLOWS.md) | [Mainnet upgrade playbook](UPGRADE_PLAYBOOK.md) | [Deployments](../deployments/README.md)
