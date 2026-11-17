@@ -419,7 +419,6 @@ When claiming rewards:
 
 **Rationale:** Users with zero cSSV balance cannot accrue future rewards (pending will always be 0).
 Therefore, sub-100K wei dust can never grow to claimable amounts and is safely forfeited.
-Forfeited dust remains in stakingEthPoolBalance, redistributed to remaining stakers.
 
 #### claimEthRewards Edge Cases
 
