@@ -14,6 +14,10 @@ const localForkChainId = 31337;
 const mainnetRpcUrl =
   envValue("MAINNET_RPC_URL") ??
   configVariable("MAINNET_RPC_URL");
+const sepoliaRpcUrl =
+  envValue("SEPOLIA_RPC_URL") ??
+  envValue("SEPOLIA_RPC") ??
+  configVariable("SEPOLIA_RPC_URL");
 
 export default defineConfig({
   plugins: [hardhatToolboxMochaEthersPlugin],
@@ -26,6 +30,14 @@ export default defineConfig({
         // EDR needs an explicit history for custom chain IDs to execute historical calls.
         cancun: { blockNumber: 0 },
       },
+    },
+  },
+  paths: {
+    tests: {
+      mocha: "test",
+      // Echidna harnesses are compiled by Echidna/Foundry,
+      // not Hardhat's Solidity test runner.
+      solidity: "test/solidity",
     },
   },
   solidity: {
@@ -85,6 +97,13 @@ export default defineConfig({
       url: mainnetRpcUrl,
       accounts: [configVariable("MAINNET_PRIVATE_KEY")],
       ssvToken: process.env.MAINNET_SSVTOKEN_ADDRESS
+    },
+    sepolia: {
+      type: "http",
+      chainType: "l1",
+      url: sepoliaRpcUrl,
+      accounts: [configVariable("SEPOLIA_PRIVATE_KEY")],
+      ssvToken: process.env.SEPOLIA_SSVTOKEN_ADDRESS
     }
   },
   verify: {

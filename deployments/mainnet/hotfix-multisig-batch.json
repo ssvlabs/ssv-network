@@ -1,0 +1,56 @@
+{
+  "version": "1.0",
+  "chainId": "1",
+  "createdAt": 1778088000273,
+  "meta": {
+    "name": "SSV Network Module Hotfix (mainnet)",
+    "description": "Hotfix batch for SSVNetwork.updateModule on SSVClusters and SSVValidators only. No proxy upgrade or parameter changes.",
+    "createdFromSafeAddress": "0xb35096b074fdb9bBac63E3AdaE0Bbde512B2E6b6"
+  },
+  "transactions": [
+    {
+      "to": "0xDD9BC35aE942eF0cFa76930954a156B3fF30a4E1",
+      "value": "0",
+      "data": "0xe3e324b000000000000000000000000000000000000000000000000000000000000000010000000000000000000000003611d36a7c052211d6f3b1a39326ad38a02832b4",
+      "contractMethod": {
+        "name": "updateModule",
+        "inputs": [
+          {
+            "name": "moduleId",
+            "type": "uint8"
+          },
+          {
+            "name": "moduleAddress",
+            "type": "address"
+          }
+        ]
+      },
+      "contractInputsValues": {
+        "moduleId": "1",
+        "moduleAddress": "0x3611D36A7C052211D6f3B1a39326ad38A02832B4"
+      }
+    },
+    {
+      "to": "0xDD9BC35aE942eF0cFa76930954a156B3fF30a4E1",
+      "value": "0",
+      "data": "0xe3e324b000000000000000000000000000000000000000000000000000000000000000060000000000000000000000009122fded65ed6b562243efdc9e55ff0bef5e7499",
+      "contractMethod": {
+        "name": "updateModule",
+        "inputs": [
+          {
+            "name": "moduleId",
+            "type": "uint8"
+          },
+          {
+            "name": "moduleAddress",
+            "type": "address"
+          }
+        ]
+      },
+      "contractInputsValues": {
+        "moduleId": "6",
+        "moduleAddress": "0x9122Fded65Ed6b562243efDC9E55ff0bEF5E7499"
+      }
+    }
+  ]
+}

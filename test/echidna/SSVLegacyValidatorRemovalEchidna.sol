@@ -8,6 +8,7 @@ import "../../contracts/libraries/ClusterLib.sol";
 import "../../contracts/libraries/ProtocolLib.sol";
 import "../../contracts/libraries/ValidatorLib.sol";
 import "../../contracts/libraries/storage/SSVStorage.sol";
+import "../../contracts/libraries/storage/SSVStorageEB.sol";
 import "../../contracts/libraries/storage/SSVStorageProtocol.sol";
 import "../../contracts/modules/SSVClusters.sol";
 import "../../contracts/modules/SSVValidators.sol";
@@ -15,7 +16,7 @@ import "../../contracts/test/mocks/MockToken.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/utils/Counters.sol";
 
-import {PackedETH, PackedSSV, PACKED_ETH_ZERO, PACKED_SSV_ZERO, DEDUCTED_DIGITS} from "../../contracts/libraries/SSVCoreTypes.sol";
+import {PackedETH, PackedSSV, PACKED_ETH_ZERO, PACKED_SSV_ZERO, DEDUCTED_DIGITS, BPS_DENOMINATOR} from "../../contracts/libraries/SSVCoreTypes.sol";
 
 contract LegacySSVValidatorRemovalUser {
     ISSVValidators public validators;
@@ -247,6 +248,9 @@ contract SSVLegacyValidatorRemovalEchidna is SSVClusters, SSVValidators {
         if (s.clusters[targetClusterId] != expectedAfter.hashClusterData()) return false;
         if (s.validatorPKs[firstHash] != bytes32(0)) return false;
         if (secondHash != bytes32(0) && s.validatorPKs[secondHash] != bytes32(0)) return false;
+        if (expectedAfter.validatorCount == 0 && SSVStorageEB.load().clusterEB[targetClusterId].vUnits != 0) {
+            return false;
+        }
 
         return true;
     }
@@ -290,6 +294,7 @@ contract SSVLegacyValidatorRemovalEchidna is SSVClusters, SSVValidators {
         });
 
         s.clusters[activeClusterId] = activeClusterModel.hashClusterData();
+        _seedExplicitEBSnapshot(activeClusterId);
         sp.updateDAOSSV(true, INITIAL_VALIDATOR_COUNT);
 
         s.operators[op1].validatorCount = INITIAL_VALIDATOR_COUNT;
@@ -318,11 +323,17 @@ contract SSVLegacyValidatorRemovalEchidna is SSVClusters, SSVValidators {
         });
 
         s.clusters[liquidatedClusterId] = liquidatedClusterModel.hashClusterData();
+        _seedExplicitEBSnapshot(liquidatedClusterId);
 
         ValidatorLib.registerPublicKey(_validatorKey(1), _operatorIds(), address(liquidatedOwner), s);
         ValidatorLib.registerPublicKey(_validatorKey(2), _operatorIds(), address(liquidatedOwner), s);
         liquidatedValidatorPresent[1] = true;
         liquidatedValidatorPresent[2] = true;
+    }
+
+    function _seedExplicitEBSnapshot(bytes32 clusterId) internal {
+        SSVStorageEB.load().clusterEB[clusterId].vUnits =
+            uint64(INITIAL_VALIDATOR_COUNT + 1) * BPS_DENOMINATOR;
     }
 
     function _createOperator(StorageData storage s, bytes32 pk) internal returns (uint64) {
