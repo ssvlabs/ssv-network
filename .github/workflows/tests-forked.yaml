@@ -2,38 +2,65 @@ name: Run tests
 
 on: [push, pull_request]
 
+permissions:
+  contents: read
+
 jobs:
   ci:
     runs-on: ubuntu-latest
     name: Hardhat fork tests
     env:
-      GH_TOKEN: ${{ secrets.github_token }}
-      FORK_BLOCK_NUMBER: ${{ secrets.fork_block_number }}
+      FORK_BLOCK_NUMBER: '24920726'
       HOODI_RPC_URL: ${{ secrets.hoodi_rpc_url }}
-      MAINNET_RPC_URL: ${{ secrets.mainnet_rpc_url }}
+      # Keyless HTTPS archive endpoint verified at the pinned block below.
+      MAINNET_RPC_URL: 'https://mainnet.gateway.tenderly.co'
     steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          node-version: '22.x'
+          persist-credentials: false
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: '.nvmrc'
           cache: 'npm'
 
+      # Canonical toolchain: .nvmrc Node + npm 11.21.0 (Node 22.23.3 bundles npm 10.9.9, which is
+      # only a historical parity row). npm 11 default lifecycle-script policy, no overrides.
+      - name: Pin canonical npm
+        run: |
+          npm install --global npm@11.21.0
+          bash scripts/ci/check-toolchain.sh
+
       - run: npm ci
-        env:
-          GH_TOKEN: ${{ secrets.github_token }}
       
       - name: Compile contracts
         run: npx hardhat compile
         env:
-          FORK_BLOCK_NUMBER: ${{ secrets.fork_block_number }}
+          FORK_BLOCK_NUMBER: '24920726'
           HOODI_RPC_URL: ${{ secrets.hoodi_rpc_url }}
 
-      - name: Run fork tests
-        run: npx hardhat test test/test-forked/v2.0.0/fullIntegrationForked.test.ts
+      # Upstream archive identity: Mainnet chain 1, pinned block number AND public block hash.
+      # The URL is never printed. Update this hash together with the pinned block number.
+      - name: Check fork source identity
+        run: npx tsx scripts/ci/fork-source-identity.ts --rpc-env MAINNET_RPC_URL --expect-chain-id 1
         env:
+          FORK_BLOCK_HASH: '0x687dd7f16d0da48f2e5758260a5647e5f9e8ee684867ef5f253e56be11bf235c'
+
+      # Canonical fork suite with the in-test upgrade fixture. RUN_FORK must be 'true' or every
+      # test is skipped; the count gate below rejects such a run.
+      - name: Run fork tests
+        run: |
+          set -o pipefail
+          bash scripts/ci/run-test-family.sh fork 2>&1 | tee fork-test.log
+        env:
+          RUN_FORK: 'true'
+          FORK_USE_DEPLOYED_STATE: 'false'
           REPORT_GAS: 'true'
           NO_GAS_ENFORCE: '1'
-          FORK_BLOCK_NUMBER: ${{ secrets.fork_block_number }}
+          FORK_BLOCK_NUMBER: '24920726'
           HOODI_RPC_URL: ${{ secrets.hoodi_rpc_url }}
-          MAINNET_RPC_URL: ${{ secrets.mainnet_rpc_url }}
+          MAINNET_RPC_URL: 'https://mainnet.gateway.tenderly.co'
+
+      - name: Fork test count gate
+        if: always()
+        run: npx tsx scripts/ci/check-test-log.ts --log fork-test.log --expected scripts/ci/fork-expected-tests.txt --max-pending 0

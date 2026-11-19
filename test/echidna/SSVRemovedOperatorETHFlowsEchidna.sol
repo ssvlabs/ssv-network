@@ -20,7 +20,8 @@ contract SSVRemovedOperatorETHFlowsEchidna is SSVClusters, SSVOperators(0), SSVV
     using Counters for Counters.Counter;
     using ProtocolLib for StorageProtocol;
 
-    PackedETH private constant DEFAULT_OPERATOR_ETH_FEE = PACKED_ETH_ZERO;
+    // Equals PACKED_ETH_ZERO; a direct wrap avoids a Slither echidna-printer crash on constant aliases.
+    PackedETH private constant DEFAULT_OPERATOR_ETH_FEE = PackedETH.wrap(0);
     uint32 private constant EXPLICIT_EFFECTIVE_BALANCE = 64;
     uint32 private constant BASELINE_EFFECTIVE_BALANCE = 32;
 

@@ -6,8 +6,18 @@ on:
       - 'contracts/**'
       - 'test/echidna/**'
       - 'foundry.toml'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.nvmrc'
       - '.github/workflows/echidna.yaml'
+      - 'scripts/ci/install-fuzz-tools.sh'
+      - 'scripts/ci/check-fuzz-tools.sh'
+      - 'scripts/ci/run-echidna-harness.sh'
+      - 'scripts/ci/fuzz-tools/**'
   workflow_dispatch:
+
+permissions:
+  contents: read
 
 jobs:
   discover-contracts:
@@ -16,9 +26,10 @@ jobs:
       contracts: ${{ steps.discover.outputs.contracts }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           submodules: recursive
+          persist-credentials: false
 
       - name: Discover Echidna harnesses
         id: discover
@@ -30,51 +41,87 @@ jobs:
           contracts = sorted(path.stem for path in Path("test/echidna").glob("*Echidna.sol"))
           if not contracts:
               raise SystemExit("No Echidna harnesses found under test/echidna")
+          # Harness scope guard: update deliberately when a harness is added or removed.
+          if len(contracts) != 16:
+              raise SystemExit(f"Expected 16 Echidna harnesses, found {len(contracts)}: {contracts}")
 
           print(f"contracts={json.dumps(contracts)}")
           PY
 
   echidna:
     needs: discover-contracts
-    runs-on: ubuntu-latest
+    # ubuntu-24.04: the hash-locked Python wheels target its CPython 3.12 (checked by the installer).
+    runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
       matrix:
         contract: ${{ fromJSON(needs.discover-contracts.outputs.contracts) }}
+    # Run steps read the harness name from this variable; it is never templated into script text.
+    env:
+      CONTRACT: ${{ matrix.contract }}
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           submodules: recursive
+          persist-credentials: false
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: '22.x'
+          node-version-file: '.nvmrc'
           cache: 'npm'
+
+      # Canonical toolchain: .nvmrc Node + npm 11.21.0 (Node 22.23.3 bundles npm 10.9.9, which is
+      # only a historical parity row). npm 11 default lifecycle-script policy, no overrides.
+      - name: Pin canonical npm
+        run: |
+          npm install --global npm@11.21.0
+          bash scripts/ci/check-toolchain.sh
 
       - name: Install dependencies
         run: npm ci
+
+      # CP2A-F1: Echidna runs natively on the runner, not in echidna-action's container (whose image
+      # bundles an unpinned foundryup forge and unpinned Slither). scripts/ci/fuzz-tools/ pins the exact
+      # release artifacts by sha256 (Echidna 2.3.3, Foundry 1.8.5, solc 0.8.24) and a hash-locked
+      # Slither 0.11.4 / crytic-compile 0.3.11 venv for the runner's CPython 3.12.
+      - name: Install pinned fuzz tools
         env:
-          GH_TOKEN: ${{ secrets.github_token }}
+          FUZZ_TOOLS_PYTHON: /usr/bin/python3
+        run: bash scripts/ci/install-fuzz-tools.sh "$RUNNER_TEMP/fuzz-tools"
 
-      - name: Install Foundry
-        uses: foundry-rs/foundry-toolchain@v1
+      - name: Check fuzz tool versions
+        run: bash scripts/ci/check-fuzz-tools.sh
 
+      - name: Prepare Echidna output directory
+        run: mkdir -p "echidna-corpus/$CONTRACT"
+
+      # Builds the harness with forge + FUZZ_SOLC, then runs Echidna on that build-info at the
+      # unchanged echidna-ci.yaml; a failed Slither guidance step fails this step.
       - name: Run Echidna
-        uses: crytic/echidna-action@v2
-        with:
-          files: test/echidna/${{ matrix.contract }}.sol
-          contract: ${{ matrix.contract }}
-          config: test/echidna/echidna-ci.yaml
-          crytic-args: --compile-force-framework foundry
-          test-mode: property
+        run: bash scripts/ci/run-echidna-harness.sh "$CONTRACT" "$GITHUB_RUN_ID" "echidna-corpus/$CONTRACT"
+
+      - name: Record seed
+        if: always()
+        run: |
+          mkdir -p "echidna-corpus/$CONTRACT"
+          echo "seed=$GITHUB_RUN_ID contract=$CONTRACT commit=$GITHUB_SHA" > "echidna-corpus/$CONTRACT/seed.txt"
+
+      - name: Check corpus artifacts exist
+        if: always()
+        run: |
+          dir="echidna-corpus/$CONTRACT"
+          test -s "$dir/echidna-output.txt" || { echo "missing Echidna output in $dir"; exit 1; }
+          n=$(find "$dir" -path '*coverage*' -o -path '*reproducers*' | wc -l)
+          test "$n" -gt 0 || { echo "missing Echidna corpus/coverage data in $dir"; exit 1; }
 
       - name: Upload corpus
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
           name: echidna-corpus-${{ matrix.contract }}
-          path: crytic-export/
+          path: echidna-corpus/${{ matrix.contract }}/
+          if-no-files-found: error
           retention-days: 7
