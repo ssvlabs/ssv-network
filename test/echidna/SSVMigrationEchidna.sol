@@ -4,27 +4,32 @@ pragma solidity 0.8.24;
 import "../../contracts/interfaces/ISSVClusters.sol";
 import "../../contracts/interfaces/ISSVNetworkCore.sol";
 import "../../contracts/interfaces/ISSVOperators.sol";
+import "../../contracts/interfaces/ISSVValidators.sol";
 import "../../contracts/libraries/ClusterLib.sol";
 import "../../contracts/libraries/ProtocolLib.sol";
+import "../../contracts/libraries/ValidatorLib.sol";
 import "../../contracts/libraries/storage/SSVStorage.sol";
 import "../../contracts/libraries/storage/SSVStorageEB.sol";
 import "../../contracts/libraries/storage/SSVStorageProtocol.sol";
 import "../../contracts/modules/SSVClusters.sol";
 import "../../contracts/modules/SSVDAO.sol";
 import "../../contracts/modules/SSVOperators.sol";
+import "../../contracts/modules/SSVValidators.sol";
 import "../../contracts/test/mocks/MockToken.sol";
 import "./SSVStakingEchidna.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/utils/Counters.sol";
 
 import {PackedETHLib, PackedSSVLib} from "../../contracts/libraries/SSVPackedLib.sol";
-import {PackedETH, PackedSSV, PACKED_ETH_ZERO, PACKED_SSV_ZERO, DEDUCTED_DIGITS, ETH_DEDUCTED_DIGITS} from "../../contracts/libraries/SSVCoreTypes.sol";
+import {PackedETH, PackedSSV, PACKED_ETH_ZERO, PACKED_SSV_ZERO, DEDUCTED_DIGITS, ETH_DEDUCTED_DIGITS, BPS_DENOMINATOR} from "../../contracts/libraries/SSVCoreTypes.sol";
 
 contract MigrationClusterUser {
     ISSVClusters public clusters;
+    ISSVValidators public validators;
 
-    constructor(ISSVClusters clusters_) {
+    constructor(ISSVClusters clusters_, ISSVValidators validators_) {
         clusters = clusters_;
+        validators = validators_;
     }
 
     receive() external payable {}
@@ -47,6 +52,14 @@ contract MigrationClusterUser {
     ) external {
         clusters.updateClusterBalance(blockNum, clusterOwner, operatorIds, cluster, effectiveBalance, merkleProof);
     }
+
+    function bulkRemoveValidators(
+        bytes[] calldata publicKeys,
+        uint64[] calldata operatorIds,
+        ISSVNetworkCore.Cluster memory cluster
+    ) external {
+        validators.bulkRemoveValidator(publicKeys, operatorIds, cluster);
+    }
 }
 
 contract MigrationOperatorUser {
@@ -64,7 +77,7 @@ contract MigrationOperatorUser {
 }
 
 /// @notice Targeted migration harness for BUG-14 class: removed operators and frozen SSV index accounting.
-contract SSVMigrationEchidna is SSVClusters, SSVOperators(0), SSVDAO {
+contract SSVMigrationEchidna is SSVClusters, SSVValidators, SSVOperators(0), SSVDAO {
     using ClusterLib for ISSVNetworkCore.Cluster;
     using Counters for Counters.Counter;
     using ProtocolLib for StorageProtocol;
@@ -111,6 +124,8 @@ contract SSVMigrationEchidna is SSVClusters, SSVOperators(0), SSVDAO {
     bool private liquidatedMigrationObserved;
     bool private ssvEbUpdateViolation;
     bool private removedOperatorVUnitsMutationViolation;
+    bool private zeroValidatorMigrationVUnitsViolation;
+    bool private phantomVUnitsViolation;
     uint32 private daoValidatorCountBeforeMigration;
     uint32 private ethDaoValidatorCountBeforeMigration;
     uint32 private migratedValidatorCount;
@@ -124,9 +139,10 @@ contract SSVMigrationEchidna is SSVClusters, SSVOperators(0), SSVDAO {
         _mockSetToken(address(token));
 
         ISSVClusters clustersSelf = ISSVClusters(address(this));
+        ISSVValidators validatorsSelf = ISSVValidators(address(this));
         ISSVOperators operatorsSelf = ISSVOperators(address(this));
 
-        clusterOwner = new MigrationClusterUser(clustersSelf);
+        clusterOwner = new MigrationClusterUser(clustersSelf, validatorsSelf);
         opOwner1 = new MigrationOperatorUser(operatorsSelf);
         opOwner2 = new MigrationOperatorUser(operatorsSelf);
         opOwner3 = new MigrationOperatorUser(operatorsSelf);
@@ -447,6 +463,151 @@ contract SSVMigrationEchidna is SSVClusters, SSVOperators(0), SSVDAO {
         this.action_migrate_ssv_to_eth(seed);
     }
 
+    function action_migrate_zero_validator_after_real_removal() external {
+        if (!ssvRecord.exists || !ssvRecord.cluster.active) return;
+        if (ssvRecord.cluster.validatorCount != INITIAL_VALIDATOR_COUNT) return;
+        if (_hasRemovedTrackedOperator()) return;
+
+        _settleSsvCluster();
+
+        StorageData storage s = SSVStorage.load();
+        StorageProtocol storage sp = SSVStorageProtocol.load();
+        StorageEB storage seb = SSVStorageEB.load();
+
+        seb.clusterEB[ssvClusterId].vUnits = uint64(ssvRecord.cluster.validatorCount + 1) * BPS_DENOMINATOR;
+
+        ISSVNetworkCore.Cluster memory clusterBeforeRemove = ssvRecord.cluster;
+        try clusterOwner.bulkRemoveValidators(_initialValidatorPublicKeys(), operatorIds, clusterBeforeRemove) {
+            ISSVNetworkCore.Cluster memory clusterAfterRemove = clusterBeforeRemove;
+            clusterAfterRemove.validatorCount = 0;
+
+            if (s.clusters[ssvClusterId] != clusterAfterRemove.hashClusterData()) {
+                zeroValidatorMigrationVUnitsViolation = true;
+                return;
+            }
+            if (seb.clusterEB[ssvClusterId].vUnits != 0) {
+                zeroValidatorMigrationVUnitsViolation = true;
+                return;
+            }
+            if (!_initialValidatorsRemoved()) {
+                zeroValidatorMigrationVUnitsViolation = true;
+                return;
+            }
+
+            ssvRecord.cluster = clusterAfterRemove;
+        } catch {
+            zeroValidatorMigrationVUnitsViolation = true;
+            return;
+        }
+
+        uint32 daoValidatorCountBefore = sp.daoValidatorCount;
+        uint32 ethDaoValidatorCountBefore = sp.ethDaoValidatorCount;
+        uint64 daoTotalEthVUnitsBefore = sp.daoTotalEthVUnits;
+        uint32[] memory operatorEthValidatorCountsBefore = new uint32[](operatorIds.length);
+        uint64[] memory operatorEthVUnitsBefore = new uint64[](operatorIds.length);
+        for (uint256 i; i < operatorIds.length; ++i) {
+            uint64 operatorId = operatorIds[i];
+            operatorEthValidatorCountsBefore[i] = s.operators[operatorId].ethValidatorCount;
+            operatorEthVUnitsBefore[i] = seb.operatorEthVUnits[operatorId];
+        }
+
+        try clusterOwner.migrateToETH{value: 0}(operatorIds, ssvRecord.cluster) {
+            if (sp.daoValidatorCount != daoValidatorCountBefore) {
+                zeroValidatorMigrationVUnitsViolation = true;
+            }
+            if (sp.ethDaoValidatorCount != ethDaoValidatorCountBefore) {
+                zeroValidatorMigrationVUnitsViolation = true;
+            }
+            if (sp.daoTotalEthVUnits != daoTotalEthVUnitsBefore) {
+                zeroValidatorMigrationVUnitsViolation = true;
+            }
+            if (seb.clusterEB[ssvClusterId].vUnits != 0) {
+                zeroValidatorMigrationVUnitsViolation = true;
+            }
+            if (s.clusters[ssvClusterId] != 0 || s.ethClusters[ssvClusterId] == 0) {
+                zeroValidatorMigrationVUnitsViolation = true;
+            }
+            for (uint256 i; i < operatorIds.length; ++i) {
+                uint64 operatorId = operatorIds[i];
+                if (s.operators[operatorId].ethValidatorCount != operatorEthValidatorCountsBefore[i]) {
+                    zeroValidatorMigrationVUnitsViolation = true;
+                }
+                if (seb.operatorEthVUnits[operatorId] != operatorEthVUnitsBefore[i]) {
+                    zeroValidatorMigrationVUnitsViolation = true;
+                }
+            }
+
+            ssvRecord.exists = false;
+        } catch {
+            zeroValidatorMigrationVUnitsViolation = true;
+        }
+    }
+
+    function action_migrate_zero_validator_with_phantom_vunits(uint256 seed) external {
+        if (!ssvRecord.exists || !ssvRecord.cluster.active) return;
+        if (ssvRecord.cluster.validatorCount != INITIAL_VALIDATOR_COUNT) return;
+        if (_hasRemovedTrackedOperator()) return;
+
+        _settleSsvCluster();
+
+        StorageData storage s = SSVStorage.load();
+        StorageProtocol storage sp = SSVStorageProtocol.load();
+        StorageEB storage seb = SSVStorageEB.load();
+
+        ISSVNetworkCore.Cluster memory clusterBeforeRemove = ssvRecord.cluster;
+        try clusterOwner.bulkRemoveValidators(_initialValidatorPublicKeys(), operatorIds, clusterBeforeRemove) {
+            ISSVNetworkCore.Cluster memory clusterAfterRemove = clusterBeforeRemove;
+            clusterAfterRemove.validatorCount = 0;
+
+            if (s.clusters[ssvClusterId] != clusterAfterRemove.hashClusterData()) {
+                phantomVUnitsViolation = true;
+                return;
+            }
+            if (!_initialValidatorsRemoved()) {
+                phantomVUnitsViolation = true;
+                return;
+            }
+
+            ssvRecord.cluster = clusterAfterRemove;
+        } catch {
+            return;
+        }
+
+        uint64 phantom = uint64((seed % 5) + 1) * BPS_DENOMINATOR;
+        seb.clusterEB[ssvClusterId].vUnits = phantom;
+
+        uint32 daoValidatorCountBefore = sp.daoValidatorCount;
+        uint32 ethDaoValidatorCountBefore = sp.ethDaoValidatorCount;
+        uint64 daoVUnitsBefore = sp.daoTotalEthVUnits;
+        uint32[] memory operatorEthValidatorCountsBefore = new uint32[](operatorIds.length);
+        uint64[] memory opVUnitsBefore = new uint64[](operatorIds.length);
+        for (uint256 i; i < operatorIds.length; ++i) {
+            uint64 operatorId = operatorIds[i];
+            operatorEthValidatorCountsBefore[i] = s.operators[operatorId].ethValidatorCount;
+            opVUnitsBefore[i] = seb.operatorEthVUnits[operatorId];
+        }
+
+        try clusterOwner.migrateToETH{value: 0}(operatorIds, ssvRecord.cluster) {
+            if (seb.clusterEB[ssvClusterId].vUnits != 0) phantomVUnitsViolation = true;
+            if (sp.daoTotalEthVUnits != daoVUnitsBefore) phantomVUnitsViolation = true;
+            if (sp.daoValidatorCount != daoValidatorCountBefore) phantomVUnitsViolation = true;
+            if (sp.ethDaoValidatorCount != ethDaoValidatorCountBefore) phantomVUnitsViolation = true;
+            for (uint256 i; i < operatorIds.length; ++i) {
+                uint64 operatorId = operatorIds[i];
+                if (seb.operatorEthVUnits[operatorId] != opVUnitsBefore[i]) {
+                    phantomVUnitsViolation = true;
+                }
+                if (s.operators[operatorId].ethValidatorCount != operatorEthValidatorCountsBefore[i]) {
+                    phantomVUnitsViolation = true;
+                }
+            }
+            if (s.clusters[ssvClusterId] != 0 || s.ethClusters[ssvClusterId] == 0) phantomVUnitsViolation = true;
+            ssvRecord.exists = false;
+        } catch {
+            phantomVUnitsViolation = true;
+        }
+    }
+
     /// @notice Attempts SSV->ETH migration from an already-liquidated legacy cluster.
     function action_migrate_liquidated_ssv_to_eth(uint256 seed) external {
         if (!ssvRecord.exists || ssvRecord.cluster.active) return;
@@ -492,6 +653,74 @@ contract SSVMigrationEchidna is SSVClusters, SSVOperators(0), SSVDAO {
             ssvRecord.exists = false;
             unallocatedEth -= amount;
         } catch {}
+    }
+
+    function action_migrate_liquidated_zero_validator_with_phantom_vunits(uint256 seed) external {
+        if (!ssvRecord.exists) return;
+        if (ssvRecord.cluster.validatorCount != INITIAL_VALIDATOR_COUNT) return;
+        if (_hasRemovedTrackedOperator()) return;
+
+        if (ssvRecord.cluster.active) {
+            this.action_liquidate_ssv();
+        }
+        if (!ssvRecord.exists || ssvRecord.cluster.active) return;
+
+        StorageData storage s = SSVStorage.load();
+        StorageProtocol storage sp = SSVStorageProtocol.load();
+        StorageEB storage seb = SSVStorageEB.load();
+
+        ISSVNetworkCore.Cluster memory clusterBeforeRemove = ssvRecord.cluster;
+        try clusterOwner.bulkRemoveValidators(_initialValidatorPublicKeys(), operatorIds, clusterBeforeRemove) {
+            ISSVNetworkCore.Cluster memory clusterAfterRemove = clusterBeforeRemove;
+            clusterAfterRemove.validatorCount = 0;
+
+            if (s.clusters[ssvClusterId] != clusterAfterRemove.hashClusterData()) {
+                phantomVUnitsViolation = true;
+                return;
+            }
+            if (!_initialValidatorsRemoved()) {
+                phantomVUnitsViolation = true;
+                return;
+            }
+
+            ssvRecord.cluster = clusterAfterRemove;
+        } catch {
+            return;
+        }
+
+        uint64 phantom = uint64((seed % 5) + 1) * BPS_DENOMINATOR;
+        seb.clusterEB[ssvClusterId].vUnits = phantom;
+
+        uint32 daoValidatorCountBefore = sp.daoValidatorCount;
+        uint32 ethDaoValidatorCountBefore = sp.ethDaoValidatorCount;
+        uint64 daoVUnitsBefore = sp.daoTotalEthVUnits;
+        uint32[] memory operatorEthValidatorCountsBefore = new uint32[](operatorIds.length);
+        uint64[] memory opVUnitsBefore = new uint64[](operatorIds.length);
+        for (uint256 i; i < operatorIds.length; ++i) {
+            uint64 operatorId = operatorIds[i];
+            operatorEthValidatorCountsBefore[i] = s.operators[operatorId].ethValidatorCount;
+            opVUnitsBefore[i] = seb.operatorEthVUnits[operatorId];
+        }
+
+        try clusterOwner.migrateToETH{value: 0}(operatorIds, ssvRecord.cluster) {
+            if (seb.clusterEB[ssvClusterId].vUnits != 0) phantomVUnitsViolation = true;
+            if (sp.daoTotalEthVUnits != daoVUnitsBefore) phantomVUnitsViolation = true;
+            if (sp.daoValidatorCount != daoValidatorCountBefore) phantomVUnitsViolation = true;
+            if (sp.ethDaoValidatorCount != ethDaoValidatorCountBefore) phantomVUnitsViolation = true;
+            for (uint256 i; i < operatorIds.length; ++i) {
+                uint64 operatorId = operatorIds[i];
+                if (seb.operatorEthVUnits[operatorId] != opVUnitsBefore[i]) {
+                    phantomVUnitsViolation = true;
+                }
+                if (s.operators[operatorId].ethValidatorCount != operatorEthValidatorCountsBefore[i]) {
+                    phantomVUnitsViolation = true;
+                }
+            }
+            if (s.clusters[ssvClusterId] != 0 || s.ethClusters[ssvClusterId] == 0) phantomVUnitsViolation = true;
+            ssvRecord.exists = false;
+        } catch {
+            phantomVUnitsViolation = true;
+        }
     }
 
     /// @notice Ensures migration preconditions are reachable and immediately attempts migration.
@@ -562,6 +791,14 @@ contract SSVMigrationEchidna is SSVClusters, SSVOperators(0), SSVDAO {
         return !ssvEbUpdateViolation;
     }
 
+    function echidna_zero_validator_migration_has_no_eth_vunits() external view returns (bool) {
+        return !zeroValidatorMigrationVUnitsViolation;
+    }
+
+    function echidna_phantom_vunits_cleared_on_migration() external view returns (bool) {
+        return !phantomVUnitsViolation;
+    }
+
     function _checkRemoved(uint64 operatorId, StorageData storage s) internal view returns (bool) {
         if (!removedTracked[operatorId]) return true;
 
@@ -621,6 +858,11 @@ contract SSVMigrationEchidna is SSVClusters, SSVOperators(0), SSVDAO {
 
         for (uint256 i; i < operatorIds.length; ++i) {
             s.operators[operatorIds[i]].validatorCount += cluster.validatorCount;
+        }
+
+        bytes[] memory publicKeys = _initialValidatorPublicKeys();
+        for (uint256 i; i < publicKeys.length; ++i) {
+            ValidatorLib.registerPublicKey(publicKeys[i], operatorIds, address(clusterOwner), s);
         }
 
         ssvRecord = SSVClusterRecord({
@@ -749,6 +991,38 @@ contract SSVMigrationEchidna is SSVClusters, SSVOperators(0), SSVDAO {
         if (owner == address(opOwner1)) return opOwner1;
         if (owner == address(opOwner2)) return opOwner2;
         return opOwner3;
+    }
+
+    function _hasRemovedTrackedOperator() internal view returns (bool) {
+        for (uint256 i; i < operatorIds.length; ++i) {
+            if (removedTracked[operatorIds[i]]) return true;
+        }
+        return false;
+    }
+
+    function _initialValidatorsRemoved() internal view returns (bool) {
+        StorageData storage s = SSVStorage.load();
+        uint256 count = uint256(INITIAL_VALIDATOR_COUNT);
+        for (uint256 i = 1; i <= count; ++i) {
+            if (s.validatorPKs[_initialValidatorHash(i)] != bytes32(0)) return false;
+        }
+        return true;
+    }
+
+    function _initialValidatorHash(uint256 tag) internal view returns (bytes32) {
+        return keccak256(abi.encodePacked(_initialValidatorPublicKey(tag), address(clusterOwner)));
+    }
+
+    function _initialValidatorPublicKeys() internal pure returns (bytes[] memory publicKeys) {
+        uint256 count = uint256(INITIAL_VALIDATOR_COUNT);
+        publicKeys = new bytes[](count);
+        for (uint256 i; i < count; ++i) {
+            publicKeys[i] = _initialValidatorPublicKey(i + 1);
+        }
+    }
+
+    function _initialValidatorPublicKey(uint256 tag) internal pure returns (bytes memory) {
+        return abi.encodePacked(bytes32(uint256(0xC000 + tag)), bytes16(0));
     }
 
     function _singleLeafRoot(bytes32 clusterId, uint32 effectiveBalance) internal pure returns (bytes32) {

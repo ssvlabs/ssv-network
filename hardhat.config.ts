@@ -28,6 +28,14 @@ export default defineConfig({
       },
     },
   },
+  paths: {
+    tests: {
+      mocha: "test",
+      // Echidna harnesses are compiled by Echidna/Foundry,
+      // not Hardhat's Solidity test runner.
+      solidity: "test/solidity",
+    },
+  },
   solidity: {
     npmFilesToBuild: ["@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol"],
     compilers: [

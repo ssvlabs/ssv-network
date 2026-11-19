@@ -14,7 +14,7 @@ jobs:
       - run: npm ci
         env:
           GH_TOKEN: ${{ secrets.github_token }}
-      - run: npx hardhat test --coverage
+      - run: npx hardhat test mocha --coverage
         env:
           NO_GAS_ENFORCE: '1'
           COVERAGE: 'true'
