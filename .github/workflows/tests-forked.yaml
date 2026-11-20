@@ -12,9 +12,8 @@ jobs:
       HOODI_RPC_URL: ${{ secrets.hoodi_rpc_url }}
       MAINNET_RPC_URL: ${{ secrets.mainnet_rpc_url }}
     steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v6.0.2
+      - uses: actions/setup-node@v6.3.0
         with:
           node-version: '22.x'
           cache: 'npm'
