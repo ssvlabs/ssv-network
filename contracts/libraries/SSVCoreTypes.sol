@@ -28,3 +28,7 @@ function _safeUint64(uint128 value) pure returns (uint64) {
     return uint64(value);
 }
 
+function _safeUint128(uint256 value) pure returns (uint128) {
+    if (value > type(uint128).max) revert SafeCastOverflow();
+    return uint128(value);
+}

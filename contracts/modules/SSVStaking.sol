@@ -14,7 +14,7 @@ import {SSVStorageProtocol, StorageProtocol} from "../libraries/storage/SSVStora
 import {SSVReentrancyGuard} from "../abstract/SSVReentrancyGuard.sol";
 import {PackedETH} from "../libraries/SSVCoreTypes.sol";
 import {PackedETHLib} from "../libraries/SSVPackedLib.sol";
-import {PRECISION, ETH_DEDUCTED_DIGITS} from "../libraries/SSVCoreTypes.sol";
+import {PRECISION, ETH_DEDUCTED_DIGITS, _safeUint128} from "../libraries/SSVCoreTypes.sol";
 
 contract SSVStaking is ISSVStaking, SSVReentrancyGuard {
     using SafeERC20 for IERC20;
@@ -199,7 +199,7 @@ contract SSVStaking is ISSVStaking, SSVReentrancyGuard {
         uint256 totalStaked = ICSSVToken(CSSV_ADDRESS).totalSupply();
         if (totalStaked != 0) {
             newFeesWei = PackedETHLib.unpack(packedNewFees);
-            s.accEthPerShare += uint128((newFeesWei * PRECISION) / totalStaked);
+            s.accEthPerShare += _safeUint128((newFeesWei * PRECISION) / totalStaked);
         }
 
         s.stakingEthPoolBalance = current;
